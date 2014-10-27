@@ -1,0 +1,7 @@
+nodes:
+  - name: nick
+    type: mongo
+    uri: mongodb://nick:pants@mongolayer.com/dbname
+  - name: supernick
+    type: elasticsearch
+    uri: http://10.0.0.1,10.0.0.2:9200/indexname
