@@ -1,0 +1,32 @@
+machine:
+  environment:
+    ME: "transporter"
+    GOBIN: "$CIRCLE_ARTIFACTS"
+
+dependencies:
+  override:
+    - test -d /home/ubuntu/.go_workspace/src/github.com/compose/ || mkdir -p /home/ubuntu/.go_workspace/src/github.com/compose/
+    - test -e /home/ubuntu/.go_workspace/src/github.com/compose/transporter || ln -s /home/ubuntu/transporter/ /home/ubuntu/.go_workspace/src/github.com/compose/
+    - cd /home/ubuntu/.go_workspace/src/github.com/compose/ && go get ./transporter/...
+    - test -d $HOME/boto || pip install -t $HOME/boto boto
+
+
+  cache_directories:
+  - "/home/ubuntu/boto"
+  - "/home/ubuntu/bin"
+
+test:
+  override:
+    # - $CIRCLE_ARTIFACTS/godep go test ./...
+    - go test ./... -tags=integration -v
+
+deployment:
+  default:
+    branch: [master, stage, dev, experimental]
+    commands:
+      - goxc -os="linux,darwin" -arch="amd64"
+      # - sh ./circle/build_deb.sh
+      # - tar zcvf $HOME/$ME-$CIRCLE_BRANCH.tgz $CIRCLE_ARTIFACTS/
+      # - cd $CIRCLE_ARTIFACTS && tar zcvf $HOME/$ME-$CIRCLE_BRANCH.tgz . ; cd $HOME/$ME
+      # - python ./circle/s3push.py "$HOME/$ME-$CIRCLE_BRANCH.tgz" "$ME-$CIRCLE_BRANCH.tgz"
+
