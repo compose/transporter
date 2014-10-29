@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/MongoHQ/transporter/pkg/application"
+	"github.com/MongoHQ/transporter/pkg/javascript_builder"
 )
 
 var (
@@ -15,7 +16,7 @@ var (
 				return nil, errors.New("no filename specified")
 			}
 
-			js, err := NewJavascriptBuilder(args[0])
+			js, err := javascript_builder.NewJavascriptBuilder(builder.Nodes, args[0])
 			if err != nil {
 				return nil, err
 			}

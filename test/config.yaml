@@ -1,5 +1,5 @@
 nodes:
-  - name: nick
+  - name: mongodb-production
     type: mongo
     uri: mongodb://nick:pants@mongolayer.com/dbname
   - name: supernick

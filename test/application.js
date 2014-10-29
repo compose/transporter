@@ -1,18 +1,10 @@
-var lookupUser = function(post){
-    post.user = lookup("mongodb-production", "users", post.user_id);
-    emit(post);
-};
 
-var lookupOwner = function(post){};
+var transporter = Transport({name:"mongodb-production", namespace: "compose.milestones2"})
+transporter = transporter.transform("transformers/transform1.js")
+transporter = transporter.transform("transformers/transform2.js")
+x = transporter.save({name:"supernick", namespace: "something/posts2"});
 
-var flattenEmails = function(post){
-    // takes records from source
-    (post.user.emails + post.owner.emails).forEach(function(e){
-        sink("elasticsearch-prod").emit({user_id: user.id, email: e}, "prod", "emails");
-    });
-};
+// console.log(JSON.stringify(x));
 
-var funcs = [lookupUser, lookupOwner, flattenEmails];
-
-Transport({name:"mongodb-production", collection: "posts"}, funcs);
-
+// Transport({name:"mongodb-production", namespace: "metrics.hits"}).save({name:"supernick", namespace: "somethingelse/posts4"});
+Transport({name:"mongodb-production", namespace: "metrics.hits"}).save({name:"supernick", namespace: "somethingelse/posts4"})

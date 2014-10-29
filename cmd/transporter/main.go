@@ -19,5 +19,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Printf("%v", app)
+	err = app.Run()
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
 }

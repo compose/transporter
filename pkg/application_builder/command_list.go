@@ -11,7 +11,7 @@ var listCommand = &Command{
 	Short: "list all configured nodes",
 	Run: func(builder ApplicationBuilder, args []string) (application.Application, error) {
 		return application.NewSimpleApplication(func() error {
-			for _, v := range builder.Nodes {
+			for _, v := range builder.Config.Nodes {
 				log.Println(v)
 			}
 			return nil

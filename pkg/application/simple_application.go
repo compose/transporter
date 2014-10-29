@@ -15,3 +15,7 @@ func (a *SimpleApplication) Run() error {
 func (a *SimpleApplication) Stop() error {
 	return nil
 }
+
+func (a *SimpleApplication) String() string {
+	return "SimpleApplication"
+}

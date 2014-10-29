@@ -68,6 +68,7 @@ func (a *ApplicationBuilder) flagParse() error {
 }
 
 // TODO this should be cleaned up
+// we need a way to have a builder usage/help, and each command will need a usage/help as well
 func (a *ApplicationBuilder) usage() {
 	fmt.Fprintf(os.Stderr, "Usage:\n")
 	fmt.Fprintf(os.Stderr, "transporter [global arguments] command [arguments]\n\n")
@@ -79,13 +80,3 @@ func (a *ApplicationBuilder) usage() {
 	flag.PrintDefaults()
 	fmt.Fprintln(os.Stderr)
 }
-
-/*
- *
- * Add a node to this application
- * TODO: this should return the application proper
- *
- */
-// func (a *ApplicationBuilder) Run() (application.Application, error) {
-// 	return a.Command.Run(a.Command, a.Command.Flag.Args())
-// }
