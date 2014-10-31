@@ -31,7 +31,10 @@ func (n *Node) String() string {
  * Tie this to the actual implementation
  */
 func (n *Node) Create() (err error) {
-	fn := Registry[n.Type]
+	fn, ok := Registry[n.Type]
+	if !ok {
+		return fmt.Errorf("Node type '%s' is not defined", n.Type)
+	}
 	n.NodeImpl, err = NewImpl(fn, n)
 	return err
 }
