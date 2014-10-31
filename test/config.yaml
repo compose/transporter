@@ -8,3 +8,9 @@ nodes:
   - name: debug
     type: file
     uri: stdout://
+  - name: crapfile
+    type: file
+    uri: file:///tmp/crap
+  - name: stdout
+    type: file
+    uri: stdout://

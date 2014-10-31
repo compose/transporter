@@ -3,6 +3,9 @@ package node
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
+	"strings"
 
 	"github.com/MongoHQ/transporter/pkg/message"
 )
@@ -14,6 +17,8 @@ type FileImpl struct {
 	name      string
 	kind      string
 	namespace string
+
+	filehandle *os.File
 }
 
 func NewFileImpl(role NodeRole, name, kind, uri, namespace string) (*FileImpl, error) {
@@ -25,13 +30,24 @@ func NewFileImpl(role NodeRole, name, kind, uri, namespace string) (*FileImpl, e
  * TODO: we only know how to listen on stdout for now
  */
 
-func (d *FileImpl) Start(pipe Pipe) error {
+func (d *FileImpl) Start(pipe Pipe) (err error) {
 	d.pipe = pipe
 
 	if d.role == SINK {
-		return d.pipe.Listen(d.debugMessage)
+
+		if strings.HasPrefix(d.uri, "file://") {
+			filename := strings.Replace(d.uri, "file://", "", 1)
+			d.filehandle, err = os.Create(filename)
+			if err != nil {
+				d.pipe.Err <- err
+				return err
+			}
+		}
+
+		return d.pipe.Listen(d.dumpMessage)
 	} else {
-		return fmt.Errorf("file as a source is not yet implemented")
+		return d.readFile()
+		// return fmt.Errorf("file as a source is not yet implemented")
 	}
 }
 
@@ -44,15 +60,51 @@ func (d *FileImpl) Stop() error {
 }
 
 /*
- * perform action on each message
+ * read each message from the file
  */
-func (d *FileImpl) debugMessage(msg *message.Msg) error {
+func (d *FileImpl) readFile() (err error) {
+	filename := strings.Replace(d.uri, "file://", "", 1)
+	d.filehandle, err = os.Open(filename)
+	if err != nil {
+		d.pipe.Err <- err
+		return err
+	}
+
+	var doc map[string]interface{}
+
+	decoder := json.NewDecoder(d.filehandle)
+
+	for {
+		if err := decoder.Decode(&doc); err == io.EOF {
+			break
+		} else if err != nil {
+			d.pipe.Err <- err
+			return err
+		}
+
+		d.pipe.Send(message.NewMsg(message.Insert, d.uri, doc))
+	}
+	return nil
+}
+
+/*
+ * dump each message to the file
+ */
+func (d *FileImpl) dumpMessage(msg *message.Msg) error {
 
 	jdoc, err := json.Marshal(msg.Document())
 	if err != nil {
 		return fmt.Errorf("can't unmarshal doc %v", err)
 	}
-	fmt.Println(string(jdoc))
+
+	if strings.HasPrefix(d.uri, "stdout://") {
+		fmt.Println(string(jdoc))
+	} else {
+		_, err = fmt.Fprintln(d.filehandle, string(jdoc))
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

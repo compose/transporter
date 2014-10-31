@@ -103,6 +103,7 @@ func (p *Pipeline) Run() error {
 
 	p.startErrorListener()
 
+	// TODO, this sucks because returning an error from the sink doesn't break the chain
 	go p.Sink.NodeImpl.Start(sinkPipe)
 	return p.Source.NodeImpl.Start(sourcePipe)
 }
