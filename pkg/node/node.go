@@ -5,9 +5,6 @@ import (
 	"io/ioutil"
 )
 
-// TODO: can we get rid of the NodeConfig?
-// how to we turn a node into a concrete struct, that can actually do things
-
 /*
  * A Node is an endpoint, Either a source, or a sink
  */
@@ -17,10 +14,6 @@ type Node struct {
 	Uri       string `json:"uri"`
 	Namespace string `json:"namespace"`
 	NodeImpl  NodeImpl
-}
-
-func NewNode(config NodeConfig) *Node {
-	return &Node{Name: config.Name, Type: config.Type, Uri: config.Uri}
 }
 
 func (n *Node) String() string {
@@ -37,19 +30,6 @@ func (n *Node) Create() (err error) {
 	}
 	n.NodeImpl, err = NewImpl(fn, n)
 	return err
-}
-
-/*
- * NodeConfig describes the node in the Yaml config file
- */
-type NodeConfig struct {
-	Name string
-	Type string
-	Uri  string
-}
-
-func (n *NodeConfig) String() string {
-	return fmt.Sprintf("%-20s %-15s %s", n.Name, n.Type, n.Uri)
 }
 
 /*

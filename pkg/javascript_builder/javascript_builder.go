@@ -12,7 +12,7 @@ import (
 type JavascriptBuilder struct {
 	file   string
 	path   string
-	nodes  []*node.Node
+	nodes  []node.Node
 	script *otto.Script
 	vm     *otto.Otto
 
@@ -20,7 +20,7 @@ type JavascriptBuilder struct {
 	err error
 }
 
-func NewJavascriptBuilder(nodes []*node.Node, file string) (*JavascriptBuilder, error) {
+func NewJavascriptBuilder(nodes []node.Node, file string) (*JavascriptBuilder, error) {
 	js := &JavascriptBuilder{file: file, vm: otto.New(), path: filepath.Dir(file), nodes: nodes, app: &application.TransporterApplication{}}
 
 	script, err := js.vm.Compile(file, nil)

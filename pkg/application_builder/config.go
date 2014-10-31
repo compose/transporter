@@ -9,7 +9,7 @@ import (
 )
 
 type Config struct {
-	Nodes []node.NodeConfig
+	Nodes []node.Node
 }
 
 /*

@@ -11,7 +11,7 @@ import (
 )
 
 type ApplicationBuilder struct {
-	Nodes []*node.Node
+	Nodes []node.Node
 
 	// command to run
 	Command *Command
@@ -37,11 +37,12 @@ func Build() (application.Application, error) {
 		fmt.Fprintf(os.Stderr, "Config Error: %s\n", err)
 	}
 
-	builder.Nodes = make([]*node.Node, len(builder.Config.Nodes))
-	for idx, n := range builder.Config.Nodes {
-		builder.Nodes[idx] = node.NewNode(n)
-	}
+	// builder.Nodes = make([]*node.Node, len(builder.Config.Nodes))
+	// for idx, n := range builder.Config.Nodes {
+	// 	builder.Nodes[idx] = node.NewNode(n)
+	// }
 
+	builder.Nodes = builder.Config.Nodes
 	return builder.Command.Run(builder, builder.Command.Flag.Args())
 }
 
