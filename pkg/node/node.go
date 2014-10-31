@@ -5,14 +5,22 @@ import (
 	"io/ioutil"
 )
 
+type NodeRole int
+
+const (
+	SOURCE NodeRole = iota
+	SINK   NodeRole = iota
+)
+
 /*
  * A Node is an endpoint, Either a source, or a sink
  */
 type Node struct {
-	Name      string `json:"name"`
-	Type      string `json:"type"`
-	Uri       string `json:"uri"`
-	Namespace string `json:"namespace"`
+	Role      NodeRole `json:"-"`
+	Name      string   `json:"name"`
+	Type      string   `json:"type"`
+	Uri       string   `json:"uri"`
+	Namespace string   `json:"namespace"`
 	NodeImpl  NodeImpl
 }
 
@@ -23,7 +31,9 @@ func (n *Node) String() string {
 /*
  * Tie this to the actual implementation
  */
-func (n *Node) Create() (err error) {
+func (n *Node) Create(role NodeRole) (err error) {
+	n.Role = role
+
 	fn, ok := Registry[n.Type]
 	if !ok {
 		return fmt.Errorf("Node type '%s' is not defined", n.Type)

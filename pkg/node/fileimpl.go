@@ -8,11 +8,16 @@ import (
 )
 
 type FileImpl struct {
-	pipe Pipe
+	pipe      Pipe
+	role      NodeRole
+	uri       string
+	name      string
+	kind      string
+	namespace string
 }
 
-func NewFileImpl(Name, Type, Uri, Namespace string) (*FileImpl, error) {
-	return &FileImpl{}, nil
+func NewFileImpl(role NodeRole, name, kind, uri, namespace string) (*FileImpl, error) {
+	return &FileImpl{name: name, kind: kind, uri: uri, namespace: namespace, role: role}, nil
 }
 
 /*
@@ -23,7 +28,11 @@ func NewFileImpl(Name, Type, Uri, Namespace string) (*FileImpl, error) {
 func (d *FileImpl) Start(pipe Pipe) error {
 	d.pipe = pipe
 
-	return d.pipe.Listen(d.debugMessage)
+	if d.role == SINK {
+		return d.pipe.Listen(d.debugMessage)
+	} else {
+		return fmt.Errorf("file as a source is not yet implemented")
+	}
 }
 
 /*

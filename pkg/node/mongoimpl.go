@@ -45,7 +45,7 @@ type MongoImpl struct {
 	restartable bool // this refers to being able to refresh the iterator, not to the restart based on session op
 }
 
-func NewMongoImpl(Name, Type, Uri, Namespace string) (*MongoImpl, error) {
+func NewMongoImpl(role NodeRole, name, kind, uri, namespace string) (*MongoImpl, error) {
 	var (
 		err error
 	)
@@ -53,7 +53,7 @@ func NewMongoImpl(Name, Type, Uri, Namespace string) (*MongoImpl, error) {
 	m := &MongoImpl{
 		restartable:  true,            // assume for that we're able to restart the process
 		oplogTimeout: 5 * time.Second, // timeout the oplog iterator
-		namespace:    Namespace,
+		namespace:    namespace,
 	}
 
 	m.database, m.collection, err = m.splitNamespace()

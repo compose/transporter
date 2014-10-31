@@ -75,12 +75,12 @@ func (p *Pipeline) String() string {
  * Create the pipeline, and instantiate all the nodes
  */
 func (p *Pipeline) Create() error {
-	err := p.Source.Create()
+	err := p.Source.Create(SOURCE)
 	if err != nil {
 		return err
 	}
 
-	err = p.Sink.Create()
+	err = p.Sink.Create(SINK)
 	if err != nil {
 		return err
 	}

@@ -28,6 +28,7 @@ func NewImpl(fn interface{}, n *Node) (NodeImpl, error) {
 	)
 
 	args := []reflect.Value{
+		reflect.ValueOf(n.Role),
 		reflect.ValueOf(n.Name),
 		reflect.ValueOf(n.Type),
 		reflect.ValueOf(n.Uri),
