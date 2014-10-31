@@ -78,6 +78,11 @@ func (p *Pipeline) Create() error {
 		return err
 	}
 
+	err = p.Sink.Create()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -87,6 +92,9 @@ func (p *Pipeline) Create() error {
 func (p *Pipeline) Run() error {
 	fmt.Printf("%v\n", p.Source)
 	fmt.Printf("%v\n", p.Source.NodeImpl)
-	return p.Source.NodeImpl.Start(NewPipe())
+
+	sourcePipe := NewPipe()
+	go p.Sink.NodeImpl.Start(JoinPipe(sourcePipe))
+	return p.Source.NodeImpl.Start(sourcePipe)
 
 }
