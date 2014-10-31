@@ -7,4 +7,4 @@
 // console.log(JSON.stringify(x));
 
 // Transport({name:"mongodb-production", namespace: "metrics.hits"}).save({name:"supernick", namespace: "somethingelse/posts4"});
-Transport({name:"mongodb-production", namespace: "metrics.hits"}).save({name:"supernick", namespace: "somethingelse/posts4"})
+Transport({name:"mongodb-production", namespace: "metrics.hits"}).save({name:"debug", namespace: ""})

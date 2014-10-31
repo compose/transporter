@@ -5,3 +5,6 @@ nodes:
   - name: supernick
     type: elasticsearch
     uri: http://10.0.0.1,10.0.0.2:9200/indexname
+  - name: debug
+    type: file
+    uri: stdout://
