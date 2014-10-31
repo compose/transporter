@@ -100,9 +100,7 @@ func (m *Msg) Document() bson.M {
  */
 func (m *Msg) SetDocument(doc bson.M) {
 	m.document, m.Id = m.extractId(doc)
-	fmt.Printf("set document %+v\n", m.OriginalId)
 	if m.OriginalId == nil { // if we don't have an original id, then set it here
-		fmt.Printf("setting document %+v to %+v\n", m.OriginalId, m.Id)
 		m.OriginalId = m.Id
 	}
 }

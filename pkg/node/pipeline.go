@@ -8,6 +8,7 @@ package node
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/robertkrimen/otto"
 )
@@ -16,6 +17,7 @@ type Pipeline struct {
 	Source       *Node          `json:"source"`
 	Sink         *Node          `json:"sink"`
 	Transformers []*Transformer `json:"transformers"`
+	errChans     []chan error
 }
 
 func NewPipeline(source *Node) *Pipeline {
@@ -90,11 +92,32 @@ func (p *Pipeline) Create() error {
  * run the pipeline
  */
 func (p *Pipeline) Run() error {
-	fmt.Printf("%v\n", p.Source)
-	fmt.Printf("%v\n", p.Source.NodeImpl)
+	// remember all the errChans
+	p.errChans = make([]chan error, len(p.Transformers)+2)
 
 	sourcePipe := NewPipe()
-	go p.Sink.NodeImpl.Start(JoinPipe(sourcePipe))
-	return p.Source.NodeImpl.Start(sourcePipe)
+	p.errChans[0] = sourcePipe.Err
 
+	sinkPipe := JoinPipe(sourcePipe)
+	p.errChans[1] = sinkPipe.Err
+
+	p.startErrorListener()
+
+	go p.Sink.NodeImpl.Start(sinkPipe)
+	return p.Source.NodeImpl.Start(sourcePipe)
+}
+
+func (p *Pipeline) startErrorListener() {
+	go func(c <-chan time.Time) {
+		for _ = range c {
+			for i, v := range p.errChans {
+				select {
+				case err := <-v:
+					fmt.Printf("Pipeline node(%d) error %v\n", i, err)
+				default:
+					//
+				}
+			}
+		}
+	}(time.NewTicker(500 * time.Millisecond).C)
 }

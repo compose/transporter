@@ -39,7 +39,7 @@ func (d *FileImpl) Stop() error {
  */
 func (d *FileImpl) debugMessage(msg *message.Msg) error {
 
-	jdoc, err := json.Marshal(msg.Document)
+	jdoc, err := json.Marshal(msg.Document())
 	if err != nil {
 		return fmt.Errorf("can't unmarshal doc %v", err)
 	}

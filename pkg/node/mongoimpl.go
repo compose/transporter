@@ -50,8 +50,6 @@ func NewMongoImpl(Name, Type, Uri, Namespace string) (*MongoImpl, error) {
 		err error
 	)
 
-	fmt.Printf("name: %s, type: %s, uri: %s, namespace: %s\n", Name, Type, Uri, Namespace)
-
 	m := &MongoImpl{
 		restartable:  true,            // assume for that we're able to restart the process
 		oplogTimeout: 5 * time.Second, // timeout the oplog iterator

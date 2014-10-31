@@ -1,7 +1,7 @@
 nodes:
-  - name: mongodb-production
+  - name: localmongo
     type: mongo
-    uri: mongodb://nick:pants@mongolayer.com/dbname
+    uri: mongodb://localhost/boom
   - name: supernick
     type: elasticsearch
     uri: http://10.0.0.1,10.0.0.2:9200/indexname
