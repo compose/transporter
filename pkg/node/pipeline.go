@@ -23,23 +23,6 @@ func NewPipeline(source *Node) *Pipeline {
 }
 
 /*
- * add a transformer function to a pipeline.
- * transformers will be called in fifo order
- */
-func (p *Pipeline) AddTransformer(t *Transformer) {
-	p.Transformers = append(p.Transformers, t)
-}
-
-func (p *Pipeline) String() string {
-	out := " - Pipeline\n"
-	out += fmt.Sprintf("  - Source: %s\n  - Sink:   %s\n  - Transformers:\n", p.Source, p.Sink)
-	for _, t := range p.Transformers {
-		out += fmt.Sprintf("   - %s\n", t)
-	}
-	return out
-}
-
-/*
  * create a new pipeline from a value, such as what we would get back
  * from an otto.Value.  basically a pipeline that has lost it's identify,
  * and been interfaced{}
@@ -67,4 +50,43 @@ func (t *Pipeline) Object() (*otto.Object, error) {
 	}
 
 	return vm.Object(fmt.Sprintf(`(%s)`, string(ba)))
+}
+
+/*
+ * add a transformer function to a pipeline.
+ * transformers will be called in fifo order
+ */
+func (p *Pipeline) AddTransformer(t *Transformer) {
+	p.Transformers = append(p.Transformers, t)
+}
+
+func (p *Pipeline) String() string {
+	out := " - Pipeline\n"
+	out += fmt.Sprintf("  - Source: %s\n  - Sink:   %s\n  - Transformers:\n", p.Source, p.Sink)
+	for _, t := range p.Transformers {
+		out += fmt.Sprintf("   - %s\n", t)
+	}
+	return out
+}
+
+/*
+ * Create the pipeline, and instantiate all the nodes
+ */
+func (p *Pipeline) Create() error {
+	err := p.Source.Create()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+/*
+ * run the pipeline
+ */
+func (p *Pipeline) Run() error {
+	fmt.Printf("%v\n", p.Source)
+	fmt.Printf("%v\n", p.Source.NodeImpl)
+	return p.Source.NodeImpl.Start(NewPipe())
+
 }

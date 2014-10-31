@@ -6,9 +6,9 @@ import (
 	"github.com/MongoHQ/transporter/pkg/message"
 )
 
-type MessageChan chan *message.Msg
+type messageChan chan *message.Msg
 
-func NewMessageChan() MessageChan {
+func newMessageChan() messageChan {
 	return make(chan *message.Msg)
 }
 
@@ -18,18 +18,27 @@ func NewMessageChan() MessageChan {
  * from the stop channel
  */
 type Pipe struct {
-	In      MessageChan
-	Out     MessageChan
+	In      messageChan
+	Out     messageChan
 	Err     chan error
 	chStop  chan chan bool
 	running bool
 }
 
-func NewPipe(in, out MessageChan, err chan error) Pipe {
+func NewPipe() Pipe {
 	return Pipe{
-		In:     in,
-		Out:    out,
-		Err:    err,
+		In:     newMessageChan(),
+		Out:    newMessageChan(),
+		Err:    make(chan error),
+		chStop: make(chan chan bool),
+	}
+}
+
+func JoinPipe(p Pipe) Pipe {
+	return Pipe{
+		In:     p.Out,
+		Out:    newMessageChan(),
+		Err:    make(chan error),
 		chStop: make(chan chan bool),
 	}
 }

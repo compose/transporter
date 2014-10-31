@@ -16,6 +16,7 @@ type Node struct {
 	Type      string `json:"type"`
 	Uri       string `json:"uri"`
 	Namespace string `json:"namespace"`
+	NodeImpl  NodeImpl
 }
 
 func NewNode(config NodeConfig) *Node {
@@ -24,6 +25,15 @@ func NewNode(config NodeConfig) *Node {
 
 func (n *Node) String() string {
 	return fmt.Sprintf("%-20s %-15s %-30s %s", n.Name, n.Type, n.Namespace, n.Uri)
+}
+
+/*
+ * Tie this to the actual implementation
+ */
+func (n *Node) Create() (err error) {
+	fn := Registry[n.Type]
+	n.NodeImpl, err = NewImpl(fn, n)
+	return err
 }
 
 /*

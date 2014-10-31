@@ -1,8 +1,8 @@
 
-var transporter = Transport({name:"mongodb-production", namespace: "compose.milestones2"})
-transporter = transporter.transform("transformers/transform1.js")
-transporter = transporter.transform("transformers/transform2.js")
-x = transporter.save({name:"supernick", namespace: "something/posts2"});
+// var transporter = Transport({name:"mongodb-production", namespace: "compose.milestones2"})
+// transporter = transporter.transform("transformers/transform1.js")
+// transporter = transporter.transform("transformers/transform2.js")
+// x = transporter.save({name:"supernick", namespace: "something/posts2"});
 
 // console.log(JSON.stringify(x));
 
