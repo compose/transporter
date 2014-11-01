@@ -1,7 +1,6 @@
-package application_builder
+package main
 
 import (
-	"errors"
 	"io/ioutil"
 
 	"github.com/MongoHQ/transporter/pkg/node"
@@ -20,7 +19,8 @@ type Config struct {
 func (a *ApplicationBuilder) loadConfig() (err error) {
 	var c Config
 	if a.config_path == "" {
-		return errors.New("missing config file")
+		a.Config = c
+		return nil
 	}
 
 	ba, err := ioutil.ReadFile(a.config_path)

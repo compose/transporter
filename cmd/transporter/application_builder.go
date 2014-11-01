@@ -1,10 +1,10 @@
-package application_builder
+package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"os"
+	"text/template"
 
 	"github.com/MongoHQ/transporter/pkg/application"
 	"github.com/MongoHQ/transporter/pkg/node"
@@ -23,11 +23,14 @@ type ApplicationBuilder struct {
 	config_path string
 }
 
+/*
+ * build the application, parse the flags and run the command
+ */
 func Build() (application.Application, error) {
 	builder := ApplicationBuilder{}
 
 	err := builder.flagParse()
-	if err != nil {
+	if err != nil || builder.Command == nil {
 		builder.usage()
 		return nil, err
 	}
@@ -36,11 +39,6 @@ func Build() (application.Application, error) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Config Error: %s\n", err)
 	}
-
-	// builder.Nodes = make([]*node.Node, len(builder.Config.Nodes))
-	// for idx, n := range builder.Config.Nodes {
-	// 	builder.Nodes[idx] = node.NewNode(n)
-	// }
 
 	builder.Nodes = builder.Config.Nodes
 	return builder.Command.Run(builder, builder.Command.Flag.Args())
@@ -56,6 +54,15 @@ func (a *ApplicationBuilder) flagParse() error {
 	flag.Usage = a.usage
 	flag.Parse()
 
+	if flag.Arg(0) == "" {
+		return fmt.Errorf("no command specified")
+	}
+
+	if flag.Arg(0) == "help" {
+		a.help(flag.Arg(1))
+		return nil
+	}
+
 	// make sure we're valid
 	for _, c := range commands {
 		if c.Name == flag.Arg(0) {
@@ -65,19 +72,46 @@ func (a *ApplicationBuilder) flagParse() error {
 			return nil
 		}
 	}
-	return errors.New("Command not found")
+	return fmt.Errorf("Command '%s' not found", flag.Arg(0))
 }
 
-// TODO this should be cleaned up
-// we need a way to have a builder usage/help, and each command will need a usage/help as well
 func (a *ApplicationBuilder) usage() {
-	fmt.Fprintf(os.Stderr, "Usage:\n")
-	fmt.Fprintf(os.Stderr, "transporter [global arguments] command [arguments]\n\n")
-	for _, v := range commands {
-		fmt.Fprintf(os.Stderr, "    %-8s  %s\n", v.Name, v.Short)
+	t := template.Must(template.New("usage").Parse(usageTpl))
+	if err := t.Execute(os.Stderr, commands); err != nil {
+		panic(nil)
 	}
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintf(os.Stderr, "global arguments: \n")
-	flag.PrintDefaults()
-	fmt.Fprintln(os.Stderr)
+	os.Exit(0)
 }
+
+func (a *ApplicationBuilder) help(which string) error {
+	t := template.Must(template.New("help").Parse(helpTpl))
+
+	// find the command
+	for _, c := range commands {
+		if c.Name == which {
+			if err := t.Execute(os.Stderr, c); err != nil {
+				panic(err)
+			}
+			os.Exit(0)
+		}
+	}
+	return fmt.Errorf("no such command '%s'", which)
+}
+
+var usageTpl = `
+Usage:
+
+transporter [global arguments] command [arguments]
+
+commands:
+{{range .}}
+    {{.Name | printf "%-8s"}} {{.Short}}{{end}}
+
+Use "transporter help [command]" for more information.
+`
+
+var helpTpl = `
+{{.Name}}
+
+{{.Help}}
+`
