@@ -10,9 +10,17 @@ import (
 )
 
 /*
- *
+ * registry of available commands
+ */
+var (
+	commands = map[string]*Command{
+		"list": listCommand,
+		"run":  runCommand,
+	}
+)
+
+/*
  * valid subcommands for this application
- *
  */
 
 type Command struct {
@@ -23,13 +31,6 @@ type Command struct {
 
 	Run func(ApplicationBuilder, []string) (application.Application, error)
 }
-
-var (
-	commands = map[string]*Command{
-		"list": listCommand,
-		"run":  runCommand,
-	}
-)
 
 /*
  * list the nodes that are configured in the config.yaml
@@ -42,7 +43,7 @@ var listCommand = &Command{
   list the nodes that have been configured in the configuration yaml`,
 	Run: func(builder ApplicationBuilder, args []string) (application.Application, error) {
 		return application.NewSimpleApplication(func() error {
-			for _, v := range builder.Config.Nodes {
+			for _, v := range builder.Nodes {
 				log.Println(v)
 			}
 			return nil

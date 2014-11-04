@@ -3,21 +3,27 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"text/template"
 
 	"github.com/MongoHQ/transporter/pkg/application"
 	"github.com/MongoHQ/transporter/pkg/node"
+	"gopkg.in/yaml.v2"
 )
 
+/*
+ * A representation of the data that's passed in from the yaml config to the application
+ */
+type Config struct {
+	Nodes map[string]node.Node
+}
+
 type ApplicationBuilder struct {
-	Nodes []node.Node
+	Nodes map[string]node.Node
 
 	// command to run
 	Command *Command
-
-	// Running Config
-	Config Config
 
 	// path to the config file
 	config_path string
@@ -27,7 +33,7 @@ type ApplicationBuilder struct {
  * build the application, parse the flags and run the command
  */
 func Build() (application.Application, error) {
-	builder := ApplicationBuilder{}
+	builder := ApplicationBuilder{Nodes: make(map[string]node.Node)}
 
 	err := builder.flagParse()
 	if err != nil || builder.Command == nil {
@@ -40,14 +46,35 @@ func Build() (application.Application, error) {
 		fmt.Fprintf(os.Stderr, "Config Error: %s\n", err)
 	}
 
-	builder.Nodes = builder.Config.Nodes
 	return builder.Command.Run(builder, builder.Command.Flag.Args())
 }
 
 /*
- *
+ * Load Config file from disk
+ */
+func (a *ApplicationBuilder) loadConfig() (err error) {
+	var c Config
+	if a.config_path == "" {
+		return nil
+	}
+
+	ba, err := ioutil.ReadFile(a.config_path)
+	if err != nil {
+		return err
+	}
+
+	err = yaml.Unmarshal(ba, &c)
+
+	for k, v := range c.Nodes {
+		v.Name = k
+		a.Nodes[k] = v
+	}
+
+	return err
+}
+
+/*
  * flag parsing related functions
- *
  */
 func (a *ApplicationBuilder) flagParse() error {
 	flag.StringVar(&a.config_path, "config", "", "path to the config yaml")

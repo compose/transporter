@@ -1,16 +1,16 @@
 nodes:
-  - name: localmongo
+  localmongo:
     type: mongo
     uri: mongodb://localhost/boom
-  - name: supernick
+  supernick:
     type: elasticsearch
     uri: http://10.0.0.1,10.0.0.2:9200/indexname
-  - name: debug
+  debug:
     type: file
     uri: stdout://
-  - name: crapfile
+  crapfile:
     type: file
     uri: file:///tmp/crap
-  - name: stdout
+  stdout:
     type: file
     uri: stdout://
