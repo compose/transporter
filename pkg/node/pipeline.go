@@ -13,11 +13,16 @@ import (
 	"github.com/robertkrimen/otto"
 )
 
+const (
+	VERSION = "0.0.1"
+)
+
 type Pipeline struct {
 	Source       *Node          `json:"source"`
 	Sink         *Node          `json:"sink"`
 	Transformers []*Transformer `json:"transformers"`
-	errChans     []chan error
+	errChan      chan error
+	eventChan    chan Event
 }
 
 func NewPipeline(source *Node) *Pipeline {
@@ -92,33 +97,46 @@ func (p *Pipeline) Create() error {
  * run the pipeline
  */
 func (p *Pipeline) Run() error {
-	// remember all the errChans
-	p.errChans = make([]chan error, len(p.Transformers)+2)
-
 	sourcePipe := NewPipe()
-	p.errChans[0] = sourcePipe.Err
-
+	p.errChan = sourcePipe.Err
+	p.eventChan = sourcePipe.Event
 	sinkPipe := JoinPipe(sourcePipe)
-	p.errChans[1] = sinkPipe.Err
 
-	p.startErrorListener()
+	go p.startErrorListener()
+	go p.startEventListener()
+
+	// send a boot event
+	p.eventChan <- NewBootEvent(time.Now().Unix(), VERSION, p.endpointMap())
 
 	// TODO, this sucks because returning an error from the sink doesn't break the chain
 	go p.Sink.NodeImpl.Start(sinkPipe)
 	return p.Source.NodeImpl.Start(sourcePipe)
 }
 
+func (p *Pipeline) endpointMap() map[string]string {
+	m := make(map[string]string)
+	m[p.Source.Name] = p.Source.Type
+	m[p.Sink.Name] = p.Sink.Type
+	for _, v := range p.Transformers {
+		m[v.Name] = "transformer"
+	}
+	return m
+}
+
 func (p *Pipeline) startErrorListener() {
-	go func(c <-chan time.Time) {
-		for _ = range c {
-			for i, v := range p.errChans {
-				select {
-				case err := <-v:
-					fmt.Printf("Pipeline node(%d) error %v\n", i, err)
-				default:
-					//
-				}
-			}
+	for {
+		select {
+		case err := <-p.errChan:
+			fmt.Printf("Pipeline error %v\n", err)
 		}
-	}(time.NewTicker(500 * time.Millisecond).C)
+	}
+}
+
+func (p *Pipeline) startEventListener() {
+	for {
+		select {
+		case event := <-p.eventChan:
+			fmt.Printf("Pipeline event %T %v\n", event, event)
+		}
+	}
 }

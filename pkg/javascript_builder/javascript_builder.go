@@ -153,13 +153,11 @@ func (js *JavascriptBuilder) findNode(in otto.Value) (*node.Node, error) {
 		return nil, fmt.Errorf("source hash requires both a 'source' and a 'namespace'")
 	}
 
-	for _, n := range js.nodes {
-		if n.Name == sourceString {
-			return &node.Node{Name: n.Name, Type: n.Type, Uri: n.Uri, Namespace: sourceNS}, nil
-		}
+	n, ok := js.nodes[sourceString]
+	if !ok {
+		return nil, fmt.Errorf("no configured nodes found named %s", sourceString)
 	}
-
-	return nil, fmt.Errorf("no configured nodes found named %s", sourceString)
+	return &node.Node{Name: n.Name, Type: n.Type, Uri: n.Uri, Namespace: sourceNS}, nil
 }
 
 /*

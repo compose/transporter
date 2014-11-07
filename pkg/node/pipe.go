@@ -21,6 +21,7 @@ type Pipe struct {
 	In      messageChan
 	Out     messageChan
 	Err     chan error
+	Event   chan Event
 	chStop  chan chan bool
 	running bool
 }
@@ -30,6 +31,7 @@ func NewPipe() Pipe {
 		In:     newMessageChan(),
 		Out:    newMessageChan(),
 		Err:    make(chan error),
+		Event:  make(chan Event),
 		chStop: make(chan chan bool),
 	}
 }
@@ -38,7 +40,8 @@ func JoinPipe(p Pipe) Pipe {
 	return Pipe{
 		In:     p.Out,
 		Out:    newMessageChan(),
-		Err:    make(chan error),
+		Err:    p.Err,
+		Event:  p.Event,
 		chStop: make(chan chan bool),
 	}
 }

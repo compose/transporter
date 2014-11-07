@@ -31,10 +31,10 @@ func NewFileImpl(role NodeRole, name, kind, uri, namespace string) (*FileImpl, e
  */
 
 func (d *FileImpl) Start(pipe Pipe) (err error) {
+
 	d.pipe = pipe
 
 	if d.role == SINK {
-
 		if strings.HasPrefix(d.uri, "file://") {
 			filename := strings.Replace(d.uri, "file://", "", 1)
 			d.filehandle, err = os.Create(filename)
@@ -47,7 +47,6 @@ func (d *FileImpl) Start(pipe Pipe) (err error) {
 		return d.pipe.Listen(d.dumpMessage)
 	} else {
 		return d.readFile()
-		// return fmt.Errorf("file as a source is not yet implemented")
 	}
 }
 
@@ -70,18 +69,15 @@ func (d *FileImpl) readFile() (err error) {
 		return err
 	}
 
-	var doc map[string]interface{}
-
 	decoder := json.NewDecoder(d.filehandle)
-
 	for {
+		var doc map[string]interface{}
 		if err := decoder.Decode(&doc); err == io.EOF {
 			break
 		} else if err != nil {
 			d.pipe.Err <- err
 			return err
 		}
-
 		d.pipe.Send(message.NewMsg(message.Insert, d.uri, doc))
 	}
 	return nil
@@ -91,7 +87,6 @@ func (d *FileImpl) readFile() (err error) {
  * dump each message to the file
  */
 func (d *FileImpl) dumpMessage(msg *message.Msg) error {
-
 	jdoc, err := json.Marshal(msg.Document())
 	if err != nil {
 		return fmt.Errorf("can't unmarshal doc %v", err)

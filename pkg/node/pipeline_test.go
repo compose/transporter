@@ -17,7 +17,6 @@ func TestPipeline(t *testing.T) {
 
 	for _, v := range data {
 		ba, err := json.Marshal(v.in)
-		t.Logf("%+v", string(ba))
 		if err != nil {
 			t.Errorf("got error turning obj into bytearray, %v", err)
 		}

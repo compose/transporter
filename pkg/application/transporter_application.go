@@ -25,7 +25,6 @@ func (t *TransporterApplication) Run() (err error) {
 	fmt.Println(t)
 
 	for _, p := range t.Pipelines {
-		fmt.Printf("creating pipeline from %s\n", p.Source.Name)
 		err = p.Create()
 		if err != nil {
 			return err
@@ -33,7 +32,6 @@ func (t *TransporterApplication) Run() (err error) {
 	}
 
 	for _, p := range t.Pipelines {
-		fmt.Printf("running pipeline from %s\n", p.Source.Name)
 		err = p.Run()
 		if err != nil {
 			return err
