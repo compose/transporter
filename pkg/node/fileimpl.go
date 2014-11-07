@@ -23,6 +23,7 @@ type FileImpl struct {
 
 func NewFileImpl(role NodeRole, name, kind, uri, namespace string) (*FileImpl, error) {
 	return &FileImpl{name: name, kind: kind, uri: uri, namespace: namespace, role: role}, nil
+
 }
 
 /*
@@ -31,7 +32,6 @@ func NewFileImpl(role NodeRole, name, kind, uri, namespace string) (*FileImpl, e
  */
 
 func (d *FileImpl) Start(pipe Pipe) (err error) {
-
 	d.pipe = pipe
 
 	if d.role == SINK {

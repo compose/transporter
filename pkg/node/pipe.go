@@ -24,26 +24,31 @@ type Pipe struct {
 	Event   chan Event
 	chStop  chan chan bool
 	running bool
+	metrics *NodeMetrics
 }
 
-func NewPipe() Pipe {
-	return Pipe{
+func NewPipe(name string) Pipe {
+	p := Pipe{
 		In:     newMessageChan(),
 		Out:    newMessageChan(),
 		Err:    make(chan error),
 		Event:  make(chan Event),
 		chStop: make(chan chan bool),
 	}
+	p.metrics = NewNodeMetrics(name, p.Event)
+	return p
 }
 
-func JoinPipe(p Pipe) Pipe {
-	return Pipe{
+func JoinPipe(p Pipe, name string) Pipe {
+	newp := Pipe{
 		In:     p.Out,
 		Out:    newMessageChan(),
 		Err:    p.Err,
 		Event:  p.Event,
 		chStop: make(chan chan bool),
 	}
+	newp.metrics = NewNodeMetrics(p.metrics.path+"/"+name, p.Event)
+	return newp
 }
 
 func (m *Pipe) Listen(fn func(*message.Msg) error) error {
@@ -62,6 +67,7 @@ func (m *Pipe) Listen(fn func(*message.Msg) error) error {
 
 		select {
 		case msg := <-m.In:
+			m.metrics.RecordsIn += 1
 			err := fn(msg)
 			if err != nil {
 				m.Err <- err
@@ -99,6 +105,7 @@ func (m *Pipe) Send(msg *message.Msg) {
 	for {
 		select {
 		case m.Out <- msg:
+			m.metrics.RecordsOut += 1
 			return
 		case <-time.After(1 * time.Second):
 			if m.Stopping() {

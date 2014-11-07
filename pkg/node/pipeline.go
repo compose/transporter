@@ -97,10 +97,10 @@ func (p *Pipeline) Create() error {
  * run the pipeline
  */
 func (p *Pipeline) Run() error {
-	sourcePipe := NewPipe()
+	sourcePipe := NewPipe(p.Source.Name)
 	p.errChan = sourcePipe.Err
 	p.eventChan = sourcePipe.Event
-	sinkPipe := JoinPipe(sourcePipe)
+	sinkPipe := JoinPipe(sourcePipe, p.Sink.Name)
 
 	go p.startErrorListener()
 	go p.startEventListener()
@@ -136,7 +136,7 @@ func (p *Pipeline) startEventListener() {
 	for {
 		select {
 		case event := <-p.eventChan:
-			fmt.Printf("Pipeline event %T %v\n", event, event)
+			fmt.Printf("Pipeline event: %s\n", event)
 		}
 	}
 }

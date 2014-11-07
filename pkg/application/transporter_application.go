@@ -7,11 +7,12 @@ import (
 )
 
 type TransporterApplication struct {
+	Config    node.Config
 	Pipelines []node.Pipeline
 }
 
-func NewTransporterApplication() *TransporterApplication {
-	return &TransporterApplication{Pipelines: make([]node.Pipeline, 0)}
+func NewTransporterApplication(config node.Config) *TransporterApplication {
+	return &TransporterApplication{Pipelines: make([]node.Pipeline, 0), Config: config}
 }
 
 func (t *TransporterApplication) AddPipeline(p node.Pipeline) {

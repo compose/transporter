@@ -12,15 +12,9 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-/*
- * A representation of the data that's passed in from the yaml config to the application
- */
-type Config struct {
-	Nodes map[string]node.Node
-}
-
 type ApplicationBuilder struct {
-	Nodes map[string]node.Node
+	// config
+	Config node.Config
 
 	// command to run
 	Command *Command
@@ -33,7 +27,7 @@ type ApplicationBuilder struct {
  * build the application, parse the flags and run the command
  */
 func Build() (application.Application, error) {
-	builder := ApplicationBuilder{Nodes: make(map[string]node.Node)}
+	builder := ApplicationBuilder{}
 
 	err := builder.flagParse()
 	if err != nil || builder.Command == nil {
@@ -53,7 +47,7 @@ func Build() (application.Application, error) {
  * Load Config file from disk
  */
 func (a *ApplicationBuilder) loadConfig() (err error) {
-	var c Config
+	var c node.Config
 	if a.config_path == "" {
 		return nil
 	}
@@ -67,8 +61,9 @@ func (a *ApplicationBuilder) loadConfig() (err error) {
 
 	for k, v := range c.Nodes {
 		v.Name = k
-		a.Nodes[k] = v
+		c.Nodes[k] = v
 	}
+	a.Config = c
 
 	return err
 }

@@ -1,4 +1,4 @@
-package javascript_builder
+package main
 
 import (
 	"fmt"
@@ -12,7 +12,6 @@ import (
 type JavascriptBuilder struct {
 	file   string
 	path   string
-	nodes  map[string]node.Node
 	script *otto.Script
 	vm     *otto.Otto
 
@@ -20,8 +19,8 @@ type JavascriptBuilder struct {
 	err error
 }
 
-func NewJavascriptBuilder(nodes map[string]node.Node, file string) (*JavascriptBuilder, error) {
-	js := &JavascriptBuilder{file: file, vm: otto.New(), path: filepath.Dir(file), nodes: nodes, app: &application.TransporterApplication{}}
+func NewJavascriptBuilder(config node.Config, file string) (*JavascriptBuilder, error) {
+	js := &JavascriptBuilder{file: file, vm: otto.New(), path: filepath.Dir(file), app: application.NewTransporterApplication(config)}
 
 	script, err := js.vm.Compile(file, nil)
 	if err != nil {
@@ -153,7 +152,7 @@ func (js *JavascriptBuilder) findNode(in otto.Value) (*node.Node, error) {
 		return nil, fmt.Errorf("source hash requires both a 'source' and a 'namespace'")
 	}
 
-	n, ok := js.nodes[sourceString]
+	n, ok := js.app.Config.Nodes[sourceString]
 	if !ok {
 		return nil, fmt.Errorf("no configured nodes found named %s", sourceString)
 	}

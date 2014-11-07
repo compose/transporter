@@ -6,7 +6,6 @@ import (
 	"log"
 
 	"github.com/MongoHQ/transporter/pkg/application"
-	"github.com/MongoHQ/transporter/pkg/javascript_builder"
 )
 
 /*
@@ -43,7 +42,7 @@ var listCommand = &Command{
   list the nodes that have been configured in the configuration yaml`,
 	Run: func(builder ApplicationBuilder, args []string) (application.Application, error) {
 		return application.NewSimpleApplication(func() error {
-			for _, v := range builder.Nodes {
+			for _, v := range builder.Config.Nodes {
 				log.Println(v)
 			}
 			return nil
@@ -65,8 +64,7 @@ Run a transporter js application to build and run a transporter application.`,
 			if len(args) == 0 {
 				return nil, errors.New("no filename specified")
 			}
-
-			js, err := javascript_builder.NewJavascriptBuilder(builder.Nodes, args[0])
+			js, err := NewJavascriptBuilder(builder.Config, args[0])
 			if err != nil {
 				return nil, err
 			}

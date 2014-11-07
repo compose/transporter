@@ -1,5 +1,10 @@
 package node
 
+import (
+	"encoding/json"
+	"time"
+)
+
 type EventKind int
 
 func (e EventKind) String() string {
@@ -28,6 +33,11 @@ type Event struct {
 	Kind         string `json:"event"`
 	BootEvent    `json:",omitempty"`
 	MetricsEvent `json:",omitempty"`
+}
+
+func (e Event) String() string {
+	ba, _ := json.Marshal(e)
+	return string(ba)
 }
 
 /*
@@ -71,4 +81,31 @@ type EventListener struct {
 
 func NewEventListener() EventListener {
 	return EventListener{In: make(chan Event)}
+}
+
+/*
+ * lets keep track of metrics on a nodeimpl, and send them out periodically to our event chan
+ */
+type NodeMetrics struct {
+	ticker     *time.Ticker
+	eChan      chan Event
+	path       string
+	RecordsIn  int
+	RecordsOut int
+}
+
+func NewNodeMetrics(path string, eventChan chan Event) *NodeMetrics {
+	m := &NodeMetrics{path: path, eChan: eventChan}
+
+	m.ticker = time.NewTicker(1 * time.Millisecond)
+	go func() {
+		for _ = range m.ticker.C {
+			m.Send()
+		}
+	}()
+	return m
+}
+
+func (m *NodeMetrics) Send() {
+	m.eChan <- NewMetricsEvent(time.Now().Unix(), m.path, m.RecordsIn, m.RecordsOut)
 }
