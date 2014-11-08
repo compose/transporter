@@ -109,3 +109,7 @@ func NewNodeMetrics(path string, eventChan chan Event) *NodeMetrics {
 func (m *NodeMetrics) Send() {
 	m.eChan <- NewMetricsEvent(time.Now().Unix(), m.path, m.RecordsIn, m.RecordsOut)
 }
+
+func (m *NodeMetrics) Stop() {
+	m.ticker.Stop()
+}

@@ -1,6 +1,6 @@
+api:
+  uri: "http://requestb.in/1a0zlf11"
 nodes:
-  api:
-    uri: "https://user:password@app.compose.io/services/transporter/events"
   localmongo:
     type: mongo
     uri: mongodb://localhost/boom

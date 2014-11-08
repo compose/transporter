@@ -6,8 +6,11 @@ package node
  */
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"sync"
 	"time"
 
 	"github.com/robertkrimen/otto"
@@ -18,15 +21,19 @@ const (
 )
 
 type Pipeline struct {
+	Config       Config
 	Source       *Node          `json:"source"`
 	Sink         *Node          `json:"sink"`
 	Transformers []*Transformer `json:"transformers"`
 	errChan      chan error
 	eventChan    chan Event
+	stopChan     chan bool
+
+	wg sync.WaitGroup
 }
 
-func NewPipeline(source *Node) *Pipeline {
-	return &Pipeline{Source: source, Transformers: make([]*Transformer, 0)}
+func NewPipeline(source *Node, config Config) *Pipeline {
+	return &Pipeline{Source: source, Transformers: make([]*Transformer, 0), Config: config}
 }
 
 /*
@@ -97,20 +104,32 @@ func (p *Pipeline) Create() error {
  * run the pipeline
  */
 func (p *Pipeline) Run() error {
+	defer p.wg.Wait()
+
 	sourcePipe := NewPipe(p.Source.Name)
+
 	p.errChan = sourcePipe.Err
 	p.eventChan = sourcePipe.Event
+
 	sinkPipe := JoinPipe(sourcePipe, p.Sink.Name)
+
+	fmt.Printf("%+v\n", sourcePipe)
+	fmt.Printf("%+v\n", sinkPipe)
 
 	go p.startErrorListener()
 	go p.startEventListener()
+	// go p.startStopListener()
 
 	// send a boot event
 	p.eventChan <- NewBootEvent(time.Now().Unix(), VERSION, p.endpointMap())
 
 	// TODO, this sucks because returning an error from the sink doesn't break the chain
 	go p.Sink.NodeImpl.Start(sinkPipe)
-	return p.Source.NodeImpl.Start(sourcePipe)
+
+	err := p.Source.NodeImpl.Start(sourcePipe)
+	fmt.Println("source finished, sending stop")
+	p.Sink.NodeImpl.Stop()
+	return err
 }
 
 func (p *Pipeline) endpointMap() map[string]string {
@@ -124,19 +143,35 @@ func (p *Pipeline) endpointMap() map[string]string {
 }
 
 func (p *Pipeline) startErrorListener() {
-	for {
-		select {
-		case err := <-p.errChan:
-			fmt.Printf("Pipeline error %v\n", err)
-		}
+	for err := range p.errChan {
+		fmt.Printf("Pipeline error %v\n", err)
 	}
 }
 
 func (p *Pipeline) startEventListener() {
-	for {
-		select {
-		case event := <-p.eventChan:
-			fmt.Printf("Pipeline event: %s\n", event)
+	for event := range p.eventChan {
+		ba, err := json.Marshal(event)
+		if err != err {
+			p.errChan <- err
+			continue
 		}
+		p.wg.Add(1)
+		go func() {
+			defer p.wg.Done()
+			resp, err := http.Post(p.Config.Api.Uri, "application/json", bytes.NewBuffer(ba))
+			if err != nil {
+				p.errChan <- err
+				return
+			}
+
+			if resp.StatusCode != 200 {
+				resp.Body.Close()
+				p.errChan <- fmt.Errorf("http error code, expected 200, got %d.  %s", resp.StatusCode, resp.StatusCode)
+				return
+			}
+			resp.Body.Close()
+		}()
+		fmt.Printf("sent pipeline event: %s -> %s\n", p.Config.Api.Uri, event)
+
 	}
 }

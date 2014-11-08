@@ -33,6 +33,9 @@ func NewFileImpl(role NodeRole, name, kind, uri, namespace string) (*FileImpl, e
 
 func (d *FileImpl) Start(pipe Pipe) (err error) {
 	d.pipe = pipe
+	defer func() {
+		d.Stop()
+	}()
 
 	if d.role == SINK {
 		if strings.HasPrefix(d.uri, "file://") {

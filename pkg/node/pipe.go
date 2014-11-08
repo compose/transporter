@@ -18,13 +18,13 @@ func newMessageChan() messageChan {
  * from the stop channel
  */
 type Pipe struct {
-	In      messageChan
-	Out     messageChan
-	Err     chan error
-	Event   chan Event
-	chStop  chan chan bool
-	running bool
-	metrics *NodeMetrics
+	In        messageChan
+	Out       messageChan
+	Err       chan error
+	Event     chan Event
+	chStop    chan chan bool
+	listening bool
+	metrics   *NodeMetrics
 }
 
 func NewPipe(name string) Pipe {
@@ -52,9 +52,9 @@ func JoinPipe(p Pipe, name string) Pipe {
 }
 
 func (m *Pipe) Listen(fn func(*message.Msg) error) error {
-	m.running = true
+	m.listening = true
 	defer func() {
-		m.running = false
+		m.listening = false
 	}()
 	for {
 		// check for stop
@@ -81,10 +81,13 @@ func (m *Pipe) Listen(fn func(*message.Msg) error) error {
 }
 
 func (m *Pipe) Stop() {
-	m.running = false
-	c := make(chan bool)
-	m.chStop <- c
-	<-c
+	m.metrics.Stop()
+	if m.listening {
+		c := make(chan bool)
+		m.chStop <- c
+		<-c
+	}
+	m.listening = false
 }
 
 func (m *Pipe) Stopping() bool {
@@ -95,10 +98,6 @@ func (m *Pipe) Stopping() bool {
 	default:
 		return false
 	}
-}
-
-func (m *Pipe) Running() bool {
-	return m.running
 }
 
 func (m *Pipe) Send(msg *message.Msg) {

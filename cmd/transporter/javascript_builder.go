@@ -48,7 +48,7 @@ func (js *JavascriptBuilder) transport(call otto.FunctionCall) otto.Value {
 		return otto.NullValue()
 	}
 
-	pipeline, err := node.NewPipeline(this_node).Object()
+	pipeline, err := node.NewPipeline(this_node, js.app.Config).Object()
 	if err != nil {
 		js.err = err
 		return otto.NullValue()
