@@ -6,7 +6,8 @@ package node
  */
 type Config struct {
 	Api struct {
-		Uri string `json:"uri"`
-	} `json: "api"`
+		Uri             string `json:"uri" yaml:"uri"`
+		MetricsInterval int    `json:"interval" yaml:"interval"`
+	} `json: "api" yaml:"api"`
 	Nodes map[string]Node
 }

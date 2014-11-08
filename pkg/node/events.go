@@ -94,15 +94,18 @@ type NodeMetrics struct {
 	RecordsOut int
 }
 
-func NewNodeMetrics(path string, eventChan chan Event) *NodeMetrics {
+func NewNodeMetrics(path string, eventChan chan Event, interval int) *NodeMetrics {
 	m := &NodeMetrics{path: path, eChan: eventChan}
 
-	m.ticker = time.NewTicker(1 * time.Millisecond)
-	go func() {
-		for _ = range m.ticker.C {
-			m.Send()
-		}
-	}()
+	// if we have a non zero interval then spawn a ticker to send metrics out the channel
+	if interval > 0 {
+		m.ticker = time.NewTicker(time.Duration(interval) * time.Millisecond)
+		go func() {
+			for _ = range m.ticker.C {
+				m.Send()
+			}
+		}()
+	}
 	return m
 }
 
@@ -111,5 +114,7 @@ func (m *NodeMetrics) Send() {
 }
 
 func (m *NodeMetrics) Stop() {
-	m.ticker.Stop()
+	if m.ticker != nil {
+		m.ticker.Stop()
+	}
 }

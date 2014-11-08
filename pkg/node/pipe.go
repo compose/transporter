@@ -27,7 +27,7 @@ type Pipe struct {
 	metrics   *NodeMetrics
 }
 
-func NewPipe(name string) Pipe {
+func NewPipe(name string, config Config) Pipe {
 	p := Pipe{
 		In:     newMessageChan(),
 		Out:    newMessageChan(),
@@ -35,11 +35,11 @@ func NewPipe(name string) Pipe {
 		Event:  make(chan Event),
 		chStop: make(chan chan bool),
 	}
-	p.metrics = NewNodeMetrics(name, p.Event)
+	p.metrics = NewNodeMetrics(name, p.Event, config.Api.MetricsInterval)
 	return p
 }
 
-func JoinPipe(p Pipe, name string) Pipe {
+func JoinPipe(p Pipe, name string, config Config) Pipe {
 	newp := Pipe{
 		In:     p.Out,
 		Out:    newMessageChan(),
@@ -47,7 +47,7 @@ func JoinPipe(p Pipe, name string) Pipe {
 		Event:  p.Event,
 		chStop: make(chan chan bool),
 	}
-	newp.metrics = NewNodeMetrics(p.metrics.path+"/"+name, p.Event)
+	newp.metrics = NewNodeMetrics(p.metrics.path+"/"+name, p.Event, config.Api.MetricsInterval)
 	return newp
 }
 

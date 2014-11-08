@@ -64,7 +64,6 @@ func (a *ApplicationBuilder) loadConfig() (err error) {
 		c.Nodes[k] = v
 	}
 	a.Config = c
-
 	return err
 }
 

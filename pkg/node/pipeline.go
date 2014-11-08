@@ -106,19 +106,15 @@ func (p *Pipeline) Create() error {
 func (p *Pipeline) Run() error {
 	defer p.wg.Wait()
 
-	sourcePipe := NewPipe(p.Source.Name)
+	sourcePipe := NewPipe(p.Source.Name, p.Config)
 
 	p.errChan = sourcePipe.Err
 	p.eventChan = sourcePipe.Event
 
-	sinkPipe := JoinPipe(sourcePipe, p.Sink.Name)
-
-	fmt.Printf("%+v\n", sourcePipe)
-	fmt.Printf("%+v\n", sinkPipe)
+	sinkPipe := JoinPipe(sourcePipe, p.Sink.Name, p.Config)
 
 	go p.startErrorListener()
 	go p.startEventListener()
-	// go p.startStopListener()
 
 	// send a boot event
 	p.eventChan <- NewBootEvent(time.Now().Unix(), VERSION, p.endpointMap())
