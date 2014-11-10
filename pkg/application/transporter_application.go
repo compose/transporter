@@ -3,7 +3,7 @@ package application
 import (
 	"fmt"
 
-	"github.com/MongoHQ/transporter/pkg/node"
+	"github.com/compose/transporter/pkg/node"
 )
 
 type TransporterApplication struct {

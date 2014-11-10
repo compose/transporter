@@ -7,8 +7,8 @@ import (
 	"os"
 	"text/template"
 
-	"github.com/MongoHQ/transporter/pkg/application"
-	"github.com/MongoHQ/transporter/pkg/node"
+	"github.com/compose/transporter/pkg/application"
+	"github.com/compose/transporter/pkg/node"
 	"gopkg.in/yaml.v2"
 )
 

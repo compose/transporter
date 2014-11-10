@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/MongoHQ/transporter/pkg/application"
-	"github.com/MongoHQ/transporter/pkg/node"
+	"github.com/compose/transporter/pkg/application"
+	"github.com/compose/transporter/pkg/node"
 	"github.com/robertkrimen/otto"
 )
 

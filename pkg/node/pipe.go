@@ -3,7 +3,7 @@ package node
 import (
 	"time"
 
-	"github.com/MongoHQ/transporter/pkg/message"
+	"github.com/compose/transporter/pkg/message"
 )
 
 type messageChan chan *message.Msg

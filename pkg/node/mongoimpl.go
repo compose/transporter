@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MongoHQ/transporter/pkg/message"
+	"github.com/compose/transporter/pkg/message"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 )

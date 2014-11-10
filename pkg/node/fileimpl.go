@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/MongoHQ/transporter/pkg/message"
+	"github.com/compose/transporter/pkg/message"
 )
 
 type FileImpl struct {

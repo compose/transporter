@@ -5,7 +5,7 @@ import (
 	"flag"
 	"log"
 
-	"github.com/MongoHQ/transporter/pkg/application"
+	"github.com/compose/transporter/pkg/application"
 )
 
 /*

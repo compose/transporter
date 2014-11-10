@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/MongoHQ/underpants/pkg/utils"
 	"labix.org/v2/mgo/bson"
 )
 
@@ -116,13 +115,4 @@ func (m *Msg) DocumentWithId(key string) bson.M {
 		doc[key] = m.Id
 	}
 	return doc
-}
-
-/*
- *
- * a convenience wrapper to turn original id and timestamp into a utils.SessionOp
- *
- */
-func (m *Msg) GetSessionOp() utils.SessionOp {
-	return utils.SessionOp{Id: m.OriginalId, Timestamp: m.Timestamp}
 }
