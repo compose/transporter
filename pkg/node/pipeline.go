@@ -41,6 +41,7 @@ func NewPipeline(source *Node, config Config) *Pipeline {
  * create a new pipeline from a value, such as what we would get back
  * from an otto.Value.  basically a pipeline that has lost it's identify,
  * and been interfaced{}
+ * TODO this should probably live in the javascript builder somewhere
  */
 func InterfaceToPipeline(val interface{}) (Pipeline, error) {
 	t := Pipeline{}
@@ -56,6 +57,7 @@ func InterfaceToPipeline(val interface{}) (Pipeline, error) {
 
 /*
  * turn this pipeline into an otto Object
+ * TODO this should probably live in the javascript builder somewhere
  */
 func (t *Pipeline) Object() (*otto.Object, error) {
 	vm := otto.New()
@@ -92,6 +94,8 @@ func (p *Pipeline) Create() error {
 	if err != nil {
 		return err
 	}
+
+	// TODO and the transformers here too
 
 	err = p.Sink.Create(SINK)
 	if err != nil {

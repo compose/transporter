@@ -6,6 +6,15 @@ import (
 	"github.com/compose/transporter/pkg/message"
 )
 
+/*
+ * TODO:
+ * it's probably entirely reasonable to make the 'Pipe' functionality part of the Node struct.
+ * each nodeImpl will need to remember it's parent node, and instead of 'NewPipe' and 'JoinPipe', we would
+ * have something slightly different
+ *
+ * or maybe not.. transformers need pipes too, and they aren't nodes.  what to do
+ */
+
 type messageChan chan *message.Msg
 
 func newMessageChan() messageChan {
@@ -28,6 +37,10 @@ type Pipe struct {
 	metrics   *NodeMetrics
 }
 
+/*
+ * This should be called once for each transporter pipeline and will be attached to the transporter source.
+ * it initializes all the channels
+ */
 func NewPipe(name string, config Config) Pipe {
 	p := Pipe{
 		In:     newMessageChan(),
@@ -40,6 +53,11 @@ func NewPipe(name string, config Config) Pipe {
 	return p
 }
 
+/*
+ * this should be called to create a pipe that is connected to a previous pipe.
+ * the newly created pipe will use the original pipe's 'Out' channel as it's 'In' channel
+ * and allows the easy creation of chains of pipes
+ */
 func JoinPipe(p Pipe, name string, config Config) Pipe {
 	newp := Pipe{
 		In:     p.Out,
@@ -52,10 +70,12 @@ func JoinPipe(p Pipe, name string, config Config) Pipe {
 	return newp
 }
 
+/*
+ * start a listening loop.  monitors the chStop for stop events.
+ */
 func (m *Pipe) Listen(fn func(*message.Msg) error) error {
 	m.listening = true
 	defer func() {
-		// m.listening = false
 		m.stopped = true
 	}()
 	for {
@@ -85,12 +105,10 @@ func (m *Pipe) Listen(fn func(*message.Msg) error) error {
 func (m *Pipe) Stop() {
 	if !m.stopped {
 		m.stopped = true
-
 		m.metrics.Stop()
 
-		// we only want to do this if we're in a listening loop
+		// we only worry about the stop channel if we're in a listening loop
 		if m.listening {
-			// m.listening = false
 			c := make(chan bool)
 			m.chStop <- c
 			<-c
@@ -102,6 +120,10 @@ func (m *Pipe) Stopped() bool {
 	return m.stopped
 }
 
+/*
+ * send the message on the 'Out' channel.  Timeout after 1 second and check if we've been asked to exit.
+ * this does not return any information about whether or not the message was sent successfully.  errors should be caught elsewhere
+ */
 func (m *Pipe) Send(msg *message.Msg) {
 	for {
 		select {

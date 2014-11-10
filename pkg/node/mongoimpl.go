@@ -11,8 +11,6 @@ import (
 )
 
 type MongoImpl struct {
-	//the parent node
-	// node *node.Node
 
 	// pull these in from the node
 	name      string
@@ -25,23 +23,12 @@ type MongoImpl struct {
 	database   string
 
 	//
-	//
-	//
-	//
 	pipe Pipe
 
-	//
-	//
-	//
-	//
 	//
 	// mongo connection and options
 	mongoSession *mgo.Session
 	oplogTimeout time.Duration
-
-	//
-	//
-	//
 
 	restartable bool // this refers to being able to refresh the iterator, not to the restart based on session op
 }
@@ -106,6 +93,9 @@ func (m *MongoImpl) writeMessage(msg *message.Msg) (err error) {
 	return err
 }
 
+/*
+ * pull down the original connection
+ */
 func (m *MongoImpl) catData() (err error) {
 
 	var (
@@ -146,6 +136,9 @@ func (m *MongoImpl) catData() (err error) {
 	}
 }
 
+/*
+ * tail the oplog
+ */
 func (m *MongoImpl) tailData() (err error) {
 
 	var (

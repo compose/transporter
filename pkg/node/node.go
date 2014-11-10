@@ -32,7 +32,7 @@ type Node struct {
 	Type      string   `json:"type"`
 	Uri       string   `json:"uri"`
 	Namespace string   `json:"namespace"`
-	NodeImpl  NodeImpl
+	NodeImpl  NodeImpl `json:"-"`
 }
 
 func (n *Node) String() string {
