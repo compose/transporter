@@ -29,7 +29,8 @@ type Pipeline struct {
 	eventChan    chan Event
 	stopChan     chan bool
 
-	wg sync.WaitGroup
+	nodeWg    sync.WaitGroup
+	metricsWg sync.WaitGroup
 }
 
 func NewPipeline(source *Node, config Config) *Pipeline {
@@ -104,7 +105,6 @@ func (p *Pipeline) Create() error {
  * run the pipeline
  */
 func (p *Pipeline) Run() error {
-	defer p.wg.Wait()
 
 	sourcePipe := NewPipe(p.Source.Name, p.Config)
 
@@ -120,11 +120,25 @@ func (p *Pipeline) Run() error {
 	p.eventChan <- NewBootEvent(time.Now().Unix(), VERSION, p.endpointMap())
 
 	// TODO, this sucks because returning an error from the sink doesn't break the chain
-	go p.Sink.NodeImpl.Start(sinkPipe)
 
+	go func() {
+		p.nodeWg.Add(1)
+		p.Sink.NodeImpl.Start(sinkPipe)
+		p.nodeWg.Done()
+	}()
+
+	p.nodeWg.Add(1)
 	err := p.Source.NodeImpl.Start(sourcePipe)
-	fmt.Println("source finished, sending stop")
+	p.nodeWg.Done()
+
+	// the source has exited, stop all the other nodes
+	// TODO transformers here too
 	p.Sink.NodeImpl.Stop()
+
+	// use the waitgroups and wait for nodes to exit
+	p.nodeWg.Wait()
+	p.metricsWg.Wait()
+
 	return err
 }
 
@@ -140,7 +154,10 @@ func (p *Pipeline) endpointMap() map[string]string {
 
 func (p *Pipeline) startErrorListener() {
 	for err := range p.errChan {
-		fmt.Printf("Pipeline error %v\n", err)
+		fmt.Printf("Pipeline error %v\nShutting down pipeline", err)
+		p.Source.NodeImpl.Stop()
+		p.Sink.NodeImpl.Stop()
+		// TODO and all the transformers as well
 	}
 }
 
@@ -151,9 +168,9 @@ func (p *Pipeline) startEventListener() {
 			p.errChan <- err
 			continue
 		}
-		p.wg.Add(1)
+		p.metricsWg.Add(1)
 		go func() {
-			defer p.wg.Done()
+			defer p.metricsWg.Done()
 			resp, err := http.Post(p.Config.Api.Uri, "application/json", bytes.NewBuffer(ba))
 			if err != nil {
 				p.errChan <- err
@@ -162,7 +179,7 @@ func (p *Pipeline) startEventListener() {
 
 			if resp.StatusCode != 200 {
 				resp.Body.Close()
-				p.errChan <- fmt.Errorf("http error code, expected 200, got %d.  %s", resp.StatusCode, resp.StatusCode)
+				p.errChan <- fmt.Errorf("http error code, expected 200, got %d.  %d", resp.StatusCode, resp.StatusCode)
 				return
 			}
 			resp.Body.Close()

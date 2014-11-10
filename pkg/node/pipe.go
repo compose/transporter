@@ -24,6 +24,7 @@ type Pipe struct {
 	Event     chan Event
 	chStop    chan chan bool
 	listening bool
+	stopped   bool
 	metrics   *NodeMetrics
 }
 
@@ -55,6 +56,7 @@ func (m *Pipe) Listen(fn func(*message.Msg) error) error {
 	m.listening = true
 	defer func() {
 		m.listening = false
+		m.stopped = true
 	}()
 	for {
 		// check for stop
@@ -81,16 +83,25 @@ func (m *Pipe) Listen(fn func(*message.Msg) error) error {
 }
 
 func (m *Pipe) Stop() {
-	m.metrics.Stop()
-	if m.listening {
+	if !m.stopped {
+		m.stopped = true
+		m.listening = false
+
+		m.metrics.Stop()
 		c := make(chan bool)
 		m.chStop <- c
 		<-c
 	}
-	m.listening = false
 }
 
 func (m *Pipe) Stopping() bool {
+	// have we already stopped? if so, lets just return true
+	// rather then messing about in the channels
+
+	if m.stopped {
+		return true
+	}
+
 	select {
 	case c := <-m.chStop:
 		c <- true

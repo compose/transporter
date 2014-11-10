@@ -18,6 +18,7 @@ type MongoImpl struct {
 	name      string
 	uri       string
 	namespace string
+	role      NodeRole
 
 	// save time by setting these once
 	collection string
@@ -54,6 +55,7 @@ func NewMongoImpl(role NodeRole, name, kind, uri, namespace string) (*MongoImpl,
 		restartable:  true,            // assume for that we're able to restart the process
 		oplogTimeout: 5 * time.Second, // timeout the oplog iterator
 		namespace:    namespace,
+		role:         role,
 	}
 
 	m.database, m.collection, err = m.splitNamespace()
@@ -65,6 +67,9 @@ func NewMongoImpl(role NodeRole, name, kind, uri, namespace string) (*MongoImpl,
 
 func (m *MongoImpl) Start(pipe Pipe) (err error) {
 	m.pipe = pipe
+	defer func() {
+		m.pipe.Stop()
+	}()
 
 	m.mongoSession, err = mgo.Dial(m.uri)
 	if err != nil {
@@ -72,20 +77,33 @@ func (m *MongoImpl) Start(pipe Pipe) (err error) {
 		return err
 	}
 
-	err = m.catData()
-	if err != nil {
-		m.pipe.Err <- err
-		return err
-	}
+	// Source, cat and then tail the collection
+	if m.role == SINK {
+		return m.pipe.Listen(m.writeMessage)
+	} else {
+		err = m.catData()
+		if err != nil {
+			m.pipe.Err <- err
+			return err
+		}
 
-	// replay the oplog
-	err = m.tailData()
-	if err != nil {
-		m.pipe.Err <- err
-		return err
+		// replay the oplog
+		err = m.tailData()
+		if err != nil {
+			m.pipe.Err <- err
+			return err
+		}
 	}
-
 	return
+}
+
+func (m *MongoImpl) writeMessage(msg *message.Msg) (err error) {
+	collection := m.mongoSession.DB(m.database).C(m.collection)
+	err = collection.Insert(msg.Document())
+	if mgo.IsDup(err) {
+		err = collection.Update(bson.M{"_id": msg.Id}, msg.Document())
+	}
+	return err
 }
 
 func (m *MongoImpl) catData() (err error) {
@@ -101,7 +119,7 @@ func (m *MongoImpl) catData() (err error) {
 	for {
 		for iter.Next(&result) {
 			if stop := m.pipe.Stopping(); stop {
-				return fmt.Errorf("stopping")
+				return
 			}
 
 			// set up the message
@@ -114,7 +132,7 @@ func (m *MongoImpl) catData() (err error) {
 		// we've exited the mongo read loop, lets figure out why
 		// check here again if we've been asked to quit
 		if stop := m.pipe.Stopping(); stop {
-			return fmt.Errorf("stopping")
+			return
 		}
 
 		if iter.Err() != nil && m.restartable {

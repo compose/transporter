@@ -12,6 +12,17 @@ const (
 	SINK   NodeRole = iota
 )
 
+func (n NodeRole) String() string {
+	switch n {
+	case SOURCE:
+		return "Source"
+	case SINK:
+		return "Sink"
+	default:
+		return ""
+	}
+}
+
 /*
  * A Node is an endpoint, Either a source, or a sink
  */
