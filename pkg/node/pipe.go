@@ -99,11 +99,7 @@ func (m *Pipe) Stop() {
 }
 
 func (m *Pipe) Stopped() bool {
-	if m.stopped {
-		return true
-	}
-
-	return false
+	return m.stopped
 }
 
 func (m *Pipe) Send(msg *message.Msg) {
