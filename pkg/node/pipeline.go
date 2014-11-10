@@ -154,7 +154,7 @@ func (p *Pipeline) endpointMap() map[string]string {
 
 func (p *Pipeline) startErrorListener() {
 	for err := range p.errChan {
-		fmt.Printf("Pipeline error %v\nShutting down pipeline", err)
+		fmt.Printf("Pipeline error %v\nShutting down pipeline\n", err)
 		p.Source.NodeImpl.Stop()
 		p.Sink.NodeImpl.Stop()
 		// TODO and all the transformers as well
