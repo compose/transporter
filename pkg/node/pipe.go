@@ -55,7 +55,7 @@ func JoinPipe(p Pipe, name string, config Config) Pipe {
 func (m *Pipe) Listen(fn func(*message.Msg) error) error {
 	m.listening = true
 	defer func() {
-		m.listening = false
+		// m.listening = false
 		m.stopped = true
 	}()
 	for {
@@ -85,30 +85,25 @@ func (m *Pipe) Listen(fn func(*message.Msg) error) error {
 func (m *Pipe) Stop() {
 	if !m.stopped {
 		m.stopped = true
-		m.listening = false
 
 		m.metrics.Stop()
-		c := make(chan bool)
-		m.chStop <- c
-		<-c
+
+		// we only want to do this if we're in a listening loop
+		if m.listening {
+			// m.listening = false
+			c := make(chan bool)
+			m.chStop <- c
+			<-c
+		}
 	}
 }
 
-func (m *Pipe) Stopping() bool {
-	// have we already stopped? if so, lets just return true
-	// rather then messing about in the channels
-
+func (m *Pipe) Stopped() bool {
 	if m.stopped {
 		return true
 	}
 
-	select {
-	case c := <-m.chStop:
-		c <- true
-		return true
-	default:
-		return false
-	}
+	return false
 }
 
 func (m *Pipe) Send(msg *message.Msg) {
@@ -118,7 +113,7 @@ func (m *Pipe) Send(msg *message.Msg) {
 			m.metrics.RecordsOut += 1
 			return
 		case <-time.After(1 * time.Second):
-			if m.Stopping() {
+			if m.Stopped() {
 				return
 			}
 		}

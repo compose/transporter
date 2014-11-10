@@ -118,7 +118,7 @@ func (m *MongoImpl) catData() (err error) {
 
 	for {
 		for iter.Next(&result) {
-			if stop := m.pipe.Stopping(); stop {
+			if stop := m.pipe.Stopped(); stop {
 				return
 			}
 
@@ -131,7 +131,7 @@ func (m *MongoImpl) catData() (err error) {
 
 		// we've exited the mongo read loop, lets figure out why
 		// check here again if we've been asked to quit
-		if stop := m.pipe.Stopping(); stop {
+		if stop := m.pipe.Stopped(); stop {
 			return
 		}
 
@@ -159,7 +159,7 @@ func (m *MongoImpl) tailData() (err error) {
 
 	for {
 		for iter.Next(&result) {
-			if stop := m.pipe.Stopping(); stop {
+			if stop := m.pipe.Stopped(); stop {
 				return
 			}
 			if result.validOp() {
@@ -188,7 +188,7 @@ func (m *MongoImpl) tailData() (err error) {
 
 		// we've exited the mongo read loop, lets figure out why
 		// check here again if we've been asked to quit
-		if stop := m.pipe.Stopping(); stop {
+		if stop := m.pipe.Stopped(); stop {
 			return
 		}
 		if iter.Timeout() {
