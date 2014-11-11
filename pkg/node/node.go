@@ -2,7 +2,6 @@ package node
 
 import (
 	"fmt"
-	"io/ioutil"
 )
 
 type NodeRole int
@@ -51,30 +50,4 @@ func (n *Node) Create(role NodeRole) (err error) {
 	}
 	n.NodeImpl, err = NewImpl(fn, n)
 	return err
-}
-
-/*
- * Transformer
- */
-type Transformer struct {
-	Name string `json:"name"`
-	Func string `json:"func"`
-}
-
-func NewTransformer() *Transformer {
-	return &Transformer{}
-}
-
-func (t *Transformer) Load(filename string) error {
-	ba, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return err
-	}
-	t.Name = filename
-	t.Func = string(ba)
-	return nil
-}
-
-func (t *Transformer) String() string {
-	return fmt.Sprintf("%-20s %-15s", t.Name, "Transformer")
 }

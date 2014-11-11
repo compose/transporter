@@ -9,5 +9,8 @@
 // Transport({name:"mongodb-production", namespace: "metrics.hits"}).save({name:"supernick", namespace: "somethingelse/posts4"});
 // Transport({name:"localmongo", namespace: "boom.foo"}).save({name:"tofile", namespace: ""})
 
+Transport({name:"crapfile", namespace: ""}).transform("transformers/passthrough_and_log.js").save({name:"stdout", namespace: ""})
 // Transport({name:"crapfile", namespace: ""}).save({name:"stdout", namespace: ""})
-Transport({name:"localmongo", namespace: "boom.foo"}).save({name:"localmongo", namespace: "copy.foo"})
+
+
+// Transport({name:"localmongo", namespace: "boom.foo"}).save({name:"localmongo", namespace: "copy.foo"})

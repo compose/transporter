@@ -25,16 +25,16 @@ type Pipeline struct {
 	Source       *Node          `json:"source"`
 	Sink         *Node          `json:"sink"`
 	Transformers []*Transformer `json:"transformers"`
-	errChan      chan error
-	eventChan    chan Event
-	stopChan     chan bool
 
-	nodeWg    sync.WaitGroup
-	metricsWg sync.WaitGroup
+	sourcePipe Pipe
+	nodeWg     sync.WaitGroup
+	metricsWg  sync.WaitGroup
 }
 
 func NewPipeline(source *Node, config Config) *Pipeline {
-	return &Pipeline{Source: source, Transformers: make([]*Transformer, 0), Config: config}
+	p := &Pipeline{Source: source, Transformers: make([]*Transformer, 0), Config: config}
+
+	return p
 }
 
 /*
@@ -95,8 +95,6 @@ func (p *Pipeline) Create() error {
 		return err
 	}
 
-	// TODO and the transformers here too
-
 	err = p.Sink.Create(SINK)
 	if err != nil {
 		return err
@@ -110,33 +108,41 @@ func (p *Pipeline) Create() error {
  */
 func (p *Pipeline) Run() error {
 
-	sourcePipe := NewPipe(p.Source.Name, p.Config)
-
-	p.errChan = sourcePipe.Err
-	p.eventChan = sourcePipe.Event
-
-	sinkPipe := JoinPipe(sourcePipe, p.Sink.Name, p.Config)
+	p.sourcePipe = NewPipe(p.Source.Name, p.Config)
 
 	go p.startErrorListener()
 	go p.startEventListener()
 
-	// send a boot event
-	p.eventChan <- NewBootEvent(time.Now().Unix(), VERSION, p.endpointMap())
+	// start the transformers
+	pipe := p.sourcePipe
+	for _, transformer := range p.Transformers {
+		pipe = JoinPipe(pipe, transformer.Name, p.Config) // make a joinpipe
+		go func(pipe Pipe) {
+			p.nodeWg.Add(1)
+			transformer.Start(pipe)
+			p.nodeWg.Done()
+		}(pipe)
+	}
 
-	// TODO, this sucks because returning an error from the sink doesn't break the chain
-
+	// start the sink
 	go func() {
 		p.nodeWg.Add(1)
-		p.Sink.NodeImpl.Start(sinkPipe)
+		p.Sink.NodeImpl.Start(JoinPipe(pipe, p.Sink.Name, p.Config))
 		p.nodeWg.Done()
 	}()
 
+	// send a boot event
+	p.sourcePipe.Event <- NewBootEvent(time.Now().Unix(), VERSION, p.endpointMap())
+
+	// start the source
 	p.nodeWg.Add(1)
-	err := p.Source.NodeImpl.Start(sourcePipe)
+	err := p.Source.NodeImpl.Start(p.sourcePipe)
 	p.nodeWg.Done()
 
 	// the source has exited, stop all the other nodes
-	// TODO transformers here too
+	for _, transformer := range p.Transformers {
+		transformer.Stop()
+	}
 	p.Sink.NodeImpl.Stop()
 
 	// use the waitgroups and wait for nodes to exit
@@ -157,19 +163,21 @@ func (p *Pipeline) endpointMap() map[string]string {
 }
 
 func (p *Pipeline) startErrorListener() {
-	for err := range p.errChan {
+	for err := range p.sourcePipe.Err {
 		fmt.Printf("Pipeline error %v\nShutting down pipeline\n", err)
 		p.Source.NodeImpl.Stop()
+		for _, transformer := range p.Transformers {
+			transformer.Stop()
+		}
 		p.Sink.NodeImpl.Stop()
-		// TODO and all the transformers as well
 	}
 }
 
 func (p *Pipeline) startEventListener() {
-	for event := range p.eventChan {
+	for event := range p.sourcePipe.Event {
 		ba, err := json.Marshal(event)
 		if err != err {
-			p.errChan <- err
+			p.sourcePipe.Err <- err
 			continue
 		}
 		p.metricsWg.Add(1)
@@ -177,13 +185,13 @@ func (p *Pipeline) startEventListener() {
 			defer p.metricsWg.Done()
 			resp, err := http.Post(p.Config.Api.Uri, "application/json", bytes.NewBuffer(ba))
 			if err != nil {
-				p.errChan <- err
+				p.sourcePipe.Err <- err
 				return
 			}
 
 			if resp.StatusCode != 200 {
 				resp.Body.Close()
-				p.errChan <- fmt.Errorf("http error code, expected 200, got %d.  %d", resp.StatusCode, resp.StatusCode)
+				p.sourcePipe.Err <- fmt.Errorf("http error code, expected 200, got %d.  %d", resp.StatusCode, resp.StatusCode)
 				return
 			}
 			resp.Body.Close()
