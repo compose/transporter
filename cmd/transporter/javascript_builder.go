@@ -10,17 +10,15 @@ import (
 )
 
 type JavascriptPipeline struct {
-	Config       node.Config
 	Source       *node.Node          `json:"source"`
 	Sink         *node.Node          `json:"sink"`
 	Transformers []*node.Transformer `json:"transformers"`
 }
 
-func NewJavacriptPipeline(source *node.Node, config node.Config) *JavascriptPipeline {
+func NewJavacriptPipeline(source *node.Node) *JavascriptPipeline {
 	jp := &JavascriptPipeline{
 		Source:       source,
 		Transformers: make([]*node.Transformer, 0),
-		Config:       config,
 	}
 
 	return jp
@@ -104,7 +102,7 @@ func (js *JavascriptBuilder) transport(call otto.FunctionCall) otto.Value {
 		return otto.NullValue()
 	}
 
-	pipeline, err := NewJavacriptPipeline(this_node, js.app.Config).Object()
+	pipeline, err := NewJavacriptPipeline(this_node).Object()
 	if err != nil {
 		js.err = err
 		return otto.NullValue()
@@ -227,7 +225,7 @@ func (js *JavascriptBuilder) Build() (Application, error) {
 		return nil, err
 	}
 	for _, p := range js.js_pipelines {
-		pipeline := node.NewPipeline(p.Source, p.Sink, p.Config, p.Transformers)
+		pipeline := node.NewPipeline(p.Source, p.Sink, js.app.Config, p.Transformers)
 		js.app.AddPipeline(*pipeline)
 	}
 
