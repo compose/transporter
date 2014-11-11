@@ -44,10 +44,6 @@ func (n *Node) String() string {
 func (n *Node) Create(role NodeRole) (err error) {
 	n.Role = role
 
-	fn, ok := Registry[n.Type]
-	if !ok {
-		return fmt.Errorf("Node type '%s' is not defined", n.Type)
-	}
-	n.NodeImpl, err = NewImpl(fn, n)
+	n.NodeImpl, err = NewImpl(n)
 	return err
 }

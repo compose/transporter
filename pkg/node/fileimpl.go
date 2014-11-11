@@ -15,14 +15,13 @@ type FileImpl struct {
 	role      NodeRole
 	uri       string
 	name      string
-	kind      string
 	namespace string
 
 	filehandle *os.File
 }
 
-func NewFileImpl(role NodeRole, name, kind, uri, namespace string) (*FileImpl, error) {
-	return &FileImpl{name: name, kind: kind, uri: uri, namespace: namespace, role: role}, nil
+func NewFileImpl(role NodeRole, name, uri, namespace string) (*FileImpl, error) {
+	return &FileImpl{name: name, uri: uri, namespace: namespace, role: role}, nil
 
 }
 

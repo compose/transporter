@@ -33,7 +33,7 @@ type MongoImpl struct {
 	restartable bool // this refers to being able to refresh the iterator, not to the restart based on session op
 }
 
-func NewMongoImpl(role NodeRole, name, kind, uri, namespace string) (*MongoImpl, error) {
+func NewMongoImpl(role NodeRole, name, uri, namespace string) (*MongoImpl, error) {
 	var (
 		err error
 	)
