@@ -7,7 +7,6 @@ import (
 	"os"
 	"text/template"
 
-	"github.com/compose/transporter/pkg/application"
 	"github.com/compose/transporter/pkg/node"
 	"gopkg.in/yaml.v2"
 )
@@ -26,7 +25,7 @@ type ApplicationBuilder struct {
 /*
  * build the application, parse the flags and run the command
  */
-func Build() (application.Application, error) {
+func Build() (Application, error) {
 	builder := ApplicationBuilder{}
 
 	err := builder.flagParse()

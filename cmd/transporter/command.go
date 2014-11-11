@@ -4,8 +4,6 @@ import (
 	"errors"
 	"flag"
 	"log"
-
-	"github.com/compose/transporter/pkg/application"
 )
 
 /*
@@ -28,7 +26,7 @@ type Command struct {
 	Help  string
 	Flag  flag.FlagSet
 
-	Run func(ApplicationBuilder, []string) (application.Application, error)
+	Run func(ApplicationBuilder, []string) (Application, error)
 }
 
 /*
@@ -40,8 +38,8 @@ var listCommand = &Command{
 	Help: `Usage: trasporter --config [file] list
 
   list the nodes that have been configured in the configuration yaml`,
-	Run: func(builder ApplicationBuilder, args []string) (application.Application, error) {
-		return application.NewSimpleApplication(func() error {
+	Run: func(builder ApplicationBuilder, args []string) (Application, error) {
+		return NewSimpleApplication(func() error {
 			for _, v := range builder.Config.Nodes {
 				log.Println(v)
 			}
@@ -60,7 +58,7 @@ var (
 		Help: `Usage: transporter --config [file] run application.js
 
 Run a transporter js application to build and run a transporter application.`,
-		Run: func(builder ApplicationBuilder, args []string) (application.Application, error) {
+		Run: func(builder ApplicationBuilder, args []string) (Application, error) {
 			if len(args) == 0 {
 				return nil, errors.New("no filename specified")
 			}

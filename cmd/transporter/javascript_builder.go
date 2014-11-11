@@ -1,13 +1,68 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 
-	"github.com/compose/transporter/pkg/application"
 	"github.com/compose/transporter/pkg/node"
 	"github.com/robertkrimen/otto"
 )
+
+type JavascriptPipeline struct {
+	Config       node.Config
+	Source       *node.Node          `json:"source"`
+	Sink         *node.Node          `json:"sink"`
+	Transformers []*node.Transformer `json:"transformers"`
+}
+
+func NewJavacriptPipeline(source *node.Node, config node.Config) *JavascriptPipeline {
+	jp := &JavascriptPipeline{
+		Source:       source,
+		Transformers: make([]*node.Transformer, 0),
+		Config:       config,
+	}
+
+	return jp
+}
+
+/*
+ * create a new pipeline from a value, such as what we would get back
+ * from an otto.Value.  basically a pipeline that has lost it's identify,
+ * and been interfaced{}
+ */
+func InterfaceToPipeline(val interface{}) (JavascriptPipeline, error) {
+	t := JavascriptPipeline{}
+	ba, err := json.Marshal(val)
+
+	if err != nil {
+		return t, err
+	}
+
+	err = json.Unmarshal(ba, &t)
+	return t, err
+}
+
+/*
+ * turn this pipeline into an otto Object
+ */
+func (t *JavascriptPipeline) Object() (*otto.Object, error) {
+	vm := otto.New()
+	ba, err := json.Marshal(t)
+	if err != nil {
+		return nil, err
+	}
+
+	return vm.Object(fmt.Sprintf(`(%s)`, string(ba)))
+}
+
+/*
+ * add a transformer function to a pipeline.
+ * transformers will be called in fifo order
+ */
+func (jp *JavascriptPipeline) AddTransformer(t *node.Transformer) {
+	jp.Transformers = append(jp.Transformers, t)
+}
 
 type JavascriptBuilder struct {
 	file   string
@@ -15,12 +70,13 @@ type JavascriptBuilder struct {
 	script *otto.Script
 	vm     *otto.Otto
 
-	app *application.TransporterApplication
-	err error
+	js_pipelines []JavascriptPipeline
+	app          *TransporterApplication
+	err          error
 }
 
 func NewJavascriptBuilder(config node.Config, file string) (*JavascriptBuilder, error) {
-	js := &JavascriptBuilder{file: file, vm: otto.New(), path: filepath.Dir(file), app: application.NewTransporterApplication(config)}
+	js := &JavascriptBuilder{file: file, vm: otto.New(), path: filepath.Dir(file), js_pipelines: make([]JavascriptPipeline, 0), app: NewTransporterApplication(config)}
 
 	script, err := js.vm.Compile(file, nil)
 	if err != nil {
@@ -48,7 +104,7 @@ func (js *JavascriptBuilder) transport(call otto.FunctionCall) otto.Value {
 		return otto.NullValue()
 	}
 
-	pipeline, err := node.NewPipeline(this_node, js.app.Config).Object()
+	pipeline, err := NewJavacriptPipeline(this_node, js.app.Config).Object()
 	if err != nil {
 		js.err = err
 		return otto.NullValue()
@@ -63,20 +119,20 @@ func (js *JavascriptBuilder) transport(call otto.FunctionCall) otto.Value {
  * save a transporter pipeline
  * this finalized the transporter by adding a sink, and adds the pipeline to the application
  */
-func (js *JavascriptBuilder) save(pipeline node.Pipeline, call otto.FunctionCall) (node.Pipeline, error) {
+func (js *JavascriptBuilder) save(pipeline JavascriptPipeline, call otto.FunctionCall) (JavascriptPipeline, error) {
 	this_node, err := js.findNode(call.Argument(0))
 	if err != nil {
 		return pipeline, err
 	}
 	pipeline.Sink = this_node
-	js.app.AddPipeline(pipeline)
+	js.js_pipelines = append(js.js_pipelines, pipeline)
 	return pipeline, err
 }
 
 /*
  * adds a transform function to the pipeline
  */
-func (js *JavascriptBuilder) transform(pipeline node.Pipeline, call otto.FunctionCall) (node.Pipeline, error) {
+func (js *JavascriptBuilder) transform(pipeline JavascriptPipeline, call otto.FunctionCall) (JavascriptPipeline, error) {
 	if !call.Argument(0).IsString() {
 		return pipeline, fmt.Errorf("bad arguments, expected string, got %d.", len(call.Argument(0).Class()))
 	}
@@ -101,11 +157,11 @@ func (js *JavascriptBuilder) transform(pipeline node.Pipeline, call otto.Functio
  * pipelines in javascript are chainable, you take in a pipeline, and you return a pipeline
  * we just generalize some of that logic here
  */
-func (js *JavascriptBuilder) SetFunc(obj *otto.Object, token string, fn func(node.Pipeline, otto.FunctionCall) (node.Pipeline, error)) error {
+func (js *JavascriptBuilder) SetFunc(obj *otto.Object, token string, fn func(JavascriptPipeline, otto.FunctionCall) (JavascriptPipeline, error)) error {
 	return obj.Set(token, func(call otto.FunctionCall) otto.Value {
 		this, _ := call.This.Export()
 
-		pipeline, err := node.InterfaceToPipeline(this)
+		pipeline, err := InterfaceToPipeline(this)
 		if err != nil {
 			js.err = err
 			return otto.NullValue()
@@ -162,7 +218,11 @@ func (js *JavascriptBuilder) findNode(in otto.Value) (*node.Node, error) {
 /*
  * Run the javascript environment, pipelines are accumulated in the struct
  */
-func (js *JavascriptBuilder) Build() (application.Application, error) {
+func (js *JavascriptBuilder) Build() (Application, error) {
+	for _, p := range js.js_pipelines {
+		pipeline := node.NewPipeline(p.Sink, p.Config, p.Transformers)
+		js.app.AddPipeline(*pipeline)
+	}
 	_, err := js.vm.Run(js.script)
 	if js.err != nil {
 		return nil, js.err

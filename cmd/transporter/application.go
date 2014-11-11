@@ -1,4 +1,4 @@
-package application
+package main
 
 type Application interface {
 	Run() error

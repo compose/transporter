@@ -12,8 +12,6 @@ import (
 	"net/http"
 	"sync"
 	"time"
-
-	"github.com/robertkrimen/otto"
 )
 
 const (
@@ -31,50 +29,17 @@ type Pipeline struct {
 	metricsWg  *sync.WaitGroup
 }
 
-func NewPipeline(source *Node, config Config) *Pipeline {
-	p := &Pipeline{Source: source, Transformers: make([]*Transformer, 0), Config: config}
+func NewPipeline(source *Node, config Config, transformers []*Transformer) *Pipeline {
+	p := &Pipeline{
+		Source:       source,
+		Transformers: transformers,
+		Config:       config,
+		sourcePipe:   NewPipe(source.Name, config),
+		nodeWg:       &sync.WaitGroup{},
+		metricsWg:    &sync.WaitGroup{},
+	}
 
 	return p
-}
-
-/*
- * create a new pipeline from a value, such as what we would get back
- * from an otto.Value.  basically a pipeline that has lost it's identify,
- * and been interfaced{}
- * TODO this should probably live in the javascript builder somewhere
- */
-func InterfaceToPipeline(val interface{}) (Pipeline, error) {
-	t := Pipeline{}
-	ba, err := json.Marshal(val)
-
-	if err != nil {
-		return t, err
-	}
-
-	err = json.Unmarshal(ba, &t)
-	return t, err
-}
-
-/*
- * turn this pipeline into an otto Object
- * TODO this should probably live in the javascript builder somewhere
- */
-func (t *Pipeline) Object() (*otto.Object, error) {
-	vm := otto.New()
-	ba, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-
-	return vm.Object(fmt.Sprintf(`(%s)`, string(ba)))
-}
-
-/*
- * add a transformer function to a pipeline.
- * transformers will be called in fifo order
- */
-func (p *Pipeline) AddTransformer(t *Transformer) {
-	p.Transformers = append(p.Transformers, t)
 }
 
 func (p *Pipeline) String() string {
@@ -106,9 +71,9 @@ func (p *Pipeline) Create() error {
 func (p *Pipeline) init() {
 	// initialize these.  all the marshalling and unmarshalling we've done
 	// means these might not be instantiated properly
-	p.sourcePipe = NewPipe(p.Source.Name, p.Config)
-	p.nodeWg = &sync.WaitGroup{}
-	p.metricsWg = &sync.WaitGroup{}
+	// p.sourcePipe = NewPipe(p.Source.Name, p.Config)
+	// p.nodeWg = &sync.WaitGroup{}
+	// p.metricsWg = &sync.WaitGroup{}
 
 	go p.startErrorListener()
 	go p.startEventListener()
