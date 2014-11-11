@@ -2,7 +2,6 @@ package node
 
 import (
 	"encoding/json"
-	"reflect"
 	"testing"
 )
 
@@ -25,15 +24,6 @@ func TestPipeline(t *testing.T) {
 		err = json.Unmarshal(ba, &anon)
 		if err != nil {
 			t.Errorf("got error turning bytearray into anonymous map, %v", err)
-		}
-
-		obj, _ := InterfaceToPipeline(anon)
-		if err != nil {
-			t.Errorf("got error turning val into obj, %v", err)
-		}
-
-		if !reflect.DeepEqual(obj, v.in) {
-			t.Errorf("Pipline toValue isn't an identity fn.  expected %+v, got %+v", v.in, obj)
 		}
 	}
 }
