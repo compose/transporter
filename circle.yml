@@ -13,7 +13,8 @@ dependencies:
 
 test:
   override:
-    - $CIRCLE_ARTIFACTS/godep go test ./... 
+    # - $CIRCLE_ARTIFACTS/godep go test ./... 
+    - go test ./...
 
 deployment:
   default:
