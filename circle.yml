@@ -1,0 +1,28 @@
+machine:
+  environment:
+    ME: "transporter"
+    GOBIN: "$CIRCLE_ARTIFACTS"
+
+dependencies:
+  override:
+    - go get github.com/tools/godep
+    - test -d $HOME/boto || pip install -t $HOME/boto boto
+  cache_directories:
+  - "/home/ubuntu/boto"
+  - "/home/ubuntu/bin"
+
+test:
+  override:
+    - $CIRCLE_ARTIFACTS/godep go test ./... 
+
+deployment:
+  default:
+    branch: [master, stage, dev, experimental]
+    commands:
+      # - $CIRCLE_ARTIFACTS/godep go install ./cmd/...
+      - go install ./cmd/...
+      # - sh ./circle/build_deb.sh
+      # - tar zcvf $HOME/$ME-$CIRCLE_BRANCH.tgz $CIRCLE_ARTIFACTS/
+      # - cd $CIRCLE_ARTIFACTS && tar zcvf $HOME/$ME-$CIRCLE_BRANCH.tgz . ; cd $HOME/$ME
+      # - python ./circle/s3push.py "$HOME/$ME-$CIRCLE_BRANCH.tgz" "$ME-$CIRCLE_BRANCH.tgz"
+
