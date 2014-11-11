@@ -1,0 +1,26 @@
+{
+	"ImportPath": "github.com/compose/transporter",
+	"GoVersion": "go1.3.3",
+	"Packages": [
+		"github.com/compose/transporter/pkg/message",
+		"github.com/compose/transporter/pkg/application",
+		"github.com/compose/transporter/pkg/mejson",
+		"github.com/compose/transporter/pkg/node",
+		"./..."
+	],
+	"Deps": [
+		{
+			"ImportPath": "github.com/robertkrimen/otto",
+			"Rev": "dea31a3d392779af358ec41f77a07fcc7e9d04ba"
+		},
+		{
+			"ImportPath": "gopkg.in/yaml.v2",
+			"Rev": "eca94c41d994ae2215d455ce578ae6e2dc6ee516"
+		},
+		{
+			"ImportPath": "labix.org/v2/mgo",
+			"Comment": "253",
+			"Rev": "gustavo@niemeyer.net-20131210224142-gtc8ap0sa0roxesc"
+		}
+	]
+}
