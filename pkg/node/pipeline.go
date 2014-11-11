@@ -103,10 +103,7 @@ func (p *Pipeline) Create() error {
 	return nil
 }
 
-/*
- * run the pipeline
- */
-func (p *Pipeline) Run() error {
+func (p *Pipeline) init() {
 	// initialize these.  all the marshalling and unmarshalling we've done
 	// means these might not be instantiated properly
 	p.sourcePipe = NewPipe(p.Source.Name, p.Config)
@@ -115,9 +112,10 @@ func (p *Pipeline) Run() error {
 
 	go p.startErrorListener()
 	go p.startEventListener()
+}
 
-	// start the transformers
-	pipe := p.sourcePipe
+func (p *Pipeline) startTransformers() (pipe Pipe) {
+	pipe = p.sourcePipe
 	for _, transformer := range p.Transformers {
 		pipe = JoinPipe(pipe, transformer.Name, p.Config) // make a joinpipe
 		go func(pipe Pipe, transformer *Transformer) {
@@ -126,27 +124,45 @@ func (p *Pipeline) Run() error {
 			p.nodeWg.Done()
 		}(pipe, transformer)
 	}
+	return pipe
+}
 
-	// start the sink
+func (p *Pipeline) startSink(pipe Pipe) {
 	go func() {
 		p.nodeWg.Add(1)
-		p.Sink.NodeImpl.Start(JoinPipe(pipe, p.Sink.Name, p.Config))
+		p.Sink.NodeImpl.Start(pipe)
 		p.nodeWg.Done()
 	}()
+}
+
+func (p *Pipeline) stopEverything() {
+	// stop all the nodes
+	for _, transformer := range p.Transformers {
+		transformer.Stop()
+	}
+	p.Sink.NodeImpl.Stop()
+	p.Source.NodeImpl.Stop()
+}
+
+/*
+ * run the pipeline
+ */
+func (p *Pipeline) Run() error {
+	p.init()
+
+	pipe := p.startTransformers()
+
+	// start the sink
+	p.startSink(JoinPipe(pipe, p.Sink.Name, p.Config))
 
 	// send a boot event
 	p.sourcePipe.Event <- NewBootEvent(time.Now().Unix(), VERSION, p.endpointMap())
 
 	// start the source
-	p.nodeWg.Add(1)
 	err := p.Source.NodeImpl.Start(p.sourcePipe)
-	p.nodeWg.Done()
 
 	// the source has exited, stop all the other nodes
-	for _, transformer := range p.Transformers {
-		transformer.Stop()
-	}
-	p.Sink.NodeImpl.Stop()
+	p.stopEverything()
 
 	// use the waitgroups and wait for nodes to exit
 	p.nodeWg.Wait()
