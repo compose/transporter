@@ -70,12 +70,6 @@ func (p *Pipeline) Create() error {
 }
 
 func (p *Pipeline) init() {
-	// initialize these.  all the marshalling and unmarshalling we've done
-	// means these might not be instantiated properly
-	// p.sourcePipe = NewPipe(p.Source.Name, p.Config)
-	// p.nodeWg = &sync.WaitGroup{}
-	// p.metricsWg = &sync.WaitGroup{}
-
 	go p.startErrorListener()
 	go p.startEventListener()
 }
