@@ -219,16 +219,17 @@ func (js *JavascriptBuilder) findNode(in otto.Value) (*node.Node, error) {
  * Run the javascript environment, pipelines are accumulated in the struct
  */
 func (js *JavascriptBuilder) Build() (Application, error) {
-	for _, p := range js.js_pipelines {
-		pipeline := node.NewPipeline(p.Sink, p.Config, p.Transformers)
-		js.app.AddPipeline(*pipeline)
-	}
 	_, err := js.vm.Run(js.script)
 	if js.err != nil {
 		return nil, js.err
 	}
 	if err != nil {
 		return nil, err
+	}
+	for _, p := range js.js_pipelines {
+		fmt.Printf("pipeline: %+v\n", p)
+		pipeline := node.NewPipeline(p.Sink, p.Config, p.Transformers)
+		js.app.AddPipeline(*pipeline)
 	}
 
 	return js.app, nil
