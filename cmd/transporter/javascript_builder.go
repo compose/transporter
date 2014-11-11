@@ -78,7 +78,7 @@ func (js *JavascriptBuilder) save(pipeline node.Pipeline, call otto.FunctionCall
  */
 func (js *JavascriptBuilder) transform(pipeline node.Pipeline, call otto.FunctionCall) (node.Pipeline, error) {
 	if !call.Argument(0).IsString() {
-		return pipeline, fmt.Errorf("bad arguments, expected string, got %s.", len(call.Argument(0).Class()))
+		return pipeline, fmt.Errorf("bad arguments, expected string, got %d.", len(call.Argument(0).Class()))
 	}
 
 	fn, _ := call.Argument(0).Export()

@@ -55,7 +55,6 @@ func (m *Msg) extractId(doc bson.M) (bson.M, interface{}) {
 			m.idKey = key
 			delete(doc, key)
 			return doc, id
-			fmt.Printf(" returned doc %+v\n", doc)
 		}
 	}
 

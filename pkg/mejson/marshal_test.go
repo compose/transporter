@@ -234,7 +234,7 @@ func TestMarshalRegex(t *testing.T) {
 		in   bson.RegEx
 		want []byte
 	}{
-		{bson.RegEx{"nick", "i"}, []byte("{\"$options\":\"i\",\"$regex\":\"nick\"}")},
+		{bson.RegEx{Pattern: "nick", Options: "i"}, []byte("{\"$options\":\"i\",\"$regex\":\"nick\"}")},
 	}
 
 	for _, d := range data {

@@ -27,8 +27,8 @@ type Pipeline struct {
 	Transformers []*Transformer `json:"transformers"`
 
 	sourcePipe Pipe
-	nodeWg     sync.WaitGroup
-	metricsWg  sync.WaitGroup
+	nodeWg     *sync.WaitGroup
+	metricsWg  *sync.WaitGroup
 }
 
 func NewPipeline(source *Node, config Config) *Pipeline {
@@ -117,11 +117,11 @@ func (p *Pipeline) Run() error {
 	pipe := p.sourcePipe
 	for _, transformer := range p.Transformers {
 		pipe = JoinPipe(pipe, transformer.Name, p.Config) // make a joinpipe
-		go func(pipe Pipe) {
+		go func(pipe Pipe, transformer Transformer) {
 			p.nodeWg.Add(1)
 			transformer.Start(pipe)
 			p.nodeWg.Done()
-		}(pipe)
+		}(pipe, transformer)
 	}
 
 	// start the sink

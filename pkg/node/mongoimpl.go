@@ -234,13 +234,13 @@ func (m *MongoImpl) splitNamespace() (string, string, error) {
  *
  */
 type OplogDoc struct {
-	Ts bson.MongoTimestamp "ts"
-	H  int64               "h"
-	V  int                 "v"
-	Op string              "op"
-	Ns string              "ns"
-	O  bson.M              "o"
-	O2 bson.M              "o2"
+	Ts bson.MongoTimestamp `bson:"ts"`
+	H  int64               `bson:"h"`
+	V  int                 `bson:"v"`
+	Op string              `bson:"op"`
+	Ns string              `bson:"ns"`
+	O  bson.M              `bson:"o"`
+	O2 bson.M              `bson:"o2"`
 }
 
 func (o *OplogDoc) validOp() bool {
