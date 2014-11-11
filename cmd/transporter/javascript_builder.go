@@ -227,8 +227,7 @@ func (js *JavascriptBuilder) Build() (Application, error) {
 		return nil, err
 	}
 	for _, p := range js.js_pipelines {
-		fmt.Printf("pipeline: %+v\n", p)
-		pipeline := node.NewPipeline(p.Sink, p.Config, p.Transformers)
+		pipeline := node.NewPipeline(p.Source, p.Sink, p.Config, p.Transformers)
 		js.app.AddPipeline(*pipeline)
 	}
 

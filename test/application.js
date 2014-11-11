@@ -9,23 +9,7 @@
 // Transport({name:"mongodb-production", namespace: "metrics.hits"}).save({name:"supernick", namespace: "somethingelse/posts4"});
 // Transport({name:"localmongo", namespace: "boom.foo"}).save({name:"tofile", namespace: ""})
 
-x = Transport({name:"crapfile", namespace: ""});
-
-console.log(JSON.stringify(x));
-console.log();
-console.log();
-
-y = x.transform("transformers/passthrough_and_log.js")
-
-console.log(JSON.stringify(y));
-console.log();
-console.log();
-
-z = y.save({name:"stdout", namespace: ""})
-
-console.log(JSON.stringify(z));
-console.log();
-console.log();
+Transport({name:"crapfile", namespace: ""}).transform("transformers/passthrough_and_log.js").save({name:"stdout", namespace: ""})
 // Transport({name:"crapfile", namespace: ""}).save({name:"stdout", namespace: ""})
 
 

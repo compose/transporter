@@ -29,9 +29,10 @@ type Pipeline struct {
 	metricsWg  *sync.WaitGroup
 }
 
-func NewPipeline(source *Node, config Config, transformers []*Transformer) *Pipeline {
+func NewPipeline(source *Node, sink *Node, config Config, transformers []*Transformer) *Pipeline {
 	p := &Pipeline{
 		Source:       source,
+		Sink:         sink,
 		Transformers: transformers,
 		Config:       config,
 		sourcePipe:   NewPipe(source.Name, config),
