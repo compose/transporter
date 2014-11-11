@@ -2,10 +2,6 @@
 	"ImportPath": "github.com/compose/transporter",
 	"GoVersion": "go1.3.3",
 	"Packages": [
-		"github.com/compose/transporter/pkg/message",
-		"github.com/compose/transporter/pkg/application",
-		"github.com/compose/transporter/pkg/mejson",
-		"github.com/compose/transporter/pkg/node",
 		"./..."
 	],
 	"Deps": [
