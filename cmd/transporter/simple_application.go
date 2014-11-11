@@ -1,4 +1,4 @@
-package application
+package main
 
 type SimpleApplication struct {
 	runner func() error
