@@ -117,7 +117,7 @@ func (p *Pipeline) Run() error {
 	pipe := p.sourcePipe
 	for _, transformer := range p.Transformers {
 		pipe = JoinPipe(pipe, transformer.Name, p.Config) // make a joinpipe
-		go func(pipe Pipe, transformer Transformer) {
+		go func(pipe Pipe, transformer *Transformer) {
 			p.nodeWg.Add(1)
 			transformer.Start(pipe)
 			p.nodeWg.Done()
