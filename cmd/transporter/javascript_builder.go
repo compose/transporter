@@ -10,12 +10,12 @@ import (
 )
 
 type JavascriptPipeline struct {
-	Source       *node.Node          `json:"source"`
-	Sink         *node.Node          `json:"sink"`
+	Source       node.ConfigNode     `json:"source"`
+	Sink         node.ConfigNode     `json:"sink"`
 	Transformers []*node.Transformer `json:"transformers"`
 }
 
-func NewJavacriptPipeline(source *node.Node) *JavascriptPipeline {
+func NewJavacriptPipeline(source node.ConfigNode) *JavascriptPipeline {
 	jp := &JavascriptPipeline{
 		Source:       source,
 		Transformers: make([]*node.Transformer, 0),
@@ -189,28 +189,28 @@ func (js *JavascriptBuilder) SetFunc(obj *otto.Object, token string, fn func(Jav
  * find the node from the based ont the hash passed in
  *
  */
-func (js *JavascriptBuilder) findNode(in otto.Value) (*node.Node, error) {
+func (js *JavascriptBuilder) findNode(in otto.Value) (n node.ConfigNode, err error) {
 	e, err := in.Export()
 	if err != nil {
-		return nil, err
+		return n, err
 	}
 
 	m, ok := e.(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("first argument to transport must be an hash. (got %T instead)", in)
+		return n, fmt.Errorf("first argument to transport must be an hash. (got %T instead)", in)
 	}
 
 	sourceString, ok := m["name"].(string)
 	sourceNS, ok1 := m["namespace"].(string)
 	if !(ok && ok1) {
-		return nil, fmt.Errorf("source hash requires both a 'source' and a 'namespace'")
+		return n, fmt.Errorf("source hash requires both a 'source' and a 'namespace'")
 	}
 
-	n, ok := js.app.Config.Nodes[sourceString]
+	n, ok = js.app.Config.Nodes[sourceString]
 	if !ok {
-		return nil, fmt.Errorf("no configured nodes found named %s", sourceString)
+		return n, fmt.Errorf("no configured nodes found named %s", sourceString)
 	}
-	return &node.Node{Name: n.Name, Type: n.Type, Uri: n.Uri, Namespace: sourceNS}, nil
+	return node.ConfigNode{Name: n.Name, Type: n.Type, Uri: n.Uri, Namespace: sourceNS}, nil
 }
 
 /*

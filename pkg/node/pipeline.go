@@ -20,25 +20,44 @@ const (
 
 type Pipeline struct {
 	Config       Config
-	Source       *Node          `json:"source"`
-	Sink         *Node          `json:"sink"`
-	Transformers []*Transformer `json:"transformers"`
+	SourceConfig ConfigNode
+	SinkConfig   ConfigNode
+
+	Source       Node
+	Sink         Node
+	Transformers []*Transformer
 
 	sourcePipe Pipe
 	nodeWg     *sync.WaitGroup
 	metricsWg  *sync.WaitGroup
 }
 
-func NewPipeline(source *Node, sink *Node, config Config, transformers []*Transformer) *Pipeline {
+// TODO transformers needs to change here
+func NewPipeline(source ConfigNode, sink ConfigNode, config Config, transformers []*Transformer) *Pipeline {
 	p := &Pipeline{
-		Source:       source,
-		Sink:         sink,
+		SourceConfig: source,
+		SinkConfig:   sink,
 		Transformers: transformers,
 		Config:       config,
 		sourcePipe:   NewPipe(source.Name, config),
 		nodeWg:       &sync.WaitGroup{},
 		metricsWg:    &sync.WaitGroup{},
 	}
+
+	var err error
+
+	p.Source, err = source.Create(SOURCE)
+	if err != nil {
+		// TODO this should error out
+	}
+
+	p.Sink, err = sink.Create(SINK)
+	if err != nil {
+		// TODO this should error out
+	}
+
+	go p.startErrorListener()
+	go p.startEventListener()
 
 	return p
 }
@@ -50,28 +69,6 @@ func (p *Pipeline) String() string {
 		out += fmt.Sprintf("   - %s\n", t)
 	}
 	return out
-}
-
-/*
- * Create the pipeline, and instantiate all the nodes
- */
-func (p *Pipeline) Create() error {
-	err := p.Source.Create(SOURCE)
-	if err != nil {
-		return err
-	}
-
-	err = p.Sink.Create(SINK)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (p *Pipeline) init() {
-	go p.startErrorListener()
-	go p.startEventListener()
 }
 
 func (p *Pipeline) startTransformers() (pipe Pipe) {
@@ -90,7 +87,7 @@ func (p *Pipeline) startTransformers() (pipe Pipe) {
 func (p *Pipeline) startSink(pipe Pipe) {
 	go func() {
 		p.nodeWg.Add(1)
-		p.Sink.NodeImpl.Start(pipe)
+		p.Sink.Start(pipe)
 		p.nodeWg.Done()
 	}()
 }
@@ -100,26 +97,24 @@ func (p *Pipeline) stopEverything() {
 	for _, transformer := range p.Transformers {
 		transformer.Stop()
 	}
-	p.Sink.NodeImpl.Stop()
-	p.Source.NodeImpl.Stop()
+	p.Sink.Stop()
+	p.Source.Stop()
 }
 
 /*
  * run the pipeline
  */
 func (p *Pipeline) Run() error {
-	p.init()
-
 	pipe := p.startTransformers()
 
 	// start the sink
-	p.startSink(JoinPipe(pipe, p.Sink.Name, p.Config))
+	p.startSink(JoinPipe(pipe, p.Sink.Config().Name, p.Config))
 
 	// send a boot event
 	p.sourcePipe.Event <- NewBootEvent(time.Now().Unix(), VERSION, p.endpointMap())
 
 	// start the source
-	err := p.Source.NodeImpl.Start(p.sourcePipe)
+	err := p.Source.Start(p.sourcePipe)
 
 	// the source has exited, stop all the other nodes
 	p.stopEverything()
@@ -133,8 +128,8 @@ func (p *Pipeline) Run() error {
 
 func (p *Pipeline) endpointMap() map[string]string {
 	m := make(map[string]string)
-	m[p.Source.Name] = p.Source.Type
-	m[p.Sink.Name] = p.Sink.Type
+	m[p.Source.Config().Name] = p.Source.Config().Type
+	m[p.Sink.Config().Name] = p.Sink.Config().Type
 	for _, v := range p.Transformers {
 		m[v.Name] = "transformer"
 	}

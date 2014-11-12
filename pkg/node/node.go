@@ -1,9 +1,93 @@
 package node
 
 import (
+	"errors"
 	"fmt"
+	"reflect"
 )
 
+var NoNodeError = errors.New("Module not found")
+
+var (
+	Registry = map[string]interface{}{
+		"mongo":         NewMongoImpl,
+		"file":          NewFileImpl,
+		"elasticsearch": NewElasticsearchImpl,
+	}
+)
+
+/*
+ * A Config stores the list of nodes that are available to a transporter, as well
+ * as information about the api
+ */
+type Config struct {
+	Api struct {
+		Uri             string `json:"uri" yaml:"uri"`
+		MetricsInterval int    `json:"interval" yaml:"interval"`
+	} `json:"api" yaml:"api"`
+	Nodes map[string]ConfigNode
+}
+
+/*
+ * A ConfigNode is a description of an endpoint.  This is not a concrete implementation of a data store, just a
+ * container to hold config values.
+ */
+type ConfigNode struct {
+	Role      NodeRole `json:"-"`
+	Name      string   `json:"name"`
+	Type      string   `json:"type"`
+	Uri       string   `json:"uri"`
+	Namespace string   `json:"namespace"`
+}
+
+func (n *ConfigNode) String() string {
+	return fmt.Sprintf("%-20s %-15s %-30s %s", n.Name, n.Type, n.Namespace, n.Uri)
+}
+
+/*
+ * Create a concrete node that will read/write to a datastore based on the type
+ * of node
+ */
+func (n *ConfigNode) Create(role NodeRole) (Node, error) {
+	n.Role = role
+
+	fn, ok := Registry[n.Type]
+	if !ok {
+		return nil, fmt.Errorf("Node type '%s' is not defined", n.Type)
+	}
+
+	result := reflect.ValueOf(fn).Call([]reflect.Value{reflect.ValueOf(*n)})
+	impl := result[0]
+	inter := result[1].Interface()
+
+	if inter != nil {
+		return nil, inter.(error)
+	}
+
+	switch m := impl.Interface().(type) {
+	case *MongoImpl:
+		return m, nil
+	case *FileImpl:
+		return m, nil
+	case *ElasticsearchImpl:
+		return m, nil
+	}
+
+	return nil, NoNodeError
+}
+
+/*
+ * All nodes must implement the Node interface
+ */
+type Node interface {
+	Start(Pipe) error
+	Stop() error
+	Config() ConfigNode
+}
+
+/*
+ * TODO not sure if this makes sense to be part of the node.  this might be better to be part of the pipeline
+ */
 type NodeRole int
 
 const (
@@ -20,30 +104,4 @@ func (n NodeRole) String() string {
 	default:
 		return ""
 	}
-}
-
-/*
- * A Node is an endpoint, Either a source, or a sink
- */
-type Node struct {
-	Role      NodeRole `json:"-"`
-	Name      string   `json:"name"`
-	Type      string   `json:"type"`
-	Uri       string   `json:"uri"`
-	Namespace string   `json:"namespace"`
-	NodeImpl  NodeImpl `json:"-"`
-}
-
-func (n *Node) String() string {
-	return fmt.Sprintf("%-20s %-15s %-30s %s", n.Name, n.Type, n.Namespace, n.Uri)
-}
-
-/*
- * Tie this to the actual implementation
- */
-func (n *Node) Create(role NodeRole) (err error) {
-	n.Role = role
-
-	n.NodeImpl, err = NewImpl(n)
-	return err
 }

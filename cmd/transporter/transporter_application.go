@@ -26,13 +26,6 @@ func (t *TransporterApplication) Run() (err error) {
 	fmt.Println(t)
 
 	for _, p := range t.Pipelines {
-		err = p.Create()
-		if err != nil {
-			return err
-		}
-	}
-
-	for _, p := range t.Pipelines {
 		err = p.Run()
 		if err != nil {
 			return err
