@@ -13,6 +13,7 @@ dependencies:
     - go get labix.org/v2/mgo
     - go get gopkg.in/yaml.v2
     - go get github.com/mattbaird/elastigo
+    - go get github.com/compose/mejson
 
   cache_directories:
   - "/home/ubuntu/boto"
@@ -20,8 +21,8 @@ dependencies:
 
 test:
   override:
-    # - $CIRCLE_ARTIFACTS/godep go test ./... 
-    - go test ./... 
+    # - $CIRCLE_ARTIFACTS/godep go test ./...
+    - go test ./...
 
 deployment:
   default:
