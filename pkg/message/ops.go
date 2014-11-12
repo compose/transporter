@@ -1,8 +1,7 @@
 package message
 
-/*
- * some basic op types
- */
+// OpType represents the many different Operations being
+// performed against a document (i.e. Insert, Update, etc.)
 type OpType int
 
 const (
@@ -13,6 +12,8 @@ const (
 	Unknown
 )
 
+// String returns the constant of the
+// string representation of the OpType object.
 func (o OpType) String() string {
 	switch o {
 	case Insert:
@@ -28,6 +29,8 @@ func (o OpType) String() string {
 	}
 }
 
+// OpTypeFromString returns the constant
+// representing the passed in string
 func OpTypeFromString(s string) OpType {
 	switch s[0] {
 	case 'i':
@@ -43,9 +46,8 @@ func OpTypeFromString(s string) OpType {
 	}
 }
 
-/*
- * different types of commands
- */
+// CommandType represents the different Commands capable
+// of being executed against a database.
 type CommandType int
 
 const (

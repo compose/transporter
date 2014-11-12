@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Package message provides wrapper structs and helper methods to pipe
+// actual database documents throughout transporter.
 package message
 
 import (
