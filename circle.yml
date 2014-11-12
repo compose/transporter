@@ -12,6 +12,7 @@ dependencies:
     - go get github.com/robertkrimen/otto
     - go get labix.org/v2/mgo
     - go get gopkg.in/yaml.v2
+    - go get github.com/mattbaird/elastigo
 
   cache_directories:
   - "/home/ubuntu/boto"
