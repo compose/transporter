@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/compose/transporter/pkg/mejson"
+	"github.com/compose/mejson"
 	"github.com/compose/transporter/pkg/message"
 	"github.com/robertkrimen/otto"
 	_ "github.com/robertkrimen/otto/underscore" // enable underscore
