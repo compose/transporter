@@ -56,3 +56,18 @@ Run
 - run `./transporter --config ./test/config.yaml run ./test/application.js`
 
 
+Contributing to Transporter
+======================
+
+[![Build Status](https://circleci.com/gh/compose/transporter/tree/master.png?style=badge)](https://circleci.com/gh/compose/transporter/tree/master)
+
+Want to help out with Transporter? Great! There are instructions to get you
+started [here](CONTRIBUTING.md). If you'd like to contribute to the
+documentation, please take a look at this [README.md](https://github.com/docker/docker/blob/master/docs/README.md).
+
+
+
+Licensing
+=========
+Transporter is licensed under the New BSD. See LICENSE for full license text.
+
