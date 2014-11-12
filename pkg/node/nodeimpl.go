@@ -18,8 +18,9 @@ type NodeImpl interface {
 
 var (
 	Registry = map[string]interface{}{
-		"mongo": NewMongoImpl,
-		"file":  NewFileImpl,
+		"mongo":         NewMongoImpl,
+		"file":          NewFileImpl,
+		"elasticsearch": NewElasticsearchImpl,
 	}
 )
 
@@ -56,6 +57,8 @@ func NewImpl(n *Node) (NodeImpl, error) {
 	case *MongoImpl:
 		return m, nil
 	case *FileImpl:
+		return m, nil
+	case *ElasticsearchImpl:
 		return m, nil
 	}
 
