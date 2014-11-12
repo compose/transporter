@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"labix.org/v2/mgo/bson"
+	"gopkg.in/mgo.v2"
 )
 
 type FakeMessage struct {

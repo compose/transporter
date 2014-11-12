@@ -1,3 +1,9 @@
+// Copyright 2014 The Transporter Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+// Package node provides all implemented functionality to move
+// data through transporter.
 package node
 
 import (
