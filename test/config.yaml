@@ -5,9 +5,9 @@ nodes:
   localmongo:
     type: mongo
     uri: mongodb://localhost/boom
-  supernick:
+  es:
     type: elasticsearch
-    uri: http://10.0.0.1,10.0.0.2:9200/indexname
+    uri: https://nick:darling@haproxy1.dblayer.com:10291/thisgetsignored
   debug:
     type: file
     uri: stdout://

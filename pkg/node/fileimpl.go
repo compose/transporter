@@ -11,17 +11,14 @@ import (
 )
 
 type FileImpl struct {
-	pipe      Pipe
-	role      NodeRole
-	uri       string
-	name      string
-	namespace string
+	pipe   Pipe
+	config ConfigNode
 
 	filehandle *os.File
 }
 
-func NewFileImpl(role NodeRole, name, uri, namespace string) (*FileImpl, error) {
-	return &FileImpl{name: name, uri: uri, namespace: namespace, role: role}, nil
+func NewFileImpl(c ConfigNode) (*FileImpl, error) {
+	return &FileImpl{config: c}, nil
 
 }
 
@@ -36,9 +33,9 @@ func (d *FileImpl) Start(pipe Pipe) (err error) {
 		d.Stop()
 	}()
 
-	if d.role == SINK {
-		if strings.HasPrefix(d.uri, "file://") {
-			filename := strings.Replace(d.uri, "file://", "", 1)
+	if d.config.Role == SINK {
+		if strings.HasPrefix(d.config.Uri, "file://") {
+			filename := strings.Replace(d.config.Uri, "file://", "", 1)
 			d.filehandle, err = os.Create(filename)
 			if err != nil {
 				d.pipe.Err <- err
@@ -60,11 +57,15 @@ func (d *FileImpl) Stop() error {
 	return nil
 }
 
+func (d *FileImpl) Config() ConfigNode {
+	return d.config
+}
+
 /*
  * read each message from the file
  */
 func (d *FileImpl) readFile() (err error) {
-	filename := strings.Replace(d.uri, "file://", "", 1)
+	filename := strings.Replace(d.config.Uri, "file://", "", 1)
 	d.filehandle, err = os.Open(filename)
 	if err != nil {
 		d.pipe.Err <- err
@@ -80,7 +81,7 @@ func (d *FileImpl) readFile() (err error) {
 			d.pipe.Err <- err
 			return err
 		}
-		d.pipe.Send(message.NewMsg(message.Insert, d.uri, doc))
+		d.pipe.Send(message.NewMsg(message.Insert, d.config.Uri, doc))
 	}
 	return nil
 }
@@ -94,7 +95,7 @@ func (d *FileImpl) dumpMessage(msg *message.Msg) error {
 		return fmt.Errorf("can't unmarshal doc %v", err)
 	}
 
-	if strings.HasPrefix(d.uri, "stdout://") {
+	if strings.HasPrefix(d.config.Uri, "stdout://") {
 		fmt.Println(string(jdoc))
 	} else {
 		_, err = fmt.Fprintln(d.filehandle, string(jdoc))

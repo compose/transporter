@@ -9,27 +9,25 @@ import (
 )
 
 type ElasticsearchImpl struct {
-	role      NodeRole
-	name      string
-	uri       *url.URL
-	namespace string
+	uri *url.URL
 
 	_type string
 	index string
 
+	config ConfigNode
+
 	pipe Pipe
 
-	// client  *elastigo.Conn
 	indexer *elastigo.BulkIndexer
 	running bool
 }
 
-func NewElasticsearchImpl(role NodeRole, name, uri, namespace string) (*ElasticsearchImpl, error) {
-	u, err := url.Parse(uri)
+func NewElasticsearchImpl(c ConfigNode) (*ElasticsearchImpl, error) {
+	u, err := url.Parse(c.Uri)
 	if err != nil {
 		return nil, err
 	}
-	return &ElasticsearchImpl{role: role, name: name, namespace: namespace, uri: u}, nil
+	return &ElasticsearchImpl{uri: u, config: c}, nil
 }
 
 /*
@@ -70,6 +68,10 @@ func (e *ElasticsearchImpl) Stop() error {
 	return nil
 }
 
+func (e *ElasticsearchImpl) Config() ConfigNode {
+	return e.config
+}
+
 func (e *ElasticsearchImpl) applyOp(msg *message.Msg) (err error) {
 	if msg.Op == message.Command {
 		return e.runCommand(msg)
@@ -80,7 +82,7 @@ func (e *ElasticsearchImpl) applyOp(msg *message.Msg) (err error) {
 
 func (e *ElasticsearchImpl) setupClient() {
 	// split the namespace into the index and type
-	fields := strings.SplitN(e.namespace, ".", 2)
+	fields := strings.SplitN(e.config.Namespace, ".", 2)
 	e.index, e._type = fields[0], fields[1]
 
 	// set up the client, we need host(s), port, username, password, and scheme

@@ -15,6 +15,8 @@ type Transformer struct {
 	Name string `json:"name"`
 	Func string `json:"func"`
 
+	config ConfigNode
+
 	pipe Pipe
 
 	debug  bool
@@ -22,24 +24,25 @@ type Transformer struct {
 	vm     *otto.Otto
 }
 
-func NewTransformer() *Transformer {
-	return &Transformer{}
-}
+func NewTransformer(config ConfigNode) (*Transformer, error) {
+	t := &Transformer{config: config}
 
-func (t *Transformer) String() string {
-	return fmt.Sprintf("%-20s %-15s", t.Name, "Transformer")
-}
-
-func (t *Transformer) Load(filename string) error {
+	filename, ok := t.config.Extra["filename"]
+	if !ok {
+		return t, fmt.Errorf("No filename specified")
+	}
 	ba, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return err
+		return t, err
 	}
 	t.Name = filename
 	t.Func = string(ba)
 
-	return nil
+	return t, nil
+}
 
+func (t *Transformer) String() string {
+	return fmt.Sprintf("%-20s %-15s", t.Name, "Transformer")
 }
 
 func (t *Transformer) Start(pipe Pipe) (err error) {
@@ -69,6 +72,11 @@ func (t *Transformer) Start(pipe Pipe) (err error) {
 func (t *Transformer) Stop() error {
 	t.pipe.Stop()
 	return nil
+}
+
+// TODO just implementing this so this will implement the Node interface
+func (t *Transformer) Config() ConfigNode {
+	return t.config
 }
 
 func (t *Transformer) transformOne(msg *message.Msg) error {
