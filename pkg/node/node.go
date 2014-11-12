@@ -13,8 +13,18 @@ var (
 		"mongo":         NewMongoImpl,
 		"file":          NewFileImpl,
 		"elasticsearch": NewElasticsearchImpl,
+		"transformer":   NewTransformer,
 	}
 )
+
+/*
+ * All nodes must implement the Node interface
+ */
+type Node interface {
+	Start(Pipe) error
+	Stop() error
+	Config() ConfigNode
+}
 
 /*
  * A Config stores the list of nodes that are available to a transporter, as well
@@ -33,14 +43,15 @@ type Config struct {
  * container to hold config values.
  */
 type ConfigNode struct {
-	Role      NodeRole `json:"-"`
-	Name      string   `json:"name"`
-	Type      string   `json:"type"`
-	Uri       string   `json:"uri"`
-	Namespace string   `json:"namespace"`
+	Role      NodeRole          `json:"-"`
+	Name      string            `json:"name"`
+	Type      string            `json:"type"`
+	Uri       string            `json:"uri"`
+	Namespace string            `json:"namespace"`
+	Extra     map[string]string `json:"extra"`
 }
 
-func (n *ConfigNode) String() string {
+func (n ConfigNode) String() string {
 	return fmt.Sprintf("%-20s %-15s %-30s %s", n.Name, n.Type, n.Namespace, n.Uri)
 }
 
@@ -50,6 +61,13 @@ func (n *ConfigNode) String() string {
  */
 func (n *ConfigNode) Create(role NodeRole) (Node, error) {
 	n.Role = role
+
+	/* transformers are a little different */
+	if n.Type == "transformer" {
+		t, _ := NewTransformer(*n)
+
+		return t, nil
+	}
 
 	fn, ok := Registry[n.Type]
 	if !ok {
@@ -71,18 +89,11 @@ func (n *ConfigNode) Create(role NodeRole) (Node, error) {
 		return m, nil
 	case *ElasticsearchImpl:
 		return m, nil
+	case *Transformer:
+		return m, nil
 	}
 
 	return nil, NoNodeError
-}
-
-/*
- * All nodes must implement the Node interface
- */
-type Node interface {
-	Start(Pipe) error
-	Stop() error
-	Config() ConfigNode
 }
 
 /*
@@ -91,8 +102,9 @@ type Node interface {
 type NodeRole int
 
 const (
-	SOURCE NodeRole = iota
-	SINK   NodeRole = iota
+	SOURCE               NodeRole = iota
+	SINK                 NodeRole = iota
+	SOMETHINGINTHEMIDDLE NodeRole = iota // TODO i'm tempted to leave it like this.. bug..
 )
 
 func (n NodeRole) String() string {
@@ -102,6 +114,6 @@ func (n NodeRole) String() string {
 	case SINK:
 		return "Sink"
 	default:
-		return ""
+		return "Other"
 	}
 }

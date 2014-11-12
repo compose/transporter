@@ -19,13 +19,8 @@ const (
 )
 
 type Pipeline struct {
-	Config       Config
-	SourceConfig ConfigNode
-	SinkConfig   ConfigNode
-
-	Source       Node
-	Sink         Node
-	Transformers []*Transformer
+	config Config
+	nodes  []Node
 
 	sourcePipe Pipe
 	nodeWg     *sync.WaitGroup
@@ -33,88 +28,87 @@ type Pipeline struct {
 }
 
 // TODO transformers needs to change here
-func NewPipeline(source ConfigNode, sink ConfigNode, config Config, transformers []*Transformer) *Pipeline {
+// we want a Source, and we want an array of nodes.  the last node in that array is assumed to be the sink.
+
+// func NewPipeline(source ConfigNode, sink ConfigNode, config Config, transformers []*Transformer) *Pipeline {
+func NewPipeline(config Config, nodes []ConfigNode) (*Pipeline, error) {
 	p := &Pipeline{
-		SourceConfig: source,
-		SinkConfig:   sink,
-		Transformers: transformers,
-		Config:       config,
-		sourcePipe:   NewPipe(source.Name, config),
-		nodeWg:       &sync.WaitGroup{},
-		metricsWg:    &sync.WaitGroup{},
+		config:    config,
+		nodes:     make([]Node, len(nodes)),
+		nodeWg:    &sync.WaitGroup{},
+		metricsWg: &sync.WaitGroup{},
 	}
 
 	var err error
 
-	p.Source, err = source.Create(SOURCE)
-	if err != nil {
-		// TODO this should error out
+	if len(nodes) < 2 {
+		return nil, fmt.Errorf("pipeline needs at least 2 nodes, %d given", len(nodes))
 	}
 
-	p.Sink, err = sink.Create(SINK)
-	if err != nil {
-		// TODO this should error out
+	for idx, n := range nodes {
+		var role NodeRole
+		switch idx {
+		case 0:
+			role = SOURCE
+		case len(nodes) - 1:
+			role = SINK
+		default:
+			role = SOMETHINGINTHEMIDDLE
+		}
+		p.nodes[idx], err = n.Create(role)
+		if err != nil {
+			return nil, err
+		}
 	}
+
+	p.sourcePipe = NewPipe(p.nodes[0].Config().Name, p.config)
 
 	go p.startErrorListener()
 	go p.startEventListener()
 
-	return p
+	return p, nil
 }
 
 func (p *Pipeline) String() string {
 	out := " - Pipeline\n"
-	out += fmt.Sprintf("  - Source: %s\n  - Sink:   %s\n  - Transformers:\n", p.Source, p.Sink)
-	for _, t := range p.Transformers {
+	out += fmt.Sprintf("  - Source: %s\n  - Sink:   %s\n  - Transformers:\n", p.nodes[0].Config(), p.nodes[len(p.nodes)-1].Config())
+	for _, t := range p.nodes[1 : len(p.nodes)-1] {
 		out += fmt.Sprintf("   - %s\n", t)
 	}
 	return out
 }
 
-func (p *Pipeline) startTransformers() (pipe Pipe) {
-	pipe = p.sourcePipe
-	for _, transformer := range p.Transformers {
-		pipe = JoinPipe(pipe, transformer.Name, p.Config) // make a joinpipe
-		go func(pipe Pipe, transformer *Transformer) {
-			p.nodeWg.Add(1)
-			transformer.Start(pipe)
-			p.nodeWg.Done()
-		}(pipe, transformer)
-	}
-	return pipe
-}
-
-func (p *Pipeline) startSink(pipe Pipe) {
-	go func() {
-		p.nodeWg.Add(1)
-		p.Sink.Start(pipe)
-		p.nodeWg.Done()
-	}()
-}
-
 func (p *Pipeline) stopEverything() {
 	// stop all the nodes
-	for _, transformer := range p.Transformers {
-		transformer.Stop()
+	for _, node := range p.nodes {
+		node.Stop()
 	}
-	p.Sink.Stop()
-	p.Source.Stop()
 }
 
 /*
  * run the pipeline
  */
 func (p *Pipeline) Run() error {
-	pipe := p.startTransformers()
 
-	// start the sink
-	p.startSink(JoinPipe(pipe, p.Sink.Config().Name, p.Config))
+	var pipe Pipe = p.sourcePipe
+
+	for _, node := range p.nodes[1:] {
+		fmt.Printf("starting node %+v\n", node.Config())
+		pipe = JoinPipe(pipe, node.Config().Name, p.config)
+		go func(pipe Pipe, node Node) {
+			p.nodeWg.Add(1)
+			node.Start(pipe)
+			p.nodeWg.Done()
+		}(pipe, node)
+	}
 
 	// send a boot event
+	fmt.Println("sending boot event")
 	p.sourcePipe.Event <- NewBootEvent(time.Now().Unix(), VERSION, p.endpointMap())
 
 	// start the source
-	err := p.Source.Start(p.sourcePipe)
+	fmt.Println("starting the source")
+	err := p.nodes[0].Start(p.sourcePipe)
 
 	// the source has exited, stop all the other nodes
 	p.stopEverything()
@@ -128,10 +122,14 @@ func (p *Pipeline) Run() error {
 
 func (p *Pipeline) endpointMap() map[string]string {
 	m := make(map[string]string)
-	m[p.Source.Config().Name] = p.Source.Config().Type
-	m[p.Sink.Config().Name] = p.Sink.Config().Type
-	for _, v := range p.Transformers {
-		m[v.Name] = "transformer"
+
+	for _, v := range p.nodes {
+		_, is_transformer := v.(*Transformer)
+		if is_transformer {
+			m[v.Config().Name] = "transformer"
+		} else {
+			m[v.Config().Name] = v.Config().Type
+		}
 	}
 	return m
 }
@@ -153,20 +151,21 @@ func (p *Pipeline) startEventListener() {
 		p.metricsWg.Add(1)
 		go func() {
 			defer p.metricsWg.Done()
-			resp, err := http.Post(p.Config.Api.Uri, "application/json", bytes.NewBuffer(ba))
+			resp, err := http.Post(p.config.Api.Uri, "application/json", bytes.NewBuffer(ba))
 			if err != nil {
+				fmt.Println("event send failed")
 				p.sourcePipe.Err <- err
 				return
 			}
 
 			if resp.StatusCode != 200 {
 				resp.Body.Close()
-				p.sourcePipe.Err <- fmt.Errorf("http error code, expected 200, got %d.  %d", resp.StatusCode, resp.StatusCode)
+				p.sourcePipe.Err <- fmt.Errorf("Event Error: http error code, expected 200, got %d.  %d", resp.StatusCode, resp.StatusCode)
 				return
 			}
 			resp.Body.Close()
 		}()
-		fmt.Printf("sent pipeline event: %s -> %s\n", p.Config.Api.Uri, event)
+		fmt.Printf("sent pipeline event: %s -> %s\n", p.config.Api.Uri, event)
 
 	}
 }

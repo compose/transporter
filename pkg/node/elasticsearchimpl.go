@@ -18,7 +18,6 @@ type ElasticsearchImpl struct {
 
 	pipe Pipe
 
-	// client  *elastigo.Conn
 	indexer *elastigo.BulkIndexer
 	running bool
 }

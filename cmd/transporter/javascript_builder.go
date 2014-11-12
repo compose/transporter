@@ -10,18 +10,11 @@ import (
 )
 
 type JavascriptPipeline struct {
-	Source       node.ConfigNode     `json:"source"`
-	Sink         node.ConfigNode     `json:"sink"`
-	Transformers []*node.Transformer `json:"transformers"`
+	Nodes []node.ConfigNode
 }
 
 func NewJavacriptPipeline(source node.ConfigNode) *JavascriptPipeline {
-	jp := &JavascriptPipeline{
-		Source:       source,
-		Transformers: make([]*node.Transformer, 0),
-	}
-
-	return jp
+	return &JavascriptPipeline{Nodes: []node.ConfigNode{source}}
 }
 
 /*
@@ -55,11 +48,11 @@ func (t *JavascriptPipeline) Object() (*otto.Object, error) {
 }
 
 /*
- * add a transformer function to a pipeline.
- * transformers will be called in fifo order
+ * add a node to a pipeline.
+ * nodes are called in fifo order
  */
-func (jp *JavascriptPipeline) AddTransformer(t *node.Transformer) {
-	jp.Transformers = append(jp.Transformers, t)
+func (jp *JavascriptPipeline) AddNode(n node.ConfigNode) {
+	jp.Nodes = append(jp.Nodes, n)
 }
 
 type JavascriptBuilder struct {
@@ -122,8 +115,8 @@ func (js *JavascriptBuilder) save(pipeline JavascriptPipeline, call otto.Functio
 	if err != nil {
 		return pipeline, err
 	}
-	pipeline.Sink = this_node
-	js.js_pipelines = append(js.js_pipelines, pipeline)
+	pipeline.AddNode(this_node)
+	js.js_pipelines = append(js.js_pipelines, pipeline) // TODO
 	return pipeline, err
 }
 
@@ -136,18 +129,20 @@ func (js *JavascriptBuilder) transform(pipeline JavascriptPipeline, call otto.Fu
 	}
 
 	fn, _ := call.Argument(0).Export()
-	transformer := node.NewTransformer()
+
 	var filename string
 	filename = fn.(string)
 	if !filepath.IsAbs(fn.(string)) {
 		filename = filepath.Join(js.path, filename)
 	}
-	err := transformer.Load(filename)
-	if err != nil {
-		return pipeline, err
+
+	transformer := node.ConfigNode{
+		Name:  "generate a uuid",
+		Type:  "transformer",
+		Extra: map[string]string{"filename": filename},
 	}
 
-	pipeline.AddTransformer(transformer)
+	pipeline.AddNode(transformer)
 	return pipeline, nil
 }
 
@@ -225,7 +220,10 @@ func (js *JavascriptBuilder) Build() (Application, error) {
 		return nil, err
 	}
 	for _, p := range js.js_pipelines {
-		pipeline := node.NewPipeline(p.Source, p.Sink, js.app.Config, p.Transformers)
+		pipeline, err := node.NewPipeline(js.app.Config, p.Nodes)
+		if err != nil {
+			return js.app, err
+		}
 		js.app.AddPipeline(*pipeline)
 	}
 
