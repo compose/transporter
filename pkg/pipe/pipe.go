@@ -1,3 +1,9 @@
+// Copyright 2014 The Transporter Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+// Package pipe provides types to help manage transporter communication channels as well as
+// event types.
 package pipe
 
 import (
@@ -21,11 +27,11 @@ func newMessageChan() messageChan {
 	return make(chan *message.Msg)
 }
 
-/*
- * wrap all our messaging methods
- * provide easy way to send and recieve messages while taking into account selects
- * from the stop channel
- */
+// Pipe provides a set of methods to let transporter nodes communicate with each other.
+//
+// Pipes contain In, Out, Err, and Event channels.  Messages are consumed by a node through the 'in' chan, emited from the node by the 'out' chan.
+// Pipes come in three flavours, a sourcePipe, which only emits messages and has no listening loop, a sinkPipe which has a listening loop, but doesn't emit any messages,
+// and joinPipe which has a li tening loop that also emits messages.
 type Pipe struct {
 	In              messageChan
 	Out             messageChan
@@ -38,11 +44,8 @@ type Pipe struct {
 	metricsInterval time.Duration
 }
 
-/*
- * NewPipe should be called once for each transporter pipeline and will be attached to the transporter source.
- * it initializes all the channels
- */
-func NewPipe(name string, interval time.Duration) Pipe {
+// NewSourcePipe creates a Pipe that has no listening loop, but just emits messages.  Only one SourcePipe should be created for each transporter pipeline and should be attached to the transporter source.
+func NewSourcePipe(name string, interval time.Duration) Pipe {
 	p := Pipe{
 		In:              nil,
 		Out:             newMessageChan(),
@@ -55,12 +58,8 @@ func NewPipe(name string, interval time.Duration) Pipe {
 	return p
 }
 
-/*
- * JoinPipe should be called to create a pipe that is connected to a previous pipe.
- * the newly created pipe will use the original pipe's 'Out' channel as it's 'In' channel
- * and allows the easy creation of chains of pipes
- */
-func JoinPipe(p Pipe, name string) Pipe {
+// NewJoinPipe creates a pipe that with the In channel attached to the given pipe's Out channel.  Multiple Join pipes can be chained together to create a processing pipeline
+func NewJoinPipe(p Pipe, name string) Pipe {
 	newp := Pipe{
 		In:              p.Out,
 		Out:             newMessageChan(),
@@ -73,7 +72,8 @@ func JoinPipe(p Pipe, name string) Pipe {
 	return newp
 }
 
-func TerminalPipe(p Pipe, name string) Pipe {
+// NewSinkPipe creates a pipe that acts as a terminator to a chain of pipes.  The In channel is the previous channel's Out chan, and the SinkPipe's Out channel is nil.
+func NewSinkPipe(p Pipe, name string) Pipe {
 	newp := Pipe{
 		In:              p.Out,
 		Out:             nil,
@@ -86,9 +86,9 @@ func TerminalPipe(p Pipe, name string) Pipe {
 	return newp
 }
 
-/*
- * start a listening loop.  monitors the chStop for stop events.
- */
+// Listen starts a listening loop that pulls messages from the In chan, applies fn(msg), a `func(message.Msg) error`, and emits them on the Out channel.
+// Errors will be emited to the Pipe's Err chan, and will terminate the loop.
+// The listening loop can be interupted by calls to Stop().
 func (m *Pipe) Listen(fn func(*message.Msg) error) error {
 	if m.In == nil {
 		return nil
@@ -117,12 +117,13 @@ func (m *Pipe) Listen(fn func(*message.Msg) error) error {
 			if m.Out != nil {
 				m.Send(msg)
 			}
-		case <-time.After(1 * time.Second):
+		case <-time.After(100 * time.Millisecond):
 			// NOP, just breath
 		}
 	}
 }
 
+// Stop terminates the channels listening loop, and allows any timeouts in send to fail
 func (m *Pipe) Stop() {
 	if !m.stopped {
 		m.stopped = true
@@ -141,17 +142,15 @@ func (m *Pipe) Stopped() bool {
 	return m.stopped
 }
 
-/*
- * send the message on the 'Out' channel.  Timeout after 1 second and check if we've been asked to exit.
- * this does not return any information about whether or not the message was sent successfully.  errors should be caught elsewhere
- */
+// send emits the given message on the 'Out' channel.  the send Timesout after 100 ms in order to chaeck of the Pipe has stopped and we've been asked to exit.
+// If the Pipe has been stopped, the send will fail and there is no guarantee of either success or failure
 func (m *Pipe) Send(msg *message.Msg) {
 	for {
 		select {
 		case m.Out <- msg:
 			m.metrics.RecordsOut += 1
 			return
-		case <-time.After(1 * time.Second):
+		case <-time.After(100 * time.Millisecond):
 			if m.Stopped() {
 				return
 			}
