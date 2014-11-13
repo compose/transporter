@@ -50,7 +50,7 @@ func NewPipeline(config Config, nodes []ConfigNode) (*Pipeline, error) {
 		}
 	}
 
-	p.sourcePipe = pipe.NewPipe(p.nodes[0].Config().Name, time.Duration(p.config.Api.MetricsInterval)*time.Millisecond)
+	p.sourcePipe = pipe.NewSourcePipe(p.nodes[0].Config().Name, time.Duration(p.config.Api.MetricsInterval)*time.Millisecond)
 
 	go p.startErrorListener()
 	go p.startEventListener()
@@ -84,9 +84,9 @@ func (p *Pipeline) Run() error {
 	for idx, node := range p.nodes[1:] {
 		// lets get a joinPipe, unless we're the last one, and then lets use a terminalPipe
 		if idx == len(p.nodes)-2 {
-			current_pipe = pipe.TerminalPipe(current_pipe, node.Config().Name)
+			current_pipe = pipe.NewSinkPipe(current_pipe, node.Config().Name)
 		} else {
-			current_pipe = pipe.JoinPipe(current_pipe, node.Config().Name)
+			current_pipe = pipe.NewJoinPipe(current_pipe, node.Config().Name)
 		}
 
 		go func(current_pipe pipe.Pipe, node Node) {
