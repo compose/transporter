@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/compose/transporter/pkg/node"
+	"github.com/compose/transporter/pkg/transporter"
 	"github.com/robertkrimen/otto"
 )
 
 type JavascriptPipeline struct {
-	Nodes []node.ConfigNode
+	Nodes []transporter.ConfigNode
 }
 
-func NewJavacriptPipeline(source node.ConfigNode) *JavascriptPipeline {
-	return &JavascriptPipeline{Nodes: []node.ConfigNode{source}}
+func NewJavacriptPipeline(source transporter.ConfigNode) *JavascriptPipeline {
+	return &JavascriptPipeline{Nodes: []transporter.ConfigNode{source}}
 }
 
 /*
@@ -51,7 +51,7 @@ func (t *JavascriptPipeline) Object() (*otto.Object, error) {
  * add a node to a pipeline.
  * nodes are called in fifo order
  */
-func (jp *JavascriptPipeline) AddNode(n node.ConfigNode) {
+func (jp *JavascriptPipeline) AddNode(n transporter.ConfigNode) {
 	jp.Nodes = append(jp.Nodes, n)
 }
 
@@ -66,7 +66,7 @@ type JavascriptBuilder struct {
 	err          error
 }
 
-func NewJavascriptBuilder(config node.Config, file string) (*JavascriptBuilder, error) {
+func NewJavascriptBuilder(config transporter.Config, file string) (*JavascriptBuilder, error) {
 	js := &JavascriptBuilder{file: file, vm: otto.New(), path: filepath.Dir(file), js_pipelines: make([]JavascriptPipeline, 0), app: NewTransporterApplication(config)}
 
 	script, err := js.vm.Compile(file, nil)
@@ -129,7 +129,7 @@ func (js *JavascriptBuilder) source(call otto.FunctionCall) otto.Value {
 		js.err = err
 		return otto.NullValue()
 	}
-	this_node.Role = node.SOURCE
+	this_node.Role = transporter.SOURCE
 
 	pipeline, err := NewJavacriptPipeline(this_node).Object()
 	if err != nil {
@@ -151,7 +151,7 @@ func (js *JavascriptBuilder) save(pipeline JavascriptPipeline, call otto.Functio
 	if err != nil {
 		return pipeline, err
 	}
-	this_node.Role = node.SINK
+	this_node.Role = transporter.SINK
 	pipeline.AddNode(this_node)
 
 	return pipeline, err
@@ -173,7 +173,7 @@ func (js *JavascriptBuilder) transform(pipeline JavascriptPipeline, call otto.Fu
 		filename = filepath.Join(js.path, filename)
 	}
 
-	transformer := node.ConfigNode{
+	transformer := transporter.ConfigNode{
 		Name:  "generate a uuid",
 		Type:  "transformer",
 		Extra: map[string]string{"filename": filename},
@@ -221,7 +221,7 @@ func (js *JavascriptBuilder) SetFunc(obj *otto.Object, token string, fn func(Jav
  * find the node from the based ont the hash passed in
  *
  */
-func (js *JavascriptBuilder) findNode(in otto.Value) (n node.ConfigNode, err error) {
+func (js *JavascriptBuilder) findNode(in otto.Value) (n transporter.ConfigNode, err error) {
 	e, err := in.Export()
 	if err != nil {
 		return n, err
@@ -242,7 +242,7 @@ func (js *JavascriptBuilder) findNode(in otto.Value) (n node.ConfigNode, err err
 	if !ok {
 		return n, fmt.Errorf("no configured nodes found named %s", sourceString)
 	}
-	return node.ConfigNode{Name: n.Name, Type: n.Type, Uri: n.Uri, Namespace: sourceNS}, nil
+	return transporter.ConfigNode{Name: n.Name, Type: n.Type, Uri: n.Uri, Namespace: sourceNS}, nil
 }
 
 /*
@@ -257,7 +257,7 @@ func (js *JavascriptBuilder) Build() (Application, error) {
 		return nil, err
 	}
 	for _, p := range js.js_pipelines {
-		pipeline, err := node.NewPipeline(js.app.Config, p.Nodes)
+		pipeline, err := transporter.NewPipeline(js.app.Config, p.Nodes)
 		if err != nil {
 			return js.app, err
 		}

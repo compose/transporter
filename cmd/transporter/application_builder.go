@@ -7,13 +7,13 @@ import (
 	"os"
 	"text/template"
 
-	"github.com/compose/transporter/pkg/node"
+	"github.com/compose/transporter/pkg/transporter"
 	"gopkg.in/yaml.v2"
 )
 
 type ApplicationBuilder struct {
 	// config
-	Config node.Config
+	Config transporter.Config
 
 	// command to run
 	Command *Command
@@ -46,7 +46,7 @@ func Build() (Application, error) {
  * Load Config file from disk
  */
 func (a *ApplicationBuilder) loadConfig() (err error) {
-	var c node.Config
+	var c transporter.Config
 	if a.config_path == "" {
 		return nil
 	}

@@ -3,19 +3,19 @@ package main
 import (
 	"fmt"
 
-	"github.com/compose/transporter/pkg/node"
+	"github.com/compose/transporter/pkg/transporter"
 )
 
 type TransporterApplication struct {
-	Config    node.Config
-	Pipelines []node.Pipeline
+	Config    transporter.Config
+	Pipelines []transporter.Pipeline
 }
 
-func NewTransporterApplication(config node.Config) *TransporterApplication {
-	return &TransporterApplication{Pipelines: make([]node.Pipeline, 0), Config: config}
+func NewTransporterApplication(config transporter.Config) *TransporterApplication {
+	return &TransporterApplication{Pipelines: make([]transporter.Pipeline, 0), Config: config}
 }
 
-func (t *TransporterApplication) AddPipeline(p node.Pipeline) {
+func (t *TransporterApplication) AddPipeline(p transporter.Pipeline) {
 	t.Pipelines = append(t.Pipelines, p)
 }
 

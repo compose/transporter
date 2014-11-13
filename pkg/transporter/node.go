@@ -4,7 +4,7 @@
 
 // Package node provides all implemented functionality to move
 // data through transporter.
-package node
+package transporter
 
 import (
 	"errors"
