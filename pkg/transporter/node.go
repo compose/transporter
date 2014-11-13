@@ -112,9 +112,9 @@ func (n *ConfigNode) Create() (Node, error) {
 type NodeRole int
 
 const (
-	SOURCE               NodeRole = iota
-	SINK                 NodeRole = iota
-	SOMETHINGINTHEMIDDLE NodeRole = iota // TODO i'm tempted to leave it like this.. bug..
+	SOURCE      NodeRole = iota
+	SINK        NodeRole = iota
+	TRANSFORMER NodeRole = iota // TODO i'm tempted to leave it like this.. bug..
 )
 
 func (n NodeRole) String() string {

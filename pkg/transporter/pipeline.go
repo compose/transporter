@@ -29,6 +29,7 @@ type Pipeline struct {
 	metricsWg  *sync.WaitGroup
 }
 
+// NewPipeline creates a new Transporter Pipeline.  the nodes are an ordered list of ConfigNodes, the first node is assumed to have the role 'Source', the last node is assumed to have the role 'SINK'
 func NewPipeline(config Config, nodes []ConfigNode) (*Pipeline, error) {
 	p := &Pipeline{
 		config:    config,
@@ -60,10 +61,11 @@ func NewPipeline(config Config, nodes []ConfigNode) (*Pipeline, error) {
 
 func (p *Pipeline) String() string {
 	out := " - Pipeline\n"
-	out += fmt.Sprintf("  - Source: %s\n  - Sink:   %s\n  - Transformers:\n", p.nodes[0], p.nodes[len(p.nodes)-1])
+	out += fmt.Sprintf("  - Source: %s\n", p.nodes[0])
 	for _, t := range p.nodes[1 : len(p.nodes)-1] {
 		out += fmt.Sprintf("   - %s\n", t)
 	}
+	out += fmt.Sprintf("  - Sink:   %s\n", p.nodes[len(p.nodes)-1])
 	return out
 }
 
