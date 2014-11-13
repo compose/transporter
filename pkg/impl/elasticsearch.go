@@ -1,4 +1,4 @@
-package transporter
+package impl
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	elastigo "github.com/mattbaird/elastigo/lib"
 )
 
-type ElasticsearchImpl struct {
+type Elasticsearch struct {
 	// pull these in from the node
 	uri *url.URL
 
@@ -23,13 +23,13 @@ type ElasticsearchImpl struct {
 	running bool
 }
 
-func NewElasticsearchImpl(p pipe.Pipe, extra map[string]interface{}) (*ElasticsearchImpl, error) {
+func NewElasticsearch(p pipe.Pipe, extra map[string]interface{}) (*Elasticsearch, error) {
 	u, err := url.Parse(extra["uri"].(string))
 	if err != nil {
 		return nil, err
 	}
 
-	e := &ElasticsearchImpl{
+	e := &Elasticsearch{
 		uri:  u,
 		pipe: p,
 	}
@@ -42,12 +42,12 @@ func NewElasticsearchImpl(p pipe.Pipe, extra map[string]interface{}) (*Elasticse
 	return e, nil
 }
 
-func (e *ElasticsearchImpl) Start() error {
+func (e *Elasticsearch) Start() error {
 	return fmt.Errorf("Cannot use Elasticsearch as a source")
 }
 
 // start the listener
-func (e *ElasticsearchImpl) Listen() error {
+func (e *Elasticsearch) Listen() error {
 	e.setupClient()
 	e.indexer.Start()
 	e.running = true
@@ -72,7 +72,7 @@ func (e *ElasticsearchImpl) Listen() error {
 /*
  * stop the capsule
  */
-func (e *ElasticsearchImpl) Stop() error {
+func (e *Elasticsearch) Stop() error {
 	if e.running {
 		e.running = false
 		e.pipe.Stop()
@@ -81,7 +81,7 @@ func (e *ElasticsearchImpl) Stop() error {
 	return nil
 }
 
-func (e *ElasticsearchImpl) applyOp(msg *message.Msg) (*message.Msg, error) {
+func (e *Elasticsearch) applyOp(msg *message.Msg) (*message.Msg, error) {
 	if msg.Op == message.Command {
 		return msg, e.runCommand(msg)
 	}
@@ -89,7 +89,7 @@ func (e *ElasticsearchImpl) applyOp(msg *message.Msg) (*message.Msg, error) {
 	return msg, e.indexer.Index(e.index, e._type, msg.IdAsString(), "", nil, msg.Document(), false)
 }
 
-func (e *ElasticsearchImpl) setupClient() {
+func (e *Elasticsearch) setupClient() {
 	// set up the client, we need host(s), port, username, password, and scheme
 	client := elastigo.NewConn()
 
@@ -112,21 +112,21 @@ func (e *ElasticsearchImpl) setupClient() {
 	e.indexer = client.NewBulkIndexerErrors(10, 60)
 }
 
-func (e *ElasticsearchImpl) runCommand(msg *message.Msg) error {
+func (e *Elasticsearch) runCommand(msg *message.Msg) error {
 	if _, has_key := msg.Document()["flush"]; has_key {
 		e.indexer.Flush()
 	}
 	return nil
 }
 
-func (e *ElasticsearchImpl) getNamespace() string {
+func (e *Elasticsearch) getNamespace() string {
 	return strings.Join([]string{e.index, e._type}, ".")
 }
 
 /*
  * split a elasticsearch namespace into a index and a type
  */
-func (e *ElasticsearchImpl) splitNamespace(namespace string) (string, string, error) {
+func (e *Elasticsearch) splitNamespace(namespace string) (string, string, error) {
 	fields := strings.SplitN(namespace, ".", 2)
 
 	if len(fields) != 2 {

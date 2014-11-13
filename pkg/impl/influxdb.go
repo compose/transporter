@@ -1,4 +1,4 @@
-package transporter
+package impl
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"github.com/influxdb/influxdb/client"
 )
 
-type InfluxImpl struct {
+type Influxdb struct {
 	// pull these in from the node
 	uri *url.URL
 
@@ -25,13 +25,13 @@ type InfluxImpl struct {
 	influxClient *client.Client
 }
 
-func NewInfluxImpl(p pipe.Pipe, extra map[string]interface{}) (*InfluxImpl, error) {
+func NewInfluxdb(p pipe.Pipe, extra map[string]interface{}) (*Influxdb, error) {
 	u, err := url.Parse(extra["uri"].(string))
 	if err != nil {
 		return nil, err
 	}
 
-	i := &InfluxImpl{
+	i := &Influxdb{
 		uri:  u,
 		pipe: p,
 	}
@@ -44,11 +44,11 @@ func NewInfluxImpl(p pipe.Pipe, extra map[string]interface{}) (*InfluxImpl, erro
 	return i, nil
 }
 
-func (e *InfluxImpl) Start() error {
+func (e *Influxdb) Start() error {
 	return fmt.Errorf("Cannot use influxdb as a source")
 }
 
-func (i *InfluxImpl) Listen() (err error) {
+func (i *Influxdb) Listen() (err error) {
 	i.influxClient, err = i.setupClient()
 	if err != nil {
 		i.pipe.Err <- err
@@ -58,12 +58,12 @@ func (i *InfluxImpl) Listen() (err error) {
 	return i.pipe.Listen(i.applyOp)
 }
 
-func (i *InfluxImpl) Stop() error {
+func (i *Influxdb) Stop() error {
 	i.pipe.Stop()
 	return nil
 }
 
-func (i *InfluxImpl) applyOp(msg *message.Msg) (*message.Msg, error) {
+func (i *Influxdb) applyOp(msg *message.Msg) (*message.Msg, error) {
 	docSize := len(msg.Document())
 	columns := make([]string, 0, docSize)
 	points := make([][]interface{}, 1)
@@ -81,7 +81,7 @@ func (i *InfluxImpl) applyOp(msg *message.Msg) (*message.Msg, error) {
 	return msg, i.influxClient.WriteSeries([]*client.Series{series})
 }
 
-func (i *InfluxImpl) setupClient() (influxClient *client.Client, err error) {
+func (i *Influxdb) setupClient() (influxClient *client.Client, err error) {
 	// set up the clientConfig, we need host:port, username, password, and database name
 	clientConfig := &client.ClientConfig{
 		Database: i.database,
@@ -101,7 +101,7 @@ func (i *InfluxImpl) setupClient() (influxClient *client.Client, err error) {
 /*
  * split a influx namespace into a database and a series name
  */
-func (i *InfluxImpl) splitNamespace(namespace string) (string, string, error) {
+func (i *Influxdb) splitNamespace(namespace string) (string, string, error) {
 	fields := strings.SplitN(namespace, ".", 2)
 
 	if len(fields) != 2 {

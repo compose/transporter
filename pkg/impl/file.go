@@ -1,4 +1,4 @@
-package transporter
+package impl
 
 import (
 	"encoding/json"
@@ -11,15 +11,15 @@ import (
 	"github.com/compose/transporter/pkg/pipe"
 )
 
-type FileImpl struct {
+type File struct {
 	uri  string
 	pipe pipe.Pipe
 
 	filehandle *os.File
 }
 
-func NewFileImpl(p pipe.Pipe, extra map[string]interface{}) (*FileImpl, error) {
-	return &FileImpl{
+func NewFile(p pipe.Pipe, extra map[string]interface{}) (*File, error) {
+	return &File{
 		uri:  extra["uri"].(string),
 		pipe: p,
 	}, nil
@@ -30,7 +30,7 @@ func NewFileImpl(p pipe.Pipe, extra map[string]interface{}) (*FileImpl, error) {
  * TODO: we only know how to listen on stdout for now
  */
 
-func (d *FileImpl) Start() (err error) {
+func (d *File) Start() (err error) {
 	defer func() {
 		d.Stop()
 	}()
@@ -38,7 +38,7 @@ func (d *FileImpl) Start() (err error) {
 	return d.readFile()
 }
 
-func (d *FileImpl) Listen() (err error) {
+func (d *File) Listen() (err error) {
 	defer func() {
 		d.Stop()
 	}()
@@ -58,7 +58,7 @@ func (d *FileImpl) Listen() (err error) {
 /*
  * stop the capsule
  */
-func (d *FileImpl) Stop() error {
+func (d *File) Stop() error {
 	d.pipe.Stop()
 	return nil
 }
@@ -66,7 +66,7 @@ func (d *FileImpl) Stop() error {
 /*
  * read each message from the file
  */
-func (d *FileImpl) readFile() (err error) {
+func (d *File) readFile() (err error) {
 	filename := strings.Replace(d.uri, "file://", "", 1)
 	d.filehandle, err = os.Open(filename)
 	if err != nil {
@@ -91,7 +91,7 @@ func (d *FileImpl) readFile() (err error) {
 /*
  * dump each message to the file
  */
-func (d *FileImpl) dumpMessage(msg *message.Msg) (*message.Msg, error) {
+func (d *File) dumpMessage(msg *message.Msg) (*message.Msg, error) {
 	jdoc, err := json.Marshal(msg.Document())
 	if err != nil {
 		return msg, fmt.Errorf("can't unmarshal doc %v", err)

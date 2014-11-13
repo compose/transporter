@@ -97,13 +97,6 @@ func (p *Pipeline) Run() error {
 	// var current_pipe pipe.Pipe = p.sourcePipe
 
 	for _, chunk := range p.chunks[1:] {
-		// // lets get a joinPipe, unless we're the last one, and then lets use a terminalPipe
-		// if idx == len(p.chunks)-2 {
-		// 	current_pipe = pipe.NewSinkPipe(current_pipe, chunk.config.Name)
-		// } else {
-		// 	current_pipe = pipe.NewJoinPipe(current_pipe, chunk.config.Name)
-		// }
-
 		go func(node Node) {
 			p.nodeWg.Add(1)
 			node.Listen()

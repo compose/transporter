@@ -1,4 +1,4 @@
-package transporter
+package impl
 
 import (
 	"fmt"
@@ -11,7 +11,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-type MongoImpl struct {
+type Mongodb struct {
 	// pull these in from the node
 	uri string
 
@@ -29,12 +29,12 @@ type MongoImpl struct {
 	restartable bool // this refers to being able to refresh the iterator, not to the restart based on session op
 }
 
-func NewMongoImpl(p pipe.Pipe, extra map[string]interface{}) (*MongoImpl, error) {
+func NewMongodb(p pipe.Pipe, extra map[string]interface{}) (*Mongodb, error) {
 	var (
 		err error
 	)
 
-	m := &MongoImpl{
+	m := &Mongodb{
 		restartable:  true,            // assume for that we're able to restart the process
 		oplogTimeout: 5 * time.Second, // timeout the oplog iterator
 		uri:          extra["uri"].(string),
@@ -54,7 +54,7 @@ func NewMongoImpl(p pipe.Pipe, extra map[string]interface{}) (*MongoImpl, error)
 	return m, err
 }
 
-func (m *MongoImpl) Start() (err error) {
+func (m *Mongodb) Start() (err error) {
 	defer func() {
 		m.pipe.Stop()
 	}()
@@ -75,19 +75,19 @@ func (m *MongoImpl) Start() (err error) {
 	return
 }
 
-func (m *MongoImpl) Listen() (err error) {
+func (m *Mongodb) Listen() (err error) {
 	defer func() {
 		m.pipe.Stop()
 	}()
 	return m.pipe.Listen(m.writeMessage)
 }
 
-func (m *MongoImpl) Stop() error {
+func (m *Mongodb) Stop() error {
 	m.pipe.Stop()
 	return nil
 }
 
-func (m *MongoImpl) writeMessage(msg *message.Msg) (*message.Msg, error) {
+func (m *Mongodb) writeMessage(msg *message.Msg) (*message.Msg, error) {
 	collection := m.mongoSession.DB(m.database).C(m.collection)
 	err := collection.Insert(msg.Document())
 	if mgo.IsDup(err) {
@@ -99,7 +99,7 @@ func (m *MongoImpl) writeMessage(msg *message.Msg) (*message.Msg, error) {
 /*
  * pull down the original connection
  */
-func (m *MongoImpl) catData() (err error) {
+func (m *Mongodb) catData() (err error) {
 
 	var (
 		collection = m.mongoSession.DB(m.database).C(m.collection)
@@ -142,7 +142,7 @@ func (m *MongoImpl) catData() (err error) {
 /*
  * tail the oplog
  */
-func (m *MongoImpl) tailData() (err error) {
+func (m *Mongodb) tailData() (err error) {
 
 	var (
 		collection = m.mongoSession.DB("local").C("oplog.rs")
@@ -201,7 +201,7 @@ func (m *MongoImpl) tailData() (err error) {
 /*
  * update operations need us to get the original document from mongo
  */
-func (m *MongoImpl) getOriginalDoc(doc bson.M) (result bson.M, err error) {
+func (m *Mongodb) getOriginalDoc(doc bson.M) (result bson.M, err error) {
 	id, exists := doc["_id"]
 	if !exists {
 		return result, fmt.Errorf("Can't get _id from document")
@@ -214,14 +214,14 @@ func (m *MongoImpl) getOriginalDoc(doc bson.M) (result bson.M, err error) {
 	return
 }
 
-func (m *MongoImpl) getNamespace() string {
+func (m *Mongodb) getNamespace() string {
 	return strings.Join([]string{m.database, m.collection}, ".")
 }
 
 /*
  * split a mongo namespace into a database and a collection
  */
-func (m *MongoImpl) splitNamespace(namespace string) (string, string, error) {
+func (m *Mongodb) splitNamespace(namespace string) (string, string, error) {
 	fields := strings.SplitN(namespace, ".", 2)
 
 	if len(fields) != 2 {

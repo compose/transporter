@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/compose/transporter/pkg/impl"
 	"github.com/compose/transporter/pkg/pipe"
 )
 
@@ -18,11 +19,11 @@ var NoNodeError = errors.New("Module not found")
 
 var (
 	Registry = map[string]interface{}{
-		"mongo":         NewMongoImpl,
-		"file":          NewFileImpl,
-		"elasticsearch": NewElasticsearchImpl,
-		"influx":        NewInfluxImpl,
-		"transformer":   NewTransformer,
+		"mongo":         impl.NewMongodb,
+		"file":          impl.NewFile,
+		"elasticsearch": impl.NewElasticsearch,
+		"influx":        impl.NewInfluxdb,
+		"transformer":   impl.NewTransformer,
 	}
 )
 
@@ -82,23 +83,23 @@ func (n *ConfigNode) Create(pipe pipe.Pipe) (Node, error) {
 	}
 
 	result := reflect.ValueOf(fn).Call(args)
-	impl := result[0]
+	node := result[0]
 	inter := result[1].Interface()
 
 	if inter != nil {
 		return nil, inter.(error)
 	}
 
-	switch m := impl.Interface().(type) {
-	case *MongoImpl:
+	switch m := node.Interface().(type) {
+	case *impl.Mongodb:
 		return m, nil
-	case *FileImpl:
+	case *impl.File:
 		return m, nil
-	case *ElasticsearchImpl:
+	case *impl.Elasticsearch:
 		return m, nil
-	case *InfluxImpl:
+	case *impl.Influxdb:
 		return m, nil
-	case *Transformer:
+	case *impl.Transformer:
 		return m, nil
 	}
 
