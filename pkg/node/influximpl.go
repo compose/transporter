@@ -36,7 +36,6 @@ func NewInfluxImpl(c ConfigNode) (*InfluxImpl, error) {
 		config: c,
 		uri:    u,
 	}
-
 	return i, nil
 }
 
@@ -51,13 +50,28 @@ func (i *InfluxImpl) Start(pipe Pipe) (err error) {
 	return i.pipe.Listen(i.applyOp)
 }
 
+func (i *InfluxImpl) Config() ConfigNode {
+	return i.config
+}
+
+func (i *InfluxImpl) Stop() error {
+	i.pipe.Stop()
+	return nil
+}
+
 func (i *InfluxImpl) applyOp(msg *message.Msg) (err error) {
+	docSize := len(msg.Document())
+	columns := make([]string, 0, docSize)
+	points := make([][]interface{}, 1)
+	points[0] = make([]interface{}, 0, docSize)
+	for k := range msg.Document() {
+		columns = append(columns, k)
+		points[0] = append(points[0], msg.Document()[k])
+	}
 	series := &client.Series{
 		Name:    i.series_name,
-		Columns: []string{"value"},
-		Points: [][]interface{}{
-			{1.0},
-		},
+		Columns: columns,
+		Points:  points,
 	}
 
 	return i.influxClient.WriteSeries([]*client.Series{series})
