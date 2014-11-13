@@ -33,10 +33,10 @@ type Node interface {
 	Config() ConfigNode
 }
 
-/*
- * A Config stores the list of nodes that are available to a transporter, as well
- * as information about the api
- */
+// A Config stores meta information about the transporter.  This contains a
+// list of the the nodes that are available to a transporter (sources and sinks, not transformers)
+// as well as information about the api used to handle transporter events, and the interval
+// between metrics events.
 type Config struct {
 	Api struct {
 		Uri             string `json:"uri" yaml:"uri"`
@@ -45,10 +45,10 @@ type Config struct {
 	Nodes map[string]ConfigNode
 }
 
-/*
- * A ConfigNode is a description of an endpoint.  This is not a concrete implementation of a data store, just a
- * container to hold config values.
- */
+//
+// A ConfigNode is a description of an endpoint.  This is not a concrete implementation of a data store, just a
+// container to hold config values.
+
 type ConfigNode struct {
 	Role      NodeRole          `json:"role"`
 	Name      string            `json:"name"`
@@ -62,10 +62,14 @@ func (n ConfigNode) String() string {
 	return fmt.Sprintf("%-20s %-15s %-30s %s", n.Name, n.Type, n.Namespace, n.Uri)
 }
 
-/*
- * Create a concrete node that will read/write to a datastore based on the type
- * of node
- */
+// Create a concrete node that will read/write to a datastore based on the type
+// of node.
+//
+// Node types are stored in the node registry and we generate the correct type of Node by examining the NodeConfig.Type
+// property to find the node's constructore.
+//
+// Each constructor is assumed to be of the form
+// func NewImpl(config NodeConfig) (*Impl, error)
 func (n *ConfigNode) Create() (Node, error) {
 
 	fn, ok := Registry[n.Type]
