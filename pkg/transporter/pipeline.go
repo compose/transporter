@@ -22,36 +22,27 @@ const (
 
 type Pipeline struct {
 	config Config
-	nodes  []Node
+	chunks []pipelineChunk // TODO i
 
 	sourcePipe pipe.Pipe
 	nodeWg     *sync.WaitGroup
 	metricsWg  *sync.WaitGroup
 }
 
-// NewPipeline creates a new Transporter Pipeline.  the nodes are an ordered list of ConfigNodes, the first node is assumed to have the role 'Source', the last node is assumed to have the role 'SINK'
-func NewPipeline(config Config, nodes []ConfigNode) (*Pipeline, error) {
+// NewPipeline creates a new Transporter Pipeline, with the given node acting as the 'SOURCE'.  subsequent nodes should be added via AddNode
+func NewPipeline(config Config, source ConfigNode) (*Pipeline, error) {
 	p := &Pipeline{
 		config:    config,
-		nodes:     make([]Node, len(nodes)),
+		chunks:    make([]pipelineChunk, 0),
 		nodeWg:    &sync.WaitGroup{},
 		metricsWg: &sync.WaitGroup{},
 	}
 
-	var err error
-
-	if len(nodes) < 2 {
-		return nil, fmt.Errorf("pipeline needs at least 2 nodes, %d given", len(nodes))
+	if err := p.AddNode(source); err != nil {
+		return p, err
 	}
 
-	for idx, n := range nodes {
-		p.nodes[idx], err = n.Create()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	p.sourcePipe = pipe.NewSourcePipe(p.nodes[0].Name(), time.Duration(p.config.Api.MetricsInterval)*time.Millisecond)
+	p.sourcePipe = pipe.NewSourcePipe(source.Name, time.Duration(p.config.Api.MetricsInterval)*time.Millisecond)
 
 	go p.startErrorListener()
 	go p.startEventListener()
@@ -59,20 +50,31 @@ func NewPipeline(config Config, nodes []ConfigNode) (*Pipeline, error) {
 	return p, nil
 }
 
+// AddNode adds a node to the pipeline
+func (p *Pipeline) AddNode(config ConfigNode) error {
+	node, err := config.Create()
+	if err != nil {
+		return err
+	}
+	n := pipelineChunk{config: config, node: node}
+	p.chunks = append(p.chunks, n)
+	return nil
+}
+
 func (p *Pipeline) String() string {
 	out := " - Pipeline\n"
-	out += fmt.Sprintf("  - Source: %s\n", p.nodes[0])
-	for _, t := range p.nodes[1 : len(p.nodes)-1] {
+	out += fmt.Sprintf("  - Source: %s\n", p.chunks[0].config)
+	for _, t := range p.chunks[1 : len(p.chunks)-1] {
 		out += fmt.Sprintf("   - %s\n", t)
 	}
-	out += fmt.Sprintf("  - Sink:   %s\n", p.nodes[len(p.nodes)-1])
+	out += fmt.Sprintf("  - Sink:   %s\n", p.chunks[len(p.chunks)-1].config)
 	return out
 }
 
 func (p *Pipeline) stopEverything() {
 	// stop all the nodes
-	for _, node := range p.nodes {
-		node.Stop()
+	for _, chunk := range p.chunks {
+		chunk.node.Stop()
 	}
 }
 
@@ -83,26 +85,26 @@ func (p *Pipeline) Run() error {
 
 	var current_pipe pipe.Pipe = p.sourcePipe
 
-	for idx, node := range p.nodes[1:] {
+	for idx, chunk := range p.chunks[1:] {
 		// lets get a joinPipe, unless we're the last one, and then lets use a terminalPipe
-		if idx == len(p.nodes)-2 {
-			current_pipe = pipe.NewSinkPipe(current_pipe, node.Name())
+		if idx == len(p.chunks)-2 {
+			current_pipe = pipe.NewSinkPipe(current_pipe, chunk.config.Name)
 		} else {
-			current_pipe = pipe.NewJoinPipe(current_pipe, node.Name())
+			current_pipe = pipe.NewJoinPipe(current_pipe, chunk.config.Name)
 		}
 
 		go func(current_pipe pipe.Pipe, node Node) {
 			p.nodeWg.Add(1)
 			node.Start(current_pipe)
 			p.nodeWg.Done()
-		}(current_pipe, node)
+		}(current_pipe, chunk.node)
 	}
 
 	// send a boot event
 	p.sourcePipe.Event <- pipe.NewBootEvent(time.Now().Unix(), VERSION, p.endpointMap())
 
 	// start the source
-	err := p.nodes[0].Start(p.sourcePipe)
+	err := p.chunks[0].node.Start(p.sourcePipe)
 
 	// the source has exited, stop all the other nodes
 	p.stopEverything()
@@ -117,13 +119,8 @@ func (p *Pipeline) Run() error {
 func (p *Pipeline) endpointMap() map[string]string {
 	m := make(map[string]string)
 
-	for _, v := range p.nodes {
-		_, is_transformer := v.(*Transformer)
-		if is_transformer {
-			m[v.Name()] = "transformer"
-		} else {
-			m[v.Name()] = v.Type()
-		}
+	for _, v := range p.chunks {
+		m[v.config.Name] = v.config.Type
 	}
 	return m
 }
@@ -162,4 +159,11 @@ func (p *Pipeline) startEventListener() {
 		fmt.Printf("sent pipeline event: %s -> %s\n", p.config.Api.Uri, event)
 
 	}
+}
+
+// pipelineChunk keeps a copy of the config beside the actual node implementation, so that we don't have to force fit the properties of the config
+// into nodes that don't / shouldn't care about them.
+type pipelineChunk struct {
+	config ConfigNode
+	node   Node
 }

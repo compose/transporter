@@ -257,9 +257,16 @@ func (js *JavascriptBuilder) Build() (Application, error) {
 		return nil, err
 	}
 	for _, p := range js.js_pipelines {
-		pipeline, err := transporter.NewPipeline(js.app.Config, p.Nodes)
+		// create a new pipeline with the source
+		pipeline, err := transporter.NewPipeline(js.app.Config, p.Nodes[0])
 		if err != nil {
 			return js.app, err
+		}
+		// TODO add all the subsequent nodes.  this could probably also happen inside the js 'save' and 'transform' methods, but this works for now.
+		for _, n := range p.Nodes[1:] {
+			if err = pipeline.AddNode(n); err != nil {
+				return js.app, err
+			}
 		}
 		js.app.AddPipeline(*pipeline)
 	}

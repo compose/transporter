@@ -58,18 +58,6 @@ func (i *InfluxImpl) Start(pipe pipe.Pipe) (err error) {
 	return i.pipe.Listen(i.applyOp)
 }
 
-func (i *InfluxImpl) Name() string {
-	return i.name
-}
-
-func (i *InfluxImpl) Type() string {
-	return "influx"
-}
-
-func (i *InfluxImpl) String() string {
-	return fmt.Sprintf("%-20s %-15s %-30s %s", i.name, "influx", strings.Join([]string{i.database, i.series_name}, "."), i.uri.String())
-}
-
 func (i *InfluxImpl) Stop() error {
 	i.pipe.Stop()
 	return nil

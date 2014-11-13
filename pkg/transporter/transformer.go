@@ -40,10 +40,6 @@ func NewTransformer(name, namespace, uri string, role NodeRole, extra map[string
 	return t, nil
 }
 
-func (t *Transformer) String() string {
-	return fmt.Sprintf("%-20s %-15s", t.name, "Transformer")
-}
-
 func (t *Transformer) Start(pipe pipe.Pipe) (err error) {
 	t.pipe = pipe
 
@@ -71,14 +67,6 @@ func (t *Transformer) Start(pipe pipe.Pipe) (err error) {
 func (t *Transformer) Stop() error {
 	t.pipe.Stop()
 	return nil
-}
-
-func (t *Transformer) Name() string {
-	return t.name
-}
-
-func (t *Transformer) Type() string {
-	return "transformer"
 }
 
 func (t *Transformer) transformOne(msg *message.Msg) error {

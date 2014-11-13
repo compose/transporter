@@ -64,18 +64,6 @@ func (d *FileImpl) Stop() error {
 	return nil
 }
 
-func (d *FileImpl) Name() string {
-	return d.name
-}
-
-func (d *FileImpl) Type() string {
-	return "file"
-}
-
-func (d *FileImpl) String() string {
-	return fmt.Sprintf("%-20s %-15s %-30s %s", d.name, "file", "", d.uri)
-}
-
 /*
  * read each message from the file
  */

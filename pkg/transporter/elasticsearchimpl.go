@@ -83,18 +83,6 @@ func (e *ElasticsearchImpl) Stop() error {
 	return nil
 }
 
-func (e *ElasticsearchImpl) Name() string {
-	return e.name
-}
-
-func (e *ElasticsearchImpl) Type() string {
-	return "elasticsearch"
-}
-
-func (e *ElasticsearchImpl) String() string {
-	return fmt.Sprintf("%-20s %-15s %-30s %s", e.Name, "elasticsearch", e.getNamespace(), e.uri.String())
-}
-
 func (e *ElasticsearchImpl) applyOp(msg *message.Msg) (err error) {
 	if msg.Op == message.Command {
 		return e.runCommand(msg)

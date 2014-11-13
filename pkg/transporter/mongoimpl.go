@@ -89,18 +89,6 @@ func (m *MongoImpl) Stop() error {
 	return nil
 }
 
-func (m *MongoImpl) Name() string {
-	return m.name
-}
-
-func (m *MongoImpl) Type() string {
-	return "mongo"
-}
-
-func (m *MongoImpl) String() string {
-	return fmt.Sprintf("%-20s %-15s %-30s %s", m.name, "mongo", m.getNamespace(), m.uri)
-}
-
 func (m *MongoImpl) writeMessage(msg *message.Msg) (err error) {
 	collection := m.mongoSession.DB(m.database).C(m.collection)
 	err = collection.Insert(msg.Document())
