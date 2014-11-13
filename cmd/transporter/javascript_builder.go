@@ -74,16 +74,51 @@ func NewJavascriptBuilder(config node.Config, file string) (*JavascriptBuilder, 
 		return js, err
 	}
 	js.script = script
-	js.vm.Set("Transport", js.transport)
+	js.vm.Set("Source", js.source)
+	js.vm.Set("Transporter", js.transporter)
 
 	return js, nil
+}
+
+/*
+ * Create a transporter app
+ */
+func (js *JavascriptBuilder) transporter(call otto.FunctionCall) otto.Value {
+	val, err := js.vm.Object(`({})`)
+	if err != nil {
+		js.err = err
+		return otto.NullValue()
+	}
+	val.Set("add", js.add)
+	return val.Value()
+}
+
+/*
+ * Add a pipeline to the application
+ */
+func (js *JavascriptBuilder) add(call otto.FunctionCall) otto.Value {
+	if len(call.ArgumentList) != 1 {
+		js.err = fmt.Errorf("Transporter.add must be called with 1 arg.  (%d given)", len(call.ArgumentList))
+		return otto.NullValue()
+	}
+
+	p, _ := call.Argument(0).Export()
+
+	pipeline, err := InterfaceToPipeline(p)
+	if err != nil {
+		js.err = err
+		return otto.NullValue()
+	}
+
+	js.js_pipelines = append(js.js_pipelines, pipeline)
+	return otto.TrueValue()
 }
 
 /*
  * initialize a transporter pipeline.
  * don't keep any global transporter state, we may end up having multiple transporters
  */
-func (js *JavascriptBuilder) transport(call otto.FunctionCall) otto.Value {
+func (js *JavascriptBuilder) source(call otto.FunctionCall) otto.Value {
 	if len(call.ArgumentList) != 1 {
 		js.err = fmt.Errorf("Transporter must be called with 1 arg. (%d given)", len(call.ArgumentList))
 		return otto.NullValue()
@@ -94,6 +129,7 @@ func (js *JavascriptBuilder) transport(call otto.FunctionCall) otto.Value {
 		js.err = err
 		return otto.NullValue()
 	}
+	this_node.Role = node.SOURCE
 
 	pipeline, err := NewJavacriptPipeline(this_node).Object()
 	if err != nil {
@@ -115,8 +151,9 @@ func (js *JavascriptBuilder) save(pipeline JavascriptPipeline, call otto.Functio
 	if err != nil {
 		return pipeline, err
 	}
+	this_node.Role = node.SINK
 	pipeline.AddNode(this_node)
-	js.js_pipelines = append(js.js_pipelines, pipeline) // TODO
+
 	return pipeline, err
 }
 

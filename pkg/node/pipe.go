@@ -43,7 +43,7 @@ type Pipe struct {
  */
 func NewPipe(name string, config Config) Pipe {
 	p := Pipe{
-		In:     newMessageChan(),
+		In:     nil,
 		Out:    newMessageChan(),
 		Err:    make(chan error),
 		Event:  make(chan Event),
@@ -70,10 +70,25 @@ func JoinPipe(p Pipe, name string, config Config) Pipe {
 	return newp
 }
 
+func TerminalPipe(p Pipe, name string, config Config) Pipe {
+	newp := Pipe{
+		In:     p.Out,
+		Out:    nil,
+		Err:    p.Err,
+		Event:  p.Event,
+		chStop: make(chan chan bool),
+	}
+	newp.metrics = NewNodeMetrics(p.metrics.path+"/"+name, p.Event, config.Api.MetricsInterval)
+	return newp
+}
+
 /*
  * start a listening loop.  monitors the chStop for stop events.
  */
 func (m *Pipe) Listen(fn func(*message.Msg) error) error {
+	if m.In == nil {
+		return nil
+	}
 	m.listening = true
 	defer func() {
 		m.stopped = true
@@ -95,7 +110,9 @@ func (m *Pipe) Listen(fn func(*message.Msg) error) error {
 				m.Err <- err
 				return err
 			}
-
+			if m.Out != nil {
+				m.Send(msg)
+			}
 		case <-time.After(1 * time.Second):
 			// NOP, just breath
 		}
