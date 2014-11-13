@@ -27,10 +27,6 @@ type Pipeline struct {
 	metricsWg  *sync.WaitGroup
 }
 
-// TODO transformers needs to change here
-// we want a Source, and we want an array of nodes.  the last node in that array is assumed to be the sink.
-
-// func NewPipeline(source ConfigNode, sink ConfigNode, config Config, transformers []*Transformer) *Pipeline {
 func NewPipeline(config Config, nodes []ConfigNode) (*Pipeline, error) {
 	p := &Pipeline{
 		config:    config,
@@ -46,16 +42,7 @@ func NewPipeline(config Config, nodes []ConfigNode) (*Pipeline, error) {
 	}
 
 	for idx, n := range nodes {
-		var role NodeRole
-		switch idx {
-		case 0:
-			role = SOURCE
-		case len(nodes) - 1:
-			role = SINK
-		default:
-			role = SOMETHINGINTHEMIDDLE
-		}
-		p.nodes[idx], err = n.Create(role)
+		p.nodes[idx], err = n.Create()
 		if err != nil {
 			return nil, err
 		}
@@ -92,9 +79,14 @@ func (p *Pipeline) Run() error {
 
 	var pipe Pipe = p.sourcePipe
 
-	for _, node := range p.nodes[1:] {
-		fmt.Printf("starting node %+v\n", node.Config())
-		pipe = JoinPipe(pipe, node.Config().Name, p.config)
+	for idx, node := range p.nodes[1:] {
+		// lets get a joinPipe, unless we're the last one, and then lets use a terminalPipe
+		if idx == len(p.nodes)-2 {
+			pipe = TerminalPipe(pipe, node.Config().Name, p.config)
+		} else {
+			pipe = JoinPipe(pipe, node.Config().Name, p.config)
+		}
+
 		go func(pipe Pipe, node Node) {
 			p.nodeWg.Add(1)
 			node.Start(pipe)
@@ -103,11 +95,9 @@ func (p *Pipeline) Run() error {
 	}
 
 	// send a boot event
-	fmt.Println("sending boot event")
 	p.sourcePipe.Event <- NewBootEvent(time.Now().Unix(), VERSION, p.endpointMap())
 
 	// start the source
-	fmt.Println("starting the source")
 	err := p.nodes[0].Start(p.sourcePipe)
 
 	// the source has exited, stop all the other nodes

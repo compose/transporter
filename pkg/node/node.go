@@ -50,7 +50,7 @@ type Config struct {
  * container to hold config values.
  */
 type ConfigNode struct {
-	Role      NodeRole          `json:"-"`
+	Role      NodeRole          `json:"role"`
 	Name      string            `json:"name"`
 	Type      string            `json:"type"`
 	Uri       string            `json:"uri"`
@@ -66,15 +66,7 @@ func (n ConfigNode) String() string {
  * Create a concrete node that will read/write to a datastore based on the type
  * of node
  */
-func (n *ConfigNode) Create(role NodeRole) (Node, error) {
-	n.Role = role
-
-	/* transformers are a little different */
-	if n.Type == "transformer" {
-		t, _ := NewTransformer(*n)
-
-		return t, nil
-	}
+func (n *ConfigNode) Create() (Node, error) {
 
 	fn, ok := Registry[n.Type]
 	if !ok {
