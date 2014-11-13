@@ -19,6 +19,7 @@ var (
 		"mongo":         NewMongoImpl,
 		"file":          NewFileImpl,
 		"elasticsearch": NewElasticsearchImpl,
+		"influx":        NewInfluxImpl,
 		"transformer":   NewTransformer,
 	}
 )
@@ -94,6 +95,8 @@ func (n *ConfigNode) Create(role NodeRole) (Node, error) {
 	case *FileImpl:
 		return m, nil
 	case *ElasticsearchImpl:
+		return m, nil
+	case *InfluxImpl:
 		return m, nil
 	case *Transformer:
 		return m, nil

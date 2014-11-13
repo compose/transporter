@@ -11,6 +11,7 @@ dependencies:
     - go get gopkg.in/yaml.v2
     - go get github.com/mattbaird/elastigo
     - go get github.com/compose/mejson
+    - go get github.com/influxdb/influxdb/client
     - test -d $HOME/boto || pip install -t $HOME/boto boto
     - test -e /home/ubuntu/.go_workspace/src/github.com/compose/transporter || ln -s /home/ubuntu/transporter/ /home/ubuntu/.go_workspace/src/github.com/compose/
 
