@@ -14,8 +14,3 @@ pipeline = Source({name:"crapfile", namespace: ""})
 t.add(pipeline)
 
 // Transport({name:"crapfile", namespace: ""}).save({name:"stdout", namespace: ""})
-
-
-// Transport({name:"localmongo", namespace: "gru-development.backups"}).transform("transformers/influx_test.js").save({name:"timeseries", namespace: "compose.backups"})
-
-// Transport({name:"crapfile", namespace: ""}).transform("transformers/passthrough_and_log.js").save({name:"es", namespace: "test.crap"})
