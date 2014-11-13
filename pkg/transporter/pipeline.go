@@ -95,7 +95,7 @@ func (p *Pipeline) Run() error {
 	}
 
 	// send a boot event
-	p.sourcePipe.Event <- NewBootEvent(time.Now().Unix(), VERSION, p.endpointMap())
+	p.sourcePipe.Event <- newBootEvent(time.Now().Unix(), VERSION, p.endpointMap())
 
 	// start the source
 	err := p.nodes[0].Start(p.sourcePipe)

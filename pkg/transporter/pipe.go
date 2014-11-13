@@ -30,11 +30,11 @@ type Pipe struct {
 	In        messageChan
 	Out       messageChan
 	Err       chan error
-	Event     chan Event
+	Event     chan event
 	chStop    chan chan bool
 	listening bool
 	stopped   bool
-	metrics   *NodeMetrics
+	metrics   *nodeMetrics
 }
 
 /*
@@ -46,10 +46,10 @@ func NewPipe(name string, config Config) Pipe {
 		In:     nil,
 		Out:    newMessageChan(),
 		Err:    make(chan error),
-		Event:  make(chan Event),
+		Event:  make(chan event),
 		chStop: make(chan chan bool),
 	}
-	p.metrics = NewNodeMetrics(name, p.Event, config.Api.MetricsInterval)
+	p.metrics = newNodeMetrics(name, p.Event, config.Api.MetricsInterval)
 	return p
 }
 
@@ -66,7 +66,7 @@ func JoinPipe(p Pipe, name string, config Config) Pipe {
 		Event:  p.Event,
 		chStop: make(chan chan bool),
 	}
-	newp.metrics = NewNodeMetrics(p.metrics.path+"/"+name, p.Event, config.Api.MetricsInterval)
+	newp.metrics = newNodeMetrics(p.metrics.path+"/"+name, p.Event, config.Api.MetricsInterval)
 	return newp
 }
 
@@ -78,7 +78,7 @@ func TerminalPipe(p Pipe, name string, config Config) Pipe {
 		Event:  p.Event,
 		chStop: make(chan chan bool),
 	}
-	newp.metrics = NewNodeMetrics(p.metrics.path+"/"+name, p.Event, config.Api.MetricsInterval)
+	newp.metrics = newNodeMetrics(p.metrics.path+"/"+name, p.Event, config.Api.MetricsInterval)
 	return newp
 }
 
