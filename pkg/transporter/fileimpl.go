@@ -8,10 +8,11 @@ import (
 	"strings"
 
 	"github.com/compose/transporter/pkg/message"
+	"github.com/compose/transporter/pkg/pipe"
 )
 
 type FileImpl struct {
-	pipe   Pipe
+	pipe   pipe.Pipe
 	config ConfigNode
 
 	filehandle *os.File
@@ -27,7 +28,7 @@ func NewFileImpl(c ConfigNode) (*FileImpl, error) {
  * TODO: we only know how to listen on stdout for now
  */
 
-func (d *FileImpl) Start(pipe Pipe) (err error) {
+func (d *FileImpl) Start(pipe pipe.Pipe) (err error) {
 	d.pipe = pipe
 	defer func() {
 		d.Stop()

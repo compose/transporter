@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/compose/transporter/pkg/message"
+	"github.com/compose/transporter/pkg/pipe"
 	"github.com/influxdb/influxdb/client"
 )
 
@@ -20,7 +21,7 @@ type InfluxImpl struct {
 	config ConfigNode
 
 	//
-	pipe Pipe
+	pipe pipe.Pipe
 
 	// influx connection and options
 	influxClient *client.Client
@@ -39,7 +40,7 @@ func NewInfluxImpl(c ConfigNode) (*InfluxImpl, error) {
 	return i, nil
 }
 
-func (i *InfluxImpl) Start(pipe Pipe) (err error) {
+func (i *InfluxImpl) Start(pipe pipe.Pipe) (err error) {
 	i.pipe = pipe
 	i.influxClient, err = i.setupClient()
 	if err != nil {

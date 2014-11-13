@@ -1,4 +1,4 @@
-package transporter
+package pipe
 
 import (
 	"encoding/json"
@@ -13,15 +13,15 @@ func TestEvent(t *testing.T) {
 		want []byte
 	}{
 		{
-			newBootEvent(12345, "1.2.3", nil),
+			NewBootEvent(12345, "1.2.3", nil),
 			[]byte("{\"ts\":12345,\"event\":\"boot\",\"version\":\"1.2.3\"}"),
 		},
 		{
-			newBootEvent(12345, "1.2.3", map[string]string{"nick": "yay"}),
+			NewBootEvent(12345, "1.2.3", map[string]string{"nick": "yay"}),
 			[]byte("{\"ts\":12345,\"event\":\"boot\",\"version\":\"1.2.3\",\"endpoints\":{\"nick\":\"yay\"}}"),
 		},
 		{
-			newMetricsEvent(12345, "nick/yay", 1, 1),
+			NewMetricsEvent(12345, "nick/yay", 1, 1),
 			[]byte("{\"ts\":12345,\"event\":\"metrics\",\"path\":\"nick/yay\",\"records_in\":1,\"records_out\":1}"),
 		},
 	}

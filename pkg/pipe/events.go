@@ -1,4 +1,4 @@
-package transporter
+package pipe
 
 import (
 	"encoding/json"
@@ -48,7 +48,7 @@ type bootEvent struct {
 	Endpoints map[string]string `json:"endpoints,omitempty"`
 }
 
-func newBootEvent(ts int64, version string, endpoints map[string]string) event {
+func NewBootEvent(ts int64, version string, endpoints map[string]string) event {
 	e := event{Ts: ts, Kind: bootKind.String()}
 	e.Version = version
 	e.Endpoints = endpoints
@@ -64,7 +64,7 @@ type metricsEvent struct {
 	RecordsOut int    `json:"records_out,omitempty"`
 }
 
-func newMetricsEvent(ts int64, path string, in, out int) event {
+func NewMetricsEvent(ts int64, path string, in, out int) event {
 	e := event{Ts: ts, Kind: metricsKind.String()}
 	e.Path = path
 	e.RecordsIn = in
@@ -83,12 +83,12 @@ type nodeMetrics struct {
 	RecordsOut int
 }
 
-func newNodeMetrics(path string, eventChan chan event, interval int) *nodeMetrics {
+func NewNodeMetrics(path string, eventChan chan event, interval time.Duration) *nodeMetrics {
 	m := &nodeMetrics{path: path, eChan: eventChan}
 
 	// if we have a non zero interval then spawn a ticker to send metrics out the channel
 	if interval > 0 {
-		m.ticker = time.NewTicker(time.Duration(interval) * time.Millisecond)
+		m.ticker = time.NewTicker(interval)
 		go func() {
 			for _ = range m.ticker.C {
 				m.Send()
@@ -99,7 +99,7 @@ func newNodeMetrics(path string, eventChan chan event, interval int) *nodeMetric
 }
 
 func (m *nodeMetrics) Send() {
-	m.eChan <- newMetricsEvent(time.Now().Unix(), m.path, m.RecordsIn, m.RecordsOut)
+	m.eChan <- NewMetricsEvent(time.Now().Unix(), m.path, m.RecordsIn, m.RecordsOut)
 }
 
 func (m *nodeMetrics) Stop() {

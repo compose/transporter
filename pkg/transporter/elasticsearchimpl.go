@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/compose/transporter/pkg/message"
+	"github.com/compose/transporter/pkg/pipe"
 	elastigo "github.com/mattbaird/elastigo/lib"
 )
 
@@ -16,7 +17,7 @@ type ElasticsearchImpl struct {
 
 	config ConfigNode
 
-	pipe Pipe
+	pipe pipe.Pipe
 
 	indexer *elastigo.BulkIndexer
 	running bool
@@ -33,7 +34,7 @@ func NewElasticsearchImpl(c ConfigNode) (*ElasticsearchImpl, error) {
 /*
  * start the module
  */
-func (e *ElasticsearchImpl) Start(pipe Pipe) error {
+func (e *ElasticsearchImpl) Start(pipe pipe.Pipe) error {
 	e.pipe = pipe
 	e.setupClient()
 	e.indexer.Start()

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/compose/transporter/pkg/message"
+	"github.com/compose/transporter/pkg/pipe"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -19,7 +20,7 @@ type MongoImpl struct {
 	config ConfigNode
 
 	//
-	pipe Pipe
+	pipe pipe.Pipe
 
 	//
 	// mongo connection and options
@@ -47,7 +48,7 @@ func NewMongoImpl(c ConfigNode) (*MongoImpl, error) {
 	return m, nil
 }
 
-func (m *MongoImpl) Start(pipe Pipe) (err error) {
+func (m *MongoImpl) Start(pipe pipe.Pipe) (err error) {
 	m.pipe = pipe
 	defer func() {
 		m.pipe.Stop()

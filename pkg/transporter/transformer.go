@@ -7,6 +7,7 @@ import (
 
 	"github.com/compose/mejson"
 	"github.com/compose/transporter/pkg/message"
+	"github.com/compose/transporter/pkg/pipe"
 	"github.com/robertkrimen/otto"
 	_ "github.com/robertkrimen/otto/underscore" // enable underscore
 )
@@ -17,7 +18,7 @@ type Transformer struct {
 
 	config ConfigNode
 
-	pipe Pipe
+	pipe pipe.Pipe
 
 	debug  bool
 	script *otto.Script
@@ -45,7 +46,7 @@ func (t *Transformer) String() string {
 	return fmt.Sprintf("%-20s %-15s", t.Name, "Transformer")
 }
 
-func (t *Transformer) Start(pipe Pipe) (err error) {
+func (t *Transformer) Start(pipe pipe.Pipe) (err error) {
 	t.pipe = pipe
 
 	t.vm = otto.New()

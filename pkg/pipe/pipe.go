@@ -1,4 +1,4 @@
-package transporter
+package pipe
 
 import (
 	"time"
@@ -38,10 +38,10 @@ type Pipe struct {
 }
 
 /*
- * This should be called once for each transporter pipeline and will be attached to the transporter source.
+ * NewPipe should be called once for each transporter pipeline and will be attached to the transporter source.
  * it initializes all the channels
  */
-func NewPipe(name string, config Config) Pipe {
+func NewPipe(name string, interval time.Duration) Pipe {
 	p := Pipe{
 		In:     nil,
 		Out:    newMessageChan(),
@@ -49,16 +49,16 @@ func NewPipe(name string, config Config) Pipe {
 		Event:  make(chan event),
 		chStop: make(chan chan bool),
 	}
-	p.metrics = newNodeMetrics(name, p.Event, config.Api.MetricsInterval)
+	p.metrics = NewNodeMetrics(name, p.Event, interval)
 	return p
 }
 
 /*
- * this should be called to create a pipe that is connected to a previous pipe.
+ * JoinPipe should be called to create a pipe that is connected to a previous pipe.
  * the newly created pipe will use the original pipe's 'Out' channel as it's 'In' channel
  * and allows the easy creation of chains of pipes
  */
-func JoinPipe(p Pipe, name string, config Config) Pipe {
+func JoinPipe(p Pipe, name string, interval time.Duration) Pipe {
 	newp := Pipe{
 		In:     p.Out,
 		Out:    newMessageChan(),
@@ -66,11 +66,11 @@ func JoinPipe(p Pipe, name string, config Config) Pipe {
 		Event:  p.Event,
 		chStop: make(chan chan bool),
 	}
-	newp.metrics = newNodeMetrics(p.metrics.path+"/"+name, p.Event, config.Api.MetricsInterval)
+	newp.metrics = NewNodeMetrics(p.metrics.path+"/"+name, p.Event, interval)
 	return newp
 }
 
-func TerminalPipe(p Pipe, name string, config Config) Pipe {
+func TerminalPipe(p Pipe, name string, interval time.Duration) Pipe {
 	newp := Pipe{
 		In:     p.Out,
 		Out:    nil,
@@ -78,7 +78,7 @@ func TerminalPipe(p Pipe, name string, config Config) Pipe {
 		Event:  p.Event,
 		chStop: make(chan chan bool),
 	}
-	newp.metrics = newNodeMetrics(p.metrics.path+"/"+name, p.Event, config.Api.MetricsInterval)
+	newp.metrics = NewNodeMetrics(p.metrics.path+"/"+name, p.Event, interval)
 	return newp
 }
 

@@ -10,6 +10,8 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+
+	"github.com/compose/transporter/pkg/pipe"
 )
 
 var NoNodeError = errors.New("Module not found")
@@ -28,7 +30,7 @@ var (
  * All nodes must implement the Node interface
  */
 type Node interface {
-	Start(Pipe) error
+	Start(pipe.Pipe) error
 	Stop() error
 	Config() ConfigNode
 }

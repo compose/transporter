@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/compose/transporter/pkg/pipe"
 )
 
 const (
@@ -22,7 +24,7 @@ type Pipeline struct {
 	config Config
 	nodes  []Node
 
-	sourcePipe Pipe
+	sourcePipe pipe.Pipe
 	nodeWg     *sync.WaitGroup
 	metricsWg  *sync.WaitGroup
 }
@@ -48,7 +50,7 @@ func NewPipeline(config Config, nodes []ConfigNode) (*Pipeline, error) {
 		}
 	}
 
-	p.sourcePipe = NewPipe(p.nodes[0].Config().Name, p.config)
+	p.sourcePipe = pipe.NewPipe(p.nodes[0].Config().Name, time.Duration(p.config.Api.MetricsInterval)*time.Millisecond)
 
 	go p.startErrorListener()
 	go p.startEventListener()
@@ -77,25 +79,25 @@ func (p *Pipeline) stopEverything() {
  */
 func (p *Pipeline) Run() error {
 
-	var pipe Pipe = p.sourcePipe
+	var current_pipe pipe.Pipe = p.sourcePipe
 
 	for idx, node := range p.nodes[1:] {
 		// lets get a joinPipe, unless we're the last one, and then lets use a terminalPipe
 		if idx == len(p.nodes)-2 {
-			pipe = TerminalPipe(pipe, node.Config().Name, p.config)
+			current_pipe = pipe.TerminalPipe(current_pipe, node.Config().Name, time.Duration(p.config.Api.MetricsInterval)*time.Millisecond)
 		} else {
-			pipe = JoinPipe(pipe, node.Config().Name, p.config)
+			current_pipe = pipe.JoinPipe(current_pipe, node.Config().Name, time.Duration(p.config.Api.MetricsInterval)*time.Millisecond)
 		}
 
-		go func(pipe Pipe, node Node) {
+		go func(current_pipe pipe.Pipe, node Node) {
 			p.nodeWg.Add(1)
-			node.Start(pipe)
+			node.Start(current_pipe)
 			p.nodeWg.Done()
-		}(pipe, node)
+		}(current_pipe, node)
 	}
 
 	// send a boot event
-	p.sourcePipe.Event <- newBootEvent(time.Now().Unix(), VERSION, p.endpointMap())
+	p.sourcePipe.Event <- pipe.NewBootEvent(time.Now().Unix(), VERSION, p.endpointMap())
 
 	// start the source
 	err := p.nodes[0].Start(p.sourcePipe)
