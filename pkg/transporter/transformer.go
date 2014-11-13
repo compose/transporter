@@ -13,10 +13,8 @@ import (
 )
 
 type Transformer struct {
-	Name string `json:"name"`
+	name string `json:"name"`
 	Func string `json:"func"`
-
-	config ConfigNode
 
 	pipe pipe.Pipe
 
@@ -25,10 +23,10 @@ type Transformer struct {
 	vm     *otto.Otto
 }
 
-func NewTransformer(config ConfigNode) (*Transformer, error) {
-	t := &Transformer{config: config}
+func NewTransformer(extra map[string]interface{}) (*Transformer, error) {
+	t := &Transformer{}
 
-	filename, ok := t.config.Extra["filename"]
+	filename, ok := extra["filename"].(string)
 	if !ok {
 		return t, fmt.Errorf("No filename specified")
 	}
@@ -36,14 +34,14 @@ func NewTransformer(config ConfigNode) (*Transformer, error) {
 	if err != nil {
 		return t, err
 	}
-	t.Name = filename
+	t.name = filename
 	t.Func = string(ba)
 
 	return t, nil
 }
 
 func (t *Transformer) String() string {
-	return fmt.Sprintf("%-20s %-15s", t.Name, "Transformer")
+	return fmt.Sprintf("%-20s %-15s", t.name, "Transformer")
 }
 
 func (t *Transformer) Start(pipe pipe.Pipe) (err error) {
@@ -73,6 +71,14 @@ func (t *Transformer) Start(pipe pipe.Pipe) (err error) {
 func (t *Transformer) Stop() error {
 	t.pipe.Stop()
 	return nil
+}
+
+func (t *Transformer) Name() string {
+	return t.name
+}
+
+func (t *Transformer) Type() string {
+	return "transformer"
 }
 
 func (t *Transformer) transformOne(msg *message.Msg) error {

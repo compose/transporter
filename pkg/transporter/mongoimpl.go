@@ -12,12 +12,14 @@ import (
 )
 
 type MongoImpl struct {
+	// pull these in from the node
+	uri  string
+	name string
+	role NodeRole
 
 	// save time by setting these once
 	collection string
 	database   string
-
-	config ConfigNode
 
 	//
 	pipe pipe.Pipe
@@ -30,7 +32,7 @@ type MongoImpl struct {
 	restartable bool // this refers to being able to refresh the iterator, not to the restart based on session op
 }
 
-func NewMongoImpl(c ConfigNode) (*MongoImpl, error) {
+func NewMongoImpl(name, namespace, uri string, role NodeRole, extra map[string]interface{}) (*MongoImpl, error) {
 	var (
 		err error
 	)
@@ -38,10 +40,12 @@ func NewMongoImpl(c ConfigNode) (*MongoImpl, error) {
 	m := &MongoImpl{
 		restartable:  true,            // assume for that we're able to restart the process
 		oplogTimeout: 5 * time.Second, // timeout the oplog iterator
-		config:       c,
+		name:         name,
+		uri:          uri,
+		role:         role,
 	}
 
-	m.database, m.collection, err = m.splitNamespace()
+	m.database, m.collection, err = m.splitNamespace(namespace)
 	if err != nil {
 		return m, err
 	}
@@ -54,14 +58,14 @@ func (m *MongoImpl) Start(pipe pipe.Pipe) (err error) {
 		m.pipe.Stop()
 	}()
 
-	m.mongoSession, err = mgo.Dial(m.config.Uri)
+	m.mongoSession, err = mgo.Dial(m.uri)
 	if err != nil {
 		m.pipe.Err <- err
 		return err
 	}
 
 	// Source, cat and then tail the collection
-	if m.config.Role == SINK {
+	if m.role == SINK {
 		return m.pipe.Listen(m.writeMessage)
 	} else {
 		err = m.catData()
@@ -85,9 +89,17 @@ func (m *MongoImpl) Stop() error {
 	return nil
 }
 
-// func (m *MongoImpl) Config() ConfigNode {
-// 	return m.config
-// }
+func (m *MongoImpl) Name() string {
+	return m.name
+}
+
+func (m *MongoImpl) Type() string {
+	return "mongo"
+}
+
+func (m *MongoImpl) String() string {
+	return fmt.Sprintf("%-20s %-15s %-30s %s", m.name, "mongo", m.getNamespace(), m.uri)
+}
 
 func (m *MongoImpl) writeMessage(msg *message.Msg) (err error) {
 	collection := m.mongoSession.DB(m.database).C(m.collection)
@@ -118,7 +130,7 @@ func (m *MongoImpl) catData() (err error) {
 			}
 
 			// set up the message
-			msg := message.NewMsg(message.Insert, m.config.Namespace, result)
+			msg := message.NewMsg(message.Insert, m.getNamespace(), result)
 
 			m.pipe.Send(msg)
 			result = bson.M{}
@@ -150,7 +162,7 @@ func (m *MongoImpl) tailData() (err error) {
 		collection = m.mongoSession.DB("local").C("oplog.rs")
 		result     oplogDoc // hold the document
 		query      = bson.M{
-			"ns": m.config.Namespace,
+			"ns": m.getNamespace(),
 		}
 		iter = collection.Find(query).Sort("$natural").Tail(m.oplogTimeout)
 	)
@@ -211,16 +223,20 @@ func (m *MongoImpl) getOriginalDoc(doc bson.M) (result bson.M, err error) {
 
 	err = m.mongoSession.DB(m.database).C(m.collection).FindId(id).One(&result)
 	if err != nil {
-		err = fmt.Errorf("%s %v %v", m.config.Namespace, id, err)
+		err = fmt.Errorf("%s %v %v", m.getNamespace(), id, err)
 	}
 	return
+}
+
+func (m *MongoImpl) getNamespace() string {
+	return strings.Join([]string{m.database, m.collection}, ".")
 }
 
 /*
  * split a mongo namespace into a database and a collection
  */
-func (m *MongoImpl) splitNamespace() (string, string, error) {
-	fields := strings.SplitN(m.config.Namespace, ".", 2)
+func (m *MongoImpl) splitNamespace(namespace string) (string, string, error) {
+	fields := strings.SplitN(namespace, ".", 2)
 
 	if len(fields) != 2 {
 		return "", "", fmt.Errorf("malformed mongo namespace.")

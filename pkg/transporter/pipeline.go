@@ -50,7 +50,7 @@ func NewPipeline(config Config, nodes []ConfigNode) (*Pipeline, error) {
 		}
 	}
 
-	p.sourcePipe = pipe.NewPipe(p.nodes[0].Config().Name, time.Duration(p.config.Api.MetricsInterval)*time.Millisecond)
+	p.sourcePipe = pipe.NewPipe(p.nodes[0].Name(), time.Duration(p.config.Api.MetricsInterval)*time.Millisecond)
 
 	go p.startErrorListener()
 	go p.startEventListener()
@@ -60,7 +60,7 @@ func NewPipeline(config Config, nodes []ConfigNode) (*Pipeline, error) {
 
 func (p *Pipeline) String() string {
 	out := " - Pipeline\n"
-	out += fmt.Sprintf("  - Source: %s\n  - Sink:   %s\n  - Transformers:\n", p.nodes[0].Config(), p.nodes[len(p.nodes)-1].Config())
+	out += fmt.Sprintf("  - Source: %s\n  - Sink:   %s\n  - Transformers:\n", p.nodes[0], p.nodes[len(p.nodes)-1])
 	for _, t := range p.nodes[1 : len(p.nodes)-1] {
 		out += fmt.Sprintf("   - %s\n", t)
 	}
@@ -84,9 +84,9 @@ func (p *Pipeline) Run() error {
 	for idx, node := range p.nodes[1:] {
 		// lets get a joinPipe, unless we're the last one, and then lets use a terminalPipe
 		if idx == len(p.nodes)-2 {
-			current_pipe = pipe.TerminalPipe(current_pipe, node.Config().Name)
+			current_pipe = pipe.TerminalPipe(current_pipe, node.Name())
 		} else {
-			current_pipe = pipe.JoinPipe(current_pipe, node.Config().Name)
+			current_pipe = pipe.JoinPipe(current_pipe, node.Name())
 		}
 
 		go func(current_pipe pipe.Pipe, node Node) {
@@ -118,9 +118,9 @@ func (p *Pipeline) endpointMap() map[string]string {
 	for _, v := range p.nodes {
 		_, is_transformer := v.(*Transformer)
 		if is_transformer {
-			m[v.Config().Name] = "transformer"
+			m[v.Name()] = "transformer"
 		} else {
-			m[v.Config().Name] = v.Config().Type
+			m[v.Name()] = v.Type()
 		}
 	}
 	return m

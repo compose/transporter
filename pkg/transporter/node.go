@@ -30,6 +30,8 @@ var (
  * All nodes must implement the Node interface
  */
 type Node interface {
+	Name() string
+	Type() string
 	Start(pipe.Pipe) error
 	Stop() error
 	String() string

@@ -1,6 +1,7 @@
 package transporter
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -10,12 +11,13 @@ import (
 )
 
 type ElasticsearchImpl struct {
-	uri *url.URL
+	// pull these in from the node
+	uri  *url.URL
+	name string
+	role NodeRole
 
 	_type string
 	index string
-
-	config ConfigNode
 
 	pipe pipe.Pipe
 
@@ -23,12 +25,24 @@ type ElasticsearchImpl struct {
 	running bool
 }
 
-func NewElasticsearchImpl(c ConfigNode) (*ElasticsearchImpl, error) {
-	u, err := url.Parse(c.Uri)
+func NewElasticsearchImpl(name, namespace, uri string, role NodeRole, extra map[string]interface{}) (*ElasticsearchImpl, error) {
+	u, err := url.Parse(uri)
 	if err != nil {
 		return nil, err
 	}
-	return &ElasticsearchImpl{uri: u, config: c}, nil
+
+	e := &ElasticsearchImpl{
+		name: name,
+		uri:  u,
+		role: role,
+	}
+
+	e.index, e._type, err = e.splitNamespace(namespace)
+	if err != nil {
+		return e, err
+	}
+
+	return e, nil
 }
 
 /*
@@ -69,9 +83,17 @@ func (e *ElasticsearchImpl) Stop() error {
 	return nil
 }
 
-// func (e *ElasticsearchImpl) Config() ConfigNode {
-// 	return e.config
-// }
+func (e *ElasticsearchImpl) Name() string {
+	return e.name
+}
+
+func (e *ElasticsearchImpl) Type() string {
+	return "elasticsearch"
+}
+
+func (e *ElasticsearchImpl) String() string {
+	return fmt.Sprintf("%-20s %-15s %-30s %s", e.Name, "elasticsearch", e.getNamespace(), e.uri.String())
+}
 
 func (e *ElasticsearchImpl) applyOp(msg *message.Msg) (err error) {
 	if msg.Op == message.Command {
@@ -82,10 +104,6 @@ func (e *ElasticsearchImpl) applyOp(msg *message.Msg) (err error) {
 }
 
 func (e *ElasticsearchImpl) setupClient() {
-	// split the namespace into the index and type
-	fields := strings.SplitN(e.config.Namespace, ".", 2)
-	e.index, e._type = fields[0], fields[1]
-
 	// set up the client, we need host(s), port, username, password, and scheme
 	client := elastigo.NewConn()
 
@@ -113,4 +131,20 @@ func (e *ElasticsearchImpl) runCommand(msg *message.Msg) error {
 		e.indexer.Flush()
 	}
 	return nil
+}
+
+func (e *ElasticsearchImpl) getNamespace() string {
+	return strings.Join([]string{e.index, e._type}, ".")
+}
+
+/*
+ * split a elasticsearch namespace into a index and a type
+ */
+func (e *ElasticsearchImpl) splitNamespace(namespace string) (string, string, error) {
+	fields := strings.SplitN(namespace, ".", 2)
+
+	if len(fields) != 2 {
+		return "", "", fmt.Errorf("malformed mongo namespace.")
+	}
+	return fields[0], fields[1], nil
 }

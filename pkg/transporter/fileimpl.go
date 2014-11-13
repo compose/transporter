@@ -12,17 +12,21 @@ import (
 )
 
 type FileImpl struct {
-	name   string
-	uri    string
-	pipe   pipe.Pipe
-	config ConfigNode
+	name string
+	uri  string
+	role NodeRole
+
+	pipe pipe.Pipe
 
 	filehandle *os.File
 }
 
-func NewFileImpl(c ConfigNode) (*FileImpl, error) {
-	return &FileImpl{config: c}, nil
-
+func NewFileImpl(name, namespace, uri string, role NodeRole, extra map[string]interface{}) (*FileImpl, error) {
+	return &FileImpl{
+		name: name,
+		uri:  uri,
+		role: role,
+	}, nil
 }
 
 /*
@@ -36,7 +40,7 @@ func (d *FileImpl) Start(pipe pipe.Pipe) (err error) {
 		d.Stop()
 	}()
 
-	if d.config.Role == SINK {
+	if d.role == SINK {
 		if strings.HasPrefix(d.uri, "file://") {
 			filename := strings.Replace(d.uri, "file://", "", 1)
 			d.filehandle, err = os.Create(filename)
@@ -58,6 +62,14 @@ func (d *FileImpl) Start(pipe pipe.Pipe) (err error) {
 func (d *FileImpl) Stop() error {
 	d.pipe.Stop()
 	return nil
+}
+
+func (d *FileImpl) Name() string {
+	return d.name
+}
+
+func (d *FileImpl) Type() string {
+	return "file"
 }
 
 func (d *FileImpl) String() string {
@@ -98,7 +110,7 @@ func (d *FileImpl) dumpMessage(msg *message.Msg) error {
 		return fmt.Errorf("can't unmarshal doc %v", err)
 	}
 
-	if strings.HasPrefix(d.config.Uri, "stdout://") {
+	if strings.HasPrefix(d.uri, "stdout://") {
 		fmt.Println(string(jdoc))
 	} else {
 		_, err = fmt.Fprintln(d.filehandle, string(jdoc))

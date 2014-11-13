@@ -12,13 +12,13 @@ import (
 
 type InfluxImpl struct {
 	// pull these in from the node
-	uri *url.URL
+	uri  *url.URL
+	name string
+	role NodeRole
 
 	// save time by setting these once
 	database    string
 	series_name string
-
-	config ConfigNode
 
 	//
 	pipe pipe.Pipe
@@ -27,16 +27,23 @@ type InfluxImpl struct {
 	influxClient *client.Client
 }
 
-func NewInfluxImpl(c ConfigNode) (*InfluxImpl, error) {
-	u, err := url.Parse(c.Uri)
+func NewInfluxImpl(name, namespace, uri string, role NodeRole, extra map[string]interface{}) (*InfluxImpl, error) {
+	u, err := url.Parse(uri)
 	if err != nil {
 		return nil, err
 	}
 
 	i := &InfluxImpl{
-		config: c,
-		uri:    u,
+		name: name,
+		uri:  u,
+		role: role,
 	}
+
+	i.database, i.series_name, err = i.splitNamespace(namespace)
+	if err != nil {
+		return i, err
+	}
+
 	return i, nil
 }
 
@@ -51,13 +58,17 @@ func (i *InfluxImpl) Start(pipe pipe.Pipe) (err error) {
 	return i.pipe.Listen(i.applyOp)
 }
 
-func (i *InfluxImpl) String() string {
-	return fmt.Sprintf("%-20s %-15s %-30s %s", n.Name, "influx", strings.Join([]string{i.database, i.series_name}, "."), i.uri.String())
+func (i *InfluxImpl) Name() string {
+	return i.name
 }
 
-// func (i *InfluxImpl) Config() ConfigNode {
-// 	return i.config
-// }
+func (i *InfluxImpl) Type() string {
+	return "influx"
+}
+
+func (i *InfluxImpl) String() string {
+	return fmt.Sprintf("%-20s %-15s %-30s %s", i.name, "influx", strings.Join([]string{i.database, i.series_name}, "."), i.uri.String())
+}
 
 func (i *InfluxImpl) Stop() error {
 	i.pipe.Stop()
@@ -83,9 +94,6 @@ func (i *InfluxImpl) applyOp(msg *message.Msg) (err error) {
 }
 
 func (i *InfluxImpl) setupClient() (influxClient *client.Client, err error) {
-	// split the namespace into the database and series name
-	i.database, i.series_name, err = i.splitNamespace()
-
 	// set up the clientConfig, we need host:port, username, password, and database name
 	clientConfig := &client.ClientConfig{
 		Database: i.database,
@@ -105,8 +113,8 @@ func (i *InfluxImpl) setupClient() (influxClient *client.Client, err error) {
 /*
  * split a influx namespace into a database and a series name
  */
-func (i *InfluxImpl) splitNamespace() (string, string, error) {
-	fields := strings.SplitN(i.config.Namespace, ".", 2)
+func (i *InfluxImpl) splitNamespace(namespace string) (string, string, error) {
+	fields := strings.SplitN(namespace, ".", 2)
 
 	if len(fields) != 2 {
 		return "", "", fmt.Errorf("malformed influx namespace.")
