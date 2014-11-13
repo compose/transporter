@@ -22,7 +22,7 @@ type Transformer struct {
 	vm     *otto.Otto
 }
 
-func NewTransformer(namespace, uri string, role NodeRole, extra map[string]interface{}) (*Transformer, error) {
+func NewTransformer(role NodeRole, extra map[string]interface{}) (*Transformer, error) {
 	t := &Transformer{}
 
 	filename, ok := extra["filename"].(string)

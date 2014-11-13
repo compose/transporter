@@ -24,8 +24,8 @@ type ElasticsearchImpl struct {
 	running bool
 }
 
-func NewElasticsearchImpl(namespace, uri string, role NodeRole, extra map[string]interface{}) (*ElasticsearchImpl, error) {
-	u, err := url.Parse(uri)
+func NewElasticsearchImpl(role NodeRole, extra map[string]interface{}) (*ElasticsearchImpl, error) {
+	u, err := url.Parse(extra["uri"].(string))
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +35,7 @@ func NewElasticsearchImpl(namespace, uri string, role NodeRole, extra map[string
 		role: role,
 	}
 
-	e.index, e._type, err = e.splitNamespace(namespace)
+	e.index, e._type, err = e.splitNamespace(extra["namespace"].(string))
 	if err != nil {
 		return e, err
 	}

@@ -27,7 +27,7 @@ type InfluxImpl struct {
 }
 
 func NewInfluxImpl(namespace, uri string, role NodeRole, extra map[string]interface{}) (*InfluxImpl, error) {
-	u, err := url.Parse(uri)
+	u, err := url.Parse(extra["uri"].(string))
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +37,7 @@ func NewInfluxImpl(namespace, uri string, role NodeRole, extra map[string]interf
 		role: role,
 	}
 
-	i.database, i.series_name, err = i.splitNamespace(namespace)
+	i.database, i.series_name, err = i.splitNamespace(extra["namespace"].(string))
 	if err != nil {
 		return i, err
 	}

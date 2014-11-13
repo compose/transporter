@@ -51,16 +51,15 @@ type Config struct {
 // container to hold config values.
 
 type ConfigNode struct {
-	Role      NodeRole               `json:"role"`
-	Name      string                 `json:"name"`
-	Type      string                 `json:"type"`
-	Uri       string                 `json:"uri"`
-	Namespace string                 `json:"namespace"`
-	Extra     map[string]interface{} `json:"extra"`
+	Role  NodeRole               `json:"role"`
+	Name  string                 `json:"name"`
+	Type  string                 `json:"type"`
+	Uri   string                 `json:"uri"`
+	Extra map[string]interface{} `json:"extra"`
 }
 
 func (n ConfigNode) String() string {
-	return fmt.Sprintf("%-20s %-15s %-30s %s", n.Name, n.Type, n.Namespace, n.Uri)
+	return fmt.Sprintf("%-20s %-15s %-30s %s", n.Name, n.Type, n.Extra["namespace"].(string), n.Extra["uri"].(string))
 }
 
 // Create a concrete node that will read/write to a datastore based on the type
@@ -79,8 +78,6 @@ func (n *ConfigNode) Create() (Node, error) {
 	}
 
 	args := []reflect.Value{
-		reflect.ValueOf(n.Namespace),
-		reflect.ValueOf(n.Uri),
 		reflect.ValueOf(n.Role),
 		reflect.ValueOf(n.Extra),
 	}

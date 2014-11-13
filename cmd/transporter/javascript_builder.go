@@ -235,14 +235,14 @@ func (js *JavascriptBuilder) findNode(in otto.Value) (n transporter.ConfigNode, 
 	sourceString, ok := m["name"].(string)
 	sourceNS, ok1 := m["namespace"].(string)
 	if !(ok && ok1) {
-		return n, fmt.Errorf("source hash requires both a 'source' and a 'namespace'")
+		return n, fmt.Errorf("source hash requires both a 'source', and a 'namespace'")
 	}
 
 	n, ok = js.app.Config.Nodes[sourceString]
 	if !ok {
 		return n, fmt.Errorf("no configured nodes found named %s", sourceString)
 	}
-	return transporter.ConfigNode{Name: n.Name, Type: n.Type, Uri: n.Uri, Namespace: sourceNS}, nil
+	return transporter.ConfigNode{Name: n.Name, Type: n.Type, Extra: map[string]interface{}{"namespace": sourceNS, "uri": n.Uri}}, nil
 }
 
 /*

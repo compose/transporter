@@ -20,9 +20,9 @@ type FileImpl struct {
 	filehandle *os.File
 }
 
-func NewFileImpl(namespace, uri string, role NodeRole, extra map[string]interface{}) (*FileImpl, error) {
+func NewFileImpl(role NodeRole, extra map[string]interface{}) (*FileImpl, error) {
 	return &FileImpl{
-		uri:  uri,
+		uri:  extra["uri"].(string),
 		role: role,
 	}, nil
 }
