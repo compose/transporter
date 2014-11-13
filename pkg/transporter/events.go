@@ -73,17 +73,6 @@ func NewMetricsEvent(ts int64, path string, in, out int) Event {
 }
 
 /*
- * Event Listener, listens on an event channel
- */
-type EventListener struct {
-	In chan Event
-}
-
-func NewEventListener() EventListener {
-	return EventListener{In: make(chan Event)}
-}
-
-/*
  * lets keep track of metrics on a nodeimpl, and send them out periodically to our event chan
  */
 type NodeMetrics struct {
