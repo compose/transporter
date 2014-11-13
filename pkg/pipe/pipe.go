@@ -27,14 +27,15 @@ func newMessageChan() messageChan {
  * from the stop channel
  */
 type Pipe struct {
-	In        messageChan
-	Out       messageChan
-	Err       chan error
-	Event     chan event
-	chStop    chan chan bool
-	listening bool
-	stopped   bool
-	metrics   *nodeMetrics
+	In              messageChan
+	Out             messageChan
+	Err             chan error
+	Event           chan event
+	chStop          chan chan bool
+	listening       bool
+	stopped         bool
+	metrics         *nodeMetrics
+	metricsInterval time.Duration
 }
 
 /*
@@ -43,11 +44,12 @@ type Pipe struct {
  */
 func NewPipe(name string, interval time.Duration) Pipe {
 	p := Pipe{
-		In:     nil,
-		Out:    newMessageChan(),
-		Err:    make(chan error),
-		Event:  make(chan event),
-		chStop: make(chan chan bool),
+		In:              nil,
+		Out:             newMessageChan(),
+		Err:             make(chan error),
+		Event:           make(chan event),
+		chStop:          make(chan chan bool),
+		metricsInterval: interval,
 	}
 	p.metrics = NewNodeMetrics(name, p.Event, interval)
 	return p
@@ -58,27 +60,29 @@ func NewPipe(name string, interval time.Duration) Pipe {
  * the newly created pipe will use the original pipe's 'Out' channel as it's 'In' channel
  * and allows the easy creation of chains of pipes
  */
-func JoinPipe(p Pipe, name string, interval time.Duration) Pipe {
+func JoinPipe(p Pipe, name string) Pipe {
 	newp := Pipe{
-		In:     p.Out,
-		Out:    newMessageChan(),
-		Err:    p.Err,
-		Event:  p.Event,
-		chStop: make(chan chan bool),
+		In:              p.Out,
+		Out:             newMessageChan(),
+		Err:             p.Err,
+		Event:           p.Event,
+		chStop:          make(chan chan bool),
+		metricsInterval: p.metricsInterval,
 	}
-	newp.metrics = NewNodeMetrics(p.metrics.path+"/"+name, p.Event, interval)
+	newp.metrics = NewNodeMetrics(p.metrics.path+"/"+name, p.Event, p.metricsInterval)
 	return newp
 }
 
-func TerminalPipe(p Pipe, name string, interval time.Duration) Pipe {
+func TerminalPipe(p Pipe, name string) Pipe {
 	newp := Pipe{
-		In:     p.Out,
-		Out:    nil,
-		Err:    p.Err,
-		Event:  p.Event,
-		chStop: make(chan chan bool),
+		In:              p.Out,
+		Out:             nil,
+		Err:             p.Err,
+		Event:           p.Event,
+		chStop:          make(chan chan bool),
+		metricsInterval: p.metricsInterval,
 	}
-	newp.metrics = NewNodeMetrics(p.metrics.path+"/"+name, p.Event, interval)
+	newp.metrics = NewNodeMetrics(p.metrics.path+"/"+name, p.Event, p.metricsInterval)
 	return newp
 }
 
