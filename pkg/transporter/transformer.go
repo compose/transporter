@@ -75,11 +75,6 @@ func (t *Transformer) Stop() error {
 	return nil
 }
 
-// TODO just implementing this so this will implement the Node interface
-func (t *Transformer) Config() ConfigNode {
-	return t.config
-}
-
 func (t *Transformer) transformOne(msg *message.Msg) error {
 
 	var (

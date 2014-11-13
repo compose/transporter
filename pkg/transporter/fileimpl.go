@@ -12,6 +12,8 @@ import (
 )
 
 type FileImpl struct {
+	name   string
+	uri    string
 	pipe   pipe.Pipe
 	config ConfigNode
 
@@ -35,8 +37,8 @@ func (d *FileImpl) Start(pipe pipe.Pipe) (err error) {
 	}()
 
 	if d.config.Role == SINK {
-		if strings.HasPrefix(d.config.Uri, "file://") {
-			filename := strings.Replace(d.config.Uri, "file://", "", 1)
+		if strings.HasPrefix(d.uri, "file://") {
+			filename := strings.Replace(d.uri, "file://", "", 1)
 			d.filehandle, err = os.Create(filename)
 			if err != nil {
 				d.pipe.Err <- err
@@ -58,15 +60,15 @@ func (d *FileImpl) Stop() error {
 	return nil
 }
 
-func (d *FileImpl) Config() ConfigNode {
-	return d.config
+func (d *FileImpl) String() string {
+	return fmt.Sprintf("%-20s %-15s %-30s %s", d.name, "file", "", d.uri)
 }
 
 /*
  * read each message from the file
  */
 func (d *FileImpl) readFile() (err error) {
-	filename := strings.Replace(d.config.Uri, "file://", "", 1)
+	filename := strings.Replace(d.uri, "file://", "", 1)
 	d.filehandle, err = os.Open(filename)
 	if err != nil {
 		d.pipe.Err <- err
@@ -82,7 +84,7 @@ func (d *FileImpl) readFile() (err error) {
 			d.pipe.Err <- err
 			return err
 		}
-		d.pipe.Send(message.NewMsg(message.Insert, d.config.Uri, doc))
+		d.pipe.Send(message.NewMsg(message.Insert, d.uri, doc))
 	}
 	return nil
 }

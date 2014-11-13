@@ -51,9 +51,13 @@ func (i *InfluxImpl) Start(pipe pipe.Pipe) (err error) {
 	return i.pipe.Listen(i.applyOp)
 }
 
-func (i *InfluxImpl) Config() ConfigNode {
-	return i.config
+func (i *InfluxImpl) String() string {
+	return fmt.Sprintf("%-20s %-15s %-30s %s", n.Name, "influx", strings.Join([]string{i.database, i.series_name}, "."), i.uri.String())
 }
+
+// func (i *InfluxImpl) Config() ConfigNode {
+// 	return i.config
+// }
 
 func (i *InfluxImpl) Stop() error {
 	i.pipe.Stop()

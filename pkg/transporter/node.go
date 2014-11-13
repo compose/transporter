@@ -32,7 +32,8 @@ var (
 type Node interface {
 	Start(pipe.Pipe) error
 	Stop() error
-	Config() ConfigNode
+	String() string
+	// Config() ConfigNode
 }
 
 // A Config stores meta information about the transporter.  This contains a

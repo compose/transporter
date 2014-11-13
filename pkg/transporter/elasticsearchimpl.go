@@ -69,9 +69,9 @@ func (e *ElasticsearchImpl) Stop() error {
 	return nil
 }
 
-func (e *ElasticsearchImpl) Config() ConfigNode {
-	return e.config
-}
+// func (e *ElasticsearchImpl) Config() ConfigNode {
+// 	return e.config
+// }
 
 func (e *ElasticsearchImpl) applyOp(msg *message.Msg) (err error) {
 	if msg.Op == message.Command {

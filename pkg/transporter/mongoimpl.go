@@ -85,9 +85,9 @@ func (m *MongoImpl) Stop() error {
 	return nil
 }
 
-func (m *MongoImpl) Config() ConfigNode {
-	return m.config
-}
+// func (m *MongoImpl) Config() ConfigNode {
+// 	return m.config
+// }
 
 func (m *MongoImpl) writeMessage(msg *message.Msg) (err error) {
 	collection := m.mongoSession.DB(m.database).C(m.collection)
