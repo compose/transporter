@@ -68,7 +68,7 @@ func (t *Transformer) Stop() error {
 	return nil
 }
 
-func (t *Transformer) transformOne(msg *message.Msg) error {
+func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 
 	var (
 		doc    interface{}
@@ -80,29 +80,28 @@ func (t *Transformer) transformOne(msg *message.Msg) error {
 
 	// short circuit for deletes and commands
 	if msg.Op == message.Delete || msg.Op == message.Command {
-		t.pipe.Send(msg)
-		return nil
+		return msg, nil
 	}
 
 	now := time.Now().Nanosecond()
 
 	if doc, err = mejson.Marshal(msg.Document()); err != nil {
-		return err
+		return msg, err
 	}
 
 	if value, err = t.vm.ToValue(doc); err != nil {
-		return err
+		return msg, err
 	}
 
 	// now that we have finished casting our map to a bunch of different types,
 	// lets run our transformer on the document
 	beforeVM := time.Now().Nanosecond()
 	if outDoc, err = t.vm.Call(`module.exports`, nil, value); err != nil {
-		return err
+		return msg, err
 	}
 
 	if result, err = outDoc.Export(); err != nil {
-		return err
+		return msg, err
 	}
 
 	afterVM := time.Now().Nanosecond()
@@ -111,10 +110,10 @@ func (t *Transformer) transformOne(msg *message.Msg) error {
 	case map[string]interface{}:
 		doc, err := mejson.Unmarshal(r)
 		if err != nil {
-			return err
+			return msg, err
 		}
 		msg.SetDocument(doc)
-		t.pipe.Send(msg)
+		// t.pipe.Send(msg)
 	default:
 		if t.debug {
 			fmt.Println("transformer skipping doc")
@@ -126,5 +125,5 @@ func (t *Transformer) transformOne(msg *message.Msg) error {
 		fmt.Printf("document transformed in %dus.  %d to marshal, %d in the vm, %d to unmarshal\n", (then-now)/1000, (beforeVM-now)/1000, (afterVM-beforeVM)/1000, (then-afterVM)/1000)
 	}
 
-	return nil
+	return msg, nil
 }

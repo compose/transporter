@@ -23,7 +23,7 @@ func (t *TransporterApplication) AddPipeline(p transporter.Pipeline) {
  * This is where we actually instantiate the Pipelines
  */
 func (t *TransporterApplication) Run() (err error) {
-	fmt.Println(t)
+	// fmt.Println(t)
 
 	for _, p := range t.Pipelines {
 		err = p.Run()

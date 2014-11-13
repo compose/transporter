@@ -89,7 +89,7 @@ func NewSinkPipe(p Pipe, name string) Pipe {
 // Listen starts a listening loop that pulls messages from the In chan, applies fn(msg), a `func(message.Msg) error`, and emits them on the Out channel.
 // Errors will be emited to the Pipe's Err chan, and will terminate the loop.
 // The listening loop can be interupted by calls to Stop().
-func (m *Pipe) Listen(fn func(*message.Msg) error) error {
+func (m *Pipe) Listen(fn func(*message.Msg) (*message.Msg, error)) error {
 	if m.In == nil {
 		return nil
 	}
@@ -109,13 +109,13 @@ func (m *Pipe) Listen(fn func(*message.Msg) error) error {
 		select {
 		case msg := <-m.In:
 			m.metrics.RecordsIn += 1
-			err := fn(msg)
+			outmsg, err := fn(msg)
 			if err != nil {
 				m.Err <- err
 				return err
 			}
 			if m.Out != nil {
-				m.Send(msg)
+				m.Send(outmsg)
 			}
 		case <-time.After(100 * time.Millisecond):
 			// NOP, just breath

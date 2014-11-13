@@ -90,10 +90,10 @@ func (d *FileImpl) readFile() (err error) {
 /*
  * dump each message to the file
  */
-func (d *FileImpl) dumpMessage(msg *message.Msg) error {
+func (d *FileImpl) dumpMessage(msg *message.Msg) (*message.Msg, error) {
 	jdoc, err := json.Marshal(msg.Document())
 	if err != nil {
-		return fmt.Errorf("can't unmarshal doc %v", err)
+		return msg, fmt.Errorf("can't unmarshal doc %v", err)
 	}
 
 	if strings.HasPrefix(d.uri, "stdout://") {
@@ -101,9 +101,9 @@ func (d *FileImpl) dumpMessage(msg *message.Msg) error {
 	} else {
 		_, err = fmt.Fprintln(d.filehandle, string(jdoc))
 		if err != nil {
-			return err
+			return msg, err
 		}
 	}
 
-	return nil
+	return msg, nil
 }

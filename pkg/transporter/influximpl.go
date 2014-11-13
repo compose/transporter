@@ -61,7 +61,7 @@ func (i *InfluxImpl) Stop() error {
 	return nil
 }
 
-func (i *InfluxImpl) applyOp(msg *message.Msg) (err error) {
+func (i *InfluxImpl) applyOp(msg *message.Msg) (*message.Msg, error) {
 	docSize := len(msg.Document())
 	columns := make([]string, 0, docSize)
 	points := make([][]interface{}, 1)
@@ -76,7 +76,7 @@ func (i *InfluxImpl) applyOp(msg *message.Msg) (err error) {
 		Points:  points,
 	}
 
-	return i.influxClient.WriteSeries([]*client.Series{series})
+	return msg, i.influxClient.WriteSeries([]*client.Series{series})
 }
 
 func (i *InfluxImpl) setupClient() (influxClient *client.Client, err error) {

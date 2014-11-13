@@ -81,12 +81,12 @@ func (e *ElasticsearchImpl) Stop() error {
 	return nil
 }
 
-func (e *ElasticsearchImpl) applyOp(msg *message.Msg) (err error) {
+func (e *ElasticsearchImpl) applyOp(msg *message.Msg) (*message.Msg, error) {
 	if msg.Op == message.Command {
-		return e.runCommand(msg)
+		return msg, e.runCommand(msg)
 	}
 
-	return e.indexer.Index(e.index, e._type, msg.IdAsString(), "", nil, msg.Document(), false)
+	return msg, e.indexer.Index(e.index, e._type, msg.IdAsString(), "", nil, msg.Document(), false)
 }
 
 func (e *ElasticsearchImpl) setupClient() {

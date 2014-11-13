@@ -87,13 +87,13 @@ func (m *MongoImpl) Stop() error {
 	return nil
 }
 
-func (m *MongoImpl) writeMessage(msg *message.Msg) (err error) {
+func (m *MongoImpl) writeMessage(msg *message.Msg) (*message.Msg, error) {
 	collection := m.mongoSession.DB(m.database).C(m.collection)
-	err = collection.Insert(msg.Document())
+	err := collection.Insert(msg.Document())
 	if mgo.IsDup(err) {
 		err = collection.Update(bson.M{"_id": msg.Id}, msg.Document())
 	}
-	return err
+	return msg, err
 }
 
 /*
