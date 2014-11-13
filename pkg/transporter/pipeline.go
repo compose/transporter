@@ -84,9 +84,9 @@ func (p *Pipeline) Run() error {
 	for idx, node := range p.nodes[1:] {
 		// lets get a joinPipe, unless we're the last one, and then lets use a terminalPipe
 		if idx == len(p.nodes)-2 {
-			current_pipe = pipe.TerminalPipe(current_pipe, node.Config().Name, time.Duration(p.config.Api.MetricsInterval)*time.Millisecond)
+			current_pipe = pipe.TerminalPipe(current_pipe, node.Config().Name)
 		} else {
-			current_pipe = pipe.JoinPipe(current_pipe, node.Config().Name, time.Duration(p.config.Api.MetricsInterval)*time.Millisecond)
+			current_pipe = pipe.JoinPipe(current_pipe, node.Config().Name)
 		}
 
 		go func(current_pipe pipe.Pipe, node Node) {
