@@ -55,12 +55,12 @@ type Config struct {
 // container to hold config values.
 
 type ConfigNode struct {
-	Role      NodeRole          `json:"role"`
-	Name      string            `json:"name"`
-	Type      string            `json:"type"`
-	Uri       string            `json:"uri"`
-	Namespace string            `json:"namespace"`
-	Extra     map[string]string `json:"extra"`
+	Role      NodeRole               `json:"role"`
+	Name      string                 `json:"name"`
+	Type      string                 `json:"type"`
+	Uri       string                 `json:"uri"`
+	Namespace string                 `json:"namespace"`
+	Extra     map[string]interface{} `json:"extra"`
 }
 
 func (n ConfigNode) String() string {
@@ -74,7 +74,7 @@ func (n ConfigNode) String() string {
 // property to find the node's constructore.
 //
 // Each constructor is assumed to be of the form
-// func NewImpl(config NodeConfig) (*Impl, error)
+// func NewImpl(name, namespace, uri string, role NodeRole, extra map[string]interface{}) (*Impl, error) {
 func (n *ConfigNode) Create() (Node, error) {
 
 	fn, ok := Registry[n.Type]
@@ -82,7 +82,15 @@ func (n *ConfigNode) Create() (Node, error) {
 		return nil, fmt.Errorf("Node type '%s' is not defined", n.Type)
 	}
 
-	result := reflect.ValueOf(fn).Call([]reflect.Value{reflect.ValueOf(*n)})
+	args := []reflect.Value{
+		reflect.ValueOf(n.Name),
+		reflect.ValueOf(n.Namespace),
+		reflect.ValueOf(n.Uri),
+		reflect.ValueOf(n.Role),
+		reflect.ValueOf(n.Extra),
+	}
+
+	result := reflect.ValueOf(fn).Call(args)
 	impl := result[0]
 	inter := result[1].Interface()
 

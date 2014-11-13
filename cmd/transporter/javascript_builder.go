@@ -176,7 +176,7 @@ func (js *JavascriptBuilder) transform(pipeline JavascriptPipeline, call otto.Fu
 	transformer := transporter.ConfigNode{
 		Name:  "generate a uuid",
 		Type:  "transformer",
-		Extra: map[string]string{"filename": filename},
+		Extra: map[string]interface{}{"filename": filename},
 	}
 
 	pipeline.AddNode(transformer)
