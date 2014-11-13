@@ -13,7 +13,6 @@ import (
 type InfluxImpl struct {
 	// pull these in from the node
 	uri  *url.URL
-	name string
 	role NodeRole
 
 	// save time by setting these once
@@ -27,14 +26,13 @@ type InfluxImpl struct {
 	influxClient *client.Client
 }
 
-func NewInfluxImpl(name, namespace, uri string, role NodeRole, extra map[string]interface{}) (*InfluxImpl, error) {
+func NewInfluxImpl(namespace, uri string, role NodeRole, extra map[string]interface{}) (*InfluxImpl, error) {
 	u, err := url.Parse(uri)
 	if err != nil {
 		return nil, err
 	}
 
 	i := &InfluxImpl{
-		name: name,
 		uri:  u,
 		role: role,
 	}

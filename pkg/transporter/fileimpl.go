@@ -12,7 +12,6 @@ import (
 )
 
 type FileImpl struct {
-	name string
 	uri  string
 	role NodeRole
 
@@ -21,9 +20,8 @@ type FileImpl struct {
 	filehandle *os.File
 }
 
-func NewFileImpl(name, namespace, uri string, role NodeRole, extra map[string]interface{}) (*FileImpl, error) {
+func NewFileImpl(namespace, uri string, role NodeRole, extra map[string]interface{}) (*FileImpl, error) {
 	return &FileImpl{
-		name: name,
 		uri:  uri,
 		role: role,
 	}, nil

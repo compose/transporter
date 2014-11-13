@@ -13,7 +13,6 @@ import (
 type ElasticsearchImpl struct {
 	// pull these in from the node
 	uri  *url.URL
-	name string
 	role NodeRole
 
 	_type string
@@ -25,14 +24,13 @@ type ElasticsearchImpl struct {
 	running bool
 }
 
-func NewElasticsearchImpl(name, namespace, uri string, role NodeRole, extra map[string]interface{}) (*ElasticsearchImpl, error) {
+func NewElasticsearchImpl(namespace, uri string, role NodeRole, extra map[string]interface{}) (*ElasticsearchImpl, error) {
 	u, err := url.Parse(uri)
 	if err != nil {
 		return nil, err
 	}
 
 	e := &ElasticsearchImpl{
-		name: name,
 		uri:  u,
 		role: role,
 	}

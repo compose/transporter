@@ -13,8 +13,7 @@ import (
 )
 
 type Transformer struct {
-	name string `json:"name"`
-	Func string `json:"func"`
+	Func string
 
 	pipe pipe.Pipe
 
@@ -23,7 +22,7 @@ type Transformer struct {
 	vm     *otto.Otto
 }
 
-func NewTransformer(name, namespace, uri string, role NodeRole, extra map[string]interface{}) (*Transformer, error) {
+func NewTransformer(namespace, uri string, role NodeRole, extra map[string]interface{}) (*Transformer, error) {
 	t := &Transformer{}
 
 	filename, ok := extra["filename"].(string)
@@ -34,7 +33,7 @@ func NewTransformer(name, namespace, uri string, role NodeRole, extra map[string
 	if err != nil {
 		return t, err
 	}
-	t.name = filename
+
 	t.Func = string(ba)
 
 	return t, nil

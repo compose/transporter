@@ -30,12 +30,8 @@ var (
  * All nodes must implement the Node interface
  */
 type Node interface {
-	// Name() string
-	// Type() string
 	Start(pipe.Pipe) error
 	Stop() error
-	// String() string
-	// Config() ConfigNode
 }
 
 // A Config stores meta information about the transporter.  This contains a
@@ -83,7 +79,6 @@ func (n *ConfigNode) Create() (Node, error) {
 	}
 
 	args := []reflect.Value{
-		reflect.ValueOf(n.Name),
 		reflect.ValueOf(n.Namespace),
 		reflect.ValueOf(n.Uri),
 		reflect.ValueOf(n.Role),

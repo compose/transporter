@@ -14,7 +14,6 @@ import (
 type MongoImpl struct {
 	// pull these in from the node
 	uri  string
-	name string
 	role NodeRole
 
 	// save time by setting these once
@@ -32,7 +31,7 @@ type MongoImpl struct {
 	restartable bool // this refers to being able to refresh the iterator, not to the restart based on session op
 }
 
-func NewMongoImpl(name, namespace, uri string, role NodeRole, extra map[string]interface{}) (*MongoImpl, error) {
+func NewMongoImpl(namespace, uri string, role NodeRole, extra map[string]interface{}) (*MongoImpl, error) {
 	var (
 		err error
 	)
@@ -40,7 +39,6 @@ func NewMongoImpl(name, namespace, uri string, role NodeRole, extra map[string]i
 	m := &MongoImpl{
 		restartable:  true,            // assume for that we're able to restart the process
 		oplogTimeout: 5 * time.Second, // timeout the oplog iterator
-		name:         name,
 		uri:          uri,
 		role:         role,
 	}
