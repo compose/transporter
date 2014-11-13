@@ -147,7 +147,7 @@ func (m *MongoImpl) tailData() (err error) {
 
 	var (
 		collection = m.mongoSession.DB("local").C("oplog.rs")
-		result     OplogDoc // hold the document
+		result     oplogDoc // hold the document
 		query      = bson.M{
 			"ns": m.config.Namespace,
 		}
@@ -180,7 +180,7 @@ func (m *MongoImpl) tailData() (err error) {
 
 				m.pipe.Send(msg)
 			}
-			result = OplogDoc{}
+			result = oplogDoc{}
 		}
 
 		// we've exited the mongo read loop, lets figure out why
@@ -228,11 +228,9 @@ func (m *MongoImpl) splitNamespace() (string, string, error) {
 }
 
 /*
- *
  * oplog documents are a specific structure
- *
  */
-type OplogDoc struct {
+type oplogDoc struct {
 	Ts bson.MongoTimestamp `bson:"ts"`
 	H  int64               `bson:"h"`
 	V  int                 `bson:"v"`
@@ -242,7 +240,7 @@ type OplogDoc struct {
 	O2 bson.M              `bson:"o2"`
 }
 
-func (o *OplogDoc) validOp() bool {
+func (o *oplogDoc) validOp() bool {
 	// TODO skip system collections
 	return o.Op == "i" || o.Op == "d" || o.Op == "u"
 }
