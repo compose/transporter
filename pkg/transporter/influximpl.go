@@ -12,8 +12,7 @@ import (
 
 type InfluxImpl struct {
 	// pull these in from the node
-	uri  *url.URL
-	role NodeRole
+	uri *url.URL
 
 	// save time by setting these once
 	database    string
@@ -26,7 +25,7 @@ type InfluxImpl struct {
 	influxClient *client.Client
 }
 
-func NewInfluxImpl(namespace, uri string, role NodeRole, extra map[string]interface{}) (*InfluxImpl, error) {
+func NewInfluxImpl(p pipe.Pipe, extra map[string]interface{}) (*InfluxImpl, error) {
 	u, err := url.Parse(extra["uri"].(string))
 	if err != nil {
 		return nil, err
@@ -34,7 +33,7 @@ func NewInfluxImpl(namespace, uri string, role NodeRole, extra map[string]interf
 
 	i := &InfluxImpl{
 		uri:  u,
-		role: role,
+		pipe: p,
 	}
 
 	i.database, i.series_name, err = i.splitNamespace(extra["namespace"].(string))
@@ -45,8 +44,11 @@ func NewInfluxImpl(namespace, uri string, role NodeRole, extra map[string]interf
 	return i, nil
 }
 
-func (i *InfluxImpl) Start(pipe pipe.Pipe) (err error) {
-	i.pipe = pipe
+func (e *InfluxImpl) Start() error {
+	return fmt.Errorf("Cannot use influxdb as a source")
+}
+
+func (i *InfluxImpl) Listen() (err error) {
 	i.influxClient, err = i.setupClient()
 	if err != nil {
 		i.pipe.Err <- err

@@ -13,17 +13,15 @@ import (
 
 type FileImpl struct {
 	uri  string
-	role NodeRole
-
 	pipe pipe.Pipe
 
 	filehandle *os.File
 }
 
-func NewFileImpl(role NodeRole, extra map[string]interface{}) (*FileImpl, error) {
+func NewFileImpl(p pipe.Pipe, extra map[string]interface{}) (*FileImpl, error) {
 	return &FileImpl{
 		uri:  extra["uri"].(string),
-		role: role,
+		pipe: p,
 	}, nil
 }
 
@@ -32,26 +30,29 @@ func NewFileImpl(role NodeRole, extra map[string]interface{}) (*FileImpl, error)
  * TODO: we only know how to listen on stdout for now
  */
 
-func (d *FileImpl) Start(pipe pipe.Pipe) (err error) {
-	d.pipe = pipe
+func (d *FileImpl) Start() (err error) {
 	defer func() {
 		d.Stop()
 	}()
 
-	if d.role == SINK {
-		if strings.HasPrefix(d.uri, "file://") {
-			filename := strings.Replace(d.uri, "file://", "", 1)
-			d.filehandle, err = os.Create(filename)
-			if err != nil {
-				d.pipe.Err <- err
-				return err
-			}
-		}
+	return d.readFile()
+}
 
-		return d.pipe.Listen(d.dumpMessage)
-	} else {
-		return d.readFile()
+func (d *FileImpl) Listen() (err error) {
+	defer func() {
+		d.Stop()
+	}()
+
+	if strings.HasPrefix(d.uri, "file://") {
+		filename := strings.Replace(d.uri, "file://", "", 1)
+		d.filehandle, err = os.Create(filename)
+		if err != nil {
+			d.pipe.Err <- err
+			return err
+		}
 	}
+
+	return d.pipe.Listen(d.dumpMessage)
 }
 
 /*

@@ -22,8 +22,8 @@ type Transformer struct {
 	vm     *otto.Otto
 }
 
-func NewTransformer(role NodeRole, extra map[string]interface{}) (*Transformer, error) {
-	t := &Transformer{}
+func NewTransformer(p pipe.Pipe, extra map[string]interface{}) (*Transformer, error) {
+	t := &Transformer{pipe: p}
 
 	filename, ok := extra["filename"].(string)
 	if !ok {
@@ -39,9 +39,11 @@ func NewTransformer(role NodeRole, extra map[string]interface{}) (*Transformer, 
 	return t, nil
 }
 
-func (t *Transformer) Start(pipe pipe.Pipe) (err error) {
-	t.pipe = pipe
+func (e *Transformer) Start() error {
+	return fmt.Errorf("Cannot use a transformer as a source")
+}
 
+func (t *Transformer) Listen() (err error) {
 	t.vm = otto.New()
 
 	// set up the vm environment, make `module = {}`

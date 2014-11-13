@@ -30,7 +30,8 @@ var (
  * All nodes must implement the Node interface
  */
 type Node interface {
-	Start(pipe.Pipe) error
+	Listen() error
+	Start() error
 	Stop() error
 }
 
@@ -49,9 +50,7 @@ type Config struct {
 //
 // A ConfigNode is a description of an endpoint.  This is not a concrete implementation of a data store, just a
 // container to hold config values.
-
 type ConfigNode struct {
-	Role  NodeRole               `json:"role"`
 	Name  string                 `json:"name"`
 	Type  string                 `json:"type"`
 	Uri   string                 `json:"uri"`
@@ -69,8 +68,8 @@ func (n ConfigNode) String() string {
 // property to find the node's constructore.
 //
 // Each constructor is assumed to be of the form
-// func NewImpl(name, namespace, uri string, role NodeRole, extra map[string]interface{}) (*Impl, error) {
-func (n *ConfigNode) Create() (Node, error) {
+// func NewImpl(pipe pipe.Pipe, extra map[string]interface{}) (*Impl, error) {
+func (n *ConfigNode) Create(pipe pipe.Pipe) (Node, error) {
 
 	fn, ok := Registry[n.Type]
 	if !ok {
@@ -78,7 +77,7 @@ func (n *ConfigNode) Create() (Node, error) {
 	}
 
 	args := []reflect.Value{
-		reflect.ValueOf(n.Role),
+		reflect.ValueOf(pipe),
 		reflect.ValueOf(n.Extra),
 	}
 
@@ -104,26 +103,4 @@ func (n *ConfigNode) Create() (Node, error) {
 	}
 
 	return nil, NoNodeError
-}
-
-/*
- * TODO not sure if this makes sense to be part of the node.  this might be better to be part of the pipeline
- */
-type NodeRole int
-
-const (
-	SOURCE      NodeRole = iota
-	SINK        NodeRole = iota
-	TRANSFORMER NodeRole = iota // TODO i'm tempted to leave it like this.. bug..
-)
-
-func (n NodeRole) String() string {
-	switch n {
-	case SOURCE:
-		return "Source"
-	case SINK:
-		return "Sink"
-	default:
-		return "Other"
-	}
 }

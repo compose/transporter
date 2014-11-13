@@ -13,8 +13,7 @@ import (
 
 type MongoImpl struct {
 	// pull these in from the node
-	uri  string
-	role NodeRole
+	uri string
 
 	// save time by setting these once
 	collection string
@@ -23,7 +22,6 @@ type MongoImpl struct {
 	//
 	pipe pipe.Pipe
 
-	//
 	// mongo connection and options
 	mongoSession *mgo.Session
 	oplogTimeout time.Duration
@@ -31,7 +29,7 @@ type MongoImpl struct {
 	restartable bool // this refers to being able to refresh the iterator, not to the restart based on session op
 }
 
-func NewMongoImpl(role NodeRole, extra map[string]interface{}) (*MongoImpl, error) {
+func NewMongoImpl(p pipe.Pipe, extra map[string]interface{}) (*MongoImpl, error) {
 	var (
 		err error
 	)
@@ -40,46 +38,48 @@ func NewMongoImpl(role NodeRole, extra map[string]interface{}) (*MongoImpl, erro
 		restartable:  true,            // assume for that we're able to restart the process
 		oplogTimeout: 5 * time.Second, // timeout the oplog iterator
 		uri:          extra["uri"].(string),
-		role:         role,
+		pipe:         p,
 	}
 
 	m.database, m.collection, err = m.splitNamespace(extra["namespace"].(string))
 	if err != nil {
 		return m, err
 	}
-	return m, nil
+
+	m.mongoSession, err = mgo.Dial(m.uri)
+	if err != nil {
+		m.pipe.Err <- err
+	}
+
+	return m, err
 }
 
-func (m *MongoImpl) Start(pipe pipe.Pipe) (err error) {
-	m.pipe = pipe
+func (m *MongoImpl) Start() (err error) {
 	defer func() {
 		m.pipe.Stop()
 	}()
 
-	m.mongoSession, err = mgo.Dial(m.uri)
+	err = m.catData()
 	if err != nil {
 		m.pipe.Err <- err
 		return err
 	}
 
-	// Source, cat and then tail the collection
-	if m.role == SINK {
-		return m.pipe.Listen(m.writeMessage)
-	} else {
-		err = m.catData()
-		if err != nil {
-			m.pipe.Err <- err
-			return err
-		}
-
-		// replay the oplog
-		err = m.tailData()
-		if err != nil {
-			m.pipe.Err <- err
-			return err
-		}
+	// replay the oplog
+	err = m.tailData()
+	if err != nil {
+		m.pipe.Err <- err
+		return err
 	}
+
 	return
+}
+
+func (m *MongoImpl) Listen() (err error) {
+	defer func() {
+		m.pipe.Stop()
+	}()
+	return m.pipe.Listen(m.writeMessage)
 }
 
 func (m *MongoImpl) Stop() error {

@@ -129,7 +129,6 @@ func (js *JavascriptBuilder) source(call otto.FunctionCall) otto.Value {
 		js.err = err
 		return otto.NullValue()
 	}
-	this_node.Role = transporter.SOURCE
 
 	pipeline, err := NewJavacriptPipeline(this_node).Object()
 	if err != nil {
@@ -151,7 +150,6 @@ func (js *JavascriptBuilder) save(pipeline JavascriptPipeline, call otto.Functio
 	if err != nil {
 		return pipeline, err
 	}
-	this_node.Role = transporter.SINK
 	pipeline.AddNode(this_node)
 
 	return pipeline, err
@@ -262,12 +260,16 @@ func (js *JavascriptBuilder) Build() (Application, error) {
 		if err != nil {
 			return js.app, err
 		}
-		// TODO add all the subsequent nodes.  this could probably also happen inside the js 'save' and 'transform' methods, but this works for now.
-		for _, n := range p.Nodes[1:] {
+		// TODO add all the subsequent nodes except the last one.  this could probably also happen inside the js 'save' and 'transform' methods, but this works for now.
+		for _, n := range p.Nodes[1 : len(p.Nodes)-1] {
 			if err = pipeline.AddNode(n); err != nil {
 				return js.app, err
 			}
 		}
+		if err = pipeline.AddTerminalNode(p.Nodes[len(p.Nodes)-1]); err != nil {
+			return js.app, err
+		}
+
 		js.app.AddPipeline(*pipeline)
 	}
 

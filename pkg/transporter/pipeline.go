@@ -22,9 +22,9 @@ const (
 
 type Pipeline struct {
 	config Config
-	chunks []pipelineChunk // TODO i
+	chunks []pipelineChunk
 
-	sourcePipe pipe.Pipe
+	sourcePipe pipe.Pipe //TODO we can probably lose this
 	nodeWg     *sync.WaitGroup
 	metricsWg  *sync.WaitGroup
 }
@@ -38,11 +38,10 @@ func NewPipeline(config Config, source ConfigNode) (*Pipeline, error) {
 		metricsWg: &sync.WaitGroup{},
 	}
 
-	if err := p.AddNode(source); err != nil {
-		return p, err
-	}
-
 	p.sourcePipe = pipe.NewSourcePipe(source.Name, time.Duration(p.config.Api.MetricsInterval)*time.Millisecond)
+	if err := p.addNode(source, p.sourcePipe); err != nil {
+		return nil, err
+	}
 
 	go p.startErrorListener()
 	go p.startEventListener()
@@ -52,11 +51,23 @@ func NewPipeline(config Config, source ConfigNode) (*Pipeline, error) {
 
 // AddNode adds a node to the pipeline
 func (p *Pipeline) AddNode(config ConfigNode) error {
-	node, err := config.Create()
+	lastPipe := p.chunks[len(p.chunks)-1].p
+	joinPipe := pipe.NewJoinPipe(lastPipe, config.Name)
+	return p.addNode(config, joinPipe)
+}
+
+func (p *Pipeline) AddTerminalNode(config ConfigNode) error {
+	lastPipe := p.chunks[len(p.chunks)-1].p
+	sinkPipe := pipe.NewSinkPipe(lastPipe, config.Name)
+	return p.addNode(config, sinkPipe)
+}
+
+func (p *Pipeline) addNode(config ConfigNode, pp pipe.Pipe) error {
+	node, err := config.Create(pp)
 	if err != nil {
 		return err
 	}
-	n := pipelineChunk{config: config, node: node}
+	n := pipelineChunk{config: config, node: node, p: pp}
 	p.chunks = append(p.chunks, n)
 	return nil
 }
@@ -83,28 +94,28 @@ func (p *Pipeline) stopEverything() {
  */
 func (p *Pipeline) Run() error {
 
-	var current_pipe pipe.Pipe = p.sourcePipe
+	// var current_pipe pipe.Pipe = p.sourcePipe
 
-	for idx, chunk := range p.chunks[1:] {
-		// lets get a joinPipe, unless we're the last one, and then lets use a terminalPipe
-		if idx == len(p.chunks)-2 {
-			current_pipe = pipe.NewSinkPipe(current_pipe, chunk.config.Name)
-		} else {
-			current_pipe = pipe.NewJoinPipe(current_pipe, chunk.config.Name)
-		}
+	for _, chunk := range p.chunks[1:] {
+		// // lets get a joinPipe, unless we're the last one, and then lets use a terminalPipe
+		// if idx == len(p.chunks)-2 {
+		// 	current_pipe = pipe.NewSinkPipe(current_pipe, chunk.config.Name)
+		// } else {
+		// 	current_pipe = pipe.NewJoinPipe(current_pipe, chunk.config.Name)
+		// }
 
-		go func(current_pipe pipe.Pipe, node Node) {
+		go func(node Node) {
 			p.nodeWg.Add(1)
-			node.Start(current_pipe)
+			node.Listen()
 			p.nodeWg.Done()
-		}(current_pipe, chunk.node)
+		}(chunk.node)
 	}
 
 	// send a boot event
 	p.sourcePipe.Event <- pipe.NewBootEvent(time.Now().Unix(), VERSION, p.endpointMap())
 
 	// start the source
-	err := p.chunks[0].node.Start(p.sourcePipe)
+	err := p.chunks[0].node.Start()
 
 	// the source has exited, stop all the other nodes
 	p.stopEverything()
@@ -166,4 +177,5 @@ func (p *Pipeline) startEventListener() {
 type pipelineChunk struct {
 	config ConfigNode
 	node   Node
+	p      pipe.Pipe
 }

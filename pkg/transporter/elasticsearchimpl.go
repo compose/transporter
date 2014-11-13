@@ -12,8 +12,7 @@ import (
 
 type ElasticsearchImpl struct {
 	// pull these in from the node
-	uri  *url.URL
-	role NodeRole
+	uri *url.URL
 
 	_type string
 	index string
@@ -24,7 +23,7 @@ type ElasticsearchImpl struct {
 	running bool
 }
 
-func NewElasticsearchImpl(role NodeRole, extra map[string]interface{}) (*ElasticsearchImpl, error) {
+func NewElasticsearchImpl(p pipe.Pipe, extra map[string]interface{}) (*ElasticsearchImpl, error) {
 	u, err := url.Parse(extra["uri"].(string))
 	if err != nil {
 		return nil, err
@@ -32,7 +31,7 @@ func NewElasticsearchImpl(role NodeRole, extra map[string]interface{}) (*Elastic
 
 	e := &ElasticsearchImpl{
 		uri:  u,
-		role: role,
+		pipe: p,
 	}
 
 	e.index, e._type, err = e.splitNamespace(extra["namespace"].(string))
@@ -43,11 +42,12 @@ func NewElasticsearchImpl(role NodeRole, extra map[string]interface{}) (*Elastic
 	return e, nil
 }
 
-/*
- * start the module
- */
-func (e *ElasticsearchImpl) Start(pipe pipe.Pipe) error {
-	e.pipe = pipe
+func (e *ElasticsearchImpl) Start() error {
+	return fmt.Errorf("Cannot use Elasticsearch as a source")
+}
+
+// start the listener
+func (e *ElasticsearchImpl) Listen() error {
 	e.setupClient()
 	e.indexer.Start()
 	e.running = true
