@@ -37,9 +37,9 @@ type Pipe struct {
 	Out             messageChan
 	Err             chan error
 	Event           chan event
+	Stopped         bool // has the pipe been stopped?
 	chStop          chan chan bool
 	listening       bool
-	stopped         bool
 	metrics         *nodeMetrics
 	metricsInterval time.Duration
 }
@@ -95,7 +95,7 @@ func (m *Pipe) Listen(fn func(*message.Msg) error) error {
 	}
 	m.listening = true
 	defer func() {
-		m.stopped = true
+		m.Stopped = true
 	}()
 	for {
 		// check for stop
@@ -125,8 +125,8 @@ func (m *Pipe) Listen(fn func(*message.Msg) error) error {
 
 // Stop terminates the channels listening loop, and allows any timeouts in send to fail
 func (m *Pipe) Stop() {
-	if !m.stopped {
-		m.stopped = true
+	if !m.Stopped {
+		m.Stopped = true
 		m.metrics.Stop()
 
 		// we only worry about the stop channel if we're in a listening loop
@@ -138,10 +138,6 @@ func (m *Pipe) Stop() {
 	}
 }
 
-func (m *Pipe) Stopped() bool {
-	return m.stopped
-}
-
 // send emits the given message on the 'Out' channel.  the send Timesout after 100 ms in order to chaeck of the Pipe has stopped and we've been asked to exit.
 // If the Pipe has been stopped, the send will fail and there is no guarantee of either success or failure
 func (m *Pipe) Send(msg *message.Msg) {
@@ -151,7 +147,7 @@ func (m *Pipe) Send(msg *message.Msg) {
 			m.metrics.RecordsOut += 1
 			return
 		case <-time.After(100 * time.Millisecond):
-			if m.Stopped() {
+			if m.Stopped {
 				return
 			}
 		}
