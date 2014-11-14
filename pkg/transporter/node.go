@@ -51,15 +51,18 @@ type Source interface {
 	Stop() error
 }
 
+// An Api is the definition of the remote endpoint that receieves event and error posts
+type Api struct {
+	Uri             string `json:"uri" yaml:"uri"`
+	MetricsInterval int    `json:"interval" yaml:"interval"`
+}
+
 // A Config stores meta information about the transporter.  This contains a
 // list of the the nodes that are available to a transporter (sources and sinks, not transformers)
 // as well as information about the api used to handle transporter events, and the interval
 // between metrics events.
 type Config struct {
-	Api struct {
-		Uri             string `json:"uri" yaml:"uri"`
-		MetricsInterval int    `json:"interval" yaml:"interval"`
-	} `json:"api" yaml:"api"`
+	Api   Api `json:"api" yaml:"api"`
 	Nodes map[string]ConfigNode
 }
 

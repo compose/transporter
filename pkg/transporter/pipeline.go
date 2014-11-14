@@ -53,21 +53,20 @@ func NewPipeline(config Config, source ConfigNode) (*Pipeline, error) {
 	return p, nil
 }
 
+func (p *Pipeline) lastPipe() pipe.Pipe {
+	if len(p.chunks) == 0 {
+		return p.source.p
+	}
+	return p.chunks[len(p.chunks)-1].p
+}
+
 // AddNode adds a node to the pipeline
 func (p *Pipeline) AddNode(config ConfigNode) error {
-	var lastPipe pipe.Pipe
-	if len(p.chunks) == 0 {
-		lastPipe = p.source.p
-	} else {
-		lastPipe = p.chunks[len(p.chunks)-1].p
-	}
-
-	return p.addNode(config, pipe.NewJoinPipe(lastPipe, config.Name))
+	return p.addNode(config, pipe.NewJoinPipe(p.lastPipe(), config.Name))
 }
 
 func (p *Pipeline) AddTerminalNode(config ConfigNode) error {
-	lastPipe := p.chunks[len(p.chunks)-1].p
-	return p.addNode(config, pipe.NewSinkPipe(lastPipe, config.Name))
+	return p.addNode(config, pipe.NewSinkPipe(p.lastPipe(), config.Name))
 }
 
 func (p *Pipeline) addNode(config ConfigNode, pp pipe.Pipe) error {
@@ -83,10 +82,14 @@ func (p *Pipeline) addNode(config ConfigNode, pp pipe.Pipe) error {
 func (p *Pipeline) String() string {
 	out := " - Pipeline\n"
 	out += fmt.Sprintf("  - Source: %s\n", p.source.config)
-	for _, t := range p.chunks[1 : len(p.chunks)-1] {
-		out += fmt.Sprintf("   - %s\n", t)
+	if len(p.chunks) > 1 {
+		for _, t := range p.chunks[1 : len(p.chunks)-1] {
+			out += fmt.Sprintf("   - %s\n", t)
+		}
 	}
-	out += fmt.Sprintf("  - Sink:   %s\n", p.chunks[len(p.chunks)-1].config)
+	if len(p.chunks) >= 1 {
+		out += fmt.Sprintf("  - Sink:   %s\n", p.chunks[len(p.chunks)-1].config)
+	}
 	return out
 }
 
