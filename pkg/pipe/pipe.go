@@ -12,15 +12,6 @@ import (
 	"github.com/compose/transporter/pkg/message"
 )
 
-/*
- * TODO:
- * it's probably entirely reasonable to make the 'Pipe' functionality part of the Node struct.
- * each nodeImpl will need to remember it's parent node, and instead of 'NewPipe' and 'JoinPipe', we would
- * have something slightly different
- *
- * or maybe not.. transformers need pipes too, and they aren't nodes.  what to do
- */
-
 type messageChan chan *message.Msg
 
 func newMessageChan() messageChan {

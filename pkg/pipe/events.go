@@ -25,9 +25,10 @@ const (
 	metricsKind
 )
 
-/*
- * Events
- */
+// an Event is produced periodically by the running transporter.
+//
+// Events come in multiple kinds.  BootEvents are emitted when the transporter starts,
+// MetricsEvents are emittied by each pipe and include a measure of how many messages have been processed
 type Event struct {
 	Ts           int64  `json:"ts"`
 	Kind         string `json:"event"`
@@ -40,14 +41,13 @@ func (e Event) String() string {
 	return string(ba)
 }
 
-/*
- * bootevents are sent when the pipeline has been started
- */
+// bootevents are sent when the pipeline has been started
 type bootEvent struct {
 	Version   string            `json:"version,omitempty"`
 	Endpoints map[string]string `json:"endpoints,omitempty"`
 }
 
+// NewBootEvent (surprisingly) creates a new bootevent
 func NewBootEvent(ts int64, version string, endpoints map[string]string) Event {
 	e := Event{Ts: ts, Kind: bootKind.String()}
 	e.Version = version
@@ -55,15 +55,14 @@ func NewBootEvent(ts int64, version string, endpoints map[string]string) Event {
 	return e
 }
 
-/*
- * Metrics events are sent by the nodes periodically
- */
+// Metrics events are sent by the nodes periodically
 type metricsEvent struct {
 	Path       string `json:"path,omitempty"`
 	RecordsIn  int    `json:"records_in,omitempty"`
 	RecordsOut int    `json:"records_out,omitempty"`
 }
 
+// newMetricsEvent creates a new metrics event
 func NewMetricsEvent(ts int64, path string, in, out int) Event {
 	e := Event{Ts: ts, Kind: metricsKind.String()}
 	e.Path = path
@@ -72,9 +71,8 @@ func NewMetricsEvent(ts int64, path string, in, out int) Event {
 	return e
 }
 
-/*
- * lets keep track of metrics on a nodeimpl, and send them out periodically to our event chan
- */
+//
+// lets keep track of metrics on a nodeimpl, and send them out periodically to our event chan
 type nodeMetrics struct {
 	ticker     *time.Ticker
 	eChan      chan Event
@@ -83,6 +81,7 @@ type nodeMetrics struct {
 	RecordsOut int
 }
 
+// NewNodeMetrics creates a new nodeMetrics, and starts a ticker that will emit a new metrics event every interval.
 func NewNodeMetrics(path string, eventChan chan Event, interval time.Duration) *nodeMetrics {
 	m := &nodeMetrics{path: path, eChan: eventChan}
 
@@ -91,17 +90,19 @@ func NewNodeMetrics(path string, eventChan chan Event, interval time.Duration) *
 		m.ticker = time.NewTicker(interval)
 		go func() {
 			for _ = range m.ticker.C {
-				m.Send()
+				m.send()
 			}
 		}()
 	}
 	return m
 }
 
-func (m *nodeMetrics) Send() {
+// send a new metrics event on the event channel
+func (m *nodeMetrics) send() {
 	m.eChan <- NewMetricsEvent(time.Now().Unix(), m.path, m.RecordsIn, m.RecordsOut)
 }
 
+// Stop stops the ticker that sends out new metrics.  This shuts down the nodeMetrics.
 func (m *nodeMetrics) Stop() {
 	if m.ticker != nil {
 		m.ticker.Stop()
