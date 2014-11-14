@@ -19,9 +19,7 @@ func (t *TransporterApplication) AddPipeline(p transporter.Pipeline) {
 	t.Pipelines = append(t.Pipelines, p)
 }
 
-/*
- * This is where we actually instantiate the Pipelines
- */
+// Run performs a .Run() on each Pipeline contained in the Transporter Application
 func (t *TransporterApplication) Run() (err error) {
 	// fmt.Println(t)
 
@@ -39,9 +37,7 @@ func (t *TransporterApplication) Stop() error {
 	return nil
 }
 
-/*
- * represent this as a string
- */
+// represent this as a string
 func (t *TransporterApplication) String() string {
 	out := "TransporterApplication:\n"
 	for _, p := range t.Pipelines {

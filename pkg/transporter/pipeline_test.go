@@ -2,14 +2,12 @@ package transporter
 
 import (
 	"testing"
-
-	"github.com/compose/transporter/pkg/pipe"
 )
 
 var (
 	// localmongoCN = ConfigNode{Extra: map[string]interface{}{"uri": "mongodb://localhost/blah", "namespace": "boo.baz"}, Name: "localmongo", Type: "mongo"}
-	fakesourceCN = ConfigNode{Type: "fakesource", Extra: map[string]interface{}{"value": "rockettes"}}
-	fileCN       = ConfigNode{Extra: map[string]interface{}{"uri": "file:///tmp/crap"}, Name: "locafile", Type: "file"}
+	fakesourceCN = ConfigNode{Type: "source", Extra: map[string]interface{}{"value": "rockettes"}}
+	fileCN       = ConfigNode{Extra: map[string]interface{}{"uri": "file:///tmp/crap"}, Name: "localfile", Type: "file"}
 )
 
 var (
@@ -25,29 +23,8 @@ var (
 	}
 )
 
-// a random type that implements the source interface
-type FakeSourceImpl struct {
-	value string
-}
-
-func NewFakeSourceImpl(p pipe.Pipe, extra map[string]interface{}) (*FakeSourceImpl, error) {
-	val, ok := extra["value"]
-	if !ok {
-		return nil, anError
-	}
-	return &FakeSourceImpl{value: val.(string)}, nil
-}
-
-func (s *FakeSourceImpl) Stop() error {
-	return nil
-}
-
-func (s *FakeSourceImpl) Start() error {
-	return nil
-}
-
 func TestPipelineString(t *testing.T) {
-	SourceRegistry["fakesource"] = NewFakeSourceImpl
+	SourceRegistry["source"] = NewSourceImpl
 
 	data := []struct {
 		in           ConfigNode
@@ -57,12 +34,12 @@ func TestPipelineString(t *testing.T) {
 		{
 			fakesourceCN,
 			nil,
-			" - Pipeline\n  - Source:                      fakesource      no namespace set               no uri set\n",
+			" - Pipeline\n  - Source:                      source          no namespace set               no uri set\n",
 		},
 		{
 			fakesourceCN,
 			&fileCN,
-			" - Pipeline\n  - Source:                      fakesource      no namespace set               no uri set\n  - Sink:   locafile             file            no namespace set               file:///tmp/crap\n",
+			" - Pipeline\n  - Source:                      source          no namespace set               no uri set\n  - Sink:   localfile            file            no namespace set               file:///tmp/crap\n",
 		},
 	}
 

@@ -67,10 +67,19 @@ type JavascriptBuilder struct {
 	err          error
 }
 
-func NewJavascriptBuilder(config transporter.Config, file string) (*JavascriptBuilder, error) {
+func NewJavascriptBuilder(config transporter.Config, file, src string) (*JavascriptBuilder, error) {
 	js := &JavascriptBuilder{file: file, vm: otto.New(), path: filepath.Dir(file), js_pipelines: make([]JavascriptPipeline, 0), app: NewTransporterApplication(config)}
 
-	script, err := js.vm.Compile(file, nil)
+	var (
+		script *otto.Script
+		err    error
+	)
+	if src != "" {
+		script, err = js.vm.Compile("", src)
+	} else {
+		script, err = js.vm.Compile(file, nil)
+	}
+
 	if err != nil {
 		return js, err
 	}
