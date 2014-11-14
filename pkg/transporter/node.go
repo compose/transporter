@@ -53,7 +53,16 @@ type ConfigNode struct {
 }
 
 func (n ConfigNode) String() string {
-	return fmt.Sprintf("%-20s %-15s %-30s %s", n.Name, n.Type, n.Extra["namespace"].(string), n.Extra["uri"].(string))
+	uri, ok := n.Extra["uri"]
+	if !ok {
+		uri = "no uri set"
+	}
+
+	namespace, ok := n.Extra["namespace"]
+	if !ok {
+		namespace = "no namespace set"
+	}
+	return fmt.Sprintf("%-20s %-15s %-30s %s", n.Name, n.Type, namespace, uri)
 }
 
 //
