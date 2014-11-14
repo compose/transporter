@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"path/filepath"
 
-	// "github.com/compose/transporter/pkg/impl"
 	"github.com/compose/transporter/pkg/transporter"
 	"github.com/nu7hatch/gouuid"
 	"github.com/robertkrimen/otto"
@@ -19,11 +18,9 @@ func NewJavacriptPipeline(source transporter.ConfigNode) *JavascriptPipeline {
 	return &JavascriptPipeline{Nodes: []transporter.ConfigNode{source}}
 }
 
-/*
- * create a new pipeline from a value, such as what we would get back
- * from an otto.Value.  basically a pipeline that has lost it's identify,
- * and been interfaced{}
- */
+// create a new pipeline from a interface, such as what we would get back
+// from an otto.Value.  basically a pipeline that has lost it's identify,
+// and been interfaced{}
 func InterfaceToPipeline(val interface{}) (JavascriptPipeline, error) {
 	t := JavascriptPipeline{}
 	ba, err := json.Marshal(val)
@@ -36,9 +33,7 @@ func InterfaceToPipeline(val interface{}) (JavascriptPipeline, error) {
 	return t, err
 }
 
-/*
- * turn this pipeline into an otto Object
- */
+// turn this pipeline into an otto Object
 func (t *JavascriptPipeline) Object() (*otto.Object, error) {
 	vm := otto.New()
 	ba, err := json.Marshal(t)
@@ -49,10 +44,8 @@ func (t *JavascriptPipeline) Object() (*otto.Object, error) {
 	return vm.Object(fmt.Sprintf(`(%s)`, string(ba)))
 }
 
-/*
- * add a node to a pipeline.
- * nodes are called in fifo order
- */
+// add a node to a pipeline.
+// nodes are called in fifo order
 func (jp *JavascriptPipeline) AddNode(n transporter.ConfigNode) {
 	jp.Nodes = append(jp.Nodes, n)
 }
@@ -91,9 +84,7 @@ func NewJavascriptBuilder(config transporter.Config, file, src string) (*Javascr
 	return js, nil
 }
 
-/*
- * Create a transporter app
- */
+// transporter creates a transporter application
 func (js *JavascriptBuilder) transporter(call otto.FunctionCall) otto.Value {
 	val, err := js.vm.Object(`({})`)
 	if err != nil {
@@ -104,9 +95,7 @@ func (js *JavascriptBuilder) transporter(call otto.FunctionCall) otto.Value {
 	return val.Value()
 }
 
-/*
- * Add a pipeline to the application
- */
+// add Adds a javascriptPipeline to the application
 func (js *JavascriptBuilder) add(call otto.FunctionCall) otto.Value {
 	if len(call.ArgumentList) != 1 {
 		js.err = fmt.Errorf("Transporter.add must be called with 1 arg.  (%d given)", len(call.ArgumentList))
@@ -125,10 +114,10 @@ func (js *JavascriptBuilder) add(call otto.FunctionCall) otto.Value {
 	return otto.TrueValue()
 }
 
-/*
- * initialize a transporter pipeline.
- * don't keep any global transporter state, we may end up having multiple transporters
- */
+// source initialize a transporter pipeline, and adds a source to it.
+// Source(..) takes one argument, a javascript hash which generally contains at
+// least a name and a namespace property
+//   {name: .., namespace: ..}
 func (js *JavascriptBuilder) source(call otto.FunctionCall) otto.Value {
 	if len(call.ArgumentList) != 1 {
 		js.err = fmt.Errorf("Transporter must be called with 1 arg. (%d given)", len(call.ArgumentList))
@@ -152,10 +141,8 @@ func (js *JavascriptBuilder) source(call otto.FunctionCall) otto.Value {
 	return pipeline.Value()
 }
 
-/*
- * save a transporter pipeline
- * this finalized the transporter by adding a sink, and adds the pipeline to the application
- */
+// save adds a sink to the transporter pipeline
+// each pipeline can have multiple sinks
 func (js *JavascriptBuilder) save(pipeline JavascriptPipeline, call otto.FunctionCall) (JavascriptPipeline, error) {
 	this_node, err := js.findNode(call.Argument(0))
 	if err != nil {
@@ -166,9 +153,8 @@ func (js *JavascriptBuilder) save(pipeline JavascriptPipeline, call otto.Functio
 	return pipeline, err
 }
 
-/*
- * adds a transform function to the pipeline
- */
+// adds a transform function to the transporter pipeline
+// transform takes one argument, which is a path to a transformer file.
 func (js *JavascriptBuilder) transform(pipeline JavascriptPipeline, call otto.FunctionCall) (JavascriptPipeline, error) {
 	if !call.Argument(0).IsString() {
 		return pipeline, fmt.Errorf("bad arguments, expected string, got %d.", len(call.Argument(0).Class()))
@@ -195,10 +181,8 @@ func (js *JavascriptBuilder) transform(pipeline JavascriptPipeline, call otto.Fu
 	return pipeline, nil
 }
 
-/*
- * pipelines in javascript are chainable, you take in a pipeline, and you return a pipeline
- * we just generalize some of that logic here
- */
+// pipelines in javascript are chainable, you take in a pipeline, and you return a pipeline
+// we just generalize some of that logic here
 func (js *JavascriptBuilder) SetFunc(obj *otto.Object, token string, fn func(JavascriptPipeline, otto.FunctionCall) (JavascriptPipeline, error)) error {
 	return obj.Set(token, func(call otto.FunctionCall) otto.Value {
 		this, _ := call.This.Export()
@@ -228,11 +212,8 @@ func (js *JavascriptBuilder) SetFunc(obj *otto.Object, token string, fn func(Jav
 	})
 }
 
-/*
- *
- * find the node from the based ont the hash passed in
- *
- */
+// find the node from the based ont the hash passed in
+// the hash needs to at least have a {name: }property
 func (js *JavascriptBuilder) findNode(in otto.Value) (n transporter.ConfigNode, err error) {
 	e, err := in.Export()
 	if err != nil {
@@ -244,11 +225,16 @@ func (js *JavascriptBuilder) findNode(in otto.Value) (n transporter.ConfigNode, 
 		return n, fmt.Errorf("first argument to transport must be an hash. (got %T instead)", in)
 	}
 
+	// make sure the hash validates.  we need a "name" property
+	if _, ok := m["name"]; !ok {
+		return n, fmt.Errorf("source hash requires a name")
+	}
 	sourceString, ok := m["name"].(string)
 	if !(ok) {
 		return n, fmt.Errorf("source hash requires a name")
 	}
 
+	//
 	n, ok = js.app.Config.Nodes[sourceString]
 	if !ok {
 		return n, fmt.Errorf("no configured nodes found named %s", sourceString)
@@ -257,9 +243,10 @@ func (js *JavascriptBuilder) findNode(in otto.Value) (n transporter.ConfigNode, 
 	return transporter.ConfigNode{Name: n.Name, Type: n.Type, Extra: m}, nil
 }
 
-/*
- * Run the javascript environment, pipelines are accumulated in the struct
- */
+// Build runs the javascript script.
+// each call to the Source() in the javascript creates a new JavascriptPipeline struct,
+// and transformers and sinks are added with calls to Transform(), and Save().
+// the call to Transporter.add(pipeline) adds the JavascriptPipeline to the Builder's js_pipeline property
 func (js *JavascriptBuilder) Build() (Application, error) {
 	_, err := js.vm.Run(js.script)
 	if js.err != nil {
@@ -269,17 +256,21 @@ func (js *JavascriptBuilder) Build() (Application, error) {
 		return nil, err
 	}
 	for _, p := range js.js_pipelines {
-		// create a new pipeline with the source
+
+		// create a new pipeline with with the source set to the first element of the Nodes array
 		pipeline, err := transporter.NewPipeline(js.app.Config, p.Nodes[0])
 		if err != nil {
 			return js.app, err
 		}
-		// TODO add all the subsequent nodes except the last one.  this could probably also happen inside the js 'save' and 'transform' methods, but this works for now.
+
+		// all nodes except for the last are added to the Pipeline with pipeline.AddNode()
 		for _, n := range p.Nodes[1 : len(p.Nodes)-1] {
 			if err = pipeline.AddNode(n); err != nil {
 				return js.app, err
 			}
 		}
+
+		// finally we add the terminal node
 		if err = pipeline.AddTerminalNode(p.Nodes[len(p.Nodes)-1]); err != nil {
 			return js.app, err
 		}
