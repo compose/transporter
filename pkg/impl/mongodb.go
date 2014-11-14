@@ -37,11 +37,20 @@ func NewMongodb(p pipe.Pipe, extra map[string]interface{}) (*Mongodb, error) {
 	m := &Mongodb{
 		restartable:  true,            // assume for that we're able to restart the process
 		oplogTimeout: 5 * time.Second, // timeout the oplog iterator
-		uri:          extra["uri"].(string),
 		pipe:         p,
 	}
 
-	m.database, m.collection, err = m.splitNamespace(extra["namespace"].(string))
+	m.uri, err = getExtraValue(extra, "key")
+	if err != nil {
+		return m, err
+	}
+
+	namespace, err := getExtraValue(extra, "namespace")
+	if err != nil {
+		return m, err
+	}
+
+	m.database, m.collection, err = m.splitNamespace(namespace)
 	if err != nil {
 		return m, err
 	}
