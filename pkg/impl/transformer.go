@@ -39,10 +39,6 @@ func NewTransformer(p pipe.Pipe, extra map[string]interface{}) (*Transformer, er
 	return t, nil
 }
 
-func (e *Transformer) Start() error {
-	return fmt.Errorf("Cannot use a transformer as a source")
-}
-
 func (t *Transformer) Listen() (err error) {
 	t.vm = otto.New()
 

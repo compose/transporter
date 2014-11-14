@@ -9,7 +9,7 @@ import (
 func TestEvent(t *testing.T) {
 
 	data := []struct {
-		in   event
+		in   Event
 		want []byte
 	}{
 		{

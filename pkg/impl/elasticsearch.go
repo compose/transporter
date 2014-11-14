@@ -42,10 +42,6 @@ func NewElasticsearch(p pipe.Pipe, extra map[string]interface{}) (*Elasticsearch
 	return e, nil
 }
 
-func (e *Elasticsearch) Start() error {
-	return fmt.Errorf("Cannot use Elasticsearch as a source")
-}
-
 // start the listener
 func (e *Elasticsearch) Listen() error {
 	e.setupClient()

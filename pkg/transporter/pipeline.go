@@ -22,11 +22,12 @@ const (
 
 type Pipeline struct {
 	config Config
+
+	source pipelineSource
 	chunks []pipelineChunk
 
-	sourcePipe pipe.Pipe //TODO we can probably lose this
-	nodeWg     *sync.WaitGroup
-	metricsWg  *sync.WaitGroup
+	nodeWg    *sync.WaitGroup
+	metricsWg *sync.WaitGroup
 }
 
 // NewPipeline creates a new Transporter Pipeline, with the given node acting as the 'SOURCE'.  subsequent nodes should be added via AddNode
@@ -38,28 +39,39 @@ func NewPipeline(config Config, source ConfigNode) (*Pipeline, error) {
 		metricsWg: &sync.WaitGroup{},
 	}
 
-	p.sourcePipe = pipe.NewSourcePipe(source.Name, time.Duration(p.config.Api.MetricsInterval)*time.Millisecond)
-	if err := p.addNode(source, p.sourcePipe); err != nil {
-		return nil, err
+	sourcePipe := pipe.NewSourcePipe(source.Name, time.Duration(p.config.Api.MetricsInterval)*time.Millisecond)
+	node, err := source.CreateSource(sourcePipe)
+	if err != nil {
+		return p, err
 	}
 
-	go p.startErrorListener()
-	go p.startEventListener()
+	p.source = pipelineSource{config: source, node: node, p: sourcePipe}
+
+	// if err := p.addNode(source, sourcePipe); err != nil {
+	// 	return nil, err
+	// }
+
+	go p.startErrorListener(sourcePipe.Err)
+	go p.startEventListener(sourcePipe.Event)
 
 	return p, nil
 }
 
 // AddNode adds a node to the pipeline
 func (p *Pipeline) AddNode(config ConfigNode) error {
-	lastPipe := p.chunks[len(p.chunks)-1].p
-	joinPipe := pipe.NewJoinPipe(lastPipe, config.Name)
-	return p.addNode(config, joinPipe)
+	var lastPipe pipe.Pipe
+	if len(p.chunks) == 0 {
+		lastPipe = p.source.p
+	} else {
+		lastPipe = p.chunks[len(p.chunks)-1].p
+	}
+
+	return p.addNode(config, pipe.NewJoinPipe(lastPipe, config.Name))
 }
 
 func (p *Pipeline) AddTerminalNode(config ConfigNode) error {
 	lastPipe := p.chunks[len(p.chunks)-1].p
-	sinkPipe := pipe.NewSinkPipe(lastPipe, config.Name)
-	return p.addNode(config, sinkPipe)
+	return p.addNode(config, pipe.NewSinkPipe(lastPipe, config.Name))
 }
 
 func (p *Pipeline) addNode(config ConfigNode, pp pipe.Pipe) error {
@@ -74,7 +86,7 @@ func (p *Pipeline) addNode(config ConfigNode, pp pipe.Pipe) error {
 
 func (p *Pipeline) String() string {
 	out := " - Pipeline\n"
-	out += fmt.Sprintf("  - Source: %s\n", p.chunks[0].config)
+	out += fmt.Sprintf("  - Source: %s\n", p.source.config)
 	for _, t := range p.chunks[1 : len(p.chunks)-1] {
 		out += fmt.Sprintf("   - %s\n", t)
 	}
@@ -84,6 +96,7 @@ func (p *Pipeline) String() string {
 
 func (p *Pipeline) stopEverything() {
 	// stop all the nodes
+	p.source.node.Stop()
 	for _, chunk := range p.chunks {
 		chunk.node.Stop()
 	}
@@ -93,10 +106,7 @@ func (p *Pipeline) stopEverything() {
  * run the pipeline
  */
 func (p *Pipeline) Run() error {
-
-	// var current_pipe pipe.Pipe = p.sourcePipe
-
-	for _, chunk := range p.chunks[1:] {
+	for _, chunk := range p.chunks {
 		go func(node Node) {
 			p.nodeWg.Add(1)
 			node.Listen()
@@ -105,15 +115,14 @@ func (p *Pipeline) Run() error {
 	}
 
 	// send a boot event
-	p.sourcePipe.Event <- pipe.NewBootEvent(time.Now().Unix(), VERSION, p.endpointMap())
+	p.source.p.Event <- pipe.NewBootEvent(time.Now().Unix(), VERSION, p.endpointMap())
 
 	// start the source
-	err := p.chunks[0].node.Start()
+	err := p.source.node.Start()
 
 	// the source has exited, stop all the other nodes
 	p.stopEverything()
 
-	// use the waitgroups and wait for nodes to exit
 	p.nodeWg.Wait()
 	p.metricsWg.Wait()
 
@@ -129,18 +138,18 @@ func (p *Pipeline) endpointMap() map[string]string {
 	return m
 }
 
-func (p *Pipeline) startErrorListener() {
-	for err := range p.sourcePipe.Err {
+func (p *Pipeline) startErrorListener(cherr chan error) {
+	for err := range cherr {
 		fmt.Printf("Pipeline error %v\nShutting down pipeline\n", err)
 		p.stopEverything()
 	}
 }
 
-func (p *Pipeline) startEventListener() {
-	for event := range p.sourcePipe.Event {
+func (p *Pipeline) startEventListener(chevent chan pipe.Event) {
+	for event := range chevent {
 		ba, err := json.Marshal(event)
 		if err != err {
-			p.sourcePipe.Err <- err
+			p.source.p.Err <- err
 			continue
 		}
 		p.metricsWg.Add(1)
@@ -149,13 +158,13 @@ func (p *Pipeline) startEventListener() {
 			resp, err := http.Post(p.config.Api.Uri, "application/json", bytes.NewBuffer(ba))
 			if err != nil {
 				fmt.Println("event send failed")
-				p.sourcePipe.Err <- err
+				p.source.p.Err <- err
 				return
 			}
 
 			if resp.StatusCode != 200 {
 				resp.Body.Close()
-				p.sourcePipe.Err <- fmt.Errorf("Event Error: http error code, expected 200, got %d.  %d", resp.StatusCode, resp.StatusCode)
+				p.source.p.Err <- fmt.Errorf("Event Error: http error code, expected 200, got %d.  %d", resp.StatusCode, resp.StatusCode)
 				return
 			}
 			resp.Body.Close()
@@ -170,5 +179,11 @@ func (p *Pipeline) startEventListener() {
 type pipelineChunk struct {
 	config ConfigNode
 	node   Node
+	p      pipe.Pipe
+}
+
+type pipelineSource struct {
+	config ConfigNode
+	node   Source
 	p      pipe.Pipe
 }

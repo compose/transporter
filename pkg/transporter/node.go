@@ -17,21 +17,15 @@ import (
 
 var NoNodeError = errors.New("Module not found")
 
-var (
-	Registry = map[string]interface{}{
-		"mongo":         impl.NewMongodb,
-		"file":          impl.NewFile,
-		"elasticsearch": impl.NewElasticsearch,
-		"influx":        impl.NewInfluxdb,
-		"transformer":   impl.NewTransformer,
-	}
-)
-
 /*
  * All nodes must implement the Node interface
  */
 type Node interface {
 	Listen() error
+	Stop() error
+}
+
+type Source interface {
 	Start() error
 	Stop() error
 }
@@ -62,20 +56,8 @@ func (n ConfigNode) String() string {
 	return fmt.Sprintf("%-20s %-15s %-30s %s", n.Name, n.Type, n.Extra["namespace"].(string), n.Extra["uri"].(string))
 }
 
-// Create a concrete node that will read/write to a datastore based on the type
-// of node.
 //
-// Node types are stored in the node registry and we generate the correct type of Node by examining the NodeConfig.Type
-// property to find the node's constructore.
-//
-// Each constructor is assumed to be of the form
-// func NewImpl(pipe pipe.Pipe, extra map[string]interface{}) (*Impl, error) {
-func (n *ConfigNode) Create(pipe pipe.Pipe) (Node, error) {
-
-	fn, ok := Registry[n.Type]
-	if !ok {
-		return nil, fmt.Errorf("Node type '%s' is not defined", n.Type)
-	}
+func (n ConfigNode) callCreator(pipe pipe.Pipe, fn interface{}) (reflect.Value, error) {
 
 	args := []reflect.Value{
 		reflect.ValueOf(pipe),
@@ -87,21 +69,74 @@ func (n *ConfigNode) Create(pipe pipe.Pipe) (Node, error) {
 	inter := result[1].Interface()
 
 	if inter != nil {
-		return nil, inter.(error)
+		return node, inter.(error)
 	}
 
-	switch m := node.Interface().(type) {
-	case *impl.Mongodb:
-		return m, nil
-	case *impl.File:
-		return m, nil
-	case *impl.Elasticsearch:
-		return m, nil
-	case *impl.Influxdb:
-		return m, nil
-	case *impl.Transformer:
-		return m, nil
+	return node, nil
+}
+
+// Create a concrete node that will listen on a pipe.  An implementation of the Node interface.  These types are generally either sinks or transformers
+//
+// Node types are stored in the node registry and we generate the correct type of Node by examining the NodeConfig.Type
+// property to find the node's constructore.
+//
+// Each constructor is assumed to be of the form
+// func NewImpl(pipe pipe.Pipe, extra map[string]interface{}) (*Impl, error) {
+func (n *ConfigNode) Create(p pipe.Pipe) (node Node, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("Cannot create Node, %v", r)
+		}
+	}()
+
+	var Registry = map[string]interface{}{
+		"mongo":         impl.NewMongodb,
+		"file":          impl.NewFile,
+		"elasticsearch": impl.NewElasticsearch,
+		"influx":        impl.NewInfluxdb,
+		"transformer":   impl.NewTransformer,
 	}
 
-	return nil, NoNodeError
+	fn, ok := Registry[n.Type]
+	if !ok {
+		return nil, fmt.Errorf("Node type '%s' is not defined", n.Type)
+	}
+
+	val, err := n.callCreator(p, fn)
+	if err != nil {
+		return nil, err
+	}
+
+	return val.Interface().(Node), nil
+}
+
+// Create a concrete node that will act as a source and transmit data through a transporter Pipeline.  An implementation of the Source interface.  These types are generally either sinks or transformers
+//
+// Node types are stored in the node registry and we generate the correct type of Node by examining the NodeConfig.Type
+// property to find the node's constructore.
+//
+// Each constructor is assumed to be of the form
+// func NewImpl(pipe pipe.Pipe, extra map[string]interface{}) (*Impl, error) {
+func (n *ConfigNode) CreateSource(p pipe.Pipe) (source Source, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("Cannot create Source, %v", r)
+		}
+	}()
+
+	var Registry = map[string]interface{}{
+		"mongo": impl.NewMongodb,
+		"file":  impl.NewFile,
+	}
+
+	fn, ok := Registry[n.Type]
+	if !ok {
+		return nil, fmt.Errorf("Source type '%s' is not defined", n.Type)
+	}
+	val, err := n.callCreator(p, fn)
+	if err != nil {
+		return nil, err
+	}
+
+	return val.Interface().(Source), nil
 }

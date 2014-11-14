@@ -44,10 +44,6 @@ func NewInfluxdb(p pipe.Pipe, extra map[string]interface{}) (*Influxdb, error) {
 	return i, nil
 }
 
-func (e *Influxdb) Start() error {
-	return fmt.Errorf("Cannot use influxdb as a source")
-}
-
 func (i *Influxdb) Listen() (err error) {
 	i.influxClient, err = i.setupClient()
 	if err != nil {

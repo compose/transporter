@@ -36,7 +36,7 @@ type Pipe struct {
 	In              messageChan
 	Out             messageChan
 	Err             chan error
-	Event           chan event
+	Event           chan Event
 	Stopped         bool // has the pipe been stopped?
 	chStop          chan chan bool
 	listening       bool
@@ -50,7 +50,7 @@ func NewSourcePipe(name string, interval time.Duration) Pipe {
 		In:              nil,
 		Out:             newMessageChan(),
 		Err:             make(chan error),
-		Event:           make(chan event),
+		Event:           make(chan Event),
 		chStop:          make(chan chan bool),
 		metricsInterval: interval,
 	}
