@@ -130,7 +130,7 @@ func (p *Pipeline) Run() error {
 
 func (p *Pipeline) endpointMap() map[string]string {
 	m := make(map[string]string)
-
+	m[p.source.config.Name] = p.source.config.Type
 	for _, v := range p.chunks {
 		m[v.config.Name] = v.config.Type
 	}
