@@ -181,6 +181,7 @@ type pipelineChunk struct {
 	p      pipe.Pipe
 }
 
+// pipelineSource is the source node, pipeline and config
 type pipelineSource struct {
 	config ConfigNode
 	node   Source
