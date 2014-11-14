@@ -5,7 +5,6 @@ import (
 )
 
 var (
-	// localmongoCN = ConfigNode{Extra: map[string]interface{}{"uri": "mongodb://localhost/blah", "namespace": "boo.baz"}, Name: "localmongo", Type: "mongo"}
 	fakesourceCN = ConfigNode{Type: "source", Extra: map[string]interface{}{"value": "rockettes"}}
 	fileCN       = ConfigNode{Extra: map[string]interface{}{"uri": "file:///tmp/crap"}, Name: "localfile", Type: "file"}
 )

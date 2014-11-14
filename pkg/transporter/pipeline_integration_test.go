@@ -4,14 +4,16 @@ package transporter
 
 import (
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	// "github.com/compose/transporter/pkg/pipe"
 )
 
 var (
-	integrationFileOutCN = ConfigNode{Extra: map[string]interface{}{"uri": "file:///tmp/crapOut"}, Name: "localfile", Type: "file"}
-	integrationFileInCN  = ConfigNode{Extra: map[string]interface{}{"uri": "file:///tmp/crapIn"}, Name: "localfile", Type: "file"}
+	localmongoCN         = ConfigNode{Extra: map[string]interface{}{"uri": "mongodb://localhost/blah", "namespace": "boo.baz"}, Name: "localmongo", Type: "mongo"}
+	integrationFileOutCN = ConfigNode{Extra: map[string]interface{}{"uri": "file:///tmp/crapOut"}, Name: "localfileout", Type: "file"}
+	integrationFileInCN  = ConfigNode{Extra: map[string]interface{}{"uri": "file:///tmp/crapIn"}, Name: "localfilein", Type: "file"}
 )
 
 var (
@@ -21,41 +23,63 @@ var (
 			MetricsInterval: 100,
 		},
 		Nodes: map[string]ConfigNode{
-			"localmongo": integrationFileOutCN,
-			"localfile":  integrationFileInCN,
+			"localfileout": integrationFileOutCN,
+			"localfilein":  integrationFileInCN,
 		},
 	}
 )
 
-func TestPipelineRun(t *testing.T) {
-	filenameOut := strings.Replace(integrationFileOutCN.Extra["uri"].(string), "file://", "", 1)
+var (
+	filenameOut = strings.Replace(integrationFileOutCN.Extra["uri"].(string), "file://", "", 1)
+	filenameIn  = strings.Replace(integrationFileInCN.Extra["uri"].(string), "file://", "", 1)
+)
+
+func clearAndCreateFiles() (*os.File, error) {
 	err := os.Remove(filenameOut)
 	if err != nil && !strings.Contains(err.Error(), "no such file or directory") {
-		t.Errorf("unable to remove tmp file, got %s", err.Error())
+		return nil, err
 	}
-	filenameIn := strings.Replace(integrationFileInCN.Extra["uri"].(string), "file://", "", 1)
 	err = os.Remove(filenameIn)
 	if err != nil && !strings.Contains(err.Error(), "no such file or directory") {
-		t.Errorf("unable to remove tmp file, got %s", err.Error())
+		return nil, err
 	}
-	inFileOut, err := os.Create(filenameOut)
+	return os.Create(filenameOut)
+}
+
+func setupFileInAndOut() error {
+	inFileOut, err := clearAndCreateFiles()
 	if err != nil {
-		t.Errorf("unable to open tmp file, got %s", err.Error())
+		return err
 	}
 	inFileOut.WriteString("{\"_id\":\"546656989330a846dc7ce327\",\"test\":\"hello world\"}\n")
 	inFileOut.Close()
+	return nil
+}
+
+func TestPipelineRun(t *testing.T) {
 	data := []struct {
-		in           ConfigNode
+		setupFn      interface{}
+		in           *ConfigNode
+		transformer  []ConfigNode
 		terminalNode *ConfigNode
 	}{
 		{
-			integrationFileOutCN,
+			setupFileInAndOut,
+			&integrationFileOutCN,
+			nil,
 			&integrationFileInCN,
 		},
 	}
 
 	for _, v := range data {
-		p, err := NewPipeline(testIntegrationConfig, v.in)
+		if v.setupFn != nil {
+			result := reflect.ValueOf(v.setupFn).Call(nil)
+			if result[0].Interface() != nil {
+				t.Errorf("unable to call setupFn, got %s", result[0].Interface().(error).Error())
+				t.FailNow()
+			}
+		}
+		p, err := NewPipeline(testIntegrationConfig, *v.in)
 		if err != nil {
 			t.Errorf("can't create pipeline, got %s", err.Error())
 			t.FailNow()
