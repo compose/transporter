@@ -47,10 +47,6 @@ func NewPipeline(config Config, source ConfigNode) (*Pipeline, error) {
 
 	p.source = pipelineSource{config: source, node: node, p: sourcePipe}
 
-	// if err := p.addNode(source, sourcePipe); err != nil {
-	// 	return nil, err
-	// }
-
 	go p.startErrorListener(sourcePipe.Err)
 	go p.startEventListener(sourcePipe.Event)
 
