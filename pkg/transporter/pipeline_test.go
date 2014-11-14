@@ -62,7 +62,7 @@ func TestPipelineString(t *testing.T) {
 		{
 			fakesourceCN,
 			&fileCN,
-			" - Pipeline\n  - Source:                      fakesource      no namespace set               no uri set\n",
+			" - Pipeline\n  - Source:                      fakesource      no namespace set               no uri set\n  - Sink:   locafile             file            no namespace set               file:///tmp/crap\n",
 		},
 	}
 

@@ -86,6 +86,8 @@ func (p *Pipeline) String() string {
 		for _, t := range p.chunks[1 : len(p.chunks)-1] {
 			out += fmt.Sprintf("   - %s\n", t)
 		}
+	}
+	if len(p.chunks) >= 1 {
 		out += fmt.Sprintf("  - Sink:   %s\n", p.chunks[len(p.chunks)-1].config)
 	}
 	return out
