@@ -40,7 +40,7 @@ func NewMongodb(p pipe.Pipe, extra map[string]interface{}) (*Mongodb, error) {
 		pipe:         p,
 	}
 
-	m.uri, err = getExtraValue(extra, "key")
+	m.uri, err = getExtraValue(extra, "uri")
 	if err != nil {
 		return m, err
 	}
