@@ -14,7 +14,7 @@ var (
 	}
 )
 
-//Command is a description of a subcommand
+// Command is a description of a subcommand
 type Command struct {
 	Name  string
 	Short string
@@ -24,9 +24,7 @@ type Command struct {
 	Run func(ApplicationBuilder, []string) (Application, error)
 }
 
-/*
- * list the nodes that are configured in the config.yaml
- */
+// list the nodes that are configured in the config.yaml
 var listCommand = &Command{
 	Name:  "list",
 	Short: "list all configured nodes",
@@ -51,9 +49,7 @@ func init() {
 	runCommand.Flag.StringVar(&runEval, "eval", "", "javascript to define a transporter")
 }
 
-/*
- * run a transporter js applications, and use it to build and run pipelines
- */
+// run a transporter js applications, and use it to build and run pipelines
 var (
 	runCommand = &Command{
 		Name:  "run",
