@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/compose/transporter/pkg/transporter"
+	"github.com/nu7hatch/gouuid"
 	"github.com/robertkrimen/otto"
 )
 
@@ -170,9 +171,12 @@ func (js *JavascriptBuilder) transform(pipeline JavascriptPipeline, call otto.Fu
 	if !filepath.IsAbs(fn.(string)) {
 		filename = filepath.Join(js.path, filename)
 	}
-
+	name, err := uuid.NewV4()
+	if err != nil {
+		return pipeline, err
+	}
 	transformer := transporter.ConfigNode{
-		Name:  "generate a uuid",
+		Name:  name.String(),
 		Type:  "transformer",
 		Extra: map[string]interface{}{"filename": filename},
 	}
