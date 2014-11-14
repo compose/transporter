@@ -13,7 +13,8 @@ import (
 
 type Mongodb struct {
 	// pull these in from the node
-	uri string
+	uri  string
+	tail bool // run the tail oplog
 
 	// save time by setting these once
 	collection string
@@ -29,28 +30,28 @@ type Mongodb struct {
 	restartable bool // this refers to being able to refresh the iterator, not to the restart based on session op
 }
 
-func NewMongodb(p pipe.Pipe, extra map[string]interface{}) (*Mongodb, error) {
+func NewMongodb(p pipe.Pipe, extra ExtraConfig) (*Mongodb, error) {
 	var (
-		err error
+		conf MongodbConfig
+		err  error
 	)
+	if err = extra.Construct(&conf); err != nil {
+		return nil, err
+	}
+
+	if conf.Debug {
+		fmt.Printf("Mongo Config %+v", conf)
+	}
 
 	m := &Mongodb{
 		restartable:  true,            // assume for that we're able to restart the process
 		oplogTimeout: 5 * time.Second, // timeout the oplog iterator
 		pipe:         p,
+		uri:          conf.Uri,
+		tail:         conf.Tail,
 	}
 
-	m.uri, err = getExtraValue(extra, "uri")
-	if err != nil {
-		return m, err
-	}
-
-	namespace, err := getExtraValue(extra, "namespace")
-	if err != nil {
-		return m, err
-	}
-
-	m.database, m.collection, err = m.splitNamespace(namespace)
+	m.database, m.collection, err = m.splitNamespace(conf.Namespace)
 	if err != nil {
 		return m, err
 	}
@@ -73,12 +74,13 @@ func (m *Mongodb) Start() (err error) {
 		m.pipe.Err <- err
 		return err
 	}
-
-	// replay the oplog
-	err = m.tailData()
-	if err != nil {
-		m.pipe.Err <- err
-		return err
+	if m.tail {
+		// replay the oplog
+		err = m.tailData()
+		if err != nil {
+			m.pipe.Err <- err
+			return err
+		}
 	}
 
 	return
@@ -255,4 +257,11 @@ type oplogDoc struct {
 func (o *oplogDoc) validOp() bool {
 	// TODO skip system collections
 	return o.Op == "i" || o.Op == "d" || o.Op == "u"
+}
+
+type MongodbConfig struct {
+	Uri       string `json:"uri"`
+	Namespace string `json:"namespace"`
+	Debug     bool   `json:"debug"`
+	Tail      bool   `json:"tail"`
 }

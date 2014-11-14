@@ -127,39 +127,39 @@ func TestConfigNodeCreateSource(t *testing.T) {
 	data := []struct {
 		in  ConfigNode
 		out *SourceImpl
-		err error
+		err string
 	}{
 		{
 			ConfigNode{Type: "source", Extra: map[string]interface{}{"value": "rockettes"}},
 			&SourceImpl{value: "rockettes"},
-			nil,
+			"",
 		},
 		{
 			ConfigNode{Type: "source", Extra: map[string]interface{}{"blah": "rockettes"}},
 			nil,
-			anError,
+			"this is an",
 		},
 		{
 			ConfigNode{Type: "notasource", Extra: map[string]interface{}{"value": "rockettes"}},
 			nil,
-			NoNodeError,
+			"cannot cre",
 		},
 		{
 			ConfigNode{Type: "notasource", Extra: map[string]interface{}{"blah": "rockettes"}},
 			nil,
-			anError,
+			"this is an",
 		},
 		{
 			ConfigNode{Type: "notaevenlisted", Extra: map[string]interface{}{"blah": "rockettes"}},
 			nil,
-			MissingNodeError,
+			"Node not d",
 		},
 	}
 	for _, v := range data {
 		val, err := v.in.CreateSource(p)
 
-		if err != v.err {
-			t.Errorf("expected error %v, got %v", v.err, err)
+		if err != nil && err.Error()[:10] != v.err {
+			t.Errorf("expected error %v, got %v", v.err, err.Error()[:10])
 			continue
 		}
 		if !reflect.DeepEqual(v.out, val) && err == nil {
@@ -177,39 +177,39 @@ func TestConfigNodeCreate(t *testing.T) {
 	data := []struct {
 		in  ConfigNode
 		out *NodeImpl
-		err error
+		err string
 	}{
 		{
 			ConfigNode{Type: "node", Extra: map[string]interface{}{"value": "rockettes"}},
 			&NodeImpl{value: "rockettes"},
-			nil,
+			"",
 		},
 		{
 			ConfigNode{Type: "node", Extra: map[string]interface{}{"blah": "rockettes"}},
 			nil,
-			anError,
+			"this is an",
 		},
 		{
 			ConfigNode{Type: "notasource", Extra: map[string]interface{}{"value": "rockettes"}},
 			nil,
-			NoNodeError,
+			"cannot cre",
 		},
 		{
 			ConfigNode{Type: "notasource", Extra: map[string]interface{}{"blah": "rockettes"}},
 			nil,
-			anError,
+			"this is an",
 		},
 		{
 			ConfigNode{Type: "notapickle", Extra: map[string]interface{}{"blah": "rockettes"}},
 			nil,
-			MissingNodeError,
+			"Node not d",
 		},
 	}
 	for _, v := range data {
 		val, err := v.in.Create(p)
 
-		if err != v.err {
-			t.Errorf("expected error %v, got %v", v.err, err)
+		if err != nil && err.Error()[:10] != v.err {
+			t.Errorf("expected error %v, got %v", v.err, err.Error()[:10])
 			continue
 		}
 		if !reflect.DeepEqual(v.out, val) && err == nil {

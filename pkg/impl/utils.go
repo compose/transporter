@@ -1,17 +1,23 @@
 package impl
 
 import (
-	"fmt"
+	"encoding/json"
 )
 
-func getExtraValue(extra map[string]interface{}, key string) (string, error) {
-	val, ok := extra[key]
-	if !ok {
-		return "", fmt.Errorf("%s not defined", key)
+type ExtraConfig map[string]interface{}
+
+/*
+ * turn the generic map into a proper struct
+ */
+func (c *ExtraConfig) Construct(conf interface{}) error {
+	b, err := json.Marshal(c)
+	if err != nil {
+		return err
 	}
-	s, ok := val.(string)
-	if !ok {
-		return s, fmt.Errorf("%s not a string", key)
+
+	err = json.Unmarshal(b, conf)
+	if err != nil {
+		return err
 	}
-	return s, nil
+	return nil
 }

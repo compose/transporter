@@ -5,7 +5,7 @@ t = Transporter()
 // create a pipeline
 pipeline = Source({name:"crapfile", namespace: ""})
   .transform("transformers/passthrough_and_log.js")
-  .save({name:"stdout", namespace: "c"})
+  .save({name:"stdout"})
 
 
 // add the pipeline to the transporter

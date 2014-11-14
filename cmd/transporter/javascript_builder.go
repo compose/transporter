@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	// "github.com/compose/transporter/pkg/impl"
 	"github.com/compose/transporter/pkg/transporter"
 	"github.com/nu7hatch/gouuid"
 	"github.com/robertkrimen/otto"
@@ -244,16 +245,16 @@ func (js *JavascriptBuilder) findNode(in otto.Value) (n transporter.ConfigNode, 
 	}
 
 	sourceString, ok := m["name"].(string)
-	sourceNS, ok1 := m["namespace"].(string)
-	if !(ok && ok1) {
-		return n, fmt.Errorf("source hash requires both a 'source', and a 'namespace'")
+	if !(ok) {
+		return n, fmt.Errorf("source hash requires a name")
 	}
 
 	n, ok = js.app.Config.Nodes[sourceString]
 	if !ok {
 		return n, fmt.Errorf("no configured nodes found named %s", sourceString)
 	}
-	return transporter.ConfigNode{Name: n.Name, Type: n.Type, Extra: map[string]interface{}{"namespace": sourceNS, "uri": n.Uri}}, nil
+	m["uri"] = n.Uri
+	return transporter.ConfigNode{Name: n.Name, Type: n.Type, Extra: m}, nil
 }
 
 /*

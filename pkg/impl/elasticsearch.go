@@ -23,8 +23,16 @@ type Elasticsearch struct {
 	running bool
 }
 
-func NewElasticsearch(p pipe.Pipe, extra map[string]interface{}) (*Elasticsearch, error) {
-	u, err := url.Parse(extra["uri"].(string))
+func NewElasticsearch(p pipe.Pipe, extra ExtraConfig) (*Elasticsearch, error) {
+	var (
+		conf ElasticsearchConfig
+		err  error
+	)
+	if err = extra.Construct(&conf); err != nil {
+		return nil, err
+	}
+
+	u, err := url.Parse(conf.Uri)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +42,7 @@ func NewElasticsearch(p pipe.Pipe, extra map[string]interface{}) (*Elasticsearch
 		pipe: p,
 	}
 
-	e.index, e._type, err = e.splitNamespace(extra["namespace"].(string))
+	e.index, e._type, err = e.splitNamespace(conf.Namespace)
 	if err != nil {
 		return e, err
 	}
@@ -126,7 +134,14 @@ func (e *Elasticsearch) splitNamespace(namespace string) (string, string, error)
 	fields := strings.SplitN(namespace, ".", 2)
 
 	if len(fields) != 2 {
-		return "", "", fmt.Errorf("malformed mongo namespace.")
+		return "", "", fmt.Errorf("malformed elasticsearch namespace.")
 	}
 	return fields[0], fields[1], nil
+}
+
+// ElasticsearchConfig options
+type ElasticsearchConfig struct {
+	Uri       string `json:"uri"`       // the database uri
+	Namespace string `json:"namespace"` // namespace
+	Debug     bool   `json:"debug"`     // debug mode
 }

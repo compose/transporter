@@ -22,14 +22,22 @@ type Transformer struct {
 	vm     *otto.Otto
 }
 
-func NewTransformer(p pipe.Pipe, extra map[string]interface{}) (*Transformer, error) {
+func NewTransformer(p pipe.Pipe, extra ExtraConfig) (*Transformer, error) {
+	var (
+		conf TransformerConfig
+		err  error
+	)
+	if err = extra.Construct(&conf); err != nil {
+		return nil, err
+	}
+
 	t := &Transformer{pipe: p}
 
-	filename, ok := extra["filename"].(string)
-	if !ok {
+	if conf.Filename == "" {
 		return t, fmt.Errorf("No filename specified")
 	}
-	ba, err := ioutil.ReadFile(filename)
+
+	ba, err := ioutil.ReadFile(conf.Filename)
 	if err != nil {
 		return t, err
 	}
@@ -124,4 +132,10 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 	}
 
 	return msg, nil
+}
+
+// InfluxdbConfig options
+type TransformerConfig struct {
+	Filename string `json:"filename"` // file containing transformer javascript
+	Debug    bool   `json:"debug"`    // debug mode
 }

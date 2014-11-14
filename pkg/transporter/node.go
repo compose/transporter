@@ -16,9 +16,6 @@ import (
 )
 
 var (
-	// There was an error creating the node
-	NoNodeError = errors.New("Cannot Create Node")
-
 	// The node was not found in the map
 	MissingNodeError = errors.New("Node not defined")
 )
@@ -118,7 +115,7 @@ func (n ConfigNode) callCreator(pipe pipe.Pipe, fn interface{}) (reflect.Value, 
 func (n *ConfigNode) Create(p pipe.Pipe) (node Node, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = NoNodeError
+			err = fmt.Errorf("cannot create node: %v", r)
 		}
 	}()
 
@@ -145,7 +142,7 @@ func (n *ConfigNode) Create(p pipe.Pipe) (node Node, err error) {
 func (n *ConfigNode) CreateSource(p pipe.Pipe) (source Source, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = NoNodeError
+			err = fmt.Errorf("cannot create node: %v", r)
 		}
 	}()
 

@@ -18,9 +18,18 @@ type File struct {
 	filehandle *os.File
 }
 
-func NewFile(p pipe.Pipe, extra map[string]interface{}) (*File, error) {
+func NewFile(p pipe.Pipe, extra ExtraConfig) (*File, error) {
+
+	var (
+		conf FileConfig
+		err  error
+	)
+	if err = extra.Construct(&conf); err != nil {
+		return nil, err
+	}
+
 	return &File{
-		uri:  extra["uri"].(string),
+		uri:  conf.Uri,
 		pipe: p,
 	}, nil
 }
@@ -107,4 +116,8 @@ func (d *File) dumpMessage(msg *message.Msg) (*message.Msg, error) {
 	}
 
 	return msg, nil
+}
+
+type FileConfig struct {
+	Uri string `json:"uri"`
 }

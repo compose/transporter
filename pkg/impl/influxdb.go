@@ -25,8 +25,16 @@ type Influxdb struct {
 	influxClient *client.Client
 }
 
-func NewInfluxdb(p pipe.Pipe, extra map[string]interface{}) (*Influxdb, error) {
-	u, err := url.Parse(extra["uri"].(string))
+func NewInfluxdb(p pipe.Pipe, extra ExtraConfig) (*Influxdb, error) {
+	var (
+		conf InfluxdbConfig
+		err  error
+	)
+	if err = extra.Construct(&conf); err != nil {
+		return nil, err
+	}
+
+	u, err := url.Parse(conf.Uri)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +44,7 @@ func NewInfluxdb(p pipe.Pipe, extra map[string]interface{}) (*Influxdb, error) {
 		pipe: p,
 	}
 
-	i.database, i.series_name, err = i.splitNamespace(extra["namespace"].(string))
+	i.database, i.series_name, err = i.splitNamespace(conf.Namespace)
 	if err != nil {
 		return i, err
 	}
@@ -104,4 +112,11 @@ func (i *Influxdb) splitNamespace(namespace string) (string, string, error) {
 		return "", "", fmt.Errorf("malformed influx namespace.")
 	}
 	return fields[0], fields[1], nil
+}
+
+// InfluxdbConfig options
+type InfluxdbConfig struct {
+	Uri       string `json:"uri"`       // the database uri
+	Namespace string `json:"namespace"` // namespace
+	Debug     bool   `json:"debug"`     // debug mode
 }
