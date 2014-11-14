@@ -15,7 +15,28 @@ import (
 	"github.com/compose/transporter/pkg/pipe"
 )
 
-var NoNodeError = errors.New("Module not found")
+var (
+	// There was an error creating the node
+	NoNodeError = errors.New("Cannot Create Node")
+
+	// The node was not found in the map
+	MissingNodeError = errors.New("Node not defined")
+)
+
+var (
+	SourceRegistry = map[string]interface{}{
+		"mongo": impl.NewMongodb,
+		"file":  impl.NewFile,
+	}
+
+	NodeRegistry = map[string]interface{}{
+		"mongo":         impl.NewMongodb,
+		"file":          impl.NewFile,
+		"elasticsearch": impl.NewElasticsearch,
+		"influx":        impl.NewInfluxdb,
+		"transformer":   impl.NewTransformer,
+	}
+)
 
 /*
  * All nodes must implement the Node interface
@@ -94,21 +115,13 @@ func (n ConfigNode) callCreator(pipe pipe.Pipe, fn interface{}) (reflect.Value, 
 func (n *ConfigNode) Create(p pipe.Pipe) (node Node, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("Cannot create Node, %v", r)
+			err = NoNodeError
 		}
 	}()
 
-	var Registry = map[string]interface{}{
-		"mongo":         impl.NewMongodb,
-		"file":          impl.NewFile,
-		"elasticsearch": impl.NewElasticsearch,
-		"influx":        impl.NewInfluxdb,
-		"transformer":   impl.NewTransformer,
-	}
-
-	fn, ok := Registry[n.Type]
+	fn, ok := NodeRegistry[n.Type]
 	if !ok {
-		return nil, fmt.Errorf("Node type '%s' is not defined", n.Type)
+		return nil, MissingNodeError
 	}
 
 	val, err := n.callCreator(p, fn)
@@ -129,18 +142,13 @@ func (n *ConfigNode) Create(p pipe.Pipe) (node Node, err error) {
 func (n *ConfigNode) CreateSource(p pipe.Pipe) (source Source, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("Cannot create Source, %v", r)
+			err = NoNodeError
 		}
 	}()
 
-	var Registry = map[string]interface{}{
-		"mongo": impl.NewMongodb,
-		"file":  impl.NewFile,
-	}
-
-	fn, ok := Registry[n.Type]
+	fn, ok := SourceRegistry[n.Type]
 	if !ok {
-		return nil, fmt.Errorf("Source type '%s' is not defined", n.Type)
+		return nil, MissingNodeError
 	}
 	val, err := n.callCreator(p, fn)
 	if err != nil {
