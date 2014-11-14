@@ -35,7 +35,7 @@ func TestPipelineRun(t *testing.T) {
 	}
 	filenameIn := strings.Replace(integrationFileInCN.Extra["uri"].(string), "file://", "", 1)
 	err = os.Remove(filenameIn)
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "no such file or directory") {
 		t.Errorf("unable to remove tmp file, got %s", err.Error())
 	}
 	inFileOut, err := os.Create(filenameOut)
