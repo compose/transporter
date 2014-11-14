@@ -65,7 +65,7 @@ func (n ConfigNode) String() string {
 	return fmt.Sprintf("%-20s %-15s %-30s %s", n.Name, n.Type, namespace, uri)
 }
 
-//
+// callCreator will call the NewImpl method to create a new node or source
 func (n ConfigNode) callCreator(pipe pipe.Pipe, fn interface{}) (reflect.Value, error) {
 
 	args := []reflect.Value{
