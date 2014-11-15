@@ -61,7 +61,7 @@ type JavascriptBuilder struct {
 	err          error
 }
 
-func NewJavascriptBuilder(config transporter.Config, file, src string) (*JavascriptBuilder, error) {
+func NewJavascriptBuilder(config Config, file, src string) (*JavascriptBuilder, error) {
 	js := &JavascriptBuilder{file: file, vm: otto.New(), path: filepath.Dir(file), js_pipelines: make([]JavascriptPipeline, 0), app: NewTransporterApplication(config)}
 
 	var (
@@ -235,12 +235,12 @@ func (js *JavascriptBuilder) findNode(in otto.Value) (n transporter.ConfigNode, 
 	}
 
 	//
-	n, ok = js.app.Config.Nodes[sourceString]
+	val, ok := js.app.Config.Nodes[sourceString]
 	if !ok {
 		return n, fmt.Errorf("no configured nodes found named %s", sourceString)
 	}
-	m["uri"] = n.Uri
-	return transporter.ConfigNode{Name: n.Name, Type: n.Type, Extra: m}, nil
+	m["uri"] = val.Uri
+	return transporter.ConfigNode{Name: sourceString, Type: val.Type, Extra: m}, nil
 }
 
 // Build runs the javascript script.
@@ -258,7 +258,7 @@ func (js *JavascriptBuilder) Build() (Application, error) {
 	for _, p := range js.js_pipelines {
 
 		// create a new pipeline with with the source set to the first element of the Nodes array
-		pipeline, err := transporter.NewPipeline(js.app.Config, p.Nodes[0])
+		pipeline, err := transporter.NewPipeline(p.Nodes[0], js.app.Config.Api)
 		if err != nil {
 			return js.app, err
 		}

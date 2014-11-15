@@ -10,15 +10,9 @@ var (
 )
 
 var (
-	testConfig = Config{
-		Api: Api{
-			Uri:             "",
-			MetricsInterval: 100,
-		},
-		Nodes: map[string]ConfigNode{
-			"fakesource": fakesourceCN,
-			"localfile":  fileCN,
-		},
+	testEmptyApiConfig = Api{
+		Uri:             "",
+		MetricsInterval: 100,
 	}
 )
 
@@ -43,7 +37,7 @@ func TestPipelineString(t *testing.T) {
 	}
 
 	for _, v := range data {
-		p, err := NewPipeline(testConfig, v.in)
+		p, err := NewPipeline(v.in, testEmptyApiConfig)
 		if err != nil {
 			t.Errorf("can't create pipeline, got %s", err.Error())
 			t.FailNow()

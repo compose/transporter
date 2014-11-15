@@ -11,9 +11,21 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// A Config stores meta information about the transporter.  This contains a
+// list of the the nodes that are available to a transporter (sources and sinks, not transformers)
+// as well as information about the api used to handle transporter events, and the interval
+// between metrics events.
+type Config struct {
+	Api   transporter.Api `json:"api" yaml:"api"`
+	Nodes map[string]struct {
+		Type string `json:"type" yaml:"type"`
+		Uri  string `json:"uri" yaml:"uri"`
+	}
+}
+
 type ApplicationBuilder struct {
 	// config
-	Config transporter.Config
+	Config Config
 
 	// command to run
 	Command *Command
@@ -46,7 +58,7 @@ func Build() (Application, error) {
  * Load Config file from disk
  */
 func (a *ApplicationBuilder) loadConfig() (err error) {
-	var c transporter.Config
+	var c Config
 	if a.config_path == "" {
 		return nil
 	}
@@ -59,7 +71,6 @@ func (a *ApplicationBuilder) loadConfig() (err error) {
 	err = yaml.Unmarshal(ba, &c)
 
 	for k, v := range c.Nodes {
-		v.Name = k
 		c.Nodes[k] = v
 	}
 	a.Config = c

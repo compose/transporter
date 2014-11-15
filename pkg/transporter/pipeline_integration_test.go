@@ -17,15 +17,9 @@ var (
 )
 
 var (
-	testIntegrationConfig = Config{
-		Api: Api{
-			Uri:             "http://requestb.in/qhqfuzqh",
-			MetricsInterval: 100,
-		},
-		Nodes: map[string]ConfigNode{
-			"localfileout": integrationFileOutCN,
-			"localfilein":  integrationFileInCN,
-		},
+	testApiConfig = Api{
+		Uri:             "http://requestb.in/qhqfuzqh",
+		MetricsInterval: 100,
 	}
 )
 
@@ -79,7 +73,7 @@ func TestPipelineRun(t *testing.T) {
 				t.FailNow()
 			}
 		}
-		p, err := NewPipeline(testIntegrationConfig, *v.in)
+		p, err := NewPipeline(*v.in, testApiConfig)
 		if err != nil {
 			t.Errorf("can't create pipeline, got %s", err.Error())
 			t.FailNow()

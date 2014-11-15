@@ -53,21 +53,11 @@ type Api struct {
 	MetricsInterval int    `json:"interval" yaml:"interval"`
 }
 
-// A Config stores meta information about the transporter.  This contains a
-// list of the the nodes that are available to a transporter (sources and sinks, not transformers)
-// as well as information about the api used to handle transporter events, and the interval
-// between metrics events.
-type Config struct {
-	Api   Api `json:"api" yaml:"api"`
-	Nodes map[string]ConfigNode
-}
-
 // A ConfigNode is a description of an endpoint.  This is not a concrete implementation of a data store, just a
 // container to hold config values.
 type ConfigNode struct {
 	Name  string                 `json:"name"`
 	Type  string                 `json:"type"`
-	Uri   string                 `json:"uri"`
 	Extra map[string]interface{} `json:"extra"`
 }
 

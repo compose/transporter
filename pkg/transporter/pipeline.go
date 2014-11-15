@@ -21,7 +21,7 @@ const (
 )
 
 type Pipeline struct {
-	config Config
+	api Api
 
 	source pipelineSource
 	chunks []pipelineChunk
@@ -32,15 +32,15 @@ type Pipeline struct {
 
 // NewPipeline creates a new Transporter Pipeline, with the given node acting as the Source.
 // subsequent nodes should be added via AddNode
-func NewPipeline(config Config, source ConfigNode) (*Pipeline, error) {
+func NewPipeline(source ConfigNode, api Api) (*Pipeline, error) {
 	pipeline := &Pipeline{
-		config:    config,
+		api:       api,
 		chunks:    make([]pipelineChunk, 0),
 		nodeWg:    &sync.WaitGroup{},
 		metricsWg: &sync.WaitGroup{},
 	}
 
-	sourcePipe := pipe.NewSourcePipe(source.Name, time.Duration(pipeline.config.Api.MetricsInterval)*time.Millisecond)
+	sourcePipe := pipe.NewSourcePipe(source.Name, time.Duration(api.MetricsInterval)*time.Millisecond)
 	node, err := source.CreateSource(sourcePipe)
 	if err != nil {
 		return pipeline, err
@@ -161,7 +161,7 @@ func (pipeline *Pipeline) startEventListener(chevent chan pipe.Event) {
 		pipeline.metricsWg.Add(1)
 		go func() {
 			defer pipeline.metricsWg.Done()
-			resp, err := http.Post(pipeline.config.Api.Uri, "application/json", bytes.NewBuffer(ba))
+			resp, err := http.Post(pipeline.api.Uri, "application/json", bytes.NewBuffer(ba))
 			if err != nil {
 				fmt.Println("event send failed")
 				pipeline.source.pipe.Err <- err
@@ -175,7 +175,7 @@ func (pipeline *Pipeline) startEventListener(chevent chan pipe.Event) {
 			}
 			resp.Body.Close()
 		}()
-		fmt.Printf("sent pipeline event: %s -> %s\n", pipeline.config.Api.Uri, event)
+		fmt.Printf("sent pipeline event: %s -> %s\n", pipeline.api.Uri, event)
 
 	}
 }
