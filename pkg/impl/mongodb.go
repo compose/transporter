@@ -39,8 +39,12 @@ func NewMongodb(p pipe.Pipe, extra ExtraConfig) (*Mongodb, error) {
 		return nil, err
 	}
 
+	if conf.Uri == "" || conf.Namespace == "" {
+		return nil, fmt.Errorf("both uri and namespace required, but missing ")
+	}
+
 	if conf.Debug {
-		fmt.Printf("Mongo Config %+v", conf)
+		fmt.Printf("Mongo Config %+v\n", conf)
 	}
 
 	m := &Mongodb{
