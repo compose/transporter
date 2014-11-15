@@ -121,8 +121,8 @@ func (s *NodeImpl) Listen() error {
 func TestConfigNodeCreateSource(t *testing.T) {
 	p := pipe.NewSourcePipe("name", 1*time.Second)
 
-	SourceRegistry["source"] = NewSourceImpl
-	SourceRegistry["notasource"] = NewImpl
+	sourceRegistry["source"] = NewSourceImpl
+	sourceRegistry["notasource"] = NewImpl
 
 	data := []struct {
 		in  ConfigNode
@@ -171,8 +171,8 @@ func TestConfigNodeCreateSource(t *testing.T) {
 func TestConfigNodeCreate(t *testing.T) {
 	p := pipe.NewSourcePipe("name", 1*time.Second)
 
-	NodeRegistry["node"] = NewNodeImpl
-	NodeRegistry["notasource"] = NewImpl
+	nodeRegistry["node"] = NewNodeImpl
+	nodeRegistry["notasource"] = NewImpl
 
 	data := []struct {
 		in  ConfigNode

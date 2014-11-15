@@ -21,12 +21,12 @@ var (
 )
 
 var (
-	SourceRegistry = map[string]interface{}{
+	sourceRegistry = map[string]interface{}{
 		"mongo": impl.NewMongodb,
 		"file":  impl.NewFile,
 	}
 
-	NodeRegistry = map[string]interface{}{
+	nodeRegistry = map[string]interface{}{
 		"mongo":         impl.NewMongodb,
 		"file":          impl.NewFile,
 		"elasticsearch": impl.NewElasticsearch,
@@ -119,7 +119,7 @@ func (n *ConfigNode) Create(p pipe.Pipe) (node Node, err error) {
 		}
 	}()
 
-	fn, ok := NodeRegistry[n.Type]
+	fn, ok := nodeRegistry[n.Type]
 	if !ok {
 		return nil, MissingNodeError
 	}
@@ -146,7 +146,7 @@ func (n *ConfigNode) CreateSource(p pipe.Pipe) (source Source, err error) {
 		}
 	}()
 
-	fn, ok := SourceRegistry[n.Type]
+	fn, ok := sourceRegistry[n.Type]
 	if !ok {
 		return nil, MissingNodeError
 	}
