@@ -53,6 +53,7 @@ func NewPipeline(config Config, source ConfigNode) (*Pipeline, error) {
 	return pipeline, nil
 }
 
+// lastPipe returns either the source pipe, or the pipe of the most recently added node.  we use this to generate a new pipe
 func (pipeline *Pipeline) lastPipe() pipe.Pipe {
 	if len(pipeline.chunks) == 0 {
 		return pipeline.source.pipe
@@ -65,10 +66,12 @@ func (pipeline *Pipeline) AddNode(config ConfigNode) error {
 	return pipeline.addNode(config, pipe.NewJoinPipe(pipeline.lastPipe(), config.Name))
 }
 
+// AddTerminalNode adds the last node in the pipeline.  The last node is different only because we use a pipe.SinkPipe instead of a JoinPipe.
 func (pipeline *Pipeline) AddTerminalNode(config ConfigNode) error {
 	return pipeline.addNode(config, pipe.NewSinkPipe(pipeline.lastPipe(), config.Name))
 }
 
+// addNode creates the node from the ConfigNode and adds it to the list of nodes
 func (pipeline *Pipeline) addNode(config ConfigNode, p pipe.Pipe) error {
 	node, err := config.Create(p)
 	if err != nil {
@@ -93,17 +96,15 @@ func (pipeline *Pipeline) String() string {
 	return out
 }
 
-func (pipeline *Pipeline) stopEverything() {
-	// stop all the nodes
+// Stop sends a stop signal to all the nodes, whether they are running or not
+func (pipeline *Pipeline) Stop() {
 	pipeline.source.node.Stop()
 	for _, chunk := range pipeline.chunks {
 		chunk.node.Stop()
 	}
 }
 
-/*
- * run the pipeline
- */
+// run the pipeline
 func (pipeline *Pipeline) Run() error {
 	for _, chunk := range pipeline.chunks {
 		go func(node Node) {
@@ -120,7 +121,7 @@ func (pipeline *Pipeline) Run() error {
 	err := pipeline.source.node.Start()
 
 	// the source has exited, stop all the other nodes
-	pipeline.stopEverything()
+	pipeline.Stop()
 
 	pipeline.nodeWg.Wait()
 	pipeline.metricsWg.Wait()
@@ -140,7 +141,7 @@ func (pipeline *Pipeline) endpointMap() map[string]string {
 func (pipeline *Pipeline) startErrorListener(cherr chan error) {
 	for err := range cherr {
 		fmt.Printf("Pipeline error %v\nShutting down pipeline\n", err)
-		pipeline.stopEverything()
+		pipeline.Stop()
 	}
 }
 
