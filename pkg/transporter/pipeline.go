@@ -30,7 +30,8 @@ type Pipeline struct {
 	metricsWg *sync.WaitGroup
 }
 
-// NewPipeline creates a new Transporter Pipeline, with the given node acting as the 'SOURCE'.  subsequent nodes should be added via AddNode
+// NewPipeline creates a new Transporter Pipeline, with the given node acting as the Source.
+// subsequent nodes should be added via AddNode
 func NewPipeline(config Config, source ConfigNode) (*Pipeline, error) {
 	pipeline := &Pipeline{
 		config:    config,
@@ -53,7 +54,8 @@ func NewPipeline(config Config, source ConfigNode) (*Pipeline, error) {
 	return pipeline, nil
 }
 
-// lastPipe returns either the source pipe, or the pipe of the most recently added node.  we use this to generate a new pipe
+// lastPipe returns either the source pipe, or the pipe of the most recently added node.
+// we use this to generate a new pipe
 func (pipeline *Pipeline) lastPipe() pipe.Pipe {
 	if len(pipeline.chunks) == 0 {
 		return pipeline.source.pipe
@@ -66,7 +68,8 @@ func (pipeline *Pipeline) AddNode(config ConfigNode) error {
 	return pipeline.addNode(config, pipe.NewJoinPipe(pipeline.lastPipe(), config.Name))
 }
 
-// AddTerminalNode adds the last node in the pipeline.  The last node is different only because we use a pipe.SinkPipe instead of a JoinPipe.
+// AddTerminalNode adds the last node in the pipeline.
+// The last node is different only because we use a pipe.SinkPipe instead of a JoinPipe.
 func (pipeline *Pipeline) AddTerminalNode(config ConfigNode) error {
 	return pipeline.addNode(config, pipe.NewSinkPipe(pipeline.lastPipe(), config.Name))
 }
@@ -138,6 +141,8 @@ func (pipeline *Pipeline) endpointMap() map[string]string {
 	return m
 }
 
+// start error listener consumes all the events on the pipe's Err channel, and stops the pipeline
+// when it receives one
 func (pipeline *Pipeline) startErrorListener(cherr chan error) {
 	for err := range cherr {
 		fmt.Printf("Pipeline error %v\nShutting down pipeline\n", err)
@@ -145,6 +150,7 @@ func (pipeline *Pipeline) startErrorListener(cherr chan error) {
 	}
 }
 
+// startEventListener consumes all the events from the pipe's Event channel, and posts them to the ap
 func (pipeline *Pipeline) startEventListener(chevent chan pipe.Event) {
 	for event := range chevent {
 		ba, err := json.Marshal(event)
@@ -174,7 +180,8 @@ func (pipeline *Pipeline) startEventListener(chevent chan pipe.Event) {
 	}
 }
 
-// pipelineChunk keeps a copy of the config beside the actual node implementation, so that we don't have to force fit the properties of the config
+// pipelineChunk keeps a copy of the config beside the actual node implementation,
+// so that we don't have to force fit the properties of the config
 // into nodes that don't / shouldn't care about them.
 type pipelineChunk struct {
 	config ConfigNode

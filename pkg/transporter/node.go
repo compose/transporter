@@ -35,14 +35,13 @@ var (
 	}
 )
 
-/*
- * All nodes must implement the Node interface
- */
+// All nodes must implement the Node interface
 type Node interface {
 	Listen() error
 	Stop() error
 }
 
+// Source nodes are used as the first element in the Pipeline chain
 type Source interface {
 	Start() error
 	Stop() error
@@ -63,7 +62,6 @@ type Config struct {
 	Nodes map[string]ConfigNode
 }
 
-//
 // A ConfigNode is a description of an endpoint.  This is not a concrete implementation of a data store, just a
 // container to hold config values.
 type ConfigNode struct {
