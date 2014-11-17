@@ -15,6 +15,8 @@ func (e eventKind) String() string {
 		return "error"
 	case metricsKind:
 		return "metrics"
+	case exitKind:
+		return "exit"
 	}
 	return ""
 }
@@ -23,6 +25,7 @@ const (
 	bootKind eventKind = iota
 	errorKind
 	metricsKind
+	exitKind
 )
 
 // an Event is produced periodically by the running transporter.
@@ -71,6 +74,14 @@ func NewMetricsEvent(ts int64, path string, in, out int) Event {
 	return e
 }
 
+// NewExitEvent (surprisingly) creates a new exitevent
+func NewExitEvent(ts int64, version string, endpoints map[string]string) Event {
+	e := Event{Ts: ts, Kind: exitKind.String()}
+	e.Version = version
+	e.Endpoints = endpoints
+	return e
+}
+
 //
 // lets keep track of metrics on a nodeimpl, and send them out periodically to our event chan
 type nodeMetrics struct {
@@ -102,9 +113,11 @@ func (m *nodeMetrics) send() {
 	m.eChan <- NewMetricsEvent(time.Now().Unix(), m.path, m.RecordsIn, m.RecordsOut)
 }
 
-// Stop stops the ticker that sends out new metrics.  This shuts down the nodeMetrics.
+// Stop stops the ticker that sends out new metrics and broadcast a final metric for the node.
+// This shuts down the nodeMetrics.
 func (m *nodeMetrics) Stop() {
 	if m.ticker != nil {
 		m.ticker.Stop()
 	}
+	m.send()
 }

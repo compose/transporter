@@ -23,7 +23,7 @@ dependencies:
 test:
   override:
     # - $CIRCLE_ARTIFACTS/godep go test ./...
-    - go test ./... -tags=integration
+    - go test ./... -tags=integration -v
 
 deployment:
   default:

@@ -129,6 +129,9 @@ func (pipeline *Pipeline) Run() error {
 	pipeline.nodeWg.Wait()
 	pipeline.metricsWg.Wait()
 
+	// send a boot event
+	pipeline.source.pipe.Event <- pipe.NewExitEvent(time.Now().Unix(), VERSION, pipeline.endpointMap())
+
 	return err
 }
 
