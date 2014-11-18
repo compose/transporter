@@ -7,7 +7,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	// "github.com/compose/transporter/pkg/pipe"
 
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -35,6 +34,7 @@ var (
 func TestPipelineRun(t *testing.T) {
 	data := []struct {
 		setupFn      interface{}
+		setupFnArgs  []reflect.Value
 		in           *ConfigNode
 		transformer  []ConfigNode
 		terminalNode *ConfigNode
@@ -43,6 +43,7 @@ func TestPipelineRun(t *testing.T) {
 	}{
 		{
 			setupFileInAndOut,
+			[]reflect.Value{reflect.ValueOf(filenameOut), reflect.ValueOf(filenameIn)},
 			&integrationFileOutCN,
 			nil,
 			&integrationFileInCN,
@@ -51,6 +52,7 @@ func TestPipelineRun(t *testing.T) {
 		},
 		{
 			setupMongoToMongo,
+			nil,
 			&localOutMongoCN,
 			nil,
 			&localInMongoCN,
@@ -61,7 +63,7 @@ func TestPipelineRun(t *testing.T) {
 
 	for _, v := range data {
 		if v.setupFn != nil {
-			result := reflect.ValueOf(v.setupFn).Call(nil)
+			result := reflect.ValueOf(v.setupFn).Call(v.setupFnArgs)
 			if result[0].Interface() != nil {
 				t.Errorf("unable to call setupFn, got %s", result[0].Interface().(error).Error())
 				t.FailNow()
@@ -95,20 +97,20 @@ func TestPipelineRun(t *testing.T) {
 	}
 }
 
-func clearAndCreateFiles() (*os.File, error) {
-	err := os.Remove(filenameOut)
+func clearAndCreateFiles(outFile, inFile string) (*os.File, error) {
+	err := os.Remove(outFile)
 	if err != nil && !strings.Contains(err.Error(), "no such file or directory") {
 		return nil, err
 	}
-	err = os.Remove(filenameIn)
+	err = os.Remove(inFile)
 	if err != nil && !strings.Contains(err.Error(), "no such file or directory") {
 		return nil, err
 	}
-	return os.Create(filenameOut)
+	return os.Create(outFile)
 }
 
-func setupFileInAndOut() error {
-	inFileOut, err := clearAndCreateFiles()
+func setupFileInAndOut(outFile, inFile string) error {
+	inFileOut, err := clearAndCreateFiles(outFile, inFile)
 	if err != nil {
 		return err
 	}

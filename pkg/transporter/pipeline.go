@@ -164,21 +164,25 @@ func (pipeline *Pipeline) startEventListener(chevent chan pipe.Event) {
 		pipeline.metricsWg.Add(1)
 		go func() {
 			defer pipeline.metricsWg.Done()
-			resp, err := http.Post(pipeline.api.Uri, "application/json", bytes.NewBuffer(ba))
-			if err != nil {
-				fmt.Println("event send failed")
-				pipeline.source.pipe.Err <- err
-				return
-			}
+			if pipeline.api.Uri != "" {
+				resp, err := http.Post(pipeline.api.Uri, "application/json", bytes.NewBuffer(ba))
+				if err != nil {
+					fmt.Println("event send failed")
+					pipeline.source.pipe.Err <- err
+					return
+				}
 
-			if resp.StatusCode != 200 {
+				if resp.StatusCode != 200 {
+					resp.Body.Close()
+					pipeline.source.pipe.Err <- fmt.Errorf("Event Error: http error code, expected 200, got %d.  %d", resp.StatusCode, resp.StatusCode)
+					return
+				}
 				resp.Body.Close()
-				pipeline.source.pipe.Err <- fmt.Errorf("Event Error: http error code, expected 200, got %d.  %d", resp.StatusCode, resp.StatusCode)
-				return
 			}
-			resp.Body.Close()
 		}()
-		fmt.Printf("sent pipeline event: %s -> %s\n", pipeline.api.Uri, event)
+		if pipeline.api.Uri != "" {
+			fmt.Printf("sent pipeline event: %s -> %s\n", pipeline.api.Uri, event)
+		}
 
 	}
 }
