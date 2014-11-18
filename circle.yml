@@ -13,6 +13,7 @@ dependencies:
     - go get github.com/compose/mejson
     - go get github.com/influxdb/influxdb/client
     - go get github.com/nu7hatch/gouuid
+    - go get github.com/dancannon/gorethink
     - test -d $HOME/boto || pip install -t $HOME/boto boto
     - test -e /home/ubuntu/.go_workspace/src/github.com/compose/transporter || ln -s /home/ubuntu/transporter/ /home/ubuntu/.go_workspace/src/github.com/compose/
 
