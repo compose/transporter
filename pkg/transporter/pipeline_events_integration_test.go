@@ -56,6 +56,8 @@ func TestEventsBroadcast(t *testing.T) {
 	var (
 		eventApiConfig = Api{
 			Uri:             ts.URL,
+			Pid:             "asdf",
+			Key:             "jklm",
 			MetricsInterval: 1000,
 		}
 		dummyOutConfig = ConfigNode{

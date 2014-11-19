@@ -51,6 +51,8 @@ type Source interface {
 type Api struct {
 	Uri             string `json:"uri" yaml:"uri"`
 	MetricsInterval int    `json:"interval" yaml:"interval"`
+	Key             string `json:"key" yaml:"key"`
+	Pid             string `json:"pid" yaml:"pid"`
 }
 
 // A ConfigNode is a description of an endpoint.  This is not a concrete implementation of a data store, just a

@@ -165,7 +165,13 @@ func (pipeline *Pipeline) startEventListener(chevent chan pipe.Event) {
 		go func() {
 			defer pipeline.metricsWg.Done()
 			if pipeline.api.Uri != "" {
-				resp, err := http.Post(pipeline.api.Uri, "application/json", bytes.NewBuffer(ba))
+				req, err := http.NewRequest("POST", pipeline.api.Uri, bytes.NewBuffer(ba))
+				req.Header.Set("Content-Type", "application/json")
+				if len(pipeline.api.Pid) > 0 && len(pipeline.api.Key) > 0 {
+					req.SetBasicAuth(pipeline.api.Pid, pipeline.api.Key)
+				}
+				cli := &http.Client{}
+				resp, err := cli.Do(req)
 				if err != nil {
 					fmt.Println("event send failed")
 					pipeline.source.pipe.Err <- err
