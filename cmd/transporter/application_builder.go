@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"text/template"
+	"time"
 
 	"github.com/compose/transporter/pkg/transporter"
 	"gopkg.in/yaml.v2"
@@ -73,6 +74,12 @@ func (a *ApplicationBuilder) loadConfig() (err error) {
 	for k, v := range c.Nodes {
 		c.Nodes[k] = v
 	}
+
+	if len(c.Api.Pid) < 1 {
+		hostname, _ := os.Hostname()
+		c.Api.Pid = fmt.Sprintf("%s(%s)", hostname, time.Now().Unix())
+	}
+
 	a.Config = c
 	return err
 }
