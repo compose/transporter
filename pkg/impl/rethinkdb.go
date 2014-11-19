@@ -12,12 +12,14 @@ import (
 )
 
 type Rethinkdb struct {
-	// pull these in from the node
+	// pull these in from the config
 	uri *url.URL
 
 	// save time by setting these once
 	database string
 	table    string
+
+	debug bool
 
 	//
 	pipe pipe.Pipe
@@ -49,6 +51,7 @@ func NewRethinkdb(p pipe.Pipe, extra ExtraConfig) (*Rethinkdb, error) {
 	if err != nil {
 		return r, err
 	}
+	r.debug = conf.Debug
 
 	return r, nil
 }
@@ -69,17 +72,24 @@ func (r *Rethinkdb) Stop() error {
 }
 
 func (r *Rethinkdb) applyOp(msg *message.Msg) (*message.Msg, error) {
+	var (
+		resp gorethink.WriteResponse
+		err  error
+	)
 
 	switch msg.Op {
 	case message.Delete:
-		_, _ = gorethink.Table(r.table).Get(msg.IdAsString()).Delete().RunWrite(r.client)
+		resp, err = gorethink.Table(r.table).Get(msg.IdAsString()).Delete().RunWrite(r.client)
 	case message.Insert:
-		_, _ = gorethink.Table(r.table).Insert(msg.Document()).RunWrite(r.client)
+		resp, err = gorethink.Table(r.table).Insert(msg.Document()).RunWrite(r.client)
 	case message.Update:
-		_, _ = gorethink.Table(r.table).Insert(msg.DocumentWithId("id"), gorethink.InsertOpts{Conflict: "replace"}).RunWrite(r.client)
+		resp, err = gorethink.Table(r.table).Insert(msg.DocumentWithId("id"), gorethink.InsertOpts{Conflict: "replace"}).RunWrite(r.client)
+	}
+	if err != nil {
+		return msg, err
 	}
 
-	return msg, nil
+	return msg, r.handleResponse(&resp)
 }
 
 func (r *Rethinkdb) setupClient() (*gorethink.Session, error) {
@@ -110,6 +120,23 @@ func (r *Rethinkdb) splitNamespace(namespace string) (string, string, error) {
 		return "", "", fmt.Errorf("malformed rethinkdb namespace.")
 	}
 	return fields[0], fields[1], nil
+}
+
+/*
+ *
+ * we need to take the rethink response and turn it into something we can consume elsewhere
+ *
+ */
+func (r *Rethinkdb) handleResponse(resp *gorethink.WriteResponse) error {
+	if resp.Errors != 0 {
+		if !strings.Contains(resp.FirstError, "Duplicate primary key") { // we don't care about this error
+			if r.debug {
+				fmt.Printf("Reported %d errors\n", resp.Errors)
+			}
+			return fmt.Errorf("%s\n%s", "Problem inserting docs", resp.FirstError)
+		}
+	}
+	return nil
 }
 
 // RethinkdbConfig options
