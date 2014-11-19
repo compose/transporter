@@ -79,20 +79,6 @@ func (r *Rethinkdb) applyOp(msg *message.Msg) (*message.Msg, error) {
 		_, _ = gorethink.Table(r.table).Insert(msg.DocumentWithId("id"), gorethink.InsertOpts{Conflict: "replace"}).RunWrite(r.client)
 	}
 
-	// docSize := len(msg.Document())
-	// columns := make([]string, 0, docSize)
-	// points := make([][]interface{}, 1)
-	// points[0] = make([]interface{}, 0, docSize)
-	// for k := range msg.Document() {
-	// 	columns = append(columns, k)
-	// 	points[0] = append(points[0], msg.Document()[k])
-	// }
-	// series := &client.Series{
-	// 	Name:    r.series_name,
-	// 	Columns: columns,
-	// 	Points:  points,
-	// }
-
 	return msg, nil
 }
 
