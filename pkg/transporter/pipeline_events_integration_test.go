@@ -110,7 +110,7 @@ func (events EventHolder) lookupMetricEvent(metric, path string) error {
 		if err := json.Unmarshal(val, &evt); err != nil {
 			return err
 		}
-		if evt["event"].(string) == metric {
+		if evt["name"].(string) == metric {
 			// check for path if provided
 			if path != "" && evt["path"].(string) == path {
 				return nil
