@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"sync"
 	"time"
@@ -178,9 +179,11 @@ func (pipeline *Pipeline) startEventListener(chevent chan pipe.Event) {
 					return
 				}
 
-				if resp.StatusCode != 200 {
-					resp.Body.Close()
-					pipeline.source.pipe.Err <- fmt.Errorf("Event Error: http error code, expected 200, got %d.  %d", resp.StatusCode, resp.StatusCode)
+				defer resp.Body.Close()
+				body, err := ioutil.ReadAll(resp.Body)
+
+				if resp.StatusCode != 200 && resp.StatusCode != 201 {
+					pipeline.source.pipe.Err <- fmt.Errorf("Event Error: http error code, expected 200 or 201, got %d.  %d\n\t%s", resp.StatusCode, resp.StatusCode, body)
 					return
 				}
 				resp.Body.Close()

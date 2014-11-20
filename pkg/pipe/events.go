@@ -34,7 +34,7 @@ const (
 // MetricsEvents are emittied by each pipe and include a measure of how many messages have been processed
 type Event struct {
 	Ts           int64  `json:"ts"`
-	Kind         string `json:"event"`
+	Kind         string `json:"name"`
 	bootEvent    `json:",omitempty"`
 	metricsEvent `json:",omitempty"`
 }

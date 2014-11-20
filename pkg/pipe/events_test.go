@@ -14,15 +14,15 @@ func TestEvent(t *testing.T) {
 	}{
 		{
 			NewBootEvent(12345, "1.2.3", nil),
-			[]byte("{\"ts\":12345,\"event\":\"boot\",\"version\":\"1.2.3\"}"),
+			[]byte("{\"ts\":12345,\"name\":\"boot\",\"version\":\"1.2.3\"}"),
 		},
 		{
 			NewBootEvent(12345, "1.2.3", map[string]string{"nick": "yay"}),
-			[]byte("{\"ts\":12345,\"event\":\"boot\",\"version\":\"1.2.3\",\"endpoints\":{\"nick\":\"yay\"}}"),
+			[]byte("{\"ts\":12345,\"name\":\"boot\",\"version\":\"1.2.3\",\"endpoints\":{\"nick\":\"yay\"}}"),
 		},
 		{
 			NewMetricsEvent(12345, "nick/yay", 1, 1),
-			[]byte("{\"ts\":12345,\"event\":\"metrics\",\"path\":\"nick/yay\",\"records_in\":1,\"records_out\":1}"),
+			[]byte("{\"ts\":12345,\"name\":\"metrics\",\"path\":\"nick/yay\",\"records_in\":1,\"records_out\":1}"),
 		},
 	}
 
