@@ -81,7 +81,7 @@ func (a *ApplicationBuilder) loadConfig() (err error) {
 
 	if len(c.Api.Pid) < 1 {
 		hostname, _ := os.Hostname()
-		c.Api.Pid = fmt.Sprintf("%s(%s)", hostname, time.Now().Unix())
+		c.Api.Pid = fmt.Sprintf("%s@%d", hostname, time.Now().Unix())
 	}
 
 	a.Config = c
