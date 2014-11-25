@@ -8,22 +8,14 @@ import (
 )
 
 func main() {
-	fmt.Println("I love pie")
+	api := transporter.Api{MetricsInterval: 10000, Uri: "http://requestb.in/1b02tpv1"}
 
 	source := transporter.NewNode("name1", "mongo", map[string]interface{}{"uri": "mongodb://localhost/boom", "namespace": "boom.foo", "debug": true})
-	fmt.Printf("%+v\n", source)
-
 	sink1 := transporter.NewNode("crapfile", "file", map[string]interface{}{"uri": "stdout://"})
-	fmt.Printf("%+v\n", sink1)
+	sink2 := transporter.NewNode("crapfile2", "file", map[string]interface{}{"uri": "stdout://"})
 
 	source.Attach(sink1)
-	fmt.Printf("%+v\n", source)
-
-	sink2 := transporter.NewNode("crapfile2", "file", map[string]interface{}{"uri": "stdout://"})
 	source.Attach(sink2)
-	fmt.Printf("%+v\n", source)
-
-	api := transporter.Api{MetricsInterval: 10000, Uri: "http://requestb.in/1b02tpv1"}
 
 	pipeline, err := transporter.NewPipeline(source, api)
 	if err != nil {
@@ -33,4 +25,5 @@ func main() {
 
 	fmt.Printf("pipeline:%+v\n", pipeline)
 	pipeline.Run()
+	fmt.Println("done")
 }
