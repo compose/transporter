@@ -22,10 +22,10 @@ var (
 )
 
 var (
-	sourceRegistry = map[string]interface{}{
-		"mongo": impl.NewMongodb,
-		"file":  impl.NewFile,
-	}
+	// sourceRegistry = map[string]interface{}{
+	// 	"mongo": impl.NewMongodb,
+	// 	"file":  impl.NewFile,
+	// }
 
 	nodeRegistry = map[string]interface{}{
 		"mongo":         impl.NewMongodb,
@@ -45,10 +45,10 @@ type NodeImpl interface {
 
 // Source nodes are used as the first element in the Pipeline chain
 // TODO lose this or keep this?
-type SourceImpl interface {
-	Start() error
-	Stop() error
-}
+// type SourceImpl interface {
+// 	Start() error
+// 	Stop() error
+// }
 
 // An Api is the definition of the remote endpoint that receieves event and error posts
 type Api struct {
@@ -60,95 +60,23 @@ type Api struct {
 
 // A ConfigNode is a description of an endpoint.  This is not a concrete implementation of a data store, just a
 // container to hold config values.
-type ConfigNode struct {
-	Name  string                 `json:"name"`
-	Type  string                 `json:"type"`
-	Extra map[string]interface{} `json:"extra"`
-}
-
-func (n ConfigNode) String() string {
-	uri, ok := n.Extra["uri"]
-	if !ok {
-		uri = "no uri set"
-	}
-
-	namespace, ok := n.Extra["namespace"]
-	if !ok {
-		namespace = "no namespace set"
-	}
-	return fmt.Sprintf("%-20s %-15s %-30s %s", n.Name, n.Type, namespace, uri)
-}
-
-// callCreator will call the NewImpl method to create a new node or source
-// func (n ConfigNode) callCreator(pipe pipe.Pipe, fn interface{}) (reflect.Value, error) {
-
-// 	args := []reflect.Value{
-// 		reflect.ValueOf(pipe),
-// 		reflect.ValueOf(n.Extra),
-// 	}
-
-// 	result := reflect.ValueOf(fn).Call(args)
-// 	node := result[0]
-// 	inter := result[1].Interface()
-
-// 	if inter != nil {
-// 		return node, inter.(error)
-// 	}
-
-// 	return node, nil
+// type ConfigNode struct {
+// 	Name  string                 `json:"name"`
+// 	Type  string                 `json:"type"`
+// 	Extra map[string]interface{} `json:"extra"`
 // }
 
-// Create a concrete node that will listen on a pipe.  An implementation of the Node interface.  These types are generally either sinks or transformers
-//
-// Node types are stored in the node registry and we generate the correct type of Node by examining the NodeConfig.Type
-// property to find the node's constructore.
-//
-// Each constructor is assumed to be of the form
-// func NewImpl(pipe pipe.Pipe, extra map[string]interface{}) (*Impl, error) {
-// func (n *ConfigNode) Create(p pipe.Pipe) (node NodeImpl, err error) {
-// 	defer func() {
-// 		if r := recover(); r != nil {
-// 			err = fmt.Errorf("cannot create node: %v", r)
-// 		}
-// 	}()
-
-// 	fn, ok := nodeRegistry[n.Type]
+// func (n ConfigNode) String() string {
+// 	uri, ok := n.Extra["uri"]
 // 	if !ok {
-// 		return nil, MissingNodeError
+// 		uri = "no uri set"
 // 	}
 
-// 	val, err := n.callCreator(p, fn)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	return val.Interface().(NodeImpl), nil
-// }
-
-// Create a concrete node that will act as a source and transmit data through a transporter Pipeline.  An implementation of the Source interface.  These types are generally either sinks or transformers
-//
-// Node types are stored in the node registry and we generate the correct type of Node by examining the NodeConfig.Type
-// property to find the node's constructore.
-//
-// Each constructor is assumed to be of the form
-// func NewImpl(pipe pipe.Pipe, extra map[string]interface{}) (*Impl, error) {
-// func (n *ConfigNode) CreateSource(p pipe.Pipe) (source SourceImpl, err error) {
-// 	defer func() {
-// 		if r := recover(); r != nil {
-// 			err = fmt.Errorf("cannot create node: %v", r)
-// 		}
-// 	}()
-
-// 	fn, ok := sourceRegistry[n.Type]
+// 	namespace, ok := n.Extra["namespace"]
 // 	if !ok {
-// 		return nil, MissingNodeError
+// 		namespace = "no namespace set"
 // 	}
-// 	val, err := n.callCreator(p, fn)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	return val.Interface().(SourceImpl), nil
+// 	return fmt.Sprintf("%-20s %-15s %-30s %s", n.Name, n.Type, namespace, uri)
 // }
 
 /* TODO don't go breaking my heart */
@@ -205,7 +133,6 @@ func (n *Node) actualize(p *pipe.Pipe) (err error) {
 	}
 
 	n.impl = val.Interface().(NodeImpl)
-	// n.pipe = p
 
 	return err
 }
@@ -242,8 +169,6 @@ func (n *Node) Start() error {
 		}(child)
 	}
 
-	//TODO somewhat hacky, but the source node needs to call a different method
-	// or else the impl needs to know whether it's source or sink
 	if n.Parent == nil {
 		return n.impl.Start()
 	}
