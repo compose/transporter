@@ -17,7 +17,7 @@ var (
 )
 
 func TestPipelineString(t *testing.T) {
-	sourceRegistry["source"] = NewSourceImpl
+	sourceRegistry["source"] = NewTestSourceImpl
 
 	data := []struct {
 		in           ConfigNode

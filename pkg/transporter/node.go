@@ -36,13 +36,13 @@ var (
 )
 
 // All nodes must implement the Node interface
-type Node interface {
+type NodeImpl interface {
 	Listen() error
 	Stop() error
 }
 
 // Source nodes are used as the first element in the Pipeline chain
-type Source interface {
+type SourceImpl interface {
 	Start() error
 	Stop() error
 }
@@ -102,7 +102,7 @@ func (n ConfigNode) callCreator(pipe pipe.Pipe, fn interface{}) (reflect.Value, 
 //
 // Each constructor is assumed to be of the form
 // func NewImpl(pipe pipe.Pipe, extra map[string]interface{}) (*Impl, error) {
-func (n *ConfigNode) Create(p pipe.Pipe) (node Node, err error) {
+func (n *ConfigNode) Create(p pipe.Pipe) (node NodeImpl, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("cannot create node: %v", r)
@@ -119,7 +119,7 @@ func (n *ConfigNode) Create(p pipe.Pipe) (node Node, err error) {
 		return nil, err
 	}
 
-	return val.Interface().(Node), nil
+	return val.Interface().(NodeImpl), nil
 }
 
 // Create a concrete node that will act as a source and transmit data through a transporter Pipeline.  An implementation of the Source interface.  These types are generally either sinks or transformers
@@ -129,7 +129,7 @@ func (n *ConfigNode) Create(p pipe.Pipe) (node Node, err error) {
 //
 // Each constructor is assumed to be of the form
 // func NewImpl(pipe pipe.Pipe, extra map[string]interface{}) (*Impl, error) {
-func (n *ConfigNode) CreateSource(p pipe.Pipe) (source Source, err error) {
+func (n *ConfigNode) CreateSource(p pipe.Pipe) (source SourceImpl, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("cannot create node: %v", r)
@@ -145,5 +145,5 @@ func (n *ConfigNode) CreateSource(p pipe.Pipe) (source Source, err error) {
 		return nil, err
 	}
 
-	return val.Interface().(Source), nil
+	return val.Interface().(SourceImpl), nil
 }

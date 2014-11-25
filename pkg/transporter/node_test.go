@@ -77,61 +77,61 @@ func TestConfigNodeCallCreator(t *testing.T) {
 }
 
 // a random type that implements the source interface
-type SourceImpl struct {
+type TestSourceImpl struct {
 	value string
 }
 
-func NewSourceImpl(p pipe.Pipe, extra map[string]interface{}) (*SourceImpl, error) {
+func NewTestSourceImpl(p pipe.Pipe, extra map[string]interface{}) (*TestSourceImpl, error) {
 	val, ok := extra["value"]
 	if !ok {
 		return nil, anError
 	}
-	return &SourceImpl{value: val.(string)}, nil
+	return &TestSourceImpl{value: val.(string)}, nil
 }
 
-func (s *SourceImpl) Stop() error {
+func (s *TestSourceImpl) Stop() error {
 	return nil
 }
 
-func (s *SourceImpl) Start() error {
+func (s *TestSourceImpl) Start() error {
 	return nil
 }
 
 // a random type that implements the node interface
-type NodeImpl struct {
+type TestNodeImpl struct {
 	value string
 }
 
-func NewNodeImpl(p pipe.Pipe, extra map[string]interface{}) (*NodeImpl, error) {
+func NewTestNodeImpl(p pipe.Pipe, extra map[string]interface{}) (*TestNodeImpl, error) {
 	val, ok := extra["value"]
 	if !ok {
 		return nil, anError
 	}
-	return &NodeImpl{value: val.(string)}, nil
+	return &TestNodeImpl{value: val.(string)}, nil
 }
 
-func (s *NodeImpl) Stop() error {
+func (s *TestNodeImpl) Stop() error {
 	return nil
 }
 
-func (s *NodeImpl) Listen() error {
+func (s *TestNodeImpl) Listen() error {
 	return nil
 }
 
 func TestConfigNodeCreateSource(t *testing.T) {
 	p := pipe.NewSourcePipe("name", 1*time.Second)
 
-	sourceRegistry["source"] = NewSourceImpl
+	sourceRegistry["source"] = NewTestSourceImpl
 	sourceRegistry["notasource"] = NewImpl
 
 	data := []struct {
 		in  ConfigNode
-		out *SourceImpl
+		out *TestSourceImpl
 		err string
 	}{
 		{
 			ConfigNode{Type: "source", Extra: map[string]interface{}{"value": "rockettes"}},
-			&SourceImpl{value: "rockettes"},
+			&TestSourceImpl{value: "rockettes"},
 			"",
 		},
 		{
@@ -171,17 +171,17 @@ func TestConfigNodeCreateSource(t *testing.T) {
 func TestConfigNodeCreate(t *testing.T) {
 	p := pipe.NewSourcePipe("name", 1*time.Second)
 
-	nodeRegistry["node"] = NewNodeImpl
+	nodeRegistry["node"] = NewTestNodeImpl
 	nodeRegistry["notasource"] = NewImpl
 
 	data := []struct {
 		in  ConfigNode
-		out *NodeImpl
+		out *TestNodeImpl
 		err string
 	}{
 		{
 			ConfigNode{Type: "node", Extra: map[string]interface{}{"value": "rockettes"}},
-			&NodeImpl{value: "rockettes"},
+			&TestNodeImpl{value: "rockettes"},
 			"",
 		},
 		{

@@ -111,7 +111,7 @@ func (pipeline *Pipeline) Stop() {
 // run the pipeline
 func (pipeline *Pipeline) Run() error {
 	for _, chunk := range pipeline.chunks {
-		go func(node Node) {
+		go func(node NodeImpl) {
 			pipeline.nodeWg.Add(1)
 			node.Listen()
 			pipeline.nodeWg.Done()
@@ -201,13 +201,13 @@ func (pipeline *Pipeline) startEventListener(chevent chan pipe.Event) {
 // into nodes that don't / shouldn't care about them.
 type pipelineChunk struct {
 	config ConfigNode
-	node   Node
+	node   NodeImpl
 	pipe   pipe.Pipe
 }
 
 // pipelineSource is the source node, pipeline and config
 type pipelineSource struct {
 	config ConfigNode
-	node   Source
+	node   SourceImpl
 	pipe   pipe.Pipe
 }
