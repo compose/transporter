@@ -46,7 +46,6 @@ type Api struct {
 	Pid             string `json:"pid" yaml:"pid"`
 }
 
-/* TODO don't go breaking my heart */
 // A Node is the basic building blocks of transporter pipelines.
 // Nodes are constructed in a tree, with the first node broadcasting
 // data to each of it's children.
