@@ -161,7 +161,7 @@ type Node struct {
 	Parent   *Node                  `json:"parent"`
 
 	impl NodeImpl
-	pipe pipe.Pipe
+	pipe *pipe.Pipe
 }
 
 func NewNode(name, kind string, extra map[string]interface{}) *Node {
@@ -178,12 +178,11 @@ func (n *Node) Attach(node *Node) {
 	n.Children = append(n.Children, node)
 }
 
-func (n *Node) actualize(p pipe.Pipe) (err error) {
+func (n *Node) actualize(p *pipe.Pipe) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("cannot create node: %v", r)
 		}
-		fmt.Println("recoving from panic")
 	}()
 
 	fn, ok := nodeRegistry[n.Type]
@@ -196,11 +195,7 @@ func (n *Node) actualize(p pipe.Pipe) (err error) {
 		reflect.ValueOf(n.Extra),
 	}
 
-	fmt.Println("actualizing1!")
-
 	result := reflect.ValueOf(fn).Call(args)
-
-	fmt.Println("actualizing2!")
 
 	val := result[0]
 	inter := result[1].Interface()
@@ -210,7 +205,7 @@ func (n *Node) actualize(p pipe.Pipe) (err error) {
 	}
 
 	n.impl = val.Interface().(NodeImpl)
-	n.pipe = p
+	// n.pipe = p
 
 	return err
 }
@@ -218,14 +213,9 @@ func (n *Node) actualize(p pipe.Pipe) (err error) {
 func (n *Node) DoTheThingWeNeedToDo(api Api) {
 	if n.Parent == nil {
 		// we're the source
-		fmt.Println("creating source")
-		n.pipe = pipe.NewSourcePipe(n.Name, time.Duration(api.MetricsInterval)*time.Millisecond)
-	} else if len(n.Children) == 0 {
-		fmt.Println("creating sink")
-		n.pipe = pipe.NewSinkPipe(n.Parent.pipe, n.Name)
+		n.pipe = pipe.NewPipe(nil, n.Name, time.Duration(api.MetricsInterval)*time.Millisecond)
 	} else {
-		fmt.Println("creating join pipe")
-		n.pipe = pipe.NewJoinPipe(n.Parent.pipe, n.Name)
+		n.pipe = pipe.NewPipe(n.Parent.pipe, n.Name, time.Duration(api.MetricsInterval)*time.Millisecond)
 	}
 
 	n.actualize(n.pipe)

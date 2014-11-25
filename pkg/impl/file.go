@@ -13,12 +13,12 @@ import (
 
 type File struct {
 	uri  string
-	pipe pipe.Pipe
+	pipe *pipe.Pipe
 
 	filehandle *os.File
 }
 
-func NewFile(p pipe.Pipe, extra ExtraConfig) (*File, error) {
+func NewFile(p *pipe.Pipe, extra ExtraConfig) (*File, error) {
 
 	var (
 		conf FileConfig

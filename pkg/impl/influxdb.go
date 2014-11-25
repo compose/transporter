@@ -19,13 +19,13 @@ type Influxdb struct {
 	series_name string
 
 	//
-	pipe pipe.Pipe
+	pipe *pipe.Pipe
 
 	// influx connection and options
 	influxClient *client.Client
 }
 
-func NewInfluxdb(p pipe.Pipe, extra ExtraConfig) (*Influxdb, error) {
+func NewInfluxdb(p *pipe.Pipe, extra ExtraConfig) (*Influxdb, error) {
 	var (
 		conf InfluxdbConfig
 		err  error

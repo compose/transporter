@@ -41,7 +41,6 @@ func NewPipeline(source *Node, api Api) (*Pipeline, error) {
 		metricsWg: &sync.WaitGroup{},
 	}
 
-	fmt.Printf("api: %+v\n\n", api)
 	source.DoTheThingWeNeedToDo(api)
 
 	// sourcePipe := pipe.NewSourcePipe(source.Name, time.Duration(api.MetricsInterval)*time.Millisecond)
@@ -50,11 +49,7 @@ func NewPipeline(source *Node, api Api) (*Pipeline, error) {
 	// 	return pipeline, err
 	// }
 
-	fmt.Println("2")
-
 	pipeline.source = source //pipelineSource{config: source, node: node, pipe: sourcePipe}
-
-	fmt.Println("3")
 
 	go pipeline.startErrorListener(source.pipe.Err)
 	go pipeline.startEventListener(source.pipe.Event)
@@ -125,12 +120,8 @@ func (pipeline *Pipeline) Run() error {
 	// 	}(chunk.node)
 	// }
 
-	fmt.Println("send boot")
-
 	// send a boot event
 	pipeline.source.pipe.Event <- pipe.NewBootEvent(time.Now().Unix(), VERSION, pipeline.endpointMap())
-
-	fmt.Println("after sending boot")
 
 	// start the source
 	err := pipeline.source.Start()

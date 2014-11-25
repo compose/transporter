@@ -22,13 +22,13 @@ type Rethinkdb struct {
 	debug bool
 
 	//
-	pipe pipe.Pipe
+	pipe *pipe.Pipe
 
 	// rethinkdb connection and options
 	client *gorethink.Session
 }
 
-func NewRethinkdb(p pipe.Pipe, extra ExtraConfig) (*Rethinkdb, error) {
+func NewRethinkdb(p *pipe.Pipe, extra ExtraConfig) (*Rethinkdb, error) {
 	var (
 		conf RethinkdbConfig
 		err  error

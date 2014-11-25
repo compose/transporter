@@ -15,14 +15,14 @@ import (
 type Transformer struct {
 	Func string
 
-	pipe pipe.Pipe
+	pipe *pipe.Pipe
 
 	debug  bool
 	script *otto.Script
 	vm     *otto.Otto
 }
 
-func NewTransformer(p pipe.Pipe, extra ExtraConfig) (*Transformer, error) {
+func NewTransformer(p *pipe.Pipe, extra ExtraConfig) (*Transformer, error) {
 	var (
 		conf TransformerConfig
 		err  error

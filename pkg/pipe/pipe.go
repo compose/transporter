@@ -26,7 +26,7 @@ func newMessageChan() messageChan {
 // and joinPipe which has a li tening loop that also emits messages.
 type Pipe struct {
 	In              messageChan
-	Out             messageChan
+	Out             []messageChan
 	Err             chan error
 	Event           chan Event
 	Stopped         bool // has the pipe been stopped?
@@ -37,48 +37,82 @@ type Pipe struct {
 }
 
 // NewSourcePipe creates a Pipe that has no listening loop, but just emits messages.  Only one SourcePipe should be created for each transporter pipeline and should be attached to the transporter source.
-func NewSourcePipe(name string, interval time.Duration) Pipe {
-	p := Pipe{
-		In:              nil,
-		Out:             newMessageChan(),
-		Err:             make(chan error),
-		Event:           make(chan Event),
+// func NewSourcePipe(name string, interval time.Duration) Pipe {
+// 	p := Pipe{
+// 		In:              nil,
+// 		Out:             make([]messageChan, 0),
+// 		Err:             make(chan error),
+// 		Event:           make(chan Event),
+// 		chStop:          make(chan chan bool),
+// 		metricsInterval: interval,
+// 	}
+// 	// p.Out[0] = newMessageChan()
+// 	p.metrics = NewNodeMetrics(name, p.Event, interval)
+// 	return p
+// }
+
+// NewSourcePipe creates a Pipe that has no listening loop, but just emits messages.  Only one SourcePipe should be created for each transporter pipeline and should be attached to the transporter source.
+func NewPipe(pipe *Pipe, name string, interval time.Duration) *Pipe {
+
+	p := &Pipe{
+		// In:              nil,
+		Out: make([]messageChan, 0),
+		// Err:             make(chan error),
+		// Event:           make(chan Event),
 		chStop:          make(chan chan bool),
 		metricsInterval: interval,
 	}
+
+	if pipe != nil {
+		pipe.AddChild()
+		p.In = pipe.Out[len(pipe.Out)-1] // use the last out channel
+		p.Err = pipe.Err
+		p.Event = pipe.Event
+	} else {
+		p.Err = make(chan error)
+		p.Event = make(chan Event)
+	}
+
+	// p.Out[0] = newMessageChan()
 	p.metrics = NewNodeMetrics(name, p.Event, interval)
 	return p
 }
 
 // NewJoinPipe creates a pipe that with the In channel attached to the given pipe's Out channel.  Multiple Join pipes can be chained together to create a processing pipeline
-func NewJoinPipe(p Pipe, name string) Pipe {
-	newp := Pipe{
-		In:              p.Out,
-		Out:             newMessageChan(),
-		Err:             p.Err,
-		Event:           p.Event,
-		chStop:          make(chan chan bool),
-		metricsInterval: p.metricsInterval,
-	}
-	newp.metrics = NewNodeMetrics(p.metrics.path+"/"+name, p.Event, p.metricsInterval)
-	return newp
+// func NewJoinPipe(p Pipe, name string) Pipe {
+// 	newp := Pipe{
+// 		In:              p.Out[len(p.Out)-1], // use the last out channel
+// 		Out:             make([]messageChan, 0),
+// 		Err:             p.Err,
+// 		Event:           p.Event,
+// 		chStop:          make(chan chan bool),
+// 		metricsInterval: p.metricsInterval,
+// 	}
+
+// 	// p.Out[0] = newMessageChan()
+// 	newp.metrics = NewNodeMetrics(p.metrics.path+"/"+name, p.Event, p.metricsInterval)
+// 	return newp
+// }
+
+func (m *Pipe) AddChild() {
+	m.Out = append(m.Out, newMessageChan())
 }
 
 // NewSinkPipe creates a pipe that acts as a terminator to a chain of pipes.  The In channel is the previous channel's Out chan, and the SinkPipe's Out channel is nil.
-func NewSinkPipe(p Pipe, name string) Pipe {
-	newp := Pipe{
-		In:              p.Out,
-		Out:             nil,
-		Err:             p.Err,
-		Event:           p.Event,
-		chStop:          make(chan chan bool),
-		metricsInterval: p.metricsInterval,
-	}
+// func NewSinkPipe(p Pipe, name string) Pipe {
+// 	newp := Pipe{
+// 		In:              p.Out,
+// 		Out:             make([]message, 0),
+// 		Err:             p.Err,
+// 		Event:           p.Event,
+// 		chStop:          make(chan chan bool),
+// 		metricsInterval: p.metricsInterval,
+// 	}
 
-	fmt.Printf("in new sink pipe, p is %+v\n", p)
-	newp.metrics = NewNodeMetrics(p.metrics.path+"/"+name, p.Event, p.metricsInterval)
-	return newp
-}
+// 	fmt.Printf("in new sink pipe, p is %+v\n", p)
+// 	newp.metrics = NewNodeMetrics(p.metrics.path+"/"+name, p.Event, p.metricsInterval)
+// 	return newp
+// }
 
 // Listen starts a listening loop that pulls messages from the In chan, applies fn(msg), a `func(message.Msg) error`, and emits them on the Out channel.
 // Errors will be emited to the Pipe's Err chan, and will terminate the loop.
@@ -108,7 +142,8 @@ func (m *Pipe) Listen(fn func(*message.Msg) (*message.Msg, error)) error {
 				m.Err <- err
 				return err
 			}
-			if m.Out != nil {
+			if len(m.Out) > 0 {
+				fmt.Println("sending after a listen")
 				m.Send(outmsg)
 			}
 		case <-time.After(100 * time.Millisecond):
@@ -135,15 +170,25 @@ func (m *Pipe) Stop() {
 // send emits the given message on the 'Out' channel.  the send Timesout after 100 ms in order to chaeck of the Pipe has stopped and we've been asked to exit.
 // If the Pipe has been stopped, the send will fail and there is no guarantee of either success or failure
 func (m *Pipe) Send(msg *message.Msg) {
-	for {
-		select {
-		case m.Out <- msg:
-			m.metrics.RecordsOut += 1
-			return
-		case <-time.After(100 * time.Millisecond):
-			if m.Stopped {
-				return
+
+	for _, ch := range m.Out {
+
+	A:
+		for {
+			select {
+			case ch <- msg:
+				m.metrics.RecordsOut += 1
+				break A
+			case <-time.After(100 * time.Millisecond):
+				if m.Stopped {
+					// return, with no guarantee
+					return
+				}
 			}
 		}
 	}
 }
+
+// func (m *Pipe) Send(msg *message.Msg) {
+
+// }
