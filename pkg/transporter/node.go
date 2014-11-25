@@ -68,6 +68,19 @@ func NewNode(name, kind string, extra map[string]interface{}) *Node {
 	}
 }
 
+func (n *Node) String() string {
+	uri, ok := n.Extra["uri"]
+	if !ok {
+		uri = "no uri set"
+	}
+
+	namespace, ok := n.Extra["namespace"]
+	if !ok {
+		namespace = "no namespace set"
+	}
+	return fmt.Sprintf("%-20s %-15s %-30s %s", n.Name, n.Type, namespace, uri)
+}
+
 func (n *Node) Attach(node *Node) {
 	node.Parent = n
 	n.Children = append(n.Children, node)

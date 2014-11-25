@@ -47,19 +47,19 @@ func NewPipeline(source *Node, api Api) (*Pipeline, error) {
 	return pipeline, nil
 }
 
-// func (pipeline *Pipeline) String() string {
-// 	out := " - Pipeline\n"
-// 	out += fmt.Sprintf("  - Source: %s\n", pipeline.source.config)
-// 	if len(pipeline.chunks) > 1 {
-// 		for _, t := range pipeline.chunks[1 : len(pipeline.chunks)-1] {
-// 			out += fmt.Sprintf("   - %s\n", t)
-// 		}
-// 	}
-// 	if len(pipeline.chunks) >= 1 {
-// 		out += fmt.Sprintf("  - Sink:   %s\n", pipeline.chunks[len(pipeline.chunks)-1].config)
-// 	}
-// 	return out
-// }
+func (pipeline *Pipeline) String() string {
+	out := " - Pipeline\n"
+	out += fmt.Sprintf("  - Source: %s\n", pipeline.source.String())
+	if len(pipeline.source.Children) > 1 {
+		for _, t := range pipeline.source.Children[0 : len(pipeline.source.Children)-1] {
+			out += fmt.Sprintf("   - %s\n", t)
+		}
+	}
+	if len(pipeline.source.Children) >= 1 {
+		out += fmt.Sprintf("  - Sink:   %s\n", pipeline.source.Children[len(pipeline.source.Children)-1].String())
+	}
+	return out
+}
 
 // Stop sends a stop signal to all the nodes, whether they are running or not
 func (pipeline *Pipeline) Stop() {
