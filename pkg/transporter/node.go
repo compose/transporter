@@ -22,11 +22,6 @@ var (
 )
 
 var (
-	// sourceRegistry = map[string]interface{}{
-	// 	"mongo": impl.NewMongodb,
-	// 	"file":  impl.NewFile,
-	// }
-
 	nodeRegistry = map[string]interface{}{
 		"mongo":         impl.NewMongodb,
 		"file":          impl.NewFile,
@@ -43,13 +38,6 @@ type NodeImpl interface {
 	Stop() error
 }
 
-// Source nodes are used as the first element in the Pipeline chain
-// TODO lose this or keep this?
-// type SourceImpl interface {
-// 	Start() error
-// 	Stop() error
-// }
-
 // An Api is the definition of the remote endpoint that receieves event and error posts
 type Api struct {
 	Uri             string `json:"uri" yaml:"uri"`
@@ -58,35 +46,14 @@ type Api struct {
 	Pid             string `json:"pid" yaml:"pid"`
 }
 
-// A ConfigNode is a description of an endpoint.  This is not a concrete implementation of a data store, just a
-// container to hold config values.
-// type ConfigNode struct {
-// 	Name  string                 `json:"name"`
-// 	Type  string                 `json:"type"`
-// 	Extra map[string]interface{} `json:"extra"`
-// }
-
-// func (n ConfigNode) String() string {
-// 	uri, ok := n.Extra["uri"]
-// 	if !ok {
-// 		uri = "no uri set"
-// 	}
-
-// 	namespace, ok := n.Extra["namespace"]
-// 	if !ok {
-// 		namespace = "no namespace set"
-// 	}
-// 	return fmt.Sprintf("%-20s %-15s %-30s %s", n.Name, n.Type, namespace, uri)
-// }
-
 /* TODO don't go breaking my heart */
 
 type Node struct {
-	Name     string                 `json:"name"`
-	Type     string                 `json:"type"`
-	Extra    map[string]interface{} `json:"extra"`
-	Children []*Node                `json:"children"`
-	Parent   *Node                  `json:"parent"`
+	Name     string                 `json:"name"`     // the name of this node
+	Type     string                 `json:"type"`     // the node's type, used to create the implementation
+	Extra    map[string]interface{} `json:"extra"`    // extra config options that are passed to the implementation
+	Children []*Node                `json:"children"` // the nodes are set up as a tree, this is an array of this nodes children
+	Parent   *Node                  `json:"parent"`   // this node's parent node, if this is nil, this is a 'source' node
 
 	impl NodeImpl
 	pipe *pipe.Pipe
@@ -106,7 +73,7 @@ func (n *Node) Attach(node *Node) {
 	n.Children = append(n.Children, node)
 }
 
-func (n *Node) actualize(p *pipe.Pipe) (err error) {
+func (n *Node) createImpl(p *pipe.Pipe) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("cannot create node: %v", r)
@@ -137,18 +104,20 @@ func (n *Node) actualize(p *pipe.Pipe) (err error) {
 	return err
 }
 
-func (n *Node) DoTheThingWeNeedToDo(api Api) {
+func (n *Node) Init(api Api) {
 	if n.Parent == nil {
-		// we're the source
+		// we don't have a parent, we're the source
 		n.pipe = pipe.NewPipe(nil, n.Name, time.Duration(api.MetricsInterval)*time.Millisecond)
 	} else {
+		// we have a parent, so pass in the parent's pipe here
 		n.pipe = pipe.NewPipe(n.Parent.pipe, n.Name, time.Duration(api.MetricsInterval)*time.Millisecond)
 	}
 
-	n.actualize(n.pipe)
+	n.createImpl(n.pipe)
 
+	// init all the children
 	for _, child := range n.Children {
-		child.DoTheThingWeNeedToDo(api)
+		child.Init(api)
 	}
 }
 
@@ -160,6 +129,8 @@ func (n *Node) Stop() error {
 	return nil //TODO return an error
 }
 
+// Start starts the nodes children in a go routine, and then runs either Start() or Listen() on the
+// node's impl
 func (n *Node) Start() error {
 	for _, child := range n.Children {
 		go func(node *Node) {
@@ -176,6 +147,7 @@ func (n *Node) Start() error {
 	return n.impl.Listen()
 }
 
+// Endpoints recurses down the node tree and accumulates a map associating node name with node type
 func (n *Node) Endpoints() map[string]string {
 	m := map[string]string{n.Name: n.Type}
 	for _, child := range n.Children {

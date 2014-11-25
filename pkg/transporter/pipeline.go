@@ -37,7 +37,7 @@ func NewPipeline(source *Node, api Api) (*Pipeline, error) {
 		metricsWg: &sync.WaitGroup{},
 	}
 
-	source.DoTheThingWeNeedToDo(api)
+	source.Init(api)
 
 	pipeline.source = source
 
