@@ -110,6 +110,10 @@ func NewTestNodeImpl(p pipe.Pipe, extra map[string]interface{}) (*TestNodeImpl, 
 	return &TestNodeImpl{value: val.(string)}, nil
 }
 
+func (s *TestNodeImpl) Start() error {
+	return nil
+}
+
 func (s *TestNodeImpl) Stop() error {
 	return nil
 }
