@@ -7,6 +7,7 @@
 package pipe
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/compose/transporter/pkg/message"
@@ -73,6 +74,8 @@ func NewSinkPipe(p Pipe, name string) Pipe {
 		chStop:          make(chan chan bool),
 		metricsInterval: p.metricsInterval,
 	}
+
+	fmt.Printf("in new sink pipe, p is %+v\n", p)
 	newp.metrics = NewNodeMetrics(p.metrics.path+"/"+name, p.Event, p.metricsInterval)
 	return newp
 }

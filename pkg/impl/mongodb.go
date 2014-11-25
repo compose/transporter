@@ -59,8 +59,9 @@ func NewMongodb(p pipe.Pipe, extra ExtraConfig) (*Mongodb, error) {
 	if err != nil {
 		return m, err
 	}
-
+	fmt.Printf("m.uri: %s\n", m.uri)
 	m.mongoSession, err = mgo.Dial(m.uri)
+	fmt.Println("done")
 	if err != nil {
 		m.pipe.Err <- err
 	}

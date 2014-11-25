@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/compose/transporter/pkg/impl"
 	"github.com/compose/transporter/pkg/pipe"
@@ -37,11 +38,13 @@ var (
 
 // All nodes must implement the Node interface
 type NodeImpl interface {
+	Start() error
 	Listen() error
 	Stop() error
 }
 
 // Source nodes are used as the first element in the Pipeline chain
+// TODO lose this or keep this?
 type SourceImpl interface {
 	Start() error
 	Stop() error
@@ -77,23 +80,23 @@ func (n ConfigNode) String() string {
 }
 
 // callCreator will call the NewImpl method to create a new node or source
-func (n ConfigNode) callCreator(pipe pipe.Pipe, fn interface{}) (reflect.Value, error) {
+// func (n ConfigNode) callCreator(pipe pipe.Pipe, fn interface{}) (reflect.Value, error) {
 
-	args := []reflect.Value{
-		reflect.ValueOf(pipe),
-		reflect.ValueOf(n.Extra),
-	}
+// 	args := []reflect.Value{
+// 		reflect.ValueOf(pipe),
+// 		reflect.ValueOf(n.Extra),
+// 	}
 
-	result := reflect.ValueOf(fn).Call(args)
-	node := result[0]
-	inter := result[1].Interface()
+// 	result := reflect.ValueOf(fn).Call(args)
+// 	node := result[0]
+// 	inter := result[1].Interface()
 
-	if inter != nil {
-		return node, inter.(error)
-	}
+// 	if inter != nil {
+// 		return node, inter.(error)
+// 	}
 
-	return node, nil
-}
+// 	return node, nil
+// }
 
 // Create a concrete node that will listen on a pipe.  An implementation of the Node interface.  These types are generally either sinks or transformers
 //
@@ -102,25 +105,25 @@ func (n ConfigNode) callCreator(pipe pipe.Pipe, fn interface{}) (reflect.Value, 
 //
 // Each constructor is assumed to be of the form
 // func NewImpl(pipe pipe.Pipe, extra map[string]interface{}) (*Impl, error) {
-func (n *ConfigNode) Create(p pipe.Pipe) (node NodeImpl, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("cannot create node: %v", r)
-		}
-	}()
+// func (n *ConfigNode) Create(p pipe.Pipe) (node NodeImpl, err error) {
+// 	defer func() {
+// 		if r := recover(); r != nil {
+// 			err = fmt.Errorf("cannot create node: %v", r)
+// 		}
+// 	}()
 
-	fn, ok := nodeRegistry[n.Type]
-	if !ok {
-		return nil, MissingNodeError
-	}
+// 	fn, ok := nodeRegistry[n.Type]
+// 	if !ok {
+// 		return nil, MissingNodeError
+// 	}
 
-	val, err := n.callCreator(p, fn)
-	if err != nil {
-		return nil, err
-	}
+// 	val, err := n.callCreator(p, fn)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	return val.Interface().(NodeImpl), nil
-}
+// 	return val.Interface().(NodeImpl), nil
+// }
 
 // Create a concrete node that will act as a source and transmit data through a transporter Pipeline.  An implementation of the Source interface.  These types are generally either sinks or transformers
 //
@@ -129,21 +132,142 @@ func (n *ConfigNode) Create(p pipe.Pipe) (node NodeImpl, err error) {
 //
 // Each constructor is assumed to be of the form
 // func NewImpl(pipe pipe.Pipe, extra map[string]interface{}) (*Impl, error) {
-func (n *ConfigNode) CreateSource(p pipe.Pipe) (source SourceImpl, err error) {
+// func (n *ConfigNode) CreateSource(p pipe.Pipe) (source SourceImpl, err error) {
+// 	defer func() {
+// 		if r := recover(); r != nil {
+// 			err = fmt.Errorf("cannot create node: %v", r)
+// 		}
+// 	}()
+
+// 	fn, ok := sourceRegistry[n.Type]
+// 	if !ok {
+// 		return nil, MissingNodeError
+// 	}
+// 	val, err := n.callCreator(p, fn)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	return val.Interface().(SourceImpl), nil
+// }
+
+/* TODO don't go breaking my heart */
+
+type Node struct {
+	Name     string                 `json:"name"`
+	Type     string                 `json:"type"`
+	Extra    map[string]interface{} `json:"extra"`
+	Children []*Node                `json:"children"`
+	Parent   *Node                  `json:"parent"`
+
+	impl NodeImpl
+	pipe pipe.Pipe
+}
+
+func NewNode(name, kind string, extra map[string]interface{}) *Node {
+	return &Node{
+		Name:     name,
+		Type:     kind,
+		Extra:    extra,
+		Children: make([]*Node, 0),
+	}
+}
+
+func (n *Node) Attach(node *Node) {
+	node.Parent = n
+	n.Children = append(n.Children, node)
+}
+
+func (n *Node) actualize(p pipe.Pipe) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("cannot create node: %v", r)
 		}
+		fmt.Println("recoving from panic")
 	}()
 
-	fn, ok := sourceRegistry[n.Type]
+	fn, ok := nodeRegistry[n.Type]
 	if !ok {
-		return nil, MissingNodeError
-	}
-	val, err := n.callCreator(p, fn)
-	if err != nil {
-		return nil, err
+		return MissingNodeError
 	}
 
-	return val.Interface().(SourceImpl), nil
+	args := []reflect.Value{
+		reflect.ValueOf(p),
+		reflect.ValueOf(n.Extra),
+	}
+
+	fmt.Println("actualizing1!")
+
+	result := reflect.ValueOf(fn).Call(args)
+
+	fmt.Println("actualizing2!")
+
+	val := result[0]
+	inter := result[1].Interface()
+
+	if inter != nil {
+		return inter.(error)
+	}
+
+	n.impl = val.Interface().(NodeImpl)
+	n.pipe = p
+
+	return err
+}
+
+func (n *Node) DoTheThingWeNeedToDo(api Api) {
+	if n.Parent == nil {
+		// we're the source
+		fmt.Println("creating source")
+		n.pipe = pipe.NewSourcePipe(n.Name, time.Duration(api.MetricsInterval)*time.Millisecond)
+	} else if len(n.Children) == 0 {
+		fmt.Println("creating sink")
+		n.pipe = pipe.NewSinkPipe(n.Parent.pipe, n.Name)
+	} else {
+		fmt.Println("creating join pipe")
+		n.pipe = pipe.NewJoinPipe(n.Parent.pipe, n.Name)
+	}
+
+	n.actualize(n.pipe)
+
+	for _, child := range n.Children {
+		child.DoTheThingWeNeedToDo(api)
+	}
+}
+
+func (n *Node) Stop() error {
+	n.impl.Stop()
+	for _, node := range n.Children {
+		node.Stop()
+	}
+	return nil //TODO return an error
+}
+
+func (n *Node) Start() error {
+	for _, child := range n.Children {
+		go func(node *Node) {
+			// pipeline.nodeWg.Add(1)
+			node.Start()
+			// pipeline.nodeWg.Done()
+		}(child)
+	}
+
+	//TODO somewhat hacky, but the source node needs to call a different method
+	// or else the impl needs to know whether it's source or sink
+	if n.Parent == nil {
+		return n.impl.Start()
+	}
+
+	return n.impl.Listen()
+}
+
+func (n *Node) Endpoints() map[string]string {
+	m := map[string]string{n.Name: n.Type}
+	for _, child := range n.Children {
+		childMap := child.Endpoints()
+		for k, v := range childMap {
+			m[k] = v
+		}
+	}
+	return m
 }

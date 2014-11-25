@@ -13,10 +13,10 @@ import (
 )
 
 var (
-	localOutMongoCN      = ConfigNode{Extra: map[string]interface{}{"uri": "mongodb://localhost/test", "namespace": "test.outColl"}, Name: "localOutmongo", Type: "mongo"}
-	localInMongoCN       = ConfigNode{Extra: map[string]interface{}{"uri": "mongodb://localhost/test", "namespace": "test.inColl"}, Name: "localInmongo", Type: "mongo"}
-	integrationFileOutCN = ConfigNode{Extra: map[string]interface{}{"uri": "file:///tmp/crapOut"}, Name: "localfileout", Type: "file"}
-	integrationFileInCN  = ConfigNode{Extra: map[string]interface{}{"uri": "file:///tmp/crapIn"}, Name: "localfilein", Type: "file"}
+	localOutMongoNode      = Node{Extra: map[string]interface{}{"uri": "mongodb://localhost/test", "namespace": "test.outColl"}, Name: "localOutmongo", Type: "mongo"}
+	localInMongoNode       = Node{Extra: map[string]interface{}{"uri": "mongodb://localhost/test", "namespace": "test.inColl"}, Name: "localInmongo", Type: "mongo"}
+	integrationFileOutNode = Node{Extra: map[string]interface{}{"uri": "file:///tmp/crapOut"}, Name: "localfileout", Type: "file"}
+	integrationFileInNode  = Node{Extra: map[string]interface{}{"uri": "file:///tmp/crapIn"}, Name: "localfilein", Type: "file"}
 )
 
 var (
@@ -35,9 +35,9 @@ func TestPipelineRun(t *testing.T) {
 	data := []struct {
 		setupFn      interface{}
 		setupFnArgs  []reflect.Value
-		in           *ConfigNode
-		transformer  []ConfigNode
-		terminalNode *ConfigNode
+		in           *Node
+		transformer  []Node
+		terminalNode *Node
 		testFn       interface{}
 		cleanupFn    interface{}
 	}{
@@ -191,11 +191,11 @@ func testMongoToMongo(t *testing.T) error {
 }
 
 func cleanupMongo() {
-	mongoSess, _ := mgo.Dial(localOutMongoCN.Extra["uri"].(string))
+	mongoSess, _ := mgo.Dial(localOutMongoNode.Extra["uri"].(string))
 	collection := mongoSess.DB("test").C("outColl")
 	collection.DropCollection()
 	mongoSess.Close()
-	mongoSess, _ = mgo.Dial(localInMongoCN.Extra["uri"].(string))
+	mongoSess, _ = mgo.Dial(localInMongoNode.Extra["uri"].(string))
 	collection = mongoSess.DB("test").C("inColl")
 	collection.DropCollection()
 }
