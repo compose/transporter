@@ -7,7 +7,6 @@
 package pipe
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/compose/transporter/pkg/message"
@@ -36,35 +35,20 @@ type Pipe struct {
 	metricsInterval time.Duration
 }
 
-// NewSourcePipe creates a Pipe that has no listening loop, but just emits messages.  Only one SourcePipe should be created for each transporter pipeline and should be attached to the transporter source.
-// func NewSourcePipe(name string, interval time.Duration) Pipe {
-// 	p := Pipe{
-// 		In:              nil,
-// 		Out:             make([]messageChan, 0),
-// 		Err:             make(chan error),
-// 		Event:           make(chan Event),
-// 		chStop:          make(chan chan bool),
-// 		metricsInterval: interval,
-// 	}
-// 	// p.Out[0] = newMessageChan()
-// 	p.metrics = NewNodeMetrics(name, p.Event, interval)
-// 	return p
-// }
-
-// NewSourcePipe creates a Pipe that has no listening loop, but just emits messages.  Only one SourcePipe should be created for each transporter pipeline and should be attached to the transporter source.
+// NewSourcePipe creates a new Pipe.  If the pipe that is passed in is nil, then this pipe will be treaded as a source pipe that just serves to emit messages.
+// Otherwise, the pipe returned will be created and chained from the last member of the Out slice of the parent.  This function has side effects, and will add
+// an Out channel to the pipe that is passed in
 func NewPipe(pipe *Pipe, name string, interval time.Duration) *Pipe {
 
 	p := &Pipe{
-		// In:              nil,
-		Out: make([]messageChan, 0),
-		// Err:             make(chan error),
-		// Event:           make(chan Event),
+		Out:             make([]messageChan, 0),
 		chStop:          make(chan chan bool),
 		metricsInterval: interval,
 	}
 
 	if pipe != nil {
-		pipe.AddChild()
+		pipe.Out = append(pipe.Out, newMessageChan())
+
 		p.In = pipe.Out[len(pipe.Out)-1] // use the last out channel
 		p.Err = pipe.Err
 		p.Event = pipe.Event
@@ -73,46 +57,9 @@ func NewPipe(pipe *Pipe, name string, interval time.Duration) *Pipe {
 		p.Event = make(chan Event)
 	}
 
-	// p.Out[0] = newMessageChan()
 	p.metrics = NewNodeMetrics(name, p.Event, interval)
 	return p
 }
-
-// NewJoinPipe creates a pipe that with the In channel attached to the given pipe's Out channel.  Multiple Join pipes can be chained together to create a processing pipeline
-// func NewJoinPipe(p Pipe, name string) Pipe {
-// 	newp := Pipe{
-// 		In:              p.Out[len(p.Out)-1], // use the last out channel
-// 		Out:             make([]messageChan, 0),
-// 		Err:             p.Err,
-// 		Event:           p.Event,
-// 		chStop:          make(chan chan bool),
-// 		metricsInterval: p.metricsInterval,
-// 	}
-
-// 	// p.Out[0] = newMessageChan()
-// 	newp.metrics = NewNodeMetrics(p.metrics.path+"/"+name, p.Event, p.metricsInterval)
-// 	return newp
-// }
-
-func (m *Pipe) AddChild() {
-	m.Out = append(m.Out, newMessageChan())
-}
-
-// NewSinkPipe creates a pipe that acts as a terminator to a chain of pipes.  The In channel is the previous channel's Out chan, and the SinkPipe's Out channel is nil.
-// func NewSinkPipe(p Pipe, name string) Pipe {
-// 	newp := Pipe{
-// 		In:              p.Out,
-// 		Out:             make([]message, 0),
-// 		Err:             p.Err,
-// 		Event:           p.Event,
-// 		chStop:          make(chan chan bool),
-// 		metricsInterval: p.metricsInterval,
-// 	}
-
-// 	fmt.Printf("in new sink pipe, p is %+v\n", p)
-// 	newp.metrics = NewNodeMetrics(p.metrics.path+"/"+name, p.Event, p.metricsInterval)
-// 	return newp
-// }
 
 // Listen starts a listening loop that pulls messages from the In chan, applies fn(msg), a `func(message.Msg) error`, and emits them on the Out channel.
 // Errors will be emited to the Pipe's Err chan, and will terminate the loop.
@@ -143,7 +90,6 @@ func (m *Pipe) Listen(fn func(*message.Msg) (*message.Msg, error)) error {
 				return err
 			}
 			if len(m.Out) > 0 {
-				fmt.Println("sending after a listen")
 				m.Send(outmsg)
 			}
 		case <-time.After(100 * time.Millisecond):
