@@ -21,7 +21,6 @@ func (t *TransporterApplication) AddPipeline(p *transporter.Pipeline) {
 
 // Run performs a .Run() on each Pipeline contained in the Transporter Application
 func (t *TransporterApplication) Run() (err error) {
-	// fmt.Println(t)
 
 	for _, p := range t.Pipelines {
 		err = p.Run()

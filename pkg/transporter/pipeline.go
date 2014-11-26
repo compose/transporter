@@ -63,7 +63,6 @@ func (pipeline *Pipeline) Stop() {
 
 // run the pipeline
 func (pipeline *Pipeline) Run() error {
-	fmt.Println(pipeline)
 	endpoints := pipeline.source.Endpoints()
 
 	// send a boot event
