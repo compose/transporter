@@ -70,11 +70,12 @@ or by evaluating the javascript with -eval.`,
 
 			if runEval == "" {
 				js, err = NewJavascriptBuilder(builder.Config, args[0], "")
-				if err != nil {
-					return nil, err
-				}
 			} else {
 				js, err = NewJavascriptBuilder(builder.Config, "", runEval)
+			}
+
+			if err != nil {
+				return nil, err
 			}
 
 			return js.Build()
