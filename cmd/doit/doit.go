@@ -8,8 +8,6 @@ import (
 )
 
 func main() {
-	fmt.Println("I love pie")
-
 	source := transporter.NewNode("name1", "mongo", map[string]interface{}{"uri": "mongodb://localhost/boom", "namespace": "boom.foo", "debug": true})
 	fmt.Printf("%+v\n", source)
 
@@ -31,6 +29,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("pipeline:%+v\n", pipeline)
+	fmt.Printf("%s", pipeline.String())
 	pipeline.Run()
 }
