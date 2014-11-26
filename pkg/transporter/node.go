@@ -46,8 +46,17 @@ type Api struct {
 	Pid             string `json:"pid" yaml:"pid"`
 }
 
-/* TODO don't go breaking my heart */
+// A Node is the basic building blocks of transporter pipelines.
+// Nodes are constructed in a tree, with the first node broadcasting
+// data to each of it's children.
+// Node tree's can be constructed as follows:
+// 	source := transporter.NewNode("name1", "mongo", map[string]interface{}{"uri": "mongodb://localhost/boom", "namespace": "boom.foo", "debug": true})
+// 	sink1 := transporter.NewNode("crapfile", "file", map[string]interface{}{"uri": "stdout://"})
+// 	sink2 := transporter.NewNode("crapfile2", "file", map[string]interface{}{"uri": "stdout://"})
 
+// 	source.Attach(sink1)
+// 	source.Attach(sink2)
+//
 type Node struct {
 	Name     string                 `json:"name"`     // the name of this node
 	Type     string                 `json:"type"`     // the node's type, used to create the implementation
@@ -118,28 +127,24 @@ func (n *Node) createImpl(p *pipe.Pipe) (err error) {
 }
 
 func (n *Node) Init(api Api) {
-	if n.Parent == nil {
-		// we don't have a parent, we're the source
+	if n.Parent == nil { // we don't have a parent, we're the source
 		n.pipe = pipe.NewPipe(nil, n.Name, time.Duration(api.MetricsInterval)*time.Millisecond)
-	} else {
-		// we have a parent, so pass in the parent's pipe here
+	} else { // we have a parent, so pass in the parent's pipe here
 		n.pipe = pipe.NewPipe(n.Parent.pipe, n.Name, time.Duration(api.MetricsInterval)*time.Millisecond)
 	}
 
 	n.createImpl(n.pipe)
 
-	// init all the children
 	for _, child := range n.Children {
-		child.Init(api)
+		child.Init(api) // init each child
 	}
 }
 
-func (n *Node) Stop() error {
+func (n *Node) Stop() {
 	n.impl.Stop()
 	for _, node := range n.Children {
 		node.Stop()
 	}
-	return nil //TODO return an error
 }
 
 // Start starts the nodes children in a go routine, and then runs either Start() or Listen() on the
