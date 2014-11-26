@@ -8,14 +8,14 @@ import (
 
 type TransporterApplication struct {
 	Config    Config
-	Pipelines []transporter.Pipeline
+	Pipelines []*transporter.Pipeline
 }
 
 func NewTransporterApplication(config Config) *TransporterApplication {
-	return &TransporterApplication{Pipelines: make([]transporter.Pipeline, 0), Config: config}
+	return &TransporterApplication{Pipelines: make([]*transporter.Pipeline, 0), Config: config}
 }
 
-func (t *TransporterApplication) AddPipeline(p transporter.Pipeline) {
+func (t *TransporterApplication) AddPipeline(p *transporter.Pipeline) {
 	t.Pipelines = append(t.Pipelines, p)
 }
 

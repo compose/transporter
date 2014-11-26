@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/compose/transporter/pkg/transporter"
+	// "github.com/kr/pretty"
 	"github.com/nu7hatch/gouuid"
 	"github.com/robertkrimen/otto"
 )
@@ -77,9 +78,17 @@ func (js *JavascriptBuilder) save(node Node, call otto.FunctionCall) (Node, erro
 	if err != nil {
 		return node, err
 	}
-	node.AddNode(this_node)
+	root := js.nodes[node.RootUuid]
 
-	return node, err
+	if node.Uuid == root.Uuid { // save is being called on a root node
+		root.AddNode(&this_node)
+	} else {
+		node.AddNode(&this_node) // add the generated not to the `this`
+		root.AddNode(&node)      // add the result to the root
+	}
+
+	js.nodes[root.Uuid] = root
+	return root, err
 }
 
 // adds a transform function to the transporter pipeline
@@ -104,8 +113,9 @@ func (js *JavascriptBuilder) transform(node Node, call otto.FunctionCall) (Node,
 		return node, err
 	}
 
-	node.AddNode(transformer)
-	return node, nil
+	node.AddNode(&transformer)
+
+	return transformer, nil
 }
 
 // pipelines in javascript are chainable, you take in a pipeline, and you return a pipeline
@@ -120,21 +130,11 @@ func (js *JavascriptBuilder) SetFunc(obj *otto.Object, token string, fn func(Nod
 			return otto.NullValue()
 		}
 
-		// we have a copy of the node, but lets use the
-		// node that we're persisting.  we find it by uuid
-		node, ok := js.nodes[node.Uuid]
-		if !ok { // we don't have a reference to this yet? that's odd
-			js.err = fmt.Errorf("missing reference to node")
-			return otto.NullValue()
-		}
-
 		node, err = fn(node, call)
 		if err != nil {
 			js.err = err
 			return otto.NullValue()
 		}
-
-		js.nodes[node.Uuid] = node
 
 		o, err := node.Object()
 		if err != nil {
@@ -193,7 +193,7 @@ func (js *JavascriptBuilder) Build() (Application, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	// pretty.Println(js.nodes)
 	for _, node := range js.nodes {
 		n := node.CreateTransporterNode()
 
@@ -201,7 +201,7 @@ func (js *JavascriptBuilder) Build() (Application, error) {
 		if err != nil {
 			return js.app, err
 		}
-		js.app.AddPipeline(*pipeline)
+		js.app.AddPipeline(pipeline)
 	}
 
 	return js.app, nil

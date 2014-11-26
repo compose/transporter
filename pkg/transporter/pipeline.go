@@ -37,7 +37,10 @@ func NewPipeline(source *Node, api Api) (*Pipeline, error) {
 		metricsWg: &sync.WaitGroup{},
 	}
 
-	source.Init(api)
+	err := source.Init(api)
+	if err != nil {
+		return pipeline, err
+	}
 
 	pipeline.source = source
 
@@ -48,16 +51,8 @@ func NewPipeline(source *Node, api Api) (*Pipeline, error) {
 }
 
 func (pipeline *Pipeline) String() string {
-	out := " - Pipeline\n"
-	out += fmt.Sprintf("  - Source: %s\n", pipeline.source.String())
-	if len(pipeline.source.Children) > 1 {
-		for _, t := range pipeline.source.Children[0 : len(pipeline.source.Children)-1] {
-			out += fmt.Sprintf("   - %s\n", t)
-		}
-	}
-	if len(pipeline.source.Children) >= 1 {
-		out += fmt.Sprintf("  - Sink:   %s\n", pipeline.source.Children[len(pipeline.source.Children)-1].String())
-	}
+
+	out := pipeline.source.String()
 	return out
 }
 
@@ -68,7 +63,9 @@ func (pipeline *Pipeline) Stop() {
 
 // run the pipeline
 func (pipeline *Pipeline) Run() error {
+	fmt.Println(pipeline)
 	endpoints := pipeline.source.Endpoints()
+
 	// send a boot event
 	pipeline.source.pipe.Event <- pipe.NewBootEvent(time.Now().Unix(), VERSION, endpoints)
 

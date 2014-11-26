@@ -78,16 +78,33 @@ func NewNode(name, kind string, extra map[string]interface{}) *Node {
 }
 
 func (n *Node) String() string {
-	uri, ok := n.Extra["uri"]
-	if !ok {
-		uri = "no uri set"
-	}
+	uri := n.Extra["uri"]
 
 	namespace, ok := n.Extra["namespace"]
 	if !ok {
-		namespace = "no namespace set"
+		namespace = ""
 	}
-	return fmt.Sprintf("%-20s %-15s %-30s %s", n.Name, n.Type, namespace, uri)
+
+	var s, prefix string
+
+	depth := n.Depth()
+	prefixformatter := fmt.Sprintf("%%%ds%%-%ds", depth, 18-depth)
+
+	if n.Parent == nil { // root node
+		s = fmt.Sprintf("%18s %-40s %-15s %-30s %s\n", " ", "Name", "Type", "Namespace", "Uri")
+		prefix = fmt.Sprintf(prefixformatter, " ", "- Source: ")
+	} else if len(n.Children) == 0 {
+		prefix = fmt.Sprintf(prefixformatter, " ", "- Sink: ")
+	} else if n.Type == "transformer" {
+		prefix = fmt.Sprintf(prefixformatter, " ", "- Transformer: ")
+	}
+
+	s += fmt.Sprintf("%-18s %-40s %-15s %-30s %s", prefix, n.Name, n.Type, namespace, uri)
+
+	for _, child := range n.Children {
+		s += "\n" + child.String()
+	}
+	return s
 }
 
 func (n *Node) Attach(node *Node) {
@@ -126,18 +143,25 @@ func (n *Node) createImpl(p *pipe.Pipe) (err error) {
 	return err
 }
 
-func (n *Node) Init(api Api) {
+func (n *Node) Init(api Api) error {
 	if n.Parent == nil { // we don't have a parent, we're the source
 		n.pipe = pipe.NewPipe(nil, n.Name, time.Duration(api.MetricsInterval)*time.Millisecond)
 	} else { // we have a parent, so pass in the parent's pipe here
 		n.pipe = pipe.NewPipe(n.Parent.pipe, n.Name, time.Duration(api.MetricsInterval)*time.Millisecond)
 	}
 
-	n.createImpl(n.pipe)
+	err := n.createImpl(n.pipe)
+	if err != nil {
+		return err
+	}
 
 	for _, child := range n.Children {
-		child.Init(api) // init each child
+		err = child.Init(api) // init each child
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func (n *Node) Stop() {
@@ -175,4 +199,12 @@ func (n *Node) Endpoints() map[string]string {
 		}
 	}
 	return m
+}
+
+func (n *Node) Depth() int {
+	if n.Parent == nil {
+		return 1
+	}
+
+	return 1 + n.Parent.Depth()
 }

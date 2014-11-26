@@ -26,7 +26,8 @@ type Node struct {
 	Name     string                 `json:"name"`
 	Type     string                 `json:"type"`
 	Extra    map[string]interface{} `json:"extra"`
-	Children []Node                 `json:"children"`
+	Children []*Node                `json:"children"`
+	RootUuid string
 }
 
 func NewNode(name, kind string, extra map[string]interface{}) (node Node, err error) {
@@ -35,7 +36,7 @@ func NewNode(name, kind string, extra map[string]interface{}) (node Node, err er
 		return node, err
 	}
 
-	return Node{Uuid: uuid.String(), Name: name, Type: kind, Extra: extra, Children: make([]Node, 0)}, nil
+	return Node{Uuid: uuid.String(), Name: name, Type: kind, Extra: extra, RootUuid: uuid.String(), Children: make([]*Node, 0)}, nil
 }
 
 func CreateNode(val interface{}) (Node, error) {
@@ -62,7 +63,8 @@ func (n *Node) Object() (*otto.Object, error) {
 }
 
 // Add node adds a node as a child of the current node
-func (n *Node) AddNode(node Node) {
+func (n *Node) AddNode(node *Node) {
+	node.RootUuid = n.RootUuid
 	n.Children = append(n.Children, node)
 }
 

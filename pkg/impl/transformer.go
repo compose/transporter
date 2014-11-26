@@ -69,6 +69,10 @@ func (t *Transformer) Listen() (err error) {
 	return t.pipe.Listen(t.transformOne)
 }
 
+func (t *Transformer) Start() error {
+	return fmt.Errorf("Transformers can't be used as a source")
+}
+
 func (t *Transformer) Stop() error {
 	t.pipe.Stop()
 	return nil
