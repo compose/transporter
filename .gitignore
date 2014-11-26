@@ -1,5 +1,5 @@
 transporter
-
+cmd/doit/doit
 !cmd/transporter
 !pkg/transporter
 
