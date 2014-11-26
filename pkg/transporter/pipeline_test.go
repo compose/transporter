@@ -25,14 +25,14 @@ func TestPipelineString(t *testing.T) {
 		out          string
 	}{
 		{
-			&fakesourceCN,
+			fakesourceCN,
 			nil,
-			" - Pipeline\n  - Source:                      source          no namespace set               no uri set\n",
+			" - Pipeline\n  - Source: source1              source          no namespace set               no uri set\n",
 		},
 		{
-			&fakesourceCN,
-			&fileNode,
-			" - Pipeline\n  - Source:                      source          no namespace set               no uri set\n  - Sink:   localfile            file            no namespace set               file:///tmp/crap\n",
+			fakesourceCN,
+			fileNode,
+			" - Pipeline\n  - Source: source1              source          no namespace set               no uri set\n  - Sink:   localfile            file            no namespace set               file:///tmp/crap\n",
 		},
 	}
 

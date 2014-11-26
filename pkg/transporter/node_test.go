@@ -11,15 +11,15 @@ import (
 
 func TestConfigNodeString(t *testing.T) {
 	data := []struct {
-		in  ConfigNode
+		in  *Node
 		out string
 	}{
 		{
-			ConfigNode{},
+			&Node{},
 			"                                     no namespace set               no uri set",
 		},
 		{
-			ConfigNode{Name: "name", Type: "mongodb", Extra: map[string]interface{}{"namespace": "ns", "uri": "uri"}},
+			NewNode("name", "mongodb", map[string]interface{}{"namespace": "ns", "uri": "uri"}),
 			"name                 mongodb         ns                             uri",
 		},
 	}
@@ -45,33 +45,35 @@ func NewImpl(p pipe.Pipe, extra map[string]interface{}) (*Impl, error) {
 	return &Impl{value: val.(string)}, nil
 }
 
-func TestConfigNodeCallCreator(t *testing.T) {
-	p := pipe.NewSourcePipe("name", 1*time.Second)
+func TestConfigNodeCreateImpl(t *testing.T) {
+	nodeRegistry["source"] = NewTestSourceImpl
+
+	p := pipe.NewPipe(nil, "name", 1*time.Second)
 	data := []struct {
-		in  ConfigNode
+		in  *Node
 		out *Impl
 		err error
 	}{
 		{
-			ConfigNode{Extra: map[string]interface{}{"value": "rockettes"}},
+			NewNode("dumbname", "source", map[string]interface{}{"value": "rockettes"}),
 			&Impl{value: "rockettes"},
 			nil,
 		},
 		{
-			ConfigNode{Extra: map[string]interface{}{"blah": "rockettes"}},
+			NewNode("dumnname", "source", map[string]interface{}{"blah": "rockettes"}),
 			&Impl{},
 			anError,
 		},
 	}
 	for _, v := range data {
-		val, err := v.in.callCreator(p, NewImpl)
+		err := v.in.createImpl(p)
 
 		if err != v.err {
 			t.Errorf("expected error %v, got %v", v.err, err)
 			t.FailNow()
 		}
-		if !reflect.DeepEqual(v.out, val.Interface().(*Impl)) && err == nil {
-			t.Errorf("expected %v, got %v", v.out, val.Interface().(*Impl))
+		if !reflect.DeepEqual(v.out, v.in.impl) && err == nil {
+			t.Errorf("expected %v, got %v", v.out, v.in.impl)
 		}
 	}
 }
@@ -122,102 +124,102 @@ func (s *TestNodeImpl) Listen() error {
 	return nil
 }
 
-func TestConfigNodeCreateSource(t *testing.T) {
-	p := pipe.NewSourcePipe("name", 1*time.Second)
+// func TestConfigNodeCreateSource(t *testing.T) {
+// 	p := pipe.NewPipe(nil, "name", 1*time.Second)
 
-	sourceRegistry["source"] = NewTestSourceImpl
-	sourceRegistry["notasource"] = NewImpl
+// 	nodeRegistry["source"] = NewTestSourceImpl
+// 	nodeRegistry["notasource"] = NewImpl
 
-	data := []struct {
-		in  ConfigNode
-		out *TestSourceImpl
-		err string
-	}{
-		{
-			ConfigNode{Type: "source", Extra: map[string]interface{}{"value": "rockettes"}},
-			&TestSourceImpl{value: "rockettes"},
-			"",
-		},
-		{
-			ConfigNode{Type: "source", Extra: map[string]interface{}{"blah": "rockettes"}},
-			nil,
-			"this is an",
-		},
-		{
-			ConfigNode{Type: "notasource", Extra: map[string]interface{}{"value": "rockettes"}},
-			nil,
-			"cannot cre",
-		},
-		{
-			ConfigNode{Type: "notasource", Extra: map[string]interface{}{"blah": "rockettes"}},
-			nil,
-			"this is an",
-		},
-		{
-			ConfigNode{Type: "notaevenlisted", Extra: map[string]interface{}{"blah": "rockettes"}},
-			nil,
-			"Node not d",
-		},
-	}
-	for _, v := range data {
-		val, err := v.in.CreateSource(p)
+// 	data := []struct {
+// 		in  *Node
+// 		out *TestSourceImpl
+// 		err string
+// 	}{
+// 		{
+// 			NewNode("somenode", "source", map[string]interface{}{"value": "rockettes"}),
+// 			&TestSourceImpl{value: "rockettes"},
+// 			"",
+// 		},
+// 		{
+// 			NewNode("anothernode", "source", map[string]interface{}{"blah": "rockettes"}),
+// 			nil,
+// 			"this is an",
+// 		},
+// 		{
+// 			NewNode("morenode", "notasource", map[string]interface{}{"value": "rockettes"}),
+// 			nil,
+// 			"cannot cre",
+// 		},
+// 		{
+// 			NewNode("yetagain", "notasource", map[string]interface{}{"blah": "rockettes"}),
+// 			nil,
+// 			"this is an",
+// 		},
+// 		{
+// 			NewNode("lastone", "notaevenlisted", map[string]interface{}{"blah": "rockettes"}),
+// 			nil,
+// 			"Node not d",
+// 		},
+// 	}
+// 	for _, v := range data {
+// 		val, err := v.in.CreateSource(p)
 
-		if err != nil && err.Error()[:10] != v.err {
-			t.Errorf("expected error %v, got %v", v.err, err.Error()[:10])
-			continue
-		}
-		if !reflect.DeepEqual(v.out, val) && err == nil {
-			t.Errorf("expected (%T)%+v, got (%T)%+v", v.out, v.out, val, val)
-		}
-	}
-}
+// 		if err != nil && err.Error()[:10] != v.err {
+// 			t.Errorf("expected error %v, got %v", v.err, err.Error()[:10])
+// 			continue
+// 		}
+// 		if !reflect.DeepEqual(v.out, val) && err == nil {
+// 			t.Errorf("expected (%T)%+v, got (%T)%+v", v.out, v.out, val, val)
+// 		}
+// 	}
+// }
 
 func TestConfigNodeCreate(t *testing.T) {
-	p := pipe.NewSourcePipe("name", 1*time.Second)
+	p := pipe.NewPipe(nil, "name", 1*time.Second)
 
 	nodeRegistry["node"] = NewTestNodeImpl
 	nodeRegistry["notasource"] = NewImpl
 
 	data := []struct {
-		in  ConfigNode
+		in  *Node
 		out *TestNodeImpl
 		err string
 	}{
 		{
-			ConfigNode{Type: "node", Extra: map[string]interface{}{"value": "rockettes"}},
+			NewNode("somenode", "node", map[string]interface{}{"value": "rockettes"}),
 			&TestNodeImpl{value: "rockettes"},
 			"",
 		},
 		{
-			ConfigNode{Type: "node", Extra: map[string]interface{}{"blah": "rockettes"}},
+			NewNode("morenode", "node", map[string]interface{}{"blah": "rockettes"}),
 			nil,
 			"this is an",
 		},
 		{
-			ConfigNode{Type: "notasource", Extra: map[string]interface{}{"value": "rockettes"}},
+			NewNode("notanode", "notasource", map[string]interface{}{"value": "rockettes"}),
 			nil,
 			"cannot cre",
 		},
 		{
-			ConfigNode{Type: "notasource", Extra: map[string]interface{}{"blah": "rockettes"}},
+			NewNode("notasource", "notasource", map[string]interface{}{"blah": "rockettes"}),
 			nil,
 			"this is an",
 		},
 		{
-			ConfigNode{Type: "notapickle", Extra: map[string]interface{}{"blah": "rockettes"}},
+			NewNode("pickl", "notapickle", map[string]interface{}{"blah": "rockettes"}),
 			nil,
 			"Node not d",
 		},
 	}
 	for _, v := range data {
-		val, err := v.in.Create(p)
+		err := v.in.createImpl(p)
 
 		if err != nil && err.Error()[:10] != v.err {
 			t.Errorf("expected error %v, got %v", v.err, err.Error()[:10])
 			continue
 		}
-		if !reflect.DeepEqual(v.out, val) && err == nil {
-			t.Errorf("expected (%T)%+v, got (%T)%+v", v.out, v.out, val, val)
+		if !reflect.DeepEqual(v.out, v.in.impl) && err == nil {
+			t.Errorf("expected (%T)%+v, got (%T)%+v", v.out, v.out, v.in.impl, v.in.impl)
 		}
 	}
 }
