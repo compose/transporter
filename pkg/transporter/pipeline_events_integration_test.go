@@ -60,29 +60,23 @@ func TestEventsBroadcast(t *testing.T) {
 			Key:             "jklm",
 			MetricsInterval: 1000,
 		}
-		dummyOutConfig = ConfigNode{
-			Extra: map[string]interface{}{"uri": "file:///tmp/dummyFileOut"},
-			Name:  "dummyFileOut",
-			Type:  "file",
-		}
-		dummyInConfig = ConfigNode{
-			Extra: map[string]interface{}{"uri": "file:///tmp/dummyFileIn"},
-			Name:  "dummyFileIn",
-			Type:  "file",
-		}
+		dummyOutNode = NewNode("dummyFileOut", "file", map[string]interface{}{"uri": "file:///tmp/dummyFileOut"})
+		dummyInNode  = NewNode("dummyFileIn", "file", map[string]interface{}{"uri": "file:///tmp/dummyFileIn"})
 	)
 
 	err := setupFileInAndOut(
-		strings.Replace(dummyOutConfig.Extra["uri"].(string), "file://", "", 1),
-		strings.Replace(dummyInConfig.Extra["uri"].(string), "file://", "", 1),
+		strings.Replace(dummyOutNode.Extra["uri"].(string), "file://", "", 1),
+		strings.Replace(dummyInNode.Extra["uri"].(string), "file://", "", 1),
 	)
 	if err != nil {
 		t.Errorf("can't create tmp files, got %s", err.Error())
 		t.FailNow()
 	}
 
-	p, err := NewPipeline(dummyOutConfig, eventApiConfig)
-	p.AddTerminalNode(dummyInConfig)
+	// set up the nodes
+	dummyInNode.Attach(dummyOutNode)
+
+	p, err := NewPipeline(dummyInNode, eventApiConfig)
 	if err != nil {
 		t.Errorf("can't create pipeline, got %s", err.Error())
 		t.FailNow()
