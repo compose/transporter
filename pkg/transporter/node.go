@@ -7,36 +7,12 @@
 package transporter
 
 import (
-	"errors"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/compose/transporter/pkg/impl"
 	"github.com/compose/transporter/pkg/pipe"
 )
-
-var (
-	// The node was not found in the map
-	MissingNodeError = errors.New("Node not defined")
-)
-
-var (
-	nodeRegistry = map[string]interface{}{
-		"mongo":         impl.NewMongodb,
-		"file":          impl.NewFile,
-		"elasticsearch": impl.NewElasticsearch,
-		"influx":        impl.NewInfluxdb,
-		"transformer":   impl.NewTransformer,
-	}
-)
-
-// All nodes must implement the Node interface
-type NodeImpl interface {
-	Start() error
-	Listen() error
-	Stop() error
-}
 
 // An Api is the definition of the remote endpoint that receieves event and error posts
 type Api struct {
@@ -64,7 +40,7 @@ type Node struct {
 	Children []*Node                `json:"children"` // the nodes are set up as a tree, this is an array of this nodes children
 	Parent   *Node                  `json:"parent"`   // this node's parent node, if this is nil, this is a 'source' node
 
-	impl NodeImpl
+	impl impl.Impl
 	pipe *pipe.Pipe
 }
 
@@ -125,50 +101,23 @@ func (n *Node) depth() int {
 	return 1 + n.Parent.depth()
 }
 
+// Add the given node as a child of this node.
+// This has side effects, and sets the parent of the given node
 func (n *Node) Attach(node *Node) {
 	node.Parent = n
 	n.Children = append(n.Children, node)
 }
 
-func (n *Node) createImpl(p *pipe.Pipe) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("cannot create node: %v", r)
-		}
-	}()
-
-	fn, ok := nodeRegistry[n.Type]
-	if !ok {
-		return MissingNodeError
-	}
-
-	args := []reflect.Value{
-		reflect.ValueOf(p),
-		reflect.ValueOf(n.Extra),
-	}
-
-	result := reflect.ValueOf(fn).Call(args)
-
-	val := result[0]
-	inter := result[1].Interface()
-
-	if inter != nil {
-		return inter.(error)
-	}
-
-	n.impl = val.Interface().(NodeImpl)
-
-	return err
-}
-
-func (n *Node) Init(api Api) error {
+// Init sets up the node for action.  It creates a pipe and impl for this node,
+// and then recurses down the tree calling Init on each child
+func (n *Node) Init(api Api) (err error) {
 	if n.Parent == nil { // we don't have a parent, we're the source
 		n.pipe = pipe.NewPipe(nil, n.Name, time.Duration(api.MetricsInterval)*time.Millisecond)
 	} else { // we have a parent, so pass in the parent's pipe here
 		n.pipe = pipe.NewPipe(n.Parent.pipe, n.Name, time.Duration(api.MetricsInterval)*time.Millisecond)
 	}
 
-	err := n.createImpl(n.pipe)
+	n.impl, err = impl.CreateImpl(n.Type, n.Extra, n.pipe)
 	if err != nil {
 		return err
 	}
@@ -182,6 +131,7 @@ func (n *Node) Init(api Api) error {
 	return nil
 }
 
+// Stop's this node's impl, and sends a stop to each child of this node
 func (n *Node) Stop() {
 	n.impl.Stop()
 	for _, node := range n.Children {
