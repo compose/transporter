@@ -27,12 +27,12 @@ func TestPipelineString(t *testing.T) {
 		{
 			fakesourceCN,
 			nil,
-			" - Pipeline\n  - Source: source1              source          no namespace set               no uri set\n",
+			"                   Name                                     Type            Namespace                      Uri\n - Source:         source1                                  source          no namespace set               no uri set",
 		},
 		{
 			fakesourceCN,
 			fileNode,
-			" - Pipeline\n  - Source: source1              source          no namespace set               no uri set\n  - Sink:   localfile            file            no namespace set               file:///tmp/crap\n",
+			"                   Name                                     Type            Namespace                      Uri\n - Source:         source1                                  source          no namespace set               no uri set\n  - Sink:          localfile                                file            no namespace set               file:///tmp/crap",
 		},
 	}
 
@@ -46,7 +46,7 @@ func TestPipelineString(t *testing.T) {
 			t.FailNow()
 		}
 		if p.String() != v.out {
-			t.Errorf("\nexp %s\ngot %s", v.out, p.String())
+			t.Errorf("\nexpected:\n%s\ngot:\n%s\n", v.out, p.String())
 		}
 	}
 }

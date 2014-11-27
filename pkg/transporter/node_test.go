@@ -16,17 +16,17 @@ func TestConfigNodeString(t *testing.T) {
 	}{
 		{
 			&Node{},
-			"                                     no namespace set               no uri set",
+			"                   Name                                     Type            Namespace                      Uri\n - Source:                                                                  no namespace set               no uri set",
 		},
 		{
 			NewNode("name", "mongodb", map[string]interface{}{"namespace": "ns", "uri": "uri"}),
-			"name                 mongodb         ns                             uri",
+			"                   Name                                     Type            Namespace                      Uri\n - Source:         name                                     mongodb         ns                             uri",
 		},
 	}
 
 	for _, v := range data {
 		if v.in.String() != v.out {
-			t.Errorf("expected %s, got %s", v.out, v.in.String())
+			t.Errorf("\nexpected:\n%s\ngot:\n%s\n", v.out, v.in.String())
 		}
 	}
 }
@@ -37,7 +37,7 @@ type Impl struct {
 	value string
 }
 
-func NewImpl(p pipe.Pipe, extra map[string]interface{}) (*Impl, error) {
+func NewImpl(p *pipe.Pipe, extra map[string]interface{}) (*Impl, error) {
 	val, ok := extra["value"]
 	if !ok {
 		return nil, anError
@@ -48,32 +48,31 @@ func NewImpl(p pipe.Pipe, extra map[string]interface{}) (*Impl, error) {
 func TestConfigNodeCreateImpl(t *testing.T) {
 	nodeRegistry["source"] = NewTestSourceImpl
 
-	p := pipe.NewPipe(nil, "name", 1*time.Second)
 	data := []struct {
 		in  *Node
-		out *Impl
+		out *TestSourceImpl
 		err error
 	}{
 		{
-			NewNode("dumbname", "source", map[string]interface{}{"value": "rockettes"}),
-			&Impl{value: "rockettes"},
+			&Node{Name: "dumbname", Type: "source", Extra: map[string]interface{}{"value": "rockettes"}},
+			&TestSourceImpl{value: "rockettes"},
 			nil,
 		},
 		{
-			NewNode("dumnname", "source", map[string]interface{}{"blah": "rockettes"}),
-			&Impl{},
+			&Node{Name: "dumnname", Type: "source", Extra: map[string]interface{}{"blah": "rockettes"}},
+			&TestSourceImpl{},
 			anError,
 		},
 	}
 	for _, v := range data {
-		err := v.in.createImpl(p)
+		err := v.in.createImpl(pipe.NewPipe(nil, v.in.Name, 1*time.Second))
 
 		if err != v.err {
-			t.Errorf("expected error %v, got %v", v.err, err)
+			t.Errorf("\nexpected error:\n%v\ngot error:\n%v\n", v.err, err)
 			t.FailNow()
 		}
 		if !reflect.DeepEqual(v.out, v.in.impl) && err == nil {
-			t.Errorf("expected %v, got %v", v.out, v.in.impl)
+			t.Errorf("%s\nexpected:\n%+v\ngot:\n%+v\n", v.in.Name, v.out, v.in.impl)
 		}
 	}
 }
@@ -83,7 +82,7 @@ type TestSourceImpl struct {
 	value string
 }
 
-func NewTestSourceImpl(p pipe.Pipe, extra map[string]interface{}) (*TestSourceImpl, error) {
+func NewTestSourceImpl(p *pipe.Pipe, extra map[string]interface{}) (*TestSourceImpl, error) {
 	val, ok := extra["value"]
 	if !ok {
 		return nil, anError
@@ -99,12 +98,16 @@ func (s *TestSourceImpl) Start() error {
 	return nil
 }
 
+func (s *TestSourceImpl) Listen() error {
+	return nil
+}
+
 // a random type that implements the node interface
 type TestNodeImpl struct {
 	value string
 }
 
-func NewTestNodeImpl(p pipe.Pipe, extra map[string]interface{}) (*TestNodeImpl, error) {
+func NewTestNodeImpl(p *pipe.Pipe, extra map[string]interface{}) (*TestNodeImpl, error) {
 	val, ok := extra["value"]
 	if !ok {
 		return nil, anError

@@ -1,6 +1,6 @@
 api:
   interval: 10000
-  uri: "http://requestb.in/x9lu22x9"
+  uri: "http://requestb.in/17wj5nj1"
 nodes:
   localmongo:
     type: mongo
