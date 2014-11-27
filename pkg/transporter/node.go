@@ -122,7 +122,7 @@ func (n *Node) depth() int {
 		return 1
 	}
 
-	return 1 + n.Parent.Depth()
+	return 1 + n.Parent.depth()
 }
 
 func (n *Node) Attach(node *Node) {
