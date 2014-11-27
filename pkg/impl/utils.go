@@ -85,6 +85,8 @@ func (c *ExtraConfig) Construct(conf interface{}) error {
 	return nil
 }
 
+// GetString returns value stored in the config under the given key, or
+// an empty string if the key doesn't exist, or isn't a string value
 func (c ExtraConfig) GetString(key string) string {
 	i, ok := c[key]
 	if !ok {
