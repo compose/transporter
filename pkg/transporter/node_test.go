@@ -9,7 +9,7 @@ import (
 	"github.com/compose/transporter/pkg/pipe"
 )
 
-func TestConfigNodeString(t *testing.T) {
+func TestNodeString(t *testing.T) {
 	data := []struct {
 		in  *Node
 		out string
@@ -45,7 +45,7 @@ func NewImpl(p *pipe.Pipe, extra map[string]interface{}) (*Impl, error) {
 	return &Impl{value: val.(string)}, nil
 }
 
-func TestConfigNodeCreateImpl(t *testing.T) {
+func TestNodeCreateImpl(t *testing.T) {
 	nodeRegistry["source"] = NewTestSourceImpl
 
 	data := []struct {
@@ -127,59 +127,7 @@ func (s *TestNodeImpl) Listen() error {
 	return nil
 }
 
-// func TestConfigNodeCreateSource(t *testing.T) {
-// 	p := pipe.NewPipe(nil, "name", 1*time.Second)
-
-// 	nodeRegistry["source"] = NewTestSourceImpl
-// 	nodeRegistry["notasource"] = NewImpl
-
-// 	data := []struct {
-// 		in  *Node
-// 		out *TestSourceImpl
-// 		err string
-// 	}{
-// 		{
-// 			NewNode("somenode", "source", map[string]interface{}{"value": "rockettes"}),
-// 			&TestSourceImpl{value: "rockettes"},
-// 			"",
-// 		},
-// 		{
-// 			NewNode("anothernode", "source", map[string]interface{}{"blah": "rockettes"}),
-// 			nil,
-// 			"this is an",
-// 		},
-// 		{
-// 			NewNode("morenode", "notasource", map[string]interface{}{"value": "rockettes"}),
-// 			nil,
-// 			"cannot cre",
-// 		},
-// 		{
-// 			NewNode("yetagain", "notasource", map[string]interface{}{"blah": "rockettes"}),
-// 			nil,
-// 			"this is an",
-// 		},
-// 		{
-// 			NewNode("lastone", "notaevenlisted", map[string]interface{}{"blah": "rockettes"}),
-// 			nil,
-// 			"Node not d",
-// 		},
-// 	}
-// 	for _, v := range data {
-// 		val, err := v.in.CreateSource(p)
-
-// 		if err != nil && err.Error()[:10] != v.err {
-// 			t.Errorf("expected error %v, got %v", v.err, err.Error()[:10])
-// 			continue
-// 		}
-// 		if !reflect.DeepEqual(v.out, val) && err == nil {
-// 			t.Errorf("expected (%T)%+v, got (%T)%+v", v.out, v.out, val, val)
-// 		}
-// 	}
-// }
-
-func TestConfigNodeCreate(t *testing.T) {
-	p := pipe.NewPipe(nil, "name", 1*time.Second)
-
+func TestNodeInit(t *testing.T) {
 	nodeRegistry["node"] = NewTestNodeImpl
 	nodeRegistry["notasource"] = NewImpl
 
@@ -215,7 +163,7 @@ func TestConfigNodeCreate(t *testing.T) {
 		},
 	}
 	for _, v := range data {
-		err := v.in.createImpl(p)
+		err := v.in.Init(testEmptyApiConfig)
 
 		if err != nil && err.Error()[:10] != v.err {
 			t.Errorf("expected error %v, got %v", v.err, err.Error()[:10])
