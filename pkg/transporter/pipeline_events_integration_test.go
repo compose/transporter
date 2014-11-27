@@ -68,7 +68,7 @@ func TestEventsBroadcast(t *testing.T) {
 
 	// set up the nodes
 	dummyOutNode := NewNode("dummyFileOut", "file", map[string]interface{}{"uri": "file://" + outFile})
-	dummyOutNode.Attach(NewNode("dummyFileIn", "file", map[string]interface{}{"uri": "file://" + inFile}))
+	dummyOutNode.Add(NewNode("dummyFileIn", "file", map[string]interface{}{"uri": "file://" + inFile}))
 
 	p, err := NewPipeline(dummyOutNode, eventApiConfig)
 	if err != nil {

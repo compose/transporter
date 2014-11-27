@@ -14,8 +14,8 @@ func main() {
 	sink1 := transporter.NewNode("crapfile", "file", map[string]interface{}{"uri": "stdout://"})
 	sink2 := transporter.NewNode("crapfile2", "file", map[string]interface{}{"uri": "stdout://"})
 
-	source.Attach(sink1)
-	source.Attach(sink2)
+	source.Add(sink1)
+	source.Add(sink2)
 
 	pipeline, err := transporter.NewPipeline(source, api)
 	if err != nil {

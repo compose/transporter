@@ -67,7 +67,7 @@ func TestPipelineString(t *testing.T) {
 
 	for _, v := range data {
 		if v.terminalNode != nil {
-			v.in.Attach(v.terminalNode)
+			v.in.Add(v.terminalNode)
 		}
 		p, err := NewPipeline(v.in, testEmptyApiConfig)
 		if err != nil {

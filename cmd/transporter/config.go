@@ -63,7 +63,7 @@ func (n *Node) Object() (*otto.Object, error) {
 }
 
 // Add node adds a node as a child of the current node
-func (n *Node) AddNode(node *Node) {
+func (n *Node) Add(node *Node) {
 	node.RootUuid = n.RootUuid
 	n.Children = append(n.Children, node)
 }
@@ -72,7 +72,7 @@ func (n *Node) CreateTransporterNode() *transporter.Node {
 	self := transporter.NewNode(n.Name, n.Type, n.Extra)
 
 	for _, child := range n.Children {
-		self.Attach(child.CreateTransporterNode())
+		self.Add(child.CreateTransporterNode())
 	}
 
 	return self

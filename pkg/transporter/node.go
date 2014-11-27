@@ -30,8 +30,8 @@ type Api struct {
 // 	sink1 := transporter.NewNode("crapfile", "file", map[string]interface{}{"uri": "stdout://"})
 // 	sink2 := transporter.NewNode("crapfile2", "file", map[string]interface{}{"uri": "stdout://"})
 
-// 	source.Attach(sink1)
-// 	source.Attach(sink2)
+// 	source.Add(sink1)
+// 	source.Add(sink2)
 //
 type Node struct {
 	Name     string           `json:"name"`     // the name of this node
@@ -97,7 +97,7 @@ func (n *Node) depth() int {
 
 // Add the given node as a child of this node.
 // This has side effects, and sets the parent of the given node
-func (n *Node) Attach(node *Node) {
+func (n *Node) Add(node *Node) {
 	node.Parent = n
 	n.Children = append(n.Children, node)
 }

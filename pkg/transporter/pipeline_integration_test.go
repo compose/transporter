@@ -108,7 +108,7 @@ func TestMongoToMongo(t *testing.T) {
 
 	// create the source node and attach our sink
 	outNode := NewNode("localOutmongo", "mongo", map[string]interface{}{"uri": mongoUri, "namespace": outNs})
-	outNode.Attach(NewNode("localInmongo", "mongo", map[string]interface{}{"uri": mongoUri, "namespace": inNs}))
+	outNode.Add(NewNode("localInmongo", "mongo", map[string]interface{}{"uri": mongoUri, "namespace": inNs}))
 
 	// create the pipeline
 	p, err := NewPipeline(outNode, testApiConfig)

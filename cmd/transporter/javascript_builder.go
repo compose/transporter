@@ -81,10 +81,10 @@ func (js *JavascriptBuilder) save(node Node, call otto.FunctionCall) (Node, erro
 	root := js.nodes[node.RootUuid]
 
 	if node.Uuid == root.Uuid { // save is being called on a root node
-		root.AddNode(&this_node)
+		root.Add(&this_node)
 	} else {
-		node.AddNode(&this_node) // add the generated not to the `this`
-		root.AddNode(&node)      // add the result to the root
+		node.Add(&this_node) // add the generated not to the `this`
+		root.Add(&node)      // add the result to the root
 	}
 
 	js.nodes[root.Uuid] = root
@@ -113,7 +113,7 @@ func (js *JavascriptBuilder) transform(node Node, call otto.FunctionCall) (Node,
 		return node, err
 	}
 
-	node.AddNode(&transformer)
+	node.Add(&transformer)
 
 	return transformer, nil
 }
