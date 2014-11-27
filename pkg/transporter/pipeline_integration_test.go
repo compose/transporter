@@ -5,7 +5,6 @@ package transporter
 import (
 	"os"
 	"reflect"
-	"strings"
 	"testing"
 
 	"gopkg.in/mgo.v2"
@@ -13,163 +12,137 @@ import (
 )
 
 var (
-	localOutMongoNode      = Node{Extra: map[string]interface{}{"uri": "mongodb://localhost/test", "namespace": "test.outColl"}, Name: "localOutmongo", Type: "mongo"}
-	localInMongoNode       = Node{Extra: map[string]interface{}{"uri": "mongodb://localhost/test", "namespace": "test.inColl"}, Name: "localInmongo", Type: "mongo"}
-	integrationFileOutNode = Node{Extra: map[string]interface{}{"uri": "file:///tmp/crapOut"}, Name: "localfileout", Type: "file"}
-	integrationFileInNode  = Node{Extra: map[string]interface{}{"uri": "file:///tmp/crapIn"}, Name: "localfilein", Type: "file"}
-)
-
-var (
 	testApiConfig = Api{
 		Uri:             "http://requestb.in/1430xju1",
 		MetricsInterval: 10000,
 	}
+
+	mongoUri = "mongodb://localhost/test"
 )
 
-var (
-	filenameOut = strings.Replace(integrationFileOutCN.Extra["uri"].(string), "file://", "", 1)
-	filenameIn  = strings.Replace(integrationFileInCN.Extra["uri"].(string), "file://", "", 1)
-)
+// set up some local files
+func setupFiles(in, out string) {
+	// setup files
+	os.Remove(out)
+	os.Remove(in)
 
-func TestPipelineRun(t *testing.T) {
-	data := []struct {
-		setupFn      interface{}
-		setupFnArgs  []reflect.Value
-		in           *Node
-		transformer  []Node
-		terminalNode *Node
-		testFn       interface{}
-		cleanupFn    interface{}
-	}{
-		{
-			setupFileInAndOut,
-			[]reflect.Value{reflect.ValueOf(filenameOut), reflect.ValueOf(filenameIn)},
-			&integrationFileOutCN,
-			nil,
-			&integrationFileInCN,
-			testFileToFile,
-			nil,
-		},
-		{
-			setupMongoToMongo,
-			nil,
-			&localOutMongoCN,
-			nil,
-			&localInMongoCN,
-			testMongoToMongo,
-			cleanupMongo,
-		},
-	}
-
-	for _, v := range data {
-		if v.setupFn != nil {
-			result := reflect.ValueOf(v.setupFn).Call(v.setupFnArgs)
-			if result[0].Interface() != nil {
-				t.Errorf("unable to call setupFn, got %s", result[0].Interface().(error).Error())
-				t.FailNow()
-			}
-		}
-		p, err := NewPipeline(*v.in, testApiConfig)
-		if err != nil {
-			t.Errorf("can't create pipeline, got %s", err.Error())
-			t.FailNow()
-		}
-		if v.terminalNode != nil {
-			p.AddTerminalNode(*v.terminalNode)
-		}
-
-		err = p.Run()
-		if err != nil {
-			t.Errorf("error running pipeline, got %s", err.Error())
-			t.FailNow()
-		}
-
-		result := reflect.ValueOf(v.testFn).Call([]reflect.Value{reflect.ValueOf(t)})
-		if result[0].Interface() != nil {
-			t.Errorf("unable to call setupFn, got %s", result[0].Interface().(error).Error())
-			t.FailNow()
-		}
-
-		if v.cleanupFn != nil {
-			reflect.ValueOf(v.cleanupFn).Call(nil)
-		}
-
-	}
+	fh, _ := os.Create(out)
+	defer func() {
+		fh.Close()
+	}()
+	fh.WriteString("{\"_id\":\"546656989330a846dc7ce327\",\"test\":\"hello world\"}\n")
 }
 
-func clearAndCreateFiles(outFile, inFile string) (*os.File, error) {
-	err := os.Remove(outFile)
-	if err != nil && !strings.Contains(err.Error(), "no such file or directory") {
-		return nil, err
-	}
-	err = os.Remove(inFile)
-	if err != nil && !strings.Contains(err.Error(), "no such file or directory") {
-		return nil, err
-	}
-	return os.Create(outFile)
-}
-
-func setupFileInAndOut(outFile, inFile string) error {
-	inFileOut, err := clearAndCreateFiles(outFile, inFile)
-	if err != nil {
-		return err
-	}
-	inFileOut.WriteString("{\"_id\":\"546656989330a846dc7ce327\",\"test\":\"hello world\"}\n")
-	inFileOut.Close()
-	return nil
-}
-
-func testFileToFile(t *testing.T) error {
-	sourceFile, _ := os.Open(filenameOut)
-	sourceSize, _ := sourceFile.Stat()
-	defer sourceFile.Close()
-	sinkFile, _ := os.Open(filenameIn)
-	sinkSize, _ := sinkFile.Stat()
-	defer sinkFile.Close()
-	if sourceSize.Size() != sinkSize.Size() {
-		t.Errorf("Incorrect file size\nexp %d\ngot %d", sourceSize.Size(), sinkSize.Size())
-	}
-	return nil
-}
-
-func setupMongoToMongo() error {
-	mongoSess, err := mgo.Dial(localOutMongoCN.Extra["uri"].(string))
-	if err != nil {
-		return err
-	}
+// set up local mongo
+func setupMongo() {
+	// setup mongo
+	mongoSess, _ := mgo.Dial(mongoUri)
 	collection := mongoSess.DB("test").C("outColl")
-	if err := collection.DropCollection(); err != nil && err.Error() != "ns not found" {
-		return err
-	}
-	for i, _ := range []int{0, 1, 2, 3, 4, 5} {
+	collection.DropCollection()
+
+	for i := 0; i <= 5; i += 1 {
 		collection.Insert(bson.M{"index": i})
 	}
+
 	mongoSess.Close()
-	mongoSess, err = mgo.Dial(localInMongoCN.Extra["uri"].(string))
-	if err != nil {
-		return err
-	}
+	mongoSess, _ = mgo.Dial(mongoUri)
 	collection = mongoSess.DB("test").C("inColl")
-	if err := collection.DropCollection(); err != nil && err.Error() != "ns not found" {
-		return err
-	}
+	collection.DropCollection()
 	mongoSess.Close()
-	return nil
 }
 
-func testMongoToMongo(t *testing.T) error {
-	mongoSessIn, err := mgo.Dial(localInMongoCN.Extra["uri"].(string))
+//
+//
+//
+
+func TestFileToFile(t *testing.T) {
+	var (
+		inFile  = "/tmp/crapIn"
+		outFile = "/tmp/crapOut"
+	)
+
+	setupFiles(inFile, outFile)
+
+	// create the source node and attach our sink
+	outNode := NewNode("localfileout", "file", map[string]interface{}{"uri": "file://" + outFile})
+	outNode.Attach(NewNode("localfilein", "file", map[string]interface{}{"uri": "file://" + inFile}))
+
+	// create the pipeline
+	p, err := NewPipeline(outNode, testApiConfig)
 	if err != nil {
-		return err
+		t.Errorf("can't create pipeline, got %s", err.Error())
+		t.FailNow()
 	}
-	defer mongoSessIn.Close()
-	collOut := mongoSessIn.DB("test").C("outColl")
-	collIn := mongoSessIn.DB("test").C("inColl")
+
+	// run it
+	err = p.Run()
+	if err != nil {
+		t.Errorf("error running pipeline, got %s", err.Error())
+		t.FailNow()
+	}
+
+	// compare the files
+	sourceFile, _ := os.Open(outFile)
+	sourceSize, _ := sourceFile.Stat()
+	defer sourceFile.Close()
+	sinkFile, _ := os.Open(inFile)
+	sinkSize, _ := sinkFile.Stat()
+	defer sinkFile.Close()
+
+	if sourceSize.Size() == 0 || sourceSize.Size() != sinkSize.Size() {
+		t.Errorf("Incorrect file size\nexp %d\ngot %d", sourceSize.Size(), sinkSize.Size())
+	}
+}
+
+//
+//
+//
+
+func TestMongoToMongo(t *testing.T) {
+	setupMongo()
+
+	var (
+		inNs  = "test.inColl"
+		outNs = "test.outColl"
+	)
+
+	// create the source node and attach our sink
+	outNode := NewNode("localOutmongo", "mongo", map[string]interface{}{"uri": mongoUri, "namespace": outNs})
+	outNode.Attach(NewNode("localInmongo", "mongo", map[string]interface{}{"uri": mongoUri, "namespace": inNs}))
+
+	// create the pipeline
+	p, err := NewPipeline(outNode, testApiConfig)
+	if err != nil {
+		t.Errorf("can't create pipeline, got %s", err.Error())
+		t.FailNow()
+	}
+
+	// run it
+	err = p.Run()
+	if err != nil {
+		t.Errorf("error running pipeline, got %s", err.Error())
+		t.FailNow()
+	}
+
+	// connect to mongo and compare results
+	mongoSess, err := mgo.Dial(mongoUri)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	defer mongoSess.Close()
+
+	collOut := mongoSess.DB("test").C("outColl")
+	collIn := mongoSess.DB("test").C("inColl")
+
+	// are the counts the same?
 	outCount, _ := collOut.Count()
 	inCount, _ := collIn.Count()
+
 	if outCount != inCount {
 		t.Errorf("Incorrect collection size\nexp %d\ngot %d\n", outCount, inCount)
 	}
+
+	// iterate over the results and compare the documents
 	var result bson.M
 	iter := collIn.Find(bson.M{}).Iter()
 	for iter.Next(&result) {
@@ -183,19 +156,9 @@ func testMongoToMongo(t *testing.T) error {
 			t.Errorf("Documents do not match\nexp %v\n, got %v\n", origDoc, result)
 		}
 	}
-	if err != nil {
-		return err
-	}
 
-	return nil
-}
+	// clean up
+	mongoSess.DB("test").C("outColl").DropCollection()
+	mongoSess.DB("test").C("inColl").DropCollection()
 
-func cleanupMongo() {
-	mongoSess, _ := mgo.Dial(localOutMongoNode.Extra["uri"].(string))
-	collection := mongoSess.DB("test").C("outColl")
-	collection.DropCollection()
-	mongoSess.Close()
-	mongoSess, _ = mgo.Dial(localInMongoNode.Extra["uri"].(string))
-	collection = mongoSess.DB("test").C("inColl")
-	collection.DropCollection()
 }

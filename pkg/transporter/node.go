@@ -54,7 +54,6 @@ func NewNode(name, kind string, extra map[string]interface{}) *Node {
 }
 
 func (n *Node) String() string {
-	//TODO how i hate this mess
 	var (
 		uri       string
 		s         string
