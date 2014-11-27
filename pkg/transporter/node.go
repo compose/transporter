@@ -34,11 +34,11 @@ type Api struct {
 // 	source.Attach(sink2)
 //
 type Node struct {
-	Name     string                 `json:"name"`     // the name of this node
-	Type     string                 `json:"type"`     // the node's type, used to create the implementation
-	Extra    map[string]interface{} `json:"extra"`    // extra config options that are passed to the implementation
-	Children []*Node                `json:"children"` // the nodes are set up as a tree, this is an array of this nodes children
-	Parent   *Node                  `json:"parent"`   // this node's parent node, if this is nil, this is a 'source' node
+	Name     string           `json:"name"`     // the name of this node
+	Type     string           `json:"type"`     // the node's type, used to create the implementation
+	Extra    impl.ExtraConfig `json:"extra"`    // extra config options that are passed to the implementation
+	Children []*Node          `json:"children"` // the nodes are set up as a tree, this is an array of this nodes children
+	Parent   *Node            `json:"parent"`   // this node's parent node, if this is nil, this is a 'source' node
 
 	impl impl.Impl
 	pipe *pipe.Pipe
@@ -55,24 +55,19 @@ func NewNode(name, kind string, extra map[string]interface{}) *Node {
 
 func (n *Node) String() string {
 	//TODO how i hate this mess
-	var uri string
+	var (
+		uri       string
+		s         string
+		prefix    string
+		namespace = n.Extra.GetString("namespace")
+		depth     = n.depth()
+	)
 	if n.Type == "transformer" {
-		f, ok := n.Extra["filename"]
-		if ok {
-			uri = f.(string)
-		}
+		uri = n.Extra.GetString("filename")
 	} else {
-		uri = n.Extra["uri"].(string)
+		uri = n.Extra.GetString("uri")
 	}
 
-	namespace, ok := n.Extra["namespace"]
-	if !ok {
-		namespace = ""
-	}
-
-	var s, prefix string
-
-	depth := n.depth()
 	prefixformatter := fmt.Sprintf("%%%ds%%-%ds", depth, 18-depth)
 
 	if n.Parent == nil { // root node

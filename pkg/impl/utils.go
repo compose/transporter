@@ -23,6 +23,16 @@ var (
 	}
 )
 
+// Impl defines the interface that all database connectors and nodes must follow.
+// Start() consumes data from the interface,
+// Listen() listens on a pipe, processes data, and then emits it.
+// Stop() shuts down the impl
+type Impl interface {
+	Start() error
+	Listen() error
+	Stop() error
+}
+
 // CreateImpl instantiates an Impl given the impl type and the ExtraConfig.
 // Constructors are expected to be in the form
 //   func NewWhatever(p *pipe.Pipe, extra ExtraConfig) (*Whatever, error) {}
@@ -75,12 +85,14 @@ func (c *ExtraConfig) Construct(conf interface{}) error {
 	return nil
 }
 
-// Impl defines the interface that all database connectors and nodes must follow.
-// Start() consumes data from the interface,
-// Listen() listens on a pipe, processes data, and then emits it.
-// Stop() shuts down the impl
-type Impl interface {
-	Start() error
-	Listen() error
-	Stop() error
+func (c ExtraConfig) GetString(key string) string {
+	i, ok := c[key]
+	if !ok {
+		return ""
+	}
+	s, ok := i.(string)
+	if !ok {
+		return ""
+	}
+	return s
 }
