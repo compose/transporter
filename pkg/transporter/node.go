@@ -78,7 +78,10 @@ func NewNode(name, kind string, extra map[string]interface{}) *Node {
 }
 
 func (n *Node) String() string {
-	uri := n.Extra["uri"]
+	uri, ok := n.Extra["uri"]
+	if !ok {
+		uri = ""
+	}
 
 	namespace, ok := n.Extra["namespace"]
 	if !ok {
