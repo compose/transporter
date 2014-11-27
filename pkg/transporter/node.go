@@ -78,9 +78,15 @@ func NewNode(name, kind string, extra map[string]interface{}) *Node {
 }
 
 func (n *Node) String() string {
-	uri, ok := n.Extra["uri"]
-	if !ok {
-		uri = ""
+	//TODO how i hate this mess
+	var uri string
+	if n.Type == "transformer" {
+		f, ok := n.Extra["filename"]
+		if ok {
+			uri = f.(string)
+		}
+	} else {
+		uri = n.Extra["uri"].(string)
 	}
 
 	namespace, ok := n.Extra["namespace"]
@@ -90,7 +96,7 @@ func (n *Node) String() string {
 
 	var s, prefix string
 
-	depth := n.Depth()
+	depth := n.depth()
 	prefixformatter := fmt.Sprintf("%%%ds%%-%ds", depth, 18-depth)
 
 	if n.Parent == nil { // root node
@@ -108,6 +114,15 @@ func (n *Node) String() string {
 		s += "\n" + child.String()
 	}
 	return s
+}
+
+// depth is a measure of how deep into the node tree this node is.  Used to indent the String() stuff
+func (n *Node) depth() int {
+	if n.Parent == nil {
+		return 1
+	}
+
+	return 1 + n.Parent.Depth()
 }
 
 func (n *Node) Attach(node *Node) {
@@ -202,12 +217,4 @@ func (n *Node) Endpoints() map[string]string {
 		}
 	}
 	return m
-}
-
-func (n *Node) Depth() int {
-	if n.Parent == nil {
-		return 1
-	}
-
-	return 1 + n.Parent.Depth()
 }
