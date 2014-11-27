@@ -1,7 +1,11 @@
 package transporter
 
 import (
+	"errors"
 	"testing"
+
+	"github.com/compose/transporter/pkg/impl"
+	"github.com/compose/transporter/pkg/pipe"
 )
 
 var (
@@ -16,8 +20,33 @@ var (
 	}
 )
 
+// a noop node impl to help test
+type TestImpl struct {
+	value string
+}
+
+func NewTestImpl(p *pipe.Pipe, extra map[string]interface{}) (*TestImpl, error) {
+	val, ok := extra["value"]
+	if !ok {
+		return nil, errors.New("this is an error")
+	}
+	return &TestImpl{value: val.(string)}, nil
+}
+
+func (s *TestImpl) Stop() error {
+	return nil
+}
+
+func (s *TestImpl) Start() error {
+	return nil
+}
+
+func (s *TestImpl) Listen() error {
+	return nil
+}
+
 func TestPipelineString(t *testing.T) {
-	nodeRegistry["source"] = NewTestSourceImpl
+	impl.Registry["source"] = NewTestImpl
 
 	data := []struct {
 		in           *Node
@@ -27,12 +56,12 @@ func TestPipelineString(t *testing.T) {
 		{
 			fakesourceCN,
 			nil,
-			"                   Name                                     Type            Namespace                      Uri\n - Source:         source1                                  source          no namespace set               no uri set",
+			" - Source:         source1                                  source                                         ",
 		},
 		{
 			fakesourceCN,
 			fileNode,
-			"                   Name                                     Type            Namespace                      Uri\n - Source:         source1                                  source          no namespace set               no uri set\n  - Sink:          localfile                                file            no namespace set               file:///tmp/crap",
+			" - Source:         source1                                  source                                         \n  - Sink:          localfile                                file                                           file:///tmp/crap",
 		},
 	}
 

@@ -11,10 +11,10 @@ import (
 
 var (
 	// The node was not found in the map
-	MissingNodeError = errors.New("Node not defined")
+	MissingNodeError = errors.New("Impl not found in registry")
 
 	// a registry of impl types and their constructors
-	NodeRegistry = map[string]interface{}{
+	Registry = map[string]interface{}{
 		"mongo":         NewMongodb,
 		"file":          NewFile,
 		"elasticsearch": NewElasticsearch,
@@ -44,7 +44,7 @@ func CreateImpl(kind string, extra ExtraConfig, p *pipe.Pipe) (impl Impl, err er
 		}
 	}()
 
-	fn, ok := NodeRegistry[kind]
+	fn, ok := Registry[kind]
 	if !ok {
 		return nil, MissingNodeError
 	}
