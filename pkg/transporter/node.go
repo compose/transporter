@@ -53,6 +53,7 @@ func NewNode(name, kind string, extra map[string]interface{}) *Node {
 	}
 }
 
+// String
 func (n *Node) String() string {
 	var (
 		uri       string
@@ -97,9 +98,10 @@ func (n *Node) depth() int {
 
 // Add the given node as a child of this node.
 // This has side effects, and sets the parent of the given node
-func (n *Node) Add(node *Node) {
+func (n *Node) Add(node *Node) *Node {
 	node.Parent = n
 	n.Children = append(n.Children, node)
+	return n
 }
 
 // Init sets up the node for action.  It creates a pipe and impl for this node,
@@ -149,6 +151,26 @@ func (n *Node) Start() error {
 	}
 
 	return n.impl.Listen()
+}
+
+func (n *Node) Validate() bool {
+
+	// the root node should have children
+	if n.Parent == nil && len(n.Children) == 0 {
+		return false
+	}
+
+	// transformers need children
+	if n.Type == "transformer" && len(n.Children) == 0 {
+		return false
+	}
+
+	for _, child := range n.Children {
+		if !child.Validate() {
+			return false
+		}
+	}
+	return true
 }
 
 // Endpoints recurses down the node tree and accumulates a map associating node name with node type

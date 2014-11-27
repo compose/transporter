@@ -22,15 +22,12 @@ const (
 )
 
 type Pipeline struct {
-	api Api
-
-	source *Node
-
+	api       Api
+	source    *Node
 	metricsWg *sync.WaitGroup
 }
 
-// NewPipeline creates a new Transporter Pipeline, with the given node acting as the Source.
-// subsequent nodes should be added via AddNode
+// NewPipeline creates a new Transporter Pipeline using the given tree of nodes
 func NewPipeline(source *Node, api Api) (*Pipeline, error) {
 	pipeline := &Pipeline{
 		api:       api,
