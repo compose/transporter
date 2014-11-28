@@ -111,7 +111,7 @@ func (n *Node) Add(node *Node) *Node {
 
 // Init sets up the node for action.  It creates a pipe and impl for this node,
 // and then recurses down the tree calling Init on each child
-func (n *Node) Init(interval time.Duration) (err error) { // TODO lets just pass in the duration here
+func (n *Node) Init(interval time.Duration) (err error) {
 	if n.Parent == nil { // we don't have a parent, we're the source
 		n.pipe = pipe.NewPipe(nil, n.Path(), interval)
 	} else { // we have a parent, so pass in the parent's pipe here

@@ -258,8 +258,9 @@ type oplogDoc struct {
 	O2 bson.M              `bson:"o2"`
 }
 
+// TODO: skip system collections
+// BUG: skip system collections
 func (o *oplogDoc) validOp() bool {
-	// TODO skip system collections
 	return o.Op == "i" || o.Op == "d" || o.Op == "u"
 }
 
