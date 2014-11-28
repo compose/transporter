@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/compose/transporter/pkg/events"
 	"github.com/compose/transporter/pkg/transporter"
 	"github.com/nu7hatch/gouuid"
 	"github.com/robertkrimen/otto"
@@ -14,7 +15,7 @@ import (
 // as well as information about the api used to handle transporter events, and the interval
 // between metrics events.
 type Config struct {
-	Api   transporter.Api `json:"api" yaml:"api"`
+	Api   events.Api `json:"api" yaml:"api"`
 	Nodes map[string]struct {
 		Type string `json:"type" yaml:"type"`
 		Uri  string `json:"uri" yaml:"uri"`

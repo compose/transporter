@@ -14,14 +14,6 @@ import (
 	"github.com/compose/transporter/pkg/pipe"
 )
 
-// An Api is the definition of the remote endpoint that receieves event and error posts
-type Api struct {
-	Uri             string `json:"uri" yaml:"uri"`
-	MetricsInterval int    `json:"interval" yaml:"interval"`
-	Key             string `json:"key" yaml:"key"`
-	Pid             string `json:"pid" yaml:"pid"`
-}
-
 // A Node is the basic building blocks of transporter pipelines.
 // Nodes are constructed in a tree, with the first node broadcasting
 // data to each of it's children.
@@ -106,11 +98,11 @@ func (n *Node) Add(node *Node) *Node {
 
 // Init sets up the node for action.  It creates a pipe and impl for this node,
 // and then recurses down the tree calling Init on each child
-func (n *Node) Init(api Api) (err error) {
+func (n *Node) Init(interval time.Duration) (err error) { // TODO lets just pass in the duration here
 	if n.Parent == nil { // we don't have a parent, we're the source
-		n.pipe = pipe.NewPipe(nil, n.Name, time.Duration(api.MetricsInterval)*time.Millisecond)
+		n.pipe = pipe.NewPipe(nil, n.Name, interval)
 	} else { // we have a parent, so pass in the parent's pipe here
-		n.pipe = pipe.NewPipe(n.Parent.pipe, n.Name, time.Duration(api.MetricsInterval)*time.Millisecond)
+		n.pipe = pipe.NewPipe(n.Parent.pipe, n.Name, interval)
 	}
 
 	n.impl, err = impl.CreateImpl(n.Type, n.Extra, n.pipe)
@@ -119,7 +111,7 @@ func (n *Node) Init(api Api) (err error) {
 	}
 
 	for _, child := range n.Children {
-		err = child.Init(api) // init each child
+		err = child.Init(interval) // init each child
 		if err != nil {
 			return err
 		}

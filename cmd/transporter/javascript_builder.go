@@ -197,7 +197,7 @@ func (js *JavascriptBuilder) Build() (Application, error) {
 	for _, node := range js.nodes {
 		n := node.CreateTransporterNode()
 
-		pipeline, err := transporter.NewPipeline(n, js.app.Config.Api)
+		pipeline, err := transporter.NewDefaultPipeline(n, js.app.Config.Api)
 		if err != nil {
 			return js.app, err
 		}
