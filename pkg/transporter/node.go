@@ -21,7 +21,6 @@ import (
 // 	source := transporter.NewNode("name1", "mongo", impl.ExtraConfig{"uri": "mongodb://localhost/boom", "namespace": "boom.foo", "debug": true})
 // 	sink1 := transporter.NewNode("crapfile", "file", impl.ExtraConfig{"uri": "stdout://"})
 // 	sink2 := transporter.NewNode("crapfile2", "file", impl.ExtraConfig{"uri": "stdout://"})
-
 // 	source.Add(sink1)
 // 	source.Add(sink2)
 //
