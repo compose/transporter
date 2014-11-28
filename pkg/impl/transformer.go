@@ -13,7 +13,7 @@ import (
 )
 
 type Transformer struct {
-	Func string
+	fn string
 
 	pipe *pipe.Pipe
 
@@ -42,7 +42,7 @@ func NewTransformer(p *pipe.Pipe, extra ExtraConfig) (Impl, error) {
 		return t, err
 	}
 
-	t.Func = string(ba)
+	t.fn = string(ba)
 
 	return t, nil
 }
@@ -56,7 +56,7 @@ func (t *Transformer) Listen() (err error) {
 	}
 
 	// compile our script
-	if t.script, err = t.vm.Compile("", t.Func); err != nil {
+	if t.script, err = t.vm.Compile("", t.fn); err != nil {
 		return err
 	}
 
