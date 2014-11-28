@@ -141,9 +141,7 @@ func (n *Node) Stop() {
 func (n *Node) Start() error {
 	for _, child := range n.Children {
 		go func(node *Node) {
-			// pipeline.nodeWg.Add(1)
 			node.Start()
-			// pipeline.nodeWg.Done()
 		}(child)
 	}
 
