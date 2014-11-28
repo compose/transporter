@@ -88,6 +88,11 @@ func (n *Node) depth() int {
 }
 
 // Path returns a string representation of the names of all the node's parents concatenated with "/"  used in metrics
+// eg. for the following tree
+// source := transporter.NewNode("name1", "mongo", impl.ExtraConfig{"uri": "mongodb://localhost/boom", "namespace": "boom.foo", "debug": true})
+// 	sink1 := transporter.NewNode("crapfile", "file", impl.ExtraConfig{"uri": "stdout://"})
+// 	source.Add(sink1)
+// 'source' will have a Path of 'name1', and 'sink1' will have a path of 'name1/sink1'
 func (n *Node) Path() string {
 	if n.Parent == nil {
 		return n.Name
@@ -135,8 +140,10 @@ func (n *Node) Stop() {
 	}
 }
 
-// Start starts the nodes children in a go routine, and then runs either Start() or Listen() on the
-// node's impl
+// Start starts the nodes children in a go routine, and then runs either Start() or Listen()
+// on the node's impl.  Root nodes (nodes with no parent) will run Start()
+// and will emit messages to it's children,
+// All descendant nodes run Listen() on the impl
 func (n *Node) Start() error {
 	for _, child := range n.Children {
 		go func(node *Node) {
@@ -151,6 +158,10 @@ func (n *Node) Start() error {
 	return n.impl.Listen()
 }
 
+// Validate ensures that the node tree conforms to a proper structure.
+// Node trees must have at least one source, and one sink.
+// dangling transformers are forbidden.  Validate only knows about default adaptors
+// in the impl package, it can't validate any custom adaptors
 func (n *Node) Validate() bool {
 
 	// the root node should have children
@@ -172,6 +183,7 @@ func (n *Node) Validate() bool {
 }
 
 // Endpoints recurses down the node tree and accumulates a map associating node name with node type
+// this is primarly used with the boot event
 func (n *Node) Endpoints() map[string]string {
 	m := map[string]string{n.Name: n.Type}
 	for _, child := range n.Children {

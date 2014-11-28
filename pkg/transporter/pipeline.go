@@ -52,7 +52,9 @@ func (pipeline *Pipeline) String() string {
 	return out
 }
 
-// Stop sends a stop signal to the emitter and all the nodes, whether they are running or not
+// Stop sends a stop signal to the emitter and all the nodes, whether they are running or not.
+// the node's database adaptors are expected to clean up after themselves, and stop will block until
+// all nodes have stopped successfully
 func (pipeline *Pipeline) Stop() {
 	pipeline.source.Stop()
 	pipeline.emitter.Stop()
