@@ -92,7 +92,7 @@ type NodeMetrics struct {
 	RecordsOut int
 }
 
-// NewNodeMetrics creates a new nodeMetrics, and starts a ticker that will emit a new metrics event every interval.
+// NewNodeMetrics creates a struct that will emit metric events periodically
 func NewNodeMetrics(path string, eventChan chan Event, interval time.Duration) *NodeMetrics {
 	m := &NodeMetrics{path: path, eChan: eventChan}
 
@@ -101,16 +101,11 @@ func NewNodeMetrics(path string, eventChan chan Event, interval time.Duration) *
 		m.ticker = time.NewTicker(interval)
 		go func() {
 			for _ = range m.ticker.C {
-				m.send()
+				m.eChan <- NewMetricsEvent(time.Now().Unix(), m.path, m.RecordsIn, m.RecordsOut)
 			}
 		}()
 	}
 	return m
-}
-
-// send a new metrics event on the event channel
-func (m *NodeMetrics) send() {
-	m.eChan <- NewMetricsEvent(time.Now().Unix(), m.path, m.RecordsIn, m.RecordsOut)
 }
 
 // Stop stops the ticker that sends out new metrics and broadcast a final metric for the node.
@@ -119,5 +114,5 @@ func (m *NodeMetrics) Stop() {
 	if m.ticker != nil {
 		m.ticker.Stop()
 	}
-	m.send()
+	m.eChan <- NewMetricsEvent(time.Now().Unix(), m.path, m.RecordsIn, m.RecordsOut)
 }

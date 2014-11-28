@@ -25,7 +25,9 @@ type Emitter interface {
 
 // An Api is the definition of the remote endpoint that receieves event and error posts
 // for the HttpPostEmitter.
-// Uri
+// TODO it's kind of janky that this is here, it would be great if this didn't exist, and the
+// HttpPostEmitter just took the uri, etc etc as args.  MetricsInterval isn't even relevent to this
+// package
 type Api struct {
 	Uri             string `json:"uri" yaml:"uri"`           // Uri to connect to
 	MetricsInterval int    `json:"interval" yaml:"interval"` // how often to emit metrics, (in ms)
