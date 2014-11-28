@@ -9,6 +9,7 @@ package pipe
 import (
 	"time"
 
+	"github.com/compose/transporter/pkg/events"
 	"github.com/compose/transporter/pkg/message"
 )
 
@@ -27,11 +28,11 @@ type Pipe struct {
 	In              messageChan
 	Out             []messageChan
 	Err             chan error
-	Event           chan Event
+	Event           chan events.Event
 	Stopped         bool // has the pipe been stopped?
 	chStop          chan chan bool
 	listening       bool
-	metrics         *nodeMetrics
+	metrics         *events.NodeMetrics
 	metricsInterval time.Duration
 }
 
@@ -54,10 +55,10 @@ func NewPipe(pipe *Pipe, name string, interval time.Duration) *Pipe {
 		p.Event = pipe.Event
 	} else {
 		p.Err = make(chan error)
-		p.Event = make(chan Event)
+		p.Event = make(chan events.Event)
 	}
 
-	p.metrics = NewNodeMetrics(name, p.Event, interval)
+	p.metrics = events.NewNodeMetrics(name, p.Event, interval)
 	return p
 }
 

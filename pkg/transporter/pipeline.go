@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/compose/transporter/pkg/pipe"
+	"github.com/compose/transporter/pkg/events"
 )
 
 const (
@@ -63,7 +63,7 @@ func (pipeline *Pipeline) Run() error {
 	endpoints := pipeline.source.Endpoints()
 
 	// send a boot event
-	pipeline.source.pipe.Event <- pipe.NewBootEvent(time.Now().Unix(), VERSION, endpoints)
+	pipeline.source.pipe.Event <- events.NewBootEvent(time.Now().Unix(), VERSION, endpoints)
 
 	// start the source
 	err := pipeline.source.Start()
@@ -75,7 +75,7 @@ func (pipeline *Pipeline) Run() error {
 	pipeline.metricsWg.Wait()
 
 	// send a boot event
-	pipeline.source.pipe.Event <- pipe.NewExitEvent(time.Now().Unix(), VERSION, endpoints)
+	pipeline.source.pipe.Event <- events.NewExitEvent(time.Now().Unix(), VERSION, endpoints)
 
 	return err
 }
@@ -90,7 +90,7 @@ func (pipeline *Pipeline) startErrorListener(cherr chan error) {
 }
 
 // startEventListener consumes all the events from the pipe's Event channel, and posts them to the ap
-func (pipeline *Pipeline) startEventListener(chevent chan pipe.Event) {
+func (pipeline *Pipeline) startEventListener(chevent chan events.Event) {
 	for event := range chevent {
 		ba, err := json.Marshal(event)
 		if err != err {
