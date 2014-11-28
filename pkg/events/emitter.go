@@ -3,6 +3,7 @@ package events
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -134,4 +135,56 @@ func (e *NoopEmitter) Stop() {
 	s := make(chan bool)
 	e.chstop <- s
 	<-s
+}
+
+// LogEmitter listens on the event channel and uses go's log package to emit the event
+type LogEmitter struct {
+	chstop chan chan bool
+	ch     chan Event
+}
+
+func NewLogEmitter() *LogEmitter {
+	return &LogEmitter{
+		chstop: make(chan chan bool),
+	}
+}
+
+// Start the emitter
+func (e *LogEmitter) Start() {
+	go e.startEventListener()
+}
+
+func (e *LogEmitter) Init(ch chan Event) {
+	e.ch = ch
+}
+
+// Stop the emitter
+func (e *LogEmitter) Stop() {
+	s := make(chan bool)
+	e.chstop <- s
+	<-s
+}
+
+func (e *LogEmitter) startEventListener() {
+	for {
+		select {
+		case s := <-e.chstop:
+			s <- true
+			return
+		case event := <-e.ch:
+			msg := fmt.Sprintf("%s %s", event.Kind, event.Path)
+
+			switch event.Kind {
+			case metricsKind.String():
+				msg += fmt.Sprintf(" recordsIn: %d, recordsOut: %d", event.RecordsIn, event.RecordsOut)
+			case bootKind.String():
+				msg += fmt.Sprintf("%v", event.Endpoints)
+
+			}
+			log.Println(msg)
+		case <-time.After(100 * time.Millisecond):
+			continue
+			// noop
+		}
+	}
 }
