@@ -22,7 +22,7 @@ type Transformer struct {
 	vm     *otto.Otto
 }
 
-func NewTransformer(p *pipe.Pipe, extra ExtraConfig) (*Transformer, error) {
+func NewTransformer(p *pipe.Pipe, extra ExtraConfig) (Impl, error) {
 	var (
 		conf TransformerConfig
 		err  error

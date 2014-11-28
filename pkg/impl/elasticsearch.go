@@ -23,7 +23,7 @@ type Elasticsearch struct {
 	running bool
 }
 
-func NewElasticsearch(p *pipe.Pipe, extra ExtraConfig) (*Elasticsearch, error) {
+func NewElasticsearch(p *pipe.Pipe, extra ExtraConfig) (Impl, error) {
 	var (
 		conf ElasticsearchConfig
 		err  error
@@ -48,6 +48,10 @@ func NewElasticsearch(p *pipe.Pipe, extra ExtraConfig) (*Elasticsearch, error) {
 	}
 
 	return e, nil
+}
+
+func (e *Elasticsearch) Start() error {
+	return fmt.Errorf("Elasticsearch can't function as a source")
 }
 
 // start the listener

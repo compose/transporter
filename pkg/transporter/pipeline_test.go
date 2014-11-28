@@ -26,7 +26,7 @@ type TestImpl struct {
 	value string
 }
 
-func NewTestImpl(p *pipe.Pipe, extra map[string]interface{}) (*TestImpl, error) {
+func NewTestImpl(p *pipe.Pipe, extra impl.ExtraConfig) (impl.Impl, error) {
 	val, ok := extra["value"]
 	if !ok {
 		return nil, errors.New("this is an error")
@@ -47,7 +47,7 @@ func (s *TestImpl) Listen() error {
 }
 
 func TestPipelineString(t *testing.T) {
-	impl.Registry["source"] = NewTestImpl
+	impl.Register("source", NewTestImpl)
 
 	data := []struct {
 		in           *Node

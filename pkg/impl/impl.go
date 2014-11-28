@@ -14,7 +14,7 @@ var (
 	MissingNodeError = errors.New("Impl not found in registry")
 
 	// a registry of impl types and their constructors
-	Registry = map[string]interface{}{
+	registry = map[string]interface{}{
 		"mongo":         NewMongodb,
 		"file":          NewFile,
 		"elasticsearch": NewElasticsearch,
@@ -22,6 +22,13 @@ var (
 		"transformer":   NewTransformer,
 	}
 )
+
+// Register registers an Impl (database adaptor) for use with Transporter
+// The second argument, fn, is a constructor that returns an instance of the
+// given Impl
+func Register(name string, fn func(*pipe.Pipe, ExtraConfig) (Impl, error)) {
+	registry[name] = fn
+}
 
 // Impl defines the interface that all database connectors and nodes must follow.
 // Start() consumes data from the interface,
@@ -44,7 +51,7 @@ func CreateImpl(kind string, extra ExtraConfig, p *pipe.Pipe) (impl Impl, err er
 		}
 	}()
 
-	fn, ok := Registry[kind]
+	fn, ok := registry[kind]
 	if !ok {
 		return nil, MissingNodeError
 	}

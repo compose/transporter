@@ -18,7 +18,7 @@ type File struct {
 	filehandle *os.File
 }
 
-func NewFile(p *pipe.Pipe, extra ExtraConfig) (*File, error) {
+func NewFile(p *pipe.Pipe, extra ExtraConfig) (Impl, error) {
 
 	var (
 		conf FileConfig

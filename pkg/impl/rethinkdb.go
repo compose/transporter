@@ -28,7 +28,7 @@ type Rethinkdb struct {
 	client *gorethink.Session
 }
 
-func NewRethinkdb(p *pipe.Pipe, extra ExtraConfig) (*Rethinkdb, error) {
+func NewRethinkdb(p *pipe.Pipe, extra ExtraConfig) (Impl, error) {
 	var (
 		conf RethinkdbConfig
 		err  error
@@ -54,6 +54,10 @@ func NewRethinkdb(p *pipe.Pipe, extra ExtraConfig) (*Rethinkdb, error) {
 	r.debug = conf.Debug
 
 	return r, nil
+}
+
+func (e *Rethinkdb) Start() error {
+	return fmt.Errorf("Rethinkdb can't function as a source")
 }
 
 func (r *Rethinkdb) Listen() (err error) {

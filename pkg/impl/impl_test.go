@@ -16,7 +16,7 @@ type TestImpl struct {
 	value string
 }
 
-func NewTestImpl(p *pipe.Pipe, extra map[string]interface{}) (*TestImpl, error) {
+func NewTestImpl(p *pipe.Pipe, extra ExtraConfig) (Impl, error) {
 	val, ok := extra["value"]
 	if !ok {
 		return nil, errors.New("this is an error")
@@ -36,21 +36,8 @@ func (s *TestImpl) Listen() error {
 	return nil
 }
 
-type BadImpl struct {
-	value string
-}
-
-func NewBadImpl(p *pipe.Pipe, extra map[string]interface{}) (*BadImpl, error) {
-	val, ok := extra["value"]
-	if !ok {
-		return nil, errors.New("this is an error")
-	}
-	return &BadImpl{value: val.(string)}, nil
-}
-
 func TestCreateImpl(t *testing.T) {
-	Registry["testimpl"] = NewTestImpl
-	Registry["badimpl"] = NewBadImpl
+	Register("testimpl", NewTestImpl)
 
 	data := []struct {
 		kind  string
@@ -69,12 +56,6 @@ func TestCreateImpl(t *testing.T) {
 			map[string]interface{}{"blah": "rockettes"},
 			&TestImpl{},
 			"this is an error",
-		},
-		{
-			"badimpl",
-			map[string]interface{}{"value": "rockettes"},
-			nil,
-			"cannot create node: interface conversion: *impl.BadImpl is not impl.Impl: missing method Listen",
 		},
 		{
 			"notasource",

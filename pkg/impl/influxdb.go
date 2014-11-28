@@ -25,7 +25,7 @@ type Influxdb struct {
 	influxClient *client.Client
 }
 
-func NewInfluxdb(p *pipe.Pipe, extra ExtraConfig) (*Influxdb, error) {
+func NewInfluxdb(p *pipe.Pipe, extra ExtraConfig) (Impl, error) {
 	var (
 		conf InfluxdbConfig
 		err  error
@@ -50,6 +50,10 @@ func NewInfluxdb(p *pipe.Pipe, extra ExtraConfig) (*Influxdb, error) {
 	}
 
 	return i, nil
+}
+
+func (e *Influxdb) Start() error {
+	return fmt.Errorf("Influxdb can't function as a source")
 }
 
 func (i *Influxdb) Listen() (err error) {

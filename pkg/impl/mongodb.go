@@ -30,7 +30,7 @@ type Mongodb struct {
 	restartable bool // this refers to being able to refresh the iterator, not to the restart based on session op
 }
 
-func NewMongodb(p *pipe.Pipe, extra ExtraConfig) (*Mongodb, error) {
+func NewMongodb(p *pipe.Pipe, extra ExtraConfig) (Impl, error) {
 	var (
 		conf MongodbConfig
 		err  error
