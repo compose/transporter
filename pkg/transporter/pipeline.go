@@ -86,13 +86,13 @@ func (pipeline *Pipeline) Run() error {
 	endpoints := pipeline.source.Endpoints()
 
 	// send a boot event
-	pipeline.source.pipe.Event <- events.NewBootEvent(time.Now().Unix(), VERSION, endpoints)
+	pipeline.source.pipe.Event <- events.BootEvent(time.Now().Unix(), VERSION, endpoints)
 
 	// start the source
 	err := pipeline.source.Start()
 
 	// pipeline has stopped, send the exit event
-	pipeline.source.pipe.Event <- events.NewExitEvent(time.Now().Unix(), VERSION, endpoints)
+	pipeline.source.pipe.Event <- events.ExitEvent(time.Now().Unix(), VERSION, endpoints)
 
 	// the source has exited, stop all the other nodes
 	pipeline.Stop()

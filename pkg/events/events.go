@@ -51,7 +51,7 @@ type bootEvent struct {
 }
 
 // NewBootEvent (surprisingly) creates a new bootevent
-func NewBootEvent(ts int64, version string, endpoints map[string]string) Event {
+func BootEvent(ts int64, version string, endpoints map[string]string) Event {
 	e := Event{Ts: ts, Kind: bootKind.String()}
 	e.Version = version
 	e.Endpoints = endpoints
@@ -66,7 +66,7 @@ type metricsEvent struct {
 }
 
 // newMetricsEvent creates a new metrics event
-func NewMetricsEvent(ts int64, path string, in, out int) Event {
+func MetricsEvent(ts int64, path string, in, out int) Event {
 	e := Event{Ts: ts, Kind: metricsKind.String()}
 	e.Path = path
 	e.RecordsIn = in
@@ -75,7 +75,7 @@ func NewMetricsEvent(ts int64, path string, in, out int) Event {
 }
 
 // NewExitEvent (surprisingly) creates a new exitevent
-func NewExitEvent(ts int64, version string, endpoints map[string]string) Event {
+func ExitEvent(ts int64, version string, endpoints map[string]string) Event {
 	e := Event{Ts: ts, Kind: exitKind.String()}
 	e.Version = version
 	e.Endpoints = endpoints
@@ -101,7 +101,7 @@ func NewNodeMetrics(path string, eventChan chan Event, interval time.Duration) *
 		m.ticker = time.NewTicker(interval)
 		go func() {
 			for _ = range m.ticker.C {
-				m.eChan <- NewMetricsEvent(time.Now().Unix(), m.path, m.RecordsIn, m.RecordsOut)
+				m.eChan <- MetricsEvent(time.Now().Unix(), m.path, m.RecordsIn, m.RecordsOut)
 			}
 		}()
 	}
@@ -114,5 +114,5 @@ func (m *NodeMetrics) Stop() {
 	if m.ticker != nil {
 		m.ticker.Stop()
 	}
-	m.eChan <- NewMetricsEvent(time.Now().Unix(), m.path, m.RecordsIn, m.RecordsOut)
+	m.eChan <- MetricsEvent(time.Now().Unix(), m.path, m.RecordsIn, m.RecordsOut)
 }
