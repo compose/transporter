@@ -64,8 +64,8 @@ func TestFileToFile(t *testing.T) {
 	setupFiles(inFile, outFile)
 
 	// create the source node and attach our sink
-	outNode := NewNode("localfileout", "file", map[string]interface{}{"uri": "file://" + outFile})
-	outNode.Attach(NewNode("localfilein", "file", map[string]interface{}{"uri": "file://" + inFile}))
+	outNode := NewNode("localfileout", "file", map[string]interface{}{"uri": "file://" + outFile}).
+		Add(NewNode("localfilein", "file", map[string]interface{}{"uri": "file://" + inFile}))
 
 	// create the pipeline
 	p, err := NewPipeline(outNode, testApiConfig)
@@ -107,8 +107,8 @@ func TestMongoToMongo(t *testing.T) {
 	)
 
 	// create the source node and attach our sink
-	outNode := NewNode("localOutmongo", "mongo", map[string]interface{}{"uri": mongoUri, "namespace": outNs})
-	outNode.Add(NewNode("localInmongo", "mongo", map[string]interface{}{"uri": mongoUri, "namespace": inNs}))
+	outNode := NewNode("localOutmongo", "mongo", map[string]interface{}{"uri": mongoUri, "namespace": outNs}).
+		Add(NewNode("localInmongo", "mongo", map[string]interface{}{"uri": mongoUri, "namespace": inNs}))
 
 	// create the pipeline
 	p, err := NewPipeline(outNode, testApiConfig)
