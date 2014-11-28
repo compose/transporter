@@ -21,7 +21,7 @@ type Mongodb struct {
 	database   string
 
 	//
-	pipe pipe.Pipe
+	pipe *pipe.Pipe
 
 	// mongo connection and options
 	mongoSession *mgo.Session
@@ -30,7 +30,7 @@ type Mongodb struct {
 	restartable bool // this refers to being able to refresh the iterator, not to the restart based on session op
 }
 
-func NewMongodb(p pipe.Pipe, extra ExtraConfig) (*Mongodb, error) {
+func NewMongodb(p *pipe.Pipe, extra ExtraConfig) (*Mongodb, error) {
 	var (
 		conf MongodbConfig
 		err  error

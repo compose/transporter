@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 )
@@ -60,29 +59,18 @@ func TestEventsBroadcast(t *testing.T) {
 			Key:             "jklm",
 			MetricsInterval: 1000,
 		}
-		dummyOutConfig = ConfigNode{
-			Extra: map[string]interface{}{"uri": "file:///tmp/dummyFileOut"},
-			Name:  "dummyFileOut",
-			Type:  "file",
-		}
-		dummyInConfig = ConfigNode{
-			Extra: map[string]interface{}{"uri": "file:///tmp/dummyFileIn"},
-			Name:  "dummyFileIn",
-			Type:  "file",
-		}
+
+		inFile  = "/tmp/dummyFileIn"
+		outFile = "/tmp/dummyFileOut"
 	)
 
-	err := setupFileInAndOut(
-		strings.Replace(dummyOutConfig.Extra["uri"].(string), "file://", "", 1),
-		strings.Replace(dummyInConfig.Extra["uri"].(string), "file://", "", 1),
-	)
-	if err != nil {
-		t.Errorf("can't create tmp files, got %s", err.Error())
-		t.FailNow()
-	}
+	setupFiles(inFile, outFile)
 
-	p, err := NewPipeline(dummyOutConfig, eventApiConfig)
-	p.AddTerminalNode(dummyInConfig)
+	// set up the nodes
+	dummyOutNode := NewNode("dummyFileOut", "file", map[string]interface{}{"uri": "file://" + outFile})
+	dummyOutNode.Add(NewNode("dummyFileIn", "file", map[string]interface{}{"uri": "file://" + inFile}))
+
+	p, err := NewPipeline(dummyOutNode, eventApiConfig)
 	if err != nil {
 		t.Errorf("can't create pipeline, got %s", err.Error())
 		t.FailNow()

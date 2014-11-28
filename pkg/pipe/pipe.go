@@ -9,6 +9,7 @@ package pipe
 import (
 	"time"
 
+	"github.com/compose/transporter/pkg/events"
 	"github.com/compose/transporter/pkg/message"
 )
 
@@ -25,56 +26,40 @@ func newMessageChan() messageChan {
 // and joinPipe which has a li tening loop that also emits messages.
 type Pipe struct {
 	In              messageChan
-	Out             messageChan
+	Out             []messageChan
 	Err             chan error
-	Event           chan Event
+	Event           chan events.Event
 	Stopped         bool // has the pipe been stopped?
 	chStop          chan chan bool
 	listening       bool
-	metrics         *nodeMetrics
+	metrics         *events.NodeMetrics
 	metricsInterval time.Duration
 }
 
-// NewSourcePipe creates a Pipe that has no listening loop, but just emits messages.  Only one SourcePipe should be created for each transporter pipeline and should be attached to the transporter source.
-func NewSourcePipe(name string, interval time.Duration) Pipe {
-	p := Pipe{
-		In:              nil,
-		Out:             newMessageChan(),
-		Err:             make(chan error),
-		Event:           make(chan Event),
+// NewSourcePipe creates a new Pipe.  If the pipe that is passed in is nil, then this pipe will be treaded as a source pipe that just serves to emit messages.
+// Otherwise, the pipe returned will be created and chained from the last member of the Out slice of the parent.  This function has side effects, and will add
+// an Out channel to the pipe that is passed in
+func NewPipe(pipe *Pipe, name string, interval time.Duration) *Pipe {
+
+	p := &Pipe{
+		Out:             make([]messageChan, 0),
 		chStop:          make(chan chan bool),
 		metricsInterval: interval,
 	}
-	p.metrics = NewNodeMetrics(name, p.Event, interval)
+
+	if pipe != nil {
+		pipe.Out = append(pipe.Out, newMessageChan())
+
+		p.In = pipe.Out[len(pipe.Out)-1] // use the last out channel
+		p.Err = pipe.Err
+		p.Event = pipe.Event
+	} else {
+		p.Err = make(chan error)
+		p.Event = make(chan events.Event)
+	}
+
+	p.metrics = events.NewNodeMetrics(name, p.Event, interval)
 	return p
-}
-
-// NewJoinPipe creates a pipe that with the In channel attached to the given pipe's Out channel.  Multiple Join pipes can be chained together to create a processing pipeline
-func NewJoinPipe(p Pipe, name string) Pipe {
-	newp := Pipe{
-		In:              p.Out,
-		Out:             newMessageChan(),
-		Err:             p.Err,
-		Event:           p.Event,
-		chStop:          make(chan chan bool),
-		metricsInterval: p.metricsInterval,
-	}
-	newp.metrics = NewNodeMetrics(p.metrics.path+"/"+name, p.Event, p.metricsInterval)
-	return newp
-}
-
-// NewSinkPipe creates a pipe that acts as a terminator to a chain of pipes.  The In channel is the previous channel's Out chan, and the SinkPipe's Out channel is nil.
-func NewSinkPipe(p Pipe, name string) Pipe {
-	newp := Pipe{
-		In:              p.Out,
-		Out:             nil,
-		Err:             p.Err,
-		Event:           p.Event,
-		chStop:          make(chan chan bool),
-		metricsInterval: p.metricsInterval,
-	}
-	newp.metrics = NewNodeMetrics(p.metrics.path+"/"+name, p.Event, p.metricsInterval)
-	return newp
 }
 
 // Listen starts a listening loop that pulls messages from the In chan, applies fn(msg), a `func(message.Msg) error`, and emits them on the Out channel.
@@ -105,7 +90,7 @@ func (m *Pipe) Listen(fn func(*message.Msg) (*message.Msg, error)) error {
 				m.Err <- err
 				return err
 			}
-			if m.Out != nil {
+			if len(m.Out) > 0 {
 				m.Send(outmsg)
 			}
 		case <-time.After(100 * time.Millisecond):
@@ -132,15 +117,25 @@ func (m *Pipe) Stop() {
 // send emits the given message on the 'Out' channel.  the send Timesout after 100 ms in order to chaeck of the Pipe has stopped and we've been asked to exit.
 // If the Pipe has been stopped, the send will fail and there is no guarantee of either success or failure
 func (m *Pipe) Send(msg *message.Msg) {
-	for {
-		select {
-		case m.Out <- msg:
-			m.metrics.RecordsOut += 1
-			return
-		case <-time.After(100 * time.Millisecond):
-			if m.Stopped {
-				return
+
+	for _, ch := range m.Out {
+
+	A:
+		for {
+			select {
+			case ch <- msg:
+				m.metrics.RecordsOut += 1
+				break A
+			case <-time.After(100 * time.Millisecond):
+				if m.Stopped {
+					// return, with no guarantee
+					return
+				}
 			}
 		}
 	}
 }
+
+// func (m *Pipe) Send(msg *message.Msg) {
+
+// }

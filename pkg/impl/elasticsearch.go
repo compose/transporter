@@ -17,13 +17,13 @@ type Elasticsearch struct {
 	_type string
 	index string
 
-	pipe pipe.Pipe
+	pipe *pipe.Pipe
 
 	indexer *elastigo.BulkIndexer
 	running bool
 }
 
-func NewElasticsearch(p pipe.Pipe, extra ExtraConfig) (*Elasticsearch, error) {
+func NewElasticsearch(p *pipe.Pipe, extra ExtraConfig) (*Elasticsearch, error) {
 	var (
 		conf ElasticsearchConfig
 		err  error

@@ -1,12 +1,16 @@
 package transporter
 
 import (
+	"errors"
 	"testing"
+
+	"github.com/compose/transporter/pkg/impl"
+	"github.com/compose/transporter/pkg/pipe"
 )
 
 var (
-	fakesourceCN = ConfigNode{Type: "source", Extra: map[string]interface{}{"value": "rockettes"}}
-	fileCN       = ConfigNode{Extra: map[string]interface{}{"uri": "file:///tmp/crap"}, Name: "localfile", Type: "file"}
+	fakesourceCN = NewNode("source1", "source", map[string]interface{}{"value": "rockettes"})
+	fileNode     = NewNode("localfile", "file", map[string]interface{}{"uri": "file:///tmp/crap"})
 )
 
 var (
@@ -16,37 +20,62 @@ var (
 	}
 )
 
+// a noop node impl to help test
+type TestImpl struct {
+	value string
+}
+
+func NewTestImpl(p *pipe.Pipe, extra map[string]interface{}) (*TestImpl, error) {
+	val, ok := extra["value"]
+	if !ok {
+		return nil, errors.New("this is an error")
+	}
+	return &TestImpl{value: val.(string)}, nil
+}
+
+func (s *TestImpl) Stop() error {
+	return nil
+}
+
+func (s *TestImpl) Start() error {
+	return nil
+}
+
+func (s *TestImpl) Listen() error {
+	return nil
+}
+
 func TestPipelineString(t *testing.T) {
-	sourceRegistry["source"] = NewSourceImpl
+	impl.Registry["source"] = NewTestImpl
 
 	data := []struct {
-		in           ConfigNode
-		terminalNode *ConfigNode
+		in           *Node
+		terminalNode *Node
 		out          string
 	}{
 		{
 			fakesourceCN,
 			nil,
-			" - Pipeline\n  - Source:                      source          no namespace set               no uri set\n",
+			" - Source:         source1                                  source                                         ",
 		},
 		{
 			fakesourceCN,
-			&fileCN,
-			" - Pipeline\n  - Source:                      source          no namespace set               no uri set\n  - Sink:   localfile            file            no namespace set               file:///tmp/crap\n",
+			fileNode,
+			" - Source:         source1                                  source                                         \n  - Sink:          localfile                                file                                           file:///tmp/crap",
 		},
 	}
 
 	for _, v := range data {
+		if v.terminalNode != nil {
+			v.in.Add(v.terminalNode)
+		}
 		p, err := NewPipeline(v.in, testEmptyApiConfig)
 		if err != nil {
 			t.Errorf("can't create pipeline, got %s", err.Error())
 			t.FailNow()
 		}
-		if v.terminalNode != nil {
-			p.AddTerminalNode(*v.terminalNode)
-		}
 		if p.String() != v.out {
-			t.Errorf("\nexp %s\ngot %s", v.out, p.String())
+			t.Errorf("\nexpected:\n%s\ngot:\n%s\n", v.out, p.String())
 		}
 	}
 }

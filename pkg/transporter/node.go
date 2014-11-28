@@ -7,45 +7,12 @@
 package transporter
 
 import (
-	"errors"
 	"fmt"
-	"reflect"
+	"time"
 
 	"github.com/compose/transporter/pkg/impl"
 	"github.com/compose/transporter/pkg/pipe"
 )
-
-var (
-	// The node was not found in the map
-	MissingNodeError = errors.New("Node not defined")
-)
-
-var (
-	sourceRegistry = map[string]interface{}{
-		"mongo": impl.NewMongodb,
-		"file":  impl.NewFile,
-	}
-
-	nodeRegistry = map[string]interface{}{
-		"mongo":         impl.NewMongodb,
-		"file":          impl.NewFile,
-		"elasticsearch": impl.NewElasticsearch,
-		"influx":        impl.NewInfluxdb,
-		"transformer":   impl.NewTransformer,
-	}
-)
-
-// All nodes must implement the Node interface
-type Node interface {
-	Listen() error
-	Stop() error
-}
-
-// Source nodes are used as the first element in the Pipeline chain
-type Source interface {
-	Start() error
-	Stop() error
-}
 
 // An Api is the definition of the remote endpoint that receieves event and error posts
 type Api struct {
@@ -55,95 +22,165 @@ type Api struct {
 	Pid             string `json:"pid" yaml:"pid"`
 }
 
-// A ConfigNode is a description of an endpoint.  This is not a concrete implementation of a data store, just a
-// container to hold config values.
-type ConfigNode struct {
-	Name  string                 `json:"name"`
-	Type  string                 `json:"type"`
-	Extra map[string]interface{} `json:"extra"`
-}
+// A Node is the basic building blocks of transporter pipelines.
+// Nodes are constructed in a tree, with the first node broadcasting
+// data to each of it's children.
+// Node tree's can be constructed as follows:
+// 	source := transporter.NewNode("name1", "mongo", map[string]interface{}{"uri": "mongodb://localhost/boom", "namespace": "boom.foo", "debug": true})
+// 	sink1 := transporter.NewNode("crapfile", "file", map[string]interface{}{"uri": "stdout://"})
+// 	sink2 := transporter.NewNode("crapfile2", "file", map[string]interface{}{"uri": "stdout://"})
 
-func (n ConfigNode) String() string {
-	uri, ok := n.Extra["uri"]
-	if !ok {
-		uri = "no uri set"
-	}
-
-	namespace, ok := n.Extra["namespace"]
-	if !ok {
-		namespace = "no namespace set"
-	}
-	return fmt.Sprintf("%-20s %-15s %-30s %s", n.Name, n.Type, namespace, uri)
-}
-
-// callCreator will call the NewImpl method to create a new node or source
-func (n ConfigNode) callCreator(pipe pipe.Pipe, fn interface{}) (reflect.Value, error) {
-
-	args := []reflect.Value{
-		reflect.ValueOf(pipe),
-		reflect.ValueOf(n.Extra),
-	}
-
-	result := reflect.ValueOf(fn).Call(args)
-	node := result[0]
-	inter := result[1].Interface()
-
-	if inter != nil {
-		return node, inter.(error)
-	}
-
-	return node, nil
-}
-
-// Create a concrete node that will listen on a pipe.  An implementation of the Node interface.  These types are generally either sinks or transformers
+// 	source.Add(sink1)
+// 	source.Add(sink2)
 //
-// Node types are stored in the node registry and we generate the correct type of Node by examining the NodeConfig.Type
-// property to find the node's constructore.
-//
-// Each constructor is assumed to be of the form
-// func NewImpl(pipe pipe.Pipe, extra map[string]interface{}) (*Impl, error) {
-func (n *ConfigNode) Create(p pipe.Pipe) (node Node, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("cannot create node: %v", r)
-		}
-	}()
+type Node struct {
+	Name     string           `json:"name"`     // the name of this node
+	Type     string           `json:"type"`     // the node's type, used to create the implementation
+	Extra    impl.ExtraConfig `json:"extra"`    // extra config options that are passed to the implementation
+	Children []*Node          `json:"children"` // the nodes are set up as a tree, this is an array of this nodes children
+	Parent   *Node            `json:"parent"`   // this node's parent node, if this is nil, this is a 'source' node
 
-	fn, ok := nodeRegistry[n.Type]
-	if !ok {
-		return nil, MissingNodeError
+	impl impl.Impl
+	pipe *pipe.Pipe
+}
+
+func NewNode(name, kind string, extra map[string]interface{}) *Node {
+	return &Node{
+		Name:     name,
+		Type:     kind,
+		Extra:    extra,
+		Children: make([]*Node, 0),
+	}
+}
+
+// String
+func (n *Node) String() string {
+	var (
+		uri       string
+		s         string
+		prefix    string
+		namespace = n.Extra.GetString("namespace")
+		depth     = n.depth()
+	)
+	if n.Type == "transformer" {
+		uri = n.Extra.GetString("filename")
+	} else {
+		uri = n.Extra.GetString("uri")
 	}
 
-	val, err := n.callCreator(p, fn)
+	prefixformatter := fmt.Sprintf("%%%ds%%-%ds", depth, 18-depth)
+
+	if n.Parent == nil { // root node
+		// s = fmt.Sprintf("%18s %-40s %-15s %-30s %s\n", " ", "Name", "Type", "Namespace", "Uri")
+		prefix = fmt.Sprintf(prefixformatter, " ", "- Source: ")
+	} else if len(n.Children) == 0 {
+		prefix = fmt.Sprintf(prefixformatter, " ", "- Sink: ")
+	} else if n.Type == "transformer" {
+		prefix = fmt.Sprintf(prefixformatter, " ", "- Transformer: ")
+	}
+
+	s += fmt.Sprintf("%-18s %-40s %-15s %-30s %s", prefix, n.Name, n.Type, namespace, uri)
+
+	for _, child := range n.Children {
+		s += "\n" + child.String()
+	}
+	return s
+}
+
+// depth is a measure of how deep into the node tree this node is.  Used to indent the String() stuff
+func (n *Node) depth() int {
+	if n.Parent == nil {
+		return 1
+	}
+
+	return 1 + n.Parent.depth()
+}
+
+// Add the given node as a child of this node.
+// This has side effects, and sets the parent of the given node
+func (n *Node) Add(node *Node) *Node {
+	node.Parent = n
+	n.Children = append(n.Children, node)
+	return n
+}
+
+// Init sets up the node for action.  It creates a pipe and impl for this node,
+// and then recurses down the tree calling Init on each child
+func (n *Node) Init(api Api) (err error) {
+	if n.Parent == nil { // we don't have a parent, we're the source
+		n.pipe = pipe.NewPipe(nil, n.Name, time.Duration(api.MetricsInterval)*time.Millisecond)
+	} else { // we have a parent, so pass in the parent's pipe here
+		n.pipe = pipe.NewPipe(n.Parent.pipe, n.Name, time.Duration(api.MetricsInterval)*time.Millisecond)
+	}
+
+	n.impl, err = impl.CreateImpl(n.Type, n.Extra, n.pipe)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return val.Interface().(Node), nil
+	for _, child := range n.Children {
+		err = child.Init(api) // init each child
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-// Create a concrete node that will act as a source and transmit data through a transporter Pipeline.  An implementation of the Source interface.  These types are generally either sinks or transformers
-//
-// Node types are stored in the node registry and we generate the correct type of Node by examining the NodeConfig.Type
-// property to find the node's constructore.
-//
-// Each constructor is assumed to be of the form
-// func NewImpl(pipe pipe.Pipe, extra map[string]interface{}) (*Impl, error) {
-func (n *ConfigNode) CreateSource(p pipe.Pipe) (source Source, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("cannot create node: %v", r)
+// Stop's this node's impl, and sends a stop to each child of this node
+func (n *Node) Stop() {
+	n.impl.Stop()
+	for _, node := range n.Children {
+		node.Stop()
+	}
+}
+
+// Start starts the nodes children in a go routine, and then runs either Start() or Listen() on the
+// node's impl
+func (n *Node) Start() error {
+	for _, child := range n.Children {
+		go func(node *Node) {
+			// pipeline.nodeWg.Add(1)
+			node.Start()
+			// pipeline.nodeWg.Done()
+		}(child)
+	}
+
+	if n.Parent == nil {
+		return n.impl.Start()
+	}
+
+	return n.impl.Listen()
+}
+
+func (n *Node) Validate() bool {
+
+	// the root node should have children
+	if n.Parent == nil && len(n.Children) == 0 {
+		return false
+	}
+
+	// transformers need children
+	if n.Type == "transformer" && len(n.Children) == 0 {
+		return false
+	}
+
+	for _, child := range n.Children {
+		if !child.Validate() {
+			return false
 		}
-	}()
-
-	fn, ok := sourceRegistry[n.Type]
-	if !ok {
-		return nil, MissingNodeError
 	}
-	val, err := n.callCreator(p, fn)
-	if err != nil {
-		return nil, err
-	}
+	return true
+}
 
-	return val.Interface().(Source), nil
+// Endpoints recurses down the node tree and accumulates a map associating node name with node type
+func (n *Node) Endpoints() map[string]string {
+	m := map[string]string{n.Name: n.Type}
+	for _, child := range n.Children {
+		childMap := child.Endpoints()
+		for k, v := range childMap {
+			m[k] = v
+		}
+	}
+	return m
 }

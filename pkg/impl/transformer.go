@@ -15,14 +15,14 @@ import (
 type Transformer struct {
 	Func string
 
-	pipe pipe.Pipe
+	pipe *pipe.Pipe
 
 	debug  bool
 	script *otto.Script
 	vm     *otto.Otto
 }
 
-func NewTransformer(p pipe.Pipe, extra ExtraConfig) (*Transformer, error) {
+func NewTransformer(p *pipe.Pipe, extra ExtraConfig) (*Transformer, error) {
 	var (
 		conf TransformerConfig
 		err  error
@@ -67,6 +67,10 @@ func (t *Transformer) Listen() (err error) {
 	}
 
 	return t.pipe.Listen(t.transformOne)
+}
+
+func (t *Transformer) Start() error {
+	return fmt.Errorf("Transformers can't be used as a source")
 }
 
 func (t *Transformer) Stop() error {
