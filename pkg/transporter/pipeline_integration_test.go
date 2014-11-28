@@ -7,12 +7,13 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/compose/transporter/pkg/events"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
 var (
-	testApiConfig = Api{
+	testApiConfig = events.Api{
 		Uri:             "http://requestb.in/1430xju1",
 		MetricsInterval: 10000,
 	}
@@ -68,7 +69,7 @@ func TestFileToFile(t *testing.T) {
 		Add(NewNode("localfilein", "file", map[string]interface{}{"uri": "file://" + inFile}))
 
 	// create the pipeline
-	p, err := NewPipeline(outNode, testApiConfig)
+	p, err := NewDefaultPipeline(outNode, testApiConfig)
 	if err != nil {
 		t.Errorf("can't create pipeline, got %s", err.Error())
 		t.FailNow()
@@ -111,7 +112,7 @@ func TestMongoToMongo(t *testing.T) {
 		Add(NewNode("localInmongo", "mongo", map[string]interface{}{"uri": mongoUri, "namespace": inNs}))
 
 	// create the pipeline
-	p, err := NewPipeline(outNode, testApiConfig)
+	p, err := NewDefaultPipeline(outNode, testApiConfig)
 	if err != nil {
 		t.Errorf("can't create pipeline, got %s", err.Error())
 		t.FailNow()

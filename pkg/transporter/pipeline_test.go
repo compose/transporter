@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/compose/transporter/pkg/events"
 	"github.com/compose/transporter/pkg/impl"
 	"github.com/compose/transporter/pkg/pipe"
 )
@@ -14,7 +15,7 @@ var (
 )
 
 var (
-	testEmptyApiConfig = Api{
+	testEmptyApiConfig = events.Api{
 		Uri:             "",
 		MetricsInterval: 100,
 	}
@@ -69,7 +70,7 @@ func TestPipelineString(t *testing.T) {
 		if v.terminalNode != nil {
 			v.in.Add(v.terminalNode)
 		}
-		p, err := NewPipeline(v.in, testEmptyApiConfig)
+		p, err := NewDefaultPipeline(v.in, testEmptyApiConfig)
 		if err != nil {
 			t.Errorf("can't create pipeline, got %s", err.Error())
 			t.FailNow()
