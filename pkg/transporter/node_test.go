@@ -57,3 +57,38 @@ func TestValidate(t *testing.T) {
 		}
 	}
 }
+
+func TestPath(t *testing.T) {
+	data := []struct {
+		in  *Node
+		out string
+	}{
+		{
+			NewNode("first", "mongo", impl.ExtraConfig{}),
+			"first",
+		},
+		{
+			NewNode("first", "mongo", impl.ExtraConfig{}).Add(NewNode("second", "mongo", impl.ExtraConfig{})),
+			"first/second",
+		},
+		{
+			NewNode("first", "mongo", impl.ExtraConfig{}).Add(NewNode("second", "transformer", impl.ExtraConfig{}).Add(NewNode("third", "mongo", impl.ExtraConfig{}))),
+			"first/second/third",
+		},
+	}
+
+	for _, v := range data {
+		node := v.in
+		var path string
+		for {
+			if len(node.Children) == 0 {
+				path = node.Path()
+				break
+			}
+			node = node.Children[0]
+		}
+		if path != v.out {
+			t.Errorf("%s: expected: %s got: %s", node.Name, v.out, path)
+		}
+	}
+}

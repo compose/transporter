@@ -39,7 +39,7 @@ type Pipe struct {
 // NewSourcePipe creates a new Pipe.  If the pipe that is passed in is nil, then this pipe will be treaded as a source pipe that just serves to emit messages.
 // Otherwise, the pipe returned will be created and chained from the last member of the Out slice of the parent.  This function has side effects, and will add
 // an Out channel to the pipe that is passed in
-func NewPipe(pipe *Pipe, name string, interval time.Duration) *Pipe {
+func NewPipe(pipe *Pipe, path string, interval time.Duration) *Pipe {
 
 	p := &Pipe{
 		Out:             make([]messageChan, 0),
@@ -58,7 +58,7 @@ func NewPipe(pipe *Pipe, name string, interval time.Duration) *Pipe {
 		p.Event = make(chan events.Event)
 	}
 
-	p.metrics = events.NewNodeMetrics(name, p.Event, interval)
+	p.metrics = events.NewNodeMetrics(path, p.Event, interval)
 	return p
 }
 

@@ -18,9 +18,9 @@ import (
 // Nodes are constructed in a tree, with the first node broadcasting
 // data to each of it's children.
 // Node tree's can be constructed as follows:
-// 	source := transporter.NewNode("name1", "mongo", map[string]interface{}{"uri": "mongodb://localhost/boom", "namespace": "boom.foo", "debug": true})
-// 	sink1 := transporter.NewNode("crapfile", "file", map[string]interface{}{"uri": "stdout://"})
-// 	sink2 := transporter.NewNode("crapfile2", "file", map[string]interface{}{"uri": "stdout://"})
+// 	source := transporter.NewNode("name1", "mongo", impl.ExtraConfig{"uri": "mongodb://localhost/boom", "namespace": "boom.foo", "debug": true})
+// 	sink1 := transporter.NewNode("crapfile", "file", impl.ExtraConfig{"uri": "stdout://"})
+// 	sink2 := transporter.NewNode("crapfile2", "file", impl.ExtraConfig{"uri": "stdout://"})
 
 // 	source.Add(sink1)
 // 	source.Add(sink2)
@@ -88,6 +88,15 @@ func (n *Node) depth() int {
 	return 1 + n.Parent.depth()
 }
 
+// Path returns a string representation of the names of all the node's parents concatenated with "/"  used in metrics
+func (n *Node) Path() string {
+	if n.Parent == nil {
+		return n.Name
+	}
+
+	return n.Parent.Path() + "/" + n.Name
+}
+
 // Add the given node as a child of this node.
 // This has side effects, and sets the parent of the given node
 func (n *Node) Add(node *Node) *Node {
@@ -100,9 +109,9 @@ func (n *Node) Add(node *Node) *Node {
 // and then recurses down the tree calling Init on each child
 func (n *Node) Init(interval time.Duration) (err error) { // TODO lets just pass in the duration here
 	if n.Parent == nil { // we don't have a parent, we're the source
-		n.pipe = pipe.NewPipe(nil, n.Name, interval)
+		n.pipe = pipe.NewPipe(nil, n.Path(), interval)
 	} else { // we have a parent, so pass in the parent's pipe here
-		n.pipe = pipe.NewPipe(n.Parent.pipe, n.Name, interval)
+		n.pipe = pipe.NewPipe(n.Parent.pipe, n.Path(), interval)
 	}
 
 	n.impl, err = impl.CreateImpl(n.Type, n.Extra, n.pipe)
