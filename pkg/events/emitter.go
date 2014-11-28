@@ -97,17 +97,6 @@ func (e *HttpPostEmitter) startEventListener() {
 			// noop
 		}
 	}
-
-	// for event := range e.ch {
-	// 	select {
-	// 	case s := <-e.chstop:
-	// 		s <- true
-	// 		return
-	// 	default:
-	// 		// noop
-	// 	}
-
-	// }
 }
 
 // NoopEmitter consumes the events from the listening channel and does nothing with them
