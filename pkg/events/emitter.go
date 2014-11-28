@@ -7,10 +7,12 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"time"
 )
 
 type Emitter interface {
 	Start()
+	Init(chan Event)
 	Stop()
 }
 
@@ -23,6 +25,7 @@ type Api struct {
 	Pid             string `json:"pid" yaml:"pid"`
 }
 
+// HttpPostEmitter listens on the event channel and posts the events to an http server
 type HttpPostEmitter struct {
 	api Api
 
@@ -31,14 +34,20 @@ type HttpPostEmitter struct {
 	chstop   chan chan bool
 }
 
-func NewHttpPostEmitter(api Api, ch chan Event) *HttpPostEmitter {
-	return &HttpPostEmitter{api: api, ch: ch, chstop: make(chan chan bool)}
+func NewHttpPostEmitter(api Api) *HttpPostEmitter {
+	return &HttpPostEmitter{api: api, chstop: make(chan chan bool)}
 }
 
+// Start the emitter
 func (e *HttpPostEmitter) Start() {
 	go e.startEventListener()
 }
 
+func (e *HttpPostEmitter) Init(ch chan Event) {
+	e.ch = ch
+}
+
+// Stop the emitter
 func (e *HttpPostEmitter) Stop() {
 	s := make(chan bool)
 	e.chstop <- s
@@ -50,6 +59,7 @@ func (e *HttpPostEmitter) startEventListener() {
 		select {
 		case s := <-e.chstop:
 			s <- true
+			return
 		default:
 			// noop
 		}
@@ -83,4 +93,41 @@ func (e *HttpPostEmitter) startEventListener() {
 
 		}(event)
 	}
+}
+
+// NoopEmitter consumes the events from the listening channel and does nothing with them
+type NoopEmitter struct {
+	chstop chan chan bool
+	ch     chan Event
+}
+
+func NewNoopEmitter() *NoopEmitter {
+	return &NoopEmitter{chstop: make(chan chan bool)}
+}
+
+// consume evennts
+func (e *NoopEmitter) Start() {
+	go func() {
+		for {
+			select {
+			case s := <-e.chstop:
+				s <- true
+				return
+			case <-e.ch:
+				continue
+			case <-time.After(100 * time.Millisecond):
+				continue
+			}
+		}
+	}()
+}
+
+func (e *NoopEmitter) Init(ch chan Event) {
+	e.ch = ch
+}
+
+func (e *NoopEmitter) Stop() {
+	s := make(chan bool)
+	e.chstop <- s
+	<-s
 }

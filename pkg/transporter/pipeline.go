@@ -27,7 +27,7 @@ type Pipeline struct {
 }
 
 func NewDefaultPipeline(source *Node, api events.Api) (*Pipeline, error) {
-	emitter := events.NewHttpPostEmitter(api, source.pipe.Event)
+	emitter := events.NewHttpPostEmitter(api)
 	return NewPipeline(source, emitter, time.Duration(api.MetricsInterval)*time.Millisecond)
 }
 
@@ -43,6 +43,9 @@ func NewPipeline(source *Node, emitter events.Emitter, interval time.Duration) (
 	if err != nil {
 		return pipeline, err
 	}
+
+	// init the emitter with the right chan
+	pipeline.emitter.Init(source.pipe.Event)
 
 	// start the emitters
 	go pipeline.startErrorListener(source.pipe.Err)
@@ -72,11 +75,13 @@ func (pipeline *Pipeline) Run() error {
 	// start the source
 	err := pipeline.source.Start()
 
+	// pipeline has stopped, send the exit event
+	pipeline.source.pipe.Event <- events.NewExitEvent(time.Now().Unix(), VERSION, endpoints)
+
 	// the source has exited, stop all the other nodes
 	pipeline.Stop()
 
 	// send a boot event
-	pipeline.source.pipe.Event <- events.NewExitEvent(time.Now().Unix(), VERSION, endpoints)
 
 	return err
 }
