@@ -119,11 +119,6 @@ func (c *Config) splitNamespace() (string, string, error) {
 	return fields[0], fields[1], nil
 }
 
-// // DBConfig returns a Config that will work for most general purpose databases
-// func DBConfig(uri, namespace string, debug bool) Config {
-// 	return Config{"uri": uri, "namespace": namespace, "debug": debug}
-// }
-
 // dbConfig is a standard typed config struct to use for as general purpose config for most databases.
 type dbConfig struct {
 	Uri       string `json:"uri"`       // the database uri
