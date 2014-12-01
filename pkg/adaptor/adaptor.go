@@ -1,4 +1,4 @@
-package impl
+package adaptor
 
 import (
 	"encoding/json"
@@ -11,9 +11,9 @@ import (
 
 var (
 	// The node was not found in the map
-	MissingNodeError = errors.New("Impl not found in registry")
+	MissingNodeError = errors.New("adaptor not found in registry")
 
-	// a registry of impl types and their constructors
+	// a registry of adaptor types and their constructors
 	registry = map[string]interface{}{
 		"mongo":         NewMongodb,
 		"file":          NewFile,
@@ -23,28 +23,28 @@ var (
 	}
 )
 
-// Register registers an Impl (database adaptor) for use with Transporter
+// Register registers an adaptor (database adaptor) for use with Transporter
 // The second argument, fn, is a constructor that returns an instance of the
-// given Impl
-func Register(name string, fn func(*pipe.Pipe, ExtraConfig) (Impl, error)) {
+// given adaptor
+func Register(name string, fn func(*pipe.Pipe, ExtraConfig) (StopStartListener, error)) {
 	registry[name] = fn
 }
 
-// Impl defines the interface that all database connectors and nodes must follow.
+// StopStartListener defines the interface that all database connectors and nodes must follow.
 // Start() consumes data from the interface,
 // Listen() listens on a pipe, processes data, and then emits it.
-// Stop() shuts down the impl
-type Impl interface {
+// Stop() shuts down the adaptor
+type StopStartListener interface {
 	Start() error
 	Listen() error
 	Stop() error
 }
 
-// CreateImpl instantiates an Impl given the impl type and the ExtraConfig.
+// Createadaptor instantiates an adaptor given the adaptor type and the ExtraConfig.
 // Constructors are expected to be in the form
 //   func NewWhatever(p *pipe.Pipe, extra ExtraConfig) (*Whatever, error) {}
-// and are expected to confirm to the Impl interface
-func CreateImpl(kind string, extra ExtraConfig, p *pipe.Pipe) (impl Impl, err error) {
+// and are expected to confirm to the adaptor interface
+func Createadaptor(kind string, extra ExtraConfig, p *pipe.Pipe) (adaptor StopStartListener, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("cannot create node: %v", r)
@@ -70,7 +70,7 @@ func CreateImpl(kind string, extra ExtraConfig, p *pipe.Pipe) (impl Impl, err er
 		return nil, inter.(error)
 	}
 
-	return val.Interface().(Impl), err
+	return val.Interface().(StopStartListener), err
 }
 
 // ExtraConfig is an alias to map[string]interface{} and helps us

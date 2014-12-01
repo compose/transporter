@@ -1,4 +1,4 @@
-package impl
+package adaptor
 
 import (
 	"encoding/json"
@@ -18,7 +18,7 @@ type File struct {
 	filehandle *os.File
 }
 
-func NewFile(p *pipe.Pipe, extra ExtraConfig) (Impl, error) {
+func NewFile(p *pipe.Pipe, extra ExtraConfig) (StopStartListener, error) {
 
 	var (
 		conf FileConfig

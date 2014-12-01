@@ -1,4 +1,4 @@
-package impl
+package adaptor
 
 import (
 	"fmt"
@@ -25,7 +25,7 @@ type Influxdb struct {
 	influxClient *client.Client
 }
 
-func NewInfluxdb(p *pipe.Pipe, extra ExtraConfig) (Impl, error) {
+func NewInfluxdb(p *pipe.Pipe, extra ExtraConfig) (StopStartListener, error) {
 	var (
 		conf InfluxdbConfig
 		err  error

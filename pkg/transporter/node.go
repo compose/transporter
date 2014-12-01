@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package transporter provides all implemented functionality to move
+// Package transporter provides all adaptoremented functionality to move
 // data through transporter.
 package transporter
 
@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/compose/transporter/pkg/impl"
+	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/pipe"
 )
 
@@ -18,21 +18,21 @@ import (
 // Nodes are constructed in a tree, with the first node broadcasting
 // data to each of it's children.
 // Node tree's can be constructed as follows:
-// 	source := transporter.NewNode("name1", "mongo", impl.ExtraConfig{"uri": "mongodb://localhost/boom", "namespace": "boom.foo", "debug": true})
-// 	sink1 := transporter.NewNode("crapfile", "file", impl.ExtraConfig{"uri": "stdout://"})
-// 	sink2 := transporter.NewNode("crapfile2", "file", impl.ExtraConfig{"uri": "stdout://"})
+// 	source := transporter.NewNode("name1", "mongo", adaptor.ExtraConfig{"uri": "mongodb://localhost/boom", "namespace": "boom.foo", "debug": true})
+// 	sink1 := transporter.NewNode("crapfile", "file", adaptor.ExtraConfig{"uri": "stdout://"})
+// 	sink2 := transporter.NewNode("crapfile2", "file", adaptor.ExtraConfig{"uri": "stdout://"})
 // 	source.Add(sink1)
 // 	source.Add(sink2)
 //
 type Node struct {
-	Name     string           `json:"name"`     // the name of this node
-	Type     string           `json:"type"`     // the node's type, used to create the implementation
-	Extra    impl.ExtraConfig `json:"extra"`    // extra config options that are passed to the implementation
-	Children []*Node          `json:"children"` // the nodes are set up as a tree, this is an array of this nodes children
-	Parent   *Node            `json:"parent"`   // this node's parent node, if this is nil, this is a 'source' node
+	Name     string              `json:"name"`     // the name of this node
+	Type     string              `json:"type"`     // the node's type, used to create the adaptorementation
+	Extra    adaptor.ExtraConfig `json:"extra"`    // extra config options that are passed to the adaptorementation
+	Children []*Node             `json:"children"` // the nodes are set up as a tree, this is an array of this nodes children
+	Parent   *Node               `json:"parent"`   // this node's parent node, if this is nil, this is a 'source' node
 
-	impl impl.Impl
-	pipe *pipe.Pipe
+	adaptor adaptor.StopStartListener
+	pipe    *pipe.Pipe
 }
 
 func NewNode(name, kind string, extra map[string]interface{}) *Node {
@@ -89,8 +89,8 @@ func (n *Node) depth() int {
 
 // Path returns a string representation of the names of all the node's parents concatenated with "/"  used in metrics
 // eg. for the following tree
-// source := transporter.NewNode("name1", "mongo", impl.ExtraConfig{"uri": "mongodb://localhost/boom", "namespace": "boom.foo", "debug": true})
-// 	sink1 := transporter.NewNode("crapfile", "file", impl.ExtraConfig{"uri": "stdout://"})
+// source := transporter.NewNode("name1", "mongo", adaptor.ExtraConfig{"uri": "mongodb://localhost/boom", "namespace": "boom.foo", "debug": true})
+// 	sink1 := transporter.NewNode("crapfile", "file", adaptor.ExtraConfig{"uri": "stdout://"})
 // 	source.Add(sink1)
 // 'source' will have a Path of 'name1', and 'sink1' will have a path of 'name1/sink1'
 func (n *Node) Path() string {
@@ -109,7 +109,7 @@ func (n *Node) Add(node *Node) *Node {
 	return n
 }
 
-// Init sets up the node for action.  It creates a pipe and impl for this node,
+// Init sets up the node for action.  It creates a pipe and adaptor for this node,
 // and then recurses down the tree calling Init on each child
 func (n *Node) Init(interval time.Duration) (err error) {
 	if n.Parent == nil { // we don't have a parent, we're the source
@@ -118,7 +118,7 @@ func (n *Node) Init(interval time.Duration) (err error) {
 		n.pipe = pipe.NewPipe(n.Parent.pipe, n.Path(), interval)
 	}
 
-	n.impl, err = impl.CreateImpl(n.Type, n.Extra, n.pipe)
+	n.adaptor, err = adaptor.Createadaptor(n.Type, n.Extra, n.pipe)
 	if err != nil {
 		return err
 	}
@@ -132,18 +132,18 @@ func (n *Node) Init(interval time.Duration) (err error) {
 	return nil
 }
 
-// Stop's this node's impl, and sends a stop to each child of this node
+// Stop's this node's adaptor, and sends a stop to each child of this node
 func (n *Node) Stop() {
-	n.impl.Stop()
+	n.adaptor.Stop()
 	for _, node := range n.Children {
 		node.Stop()
 	}
 }
 
 // Start starts the nodes children in a go routine, and then runs either Start() or Listen()
-// on the node's impl.  Root nodes (nodes with no parent) will run Start()
+// on the node's adaptor.  Root nodes (nodes with no parent) will run Start()
 // and will emit messages to it's children,
-// All descendant nodes run Listen() on the impl
+// All descendant nodes run Listen() on the adaptor
 func (n *Node) Start() error {
 	for _, child := range n.Children {
 		go func(node *Node) {
@@ -152,16 +152,16 @@ func (n *Node) Start() error {
 	}
 
 	if n.Parent == nil {
-		return n.impl.Start()
+		return n.adaptor.Start()
 	}
 
-	return n.impl.Listen()
+	return n.adaptor.Listen()
 }
 
 // Validate ensures that the node tree conforms to a proper structure.
 // Node trees must have at least one source, and one sink.
 // dangling transformers are forbidden.  Validate only knows about default adaptors
-// in the impl package, it can't validate any custom adaptors
+// in the adaptor package, it can't validate any custom adaptors
 func (n *Node) Validate() bool {
 
 	// the root node should have children

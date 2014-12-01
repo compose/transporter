@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/events"
-	"github.com/compose/transporter/pkg/impl"
 	"github.com/compose/transporter/pkg/pipe"
 )
 
@@ -21,33 +21,33 @@ var (
 	}
 )
 
-// a noop node impl to help test
-type TestImpl struct {
+// a noop node adaptor to help test
+type Testadaptor struct {
 	value string
 }
 
-func NewTestImpl(p *pipe.Pipe, extra impl.ExtraConfig) (impl.Impl, error) {
+func NewTestadaptor(p *pipe.Pipe, extra adaptor.ExtraConfig) (adaptor.StopStartListener, error) {
 	val, ok := extra["value"]
 	if !ok {
 		return nil, errors.New("this is an error")
 	}
-	return &TestImpl{value: val.(string)}, nil
+	return &Testadaptor{value: val.(string)}, nil
 }
 
-func (s *TestImpl) Stop() error {
+func (s *Testadaptor) Stop() error {
 	return nil
 }
 
-func (s *TestImpl) Start() error {
+func (s *Testadaptor) Start() error {
 	return nil
 }
 
-func (s *TestImpl) Listen() error {
+func (s *Testadaptor) Listen() error {
 	return nil
 }
 
 func TestPipelineString(t *testing.T) {
-	impl.Register("source", NewTestImpl)
+	adaptor.Register("source", NewTestadaptor)
 
 	data := []struct {
 		in           *Node

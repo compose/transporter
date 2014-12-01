@@ -1,4 +1,4 @@
-package impl
+package adaptor
 
 import (
 	"fmt"
@@ -22,7 +22,7 @@ type Transformer struct {
 	vm     *otto.Otto
 }
 
-func NewTransformer(p *pipe.Pipe, extra ExtraConfig) (Impl, error) {
+func NewTransformer(p *pipe.Pipe, extra ExtraConfig) (StopStartListener, error) {
 	var (
 		conf TransformerConfig
 		err  error

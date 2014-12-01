@@ -83,7 +83,7 @@ func ExitEvent(ts int64, version string, endpoints map[string]string) Event {
 }
 
 //
-// lets keep track of metrics on a nodeimpl, and send them out periodically to our event chan
+// lets keep track of metrics on a nodeadaptor, and send them out periodically to our event chan
 type NodeMetrics struct {
 	ticker     *time.Ticker
 	eChan      chan Event

@@ -1,4 +1,4 @@
-package impl
+package adaptor
 
 import (
 	"fmt"
@@ -28,7 +28,7 @@ type Rethinkdb struct {
 	client *gorethink.Session
 }
 
-func NewRethinkdb(p *pipe.Pipe, extra ExtraConfig) (Impl, error) {
+func NewRethinkdb(p *pipe.Pipe, extra ExtraConfig) (StopStartListener, error) {
 	var (
 		conf RethinkdbConfig
 		err  error

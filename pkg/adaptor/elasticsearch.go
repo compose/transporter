@@ -1,4 +1,4 @@
-package impl
+package adaptor
 
 import (
 	"fmt"
@@ -23,7 +23,7 @@ type Elasticsearch struct {
 	running bool
 }
 
-func NewElasticsearch(p *pipe.Pipe, extra ExtraConfig) (Impl, error) {
+func NewElasticsearch(p *pipe.Pipe, extra ExtraConfig) (StopStartListener, error) {
 	var (
 		conf ElasticsearchConfig
 		err  error

@@ -3,7 +3,7 @@ package transporter
 import (
 	"testing"
 
-	"github.com/compose/transporter/pkg/impl"
+	"github.com/compose/transporter/pkg/adaptor"
 )
 
 func TestNodeString(t *testing.T) {
@@ -34,19 +34,19 @@ func TestValidate(t *testing.T) {
 		out bool
 	}{
 		{
-			NewNode("first", "mongo", impl.ExtraConfig{}),
+			NewNode("first", "mongo", adaptor.ExtraConfig{}),
 			false,
 		},
 		{
-			NewNode("second", "mongo", impl.ExtraConfig{}).Add(NewNode("name", "mongo", impl.ExtraConfig{})),
+			NewNode("second", "mongo", adaptor.ExtraConfig{}).Add(NewNode("name", "mongo", adaptor.ExtraConfig{})),
 			true,
 		},
 		{
-			NewNode("third", "mongo", impl.ExtraConfig{}).Add(NewNode("name", "transformer", impl.ExtraConfig{})),
+			NewNode("third", "mongo", adaptor.ExtraConfig{}).Add(NewNode("name", "transformer", adaptor.ExtraConfig{})),
 			false,
 		},
 		{
-			NewNode("fourth", "mongo", impl.ExtraConfig{}).Add(NewNode("name", "transformer", impl.ExtraConfig{}).Add(NewNode("name", "mongo", impl.ExtraConfig{}))),
+			NewNode("fourth", "mongo", adaptor.ExtraConfig{}).Add(NewNode("name", "transformer", adaptor.ExtraConfig{}).Add(NewNode("name", "mongo", adaptor.ExtraConfig{}))),
 			true,
 		},
 	}
@@ -64,15 +64,15 @@ func TestPath(t *testing.T) {
 		out string
 	}{
 		{
-			NewNode("first", "mongo", impl.ExtraConfig{}),
+			NewNode("first", "mongo", adaptor.ExtraConfig{}),
 			"first",
 		},
 		{
-			NewNode("first", "mongo", impl.ExtraConfig{}).Add(NewNode("second", "mongo", impl.ExtraConfig{})),
+			NewNode("first", "mongo", adaptor.ExtraConfig{}).Add(NewNode("second", "mongo", adaptor.ExtraConfig{})),
 			"first/second",
 		},
 		{
-			NewNode("first", "mongo", impl.ExtraConfig{}).Add(NewNode("second", "transformer", impl.ExtraConfig{}).Add(NewNode("third", "mongo", impl.ExtraConfig{}))),
+			NewNode("first", "mongo", adaptor.ExtraConfig{}).Add(NewNode("second", "transformer", adaptor.ExtraConfig{}).Add(NewNode("third", "mongo", adaptor.ExtraConfig{}))),
 			"first/second/third",
 		},
 	}
