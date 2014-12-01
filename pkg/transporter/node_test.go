@@ -16,7 +16,7 @@ func TestNodeString(t *testing.T) {
 			" - Source:                                                                                                 ",
 		},
 		{
-			NewNode("name", "mongodb", map[string]interface{}{"namespace": "ns", "uri": "uri"}),
+			NewNode("name", "mongodb", adaptor.Config{"uri": "uri", "namespace": "ns", "debug": false}),
 			" - Source:         name                                     mongodb         ns                             uri",
 		},
 	}

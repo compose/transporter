@@ -35,7 +35,7 @@ type Node struct {
 	pipe    *pipe.Pipe
 }
 
-func NewNode(name, kind string, extra map[string]interface{}) *Node {
+func NewNode(name, kind string, extra adaptor.Config) *Node {
 	return &Node{
 		Name:     name,
 		Type:     kind,

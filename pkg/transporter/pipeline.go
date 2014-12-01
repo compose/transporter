@@ -22,8 +22,8 @@ type Pipeline struct {
 // uses the events.HttpPostEmitter to deliver metrics.
 // eg.
 //   source :=
-//   	transporter.NewNode("source", "mongo", map[string]interface{}{"uri": "mongodb://localhost/", "namespace": "boom.foo", "debug": false, "tail": true}).
-// 	  	Add(transporter.NewNode("out", "file", map[string]interface{}{"uri": "stdout://"}))
+//   	transporter.NewNode("source", "mongo", adaptor.Config{"uri": "mongodb://localhost/", "namespace": "boom.foo", "debug": false, "tail": true}).
+// 	  	Add(transporter.NewNode("out", "file", adaptor.Config{"uri": "stdout://"}))
 //   pipeline, err := transporter.NewDefaultPipeline(source, events.Api{Uri: "http://localhost/endpoint"}, 1*time.Second)
 //   if err != nil {
 // 	  fmt.Println(err)
@@ -38,8 +38,8 @@ func NewDefaultPipeline(source *Node, api events.Api) (*Pipeline, error) {
 // NewPipeline creates a new Transporter Pipeline using the given tree of nodes, and Event Emitter
 // eg.
 //   source :=
-//   	transporter.NewNode("source", "mongo", map[string]interface{}{"uri": "mongodb://localhost/", "namespace": "boom.foo", "debug": false, "tail": true}).
-// 	  	Add(transporter.NewNode("out", "file", map[string]interface{}{"uri": "stdout://"}))
+//   	transporter.NewNode("source", "mongo", adaptor.Config{"uri": "mongodb://localhost/", "namespace": "boom.foo", "debug": false, "tail": true}).
+// 	  	Add(transporter.NewNode("out", "file", adaptor.Config{"uri": "stdout://"}))
 //   pipeline, err := transporter.NewPipeline(source, events.NewNoopEmitter(), 1*time.Second)
 //   if err != nil {
 // 	  fmt.Println(err)

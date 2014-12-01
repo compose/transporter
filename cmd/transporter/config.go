@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/events"
 	"github.com/compose/transporter/pkg/transporter"
 	"github.com/nu7hatch/gouuid"
@@ -24,14 +25,14 @@ type Config struct {
 
 type Node struct {
 	Uuid     string
-	Name     string                 `json:"name"`
-	Type     string                 `json:"type"`
-	Extra    map[string]interface{} `json:"extra"`
-	Children []*Node                `json:"children"`
+	Name     string         `json:"name"`
+	Type     string         `json:"type"`
+	Extra    adaptor.Config `json:"extra"`
+	Children []*Node        `json:"children"`
 	RootUuid string
 }
 
-func NewNode(name, kind string, extra map[string]interface{}) (node Node, err error) {
+func NewNode(name, kind string, extra adaptor.Config) (node Node, err error) {
 	uuid, err := uuid.NewV4()
 	if err != nil {
 		return node, err

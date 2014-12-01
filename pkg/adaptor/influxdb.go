@@ -26,7 +26,7 @@ type Influxdb struct {
 
 func NewInfluxdb(p *pipe.Pipe, extra Config) (StopStartListener, error) {
 	var (
-		conf DBConfig
+		conf dbConfig
 		err  error
 	)
 	if err = extra.Construct(&conf); err != nil {

@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/events"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -65,8 +66,8 @@ func TestFileToFile(t *testing.T) {
 	setupFiles(inFile, outFile)
 
 	// create the source node and attach our sink
-	outNode := NewNode("localfileout", "file", map[string]interface{}{"uri": "file://" + outFile}).
-		Add(NewNode("localfilein", "file", map[string]interface{}{"uri": "file://" + inFile}))
+	outNode := NewNode("localfileout", "file", adaptor.Config{"uri": "file://" + outFile}).
+		Add(NewNode("localfilein", "file", adaptor.Config{"uri": "file://" + inFile}))
 
 	// create the pipeline
 	p, err := NewDefaultPipeline(outNode, testApiConfig)
@@ -108,8 +109,8 @@ func TestMongoToMongo(t *testing.T) {
 	)
 
 	// create the source node and attach our sink
-	outNode := NewNode("localOutmongo", "mongo", map[string]interface{}{"uri": mongoUri, "namespace": outNs}).
-		Add(NewNode("localInmongo", "mongo", map[string]interface{}{"uri": mongoUri, "namespace": inNs}))
+	outNode := NewNode("localOutmongo", "mongo", adaptor.Config{"uri": mongoUri, "namespace": outNs}).
+		Add(NewNode("localInmongo", "mongo", adaptor.Config{"uri": mongoUri, "namespace": inNs}))
 
 	// create the pipeline
 	p, err := NewDefaultPipeline(outNode, testApiConfig)

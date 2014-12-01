@@ -41,25 +41,25 @@ func TestCreateadaptor(t *testing.T) {
 
 	data := []struct {
 		kind  string
-		extra map[string]interface{}
+		extra Config
 		out   *Testadaptor
 		err   string
 	}{
 		{
 			"testadaptor",
-			map[string]interface{}{"value": "rockettes"},
+			Config{"value": "rockettes"},
 			&Testadaptor{value: "rockettes"},
 			"",
 		},
 		{
 			"testadaptor",
-			map[string]interface{}{"blah": "rockettes"},
+			Config{"blah": "rockettes"},
 			&Testadaptor{},
 			"this is an error",
 		},
 		{
 			"notasource",
-			map[string]interface{}{"blah": "rockettes"},
+			Config{"blah": "rockettes"},
 			nil,
 			"adaptor not found in registry",
 		},

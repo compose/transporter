@@ -25,7 +25,7 @@ type Elasticsearch struct {
 
 func NewElasticsearch(p *pipe.Pipe, extra Config) (StopStartListener, error) {
 	var (
-		conf DBConfig
+		conf dbConfig
 		err  error
 	)
 	if err = extra.Construct(&conf); err != nil {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/transporter"
 	// "github.com/kr/pretty"
 	"github.com/nu7hatch/gouuid"
@@ -108,7 +109,7 @@ func (js *JavascriptBuilder) transform(node Node, call otto.FunctionCall) (Node,
 	if err != nil {
 		return node, err
 	}
-	transformer, err := NewNode(name.String(), "transformer", map[string]interface{}{"filename": filename})
+	transformer, err := NewNode(name.String(), "transformer", adaptor.Config{"filename": filename})
 	if err != nil {
 		return node, err
 	}

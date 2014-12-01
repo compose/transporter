@@ -10,8 +10,8 @@ import (
 )
 
 var (
-	fakesourceCN = NewNode("source1", "source", map[string]interface{}{"value": "rockettes"})
-	fileNode     = NewNode("localfile", "file", map[string]interface{}{"uri": "file:///tmp/crap"})
+	fakesourceCN = NewNode("source1", "source", adaptor.Config{"value": "rockettes"})
+	fileNode     = NewNode("localfile", "file", adaptor.Config{"uri": "file:///tmp/crap"})
 )
 
 var (

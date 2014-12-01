@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/events"
 )
 
@@ -69,8 +70,8 @@ func TestEventsBroadcast(t *testing.T) {
 	setupFiles(inFile, outFile)
 
 	// set up the nodes
-	dummyOutNode := NewNode("dummyFileOut", "file", map[string]interface{}{"uri": "file://" + outFile})
-	dummyOutNode.Add(NewNode("dummyFileIn", "file", map[string]interface{}{"uri": "file://" + inFile}))
+	dummyOutNode := NewNode("dummyFileOut", "file", adaptor.Config{"uri": "file://" + outFile})
+	dummyOutNode.Add(NewNode("dummyFileIn", "file", adaptor.Config{"uri": "file://" + inFile}))
 
 	p, err := NewDefaultPipeline(dummyOutNode, eventApiConfig)
 	if err != nil {
