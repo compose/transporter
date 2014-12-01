@@ -61,6 +61,7 @@ func (e *httpPostEmitter) Stop() {
 	s := make(chan bool)
 	e.chstop <- s
 	<-s
+	e.inflight.Wait()
 }
 
 func (e *httpPostEmitter) startEventListener() {
@@ -80,6 +81,10 @@ func (e *httpPostEmitter) startEventListener() {
 				}
 
 				req, err := http.NewRequest("POST", e.uri, bytes.NewBuffer(ba))
+				if err != nil {
+					log.Printf("EventEmitter Error: %s", err)
+					return
+				}
 				req.Header.Set("Content-Type", "application/json")
 				if len(e.pid) > 0 && len(e.key) > 0 {
 					req.SetBasicAuth(e.pid, e.key)
