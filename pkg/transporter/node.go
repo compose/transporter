@@ -18,18 +18,18 @@ import (
 // Nodes are constructed in a tree, with the first node broadcasting
 // data to each of it's children.
 // Node tree's can be constructed as follows:
-// 	source := transporter.NewNode("name1", "mongo", adaptor.ExtraConfig{"uri": "mongodb://localhost/boom", "namespace": "boom.foo", "debug": true})
-// 	sink1 := transporter.NewNode("crapfile", "file", adaptor.ExtraConfig{"uri": "stdout://"})
-// 	sink2 := transporter.NewNode("crapfile2", "file", adaptor.ExtraConfig{"uri": "stdout://"})
+// 	source := transporter.NewNode("name1", "mongo", adaptor.Config{"uri": "mongodb://localhost/boom", "namespace": "boom.foo", "debug": true})
+// 	sink1 := transporter.NewNode("crapfile", "file", adaptor.Config{"uri": "stdout://"})
+// 	sink2 := transporter.NewNode("crapfile2", "file", adaptor.Config{"uri": "stdout://"})
 // 	source.Add(sink1)
 // 	source.Add(sink2)
 //
 type Node struct {
-	Name     string              `json:"name"`     // the name of this node
-	Type     string              `json:"type"`     // the node's type, used to create the adaptorementation
-	Extra    adaptor.ExtraConfig `json:"extra"`    // extra config options that are passed to the adaptorementation
-	Children []*Node             `json:"children"` // the nodes are set up as a tree, this is an array of this nodes children
-	Parent   *Node               `json:"parent"`   // this node's parent node, if this is nil, this is a 'source' node
+	Name     string         `json:"name"`     // the name of this node
+	Type     string         `json:"type"`     // the node's type, used to create the adaptorementation
+	Extra    adaptor.Config `json:"extra"`    // extra config options that are passed to the adaptorementation
+	Children []*Node        `json:"children"` // the nodes are set up as a tree, this is an array of this nodes children
+	Parent   *Node          `json:"parent"`   // this node's parent node, if this is nil, this is a 'source' node
 
 	adaptor adaptor.StopStartListener
 	pipe    *pipe.Pipe
@@ -89,8 +89,8 @@ func (n *Node) depth() int {
 
 // Path returns a string representation of the names of all the node's parents concatenated with "/"  used in metrics
 // eg. for the following tree
-// source := transporter.NewNode("name1", "mongo", adaptor.ExtraConfig{"uri": "mongodb://localhost/boom", "namespace": "boom.foo", "debug": true})
-// 	sink1 := transporter.NewNode("crapfile", "file", adaptor.ExtraConfig{"uri": "stdout://"})
+// source := transporter.NewNode("name1", "mongo", adaptor.Config{"uri": "mongodb://localhost/boom", "namespace": "boom.foo", "debug": true})
+// 	sink1 := transporter.NewNode("crapfile", "file", adaptor.Config{"uri": "stdout://"})
 // 	source.Add(sink1)
 // 'source' will have a Path of 'name1', and 'sink1' will have a path of 'name1/sink1'
 func (n *Node) Path() string {

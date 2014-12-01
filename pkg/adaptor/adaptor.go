@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/compose/transporter/pkg/pipe"
 )
@@ -26,7 +27,7 @@ var (
 // Register registers an adaptor (database adaptor) for use with Transporter
 // The second argument, fn, is a constructor that returns an instance of the
 // given adaptor
-func Register(name string, fn func(*pipe.Pipe, ExtraConfig) (StopStartListener, error)) {
+func Register(name string, fn func(*pipe.Pipe, Config) (StopStartListener, error)) {
 	registry[name] = fn
 }
 
@@ -40,11 +41,11 @@ type StopStartListener interface {
 	Stop() error
 }
 
-// Createadaptor instantiates an adaptor given the adaptor type and the ExtraConfig.
+// Createadaptor instantiates an adaptor given the adaptor type and the Config.
 // Constructors are expected to be in the form
-//   func NewWhatever(p *pipe.Pipe, extra ExtraConfig) (*Whatever, error) {}
+//   func NewWhatever(p *pipe.Pipe, extra Config) (*Whatever, error) {}
 // and are expected to confirm to the adaptor interface
-func Createadaptor(kind string, extra ExtraConfig, p *pipe.Pipe) (adaptor StopStartListener, err error) {
+func Createadaptor(kind string, extra Config, p *pipe.Pipe) (adaptor StopStartListener, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("cannot create node: %v", r)
@@ -73,13 +74,13 @@ func Createadaptor(kind string, extra ExtraConfig, p *pipe.Pipe) (adaptor StopSt
 	return val.Interface().(StopStartListener), err
 }
 
-// ExtraConfig is an alias to map[string]interface{} and helps us
+// Config is an alias to map[string]interface{} and helps us
 // turn a fuzzy document into a conrete named struct
-type ExtraConfig map[string]interface{}
+type Config map[string]interface{}
 
-// Construct will Marshal the ExtraConfig and then Unmarshal it into a
+// Construct will Marshal the Config and then Unmarshal it into a
 // named struct the generic map into a proper struct
-func (c *ExtraConfig) Construct(conf interface{}) error {
+func (c *Config) Construct(conf interface{}) error {
 	b, err := json.Marshal(c)
 	if err != nil {
 		return err
@@ -94,7 +95,7 @@ func (c *ExtraConfig) Construct(conf interface{}) error {
 
 // GetString returns value stored in the config under the given key, or
 // an empty string if the key doesn't exist, or isn't a string value
-func (c ExtraConfig) GetString(key string) string {
+func (c Config) GetString(key string) string {
 	i, ok := c[key]
 	if !ok {
 		return ""
@@ -104,4 +105,27 @@ func (c ExtraConfig) GetString(key string) string {
 		return ""
 	}
 	return s
+}
+
+// split a namespace into it's elements
+// this covers a few standard cases, elasticsearch, mongo, rethink, but it's
+// expected to be all inclusive.
+func (c *Config) splitNamespace() (string, string, error) {
+	fields := strings.SplitN(c.GetString("namespace"), ".", 2)
+
+	if len(fields) != 2 {
+		return "", "", fmt.Errorf("malformed namespace, expected a '.' deliminated string.")
+	}
+	return fields[0], fields[1], nil
+}
+
+func NewDBConfig(uri, namespace string, debug bool) DBConfig {
+	return DBConfig{Uri: uri, Namespace: namespace, Debug: debug}
+}
+
+// InfluxdbConfig options
+type DBConfig struct {
+	Uri       string `json:"uri"`       // the database uri
+	Namespace string `json:"namespace"` // namespace
+	Debug     bool   `json:"debug"`     // debug mode
 }

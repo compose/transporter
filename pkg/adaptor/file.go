@@ -18,7 +18,7 @@ type File struct {
 	filehandle *os.File
 }
 
-func NewFile(p *pipe.Pipe, extra ExtraConfig) (StopStartListener, error) {
+func NewFile(p *pipe.Pipe, extra Config) (StopStartListener, error) {
 
 	var (
 		conf FileConfig

@@ -3,7 +3,6 @@ package adaptor
 import (
 	"fmt"
 	"net/url"
-	"strings"
 
 	"github.com/compose/transporter/pkg/message"
 	"github.com/compose/transporter/pkg/pipe"
@@ -25,9 +24,9 @@ type Influxdb struct {
 	influxClient *client.Client
 }
 
-func NewInfluxdb(p *pipe.Pipe, extra ExtraConfig) (StopStartListener, error) {
+func NewInfluxdb(p *pipe.Pipe, extra Config) (StopStartListener, error) {
 	var (
-		conf InfluxdbConfig
+		conf DBConfig
 		err  error
 	)
 	if err = extra.Construct(&conf); err != nil {
@@ -44,7 +43,7 @@ func NewInfluxdb(p *pipe.Pipe, extra ExtraConfig) (StopStartListener, error) {
 		pipe: p,
 	}
 
-	i.database, i.series_name, err = i.splitNamespace(conf.Namespace)
+	i.database, i.series_name, err = extra.splitNamespace()
 	if err != nil {
 		return i, err
 	}
@@ -108,23 +107,4 @@ func (i *Influxdb) setupClient() (influxClient *client.Client, err error) {
 	clientConfig.Host = i.uri.Host
 
 	return client.NewClient(clientConfig)
-}
-
-/*
- * split a influx namespace into a database and a series name
- */
-func (i *Influxdb) splitNamespace(namespace string) (string, string, error) {
-	fields := strings.SplitN(namespace, ".", 2)
-
-	if len(fields) != 2 {
-		return "", "", fmt.Errorf("malformed influx namespace.")
-	}
-	return fields[0], fields[1], nil
-}
-
-// InfluxdbConfig options
-type InfluxdbConfig struct {
-	Uri       string `json:"uri"`       // the database uri
-	Namespace string `json:"namespace"` // namespace
-	Debug     bool   `json:"debug"`     // debug mode
 }

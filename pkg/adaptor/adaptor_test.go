@@ -16,7 +16,7 @@ type Testadaptor struct {
 	value string
 }
 
-func NewTestadaptor(p *pipe.Pipe, extra ExtraConfig) (StopStartListener, error) {
+func NewTestadaptor(p *pipe.Pipe, extra Config) (StopStartListener, error) {
 	val, ok := extra["value"]
 	if !ok {
 		return nil, errors.New("this is an error")

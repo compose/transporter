@@ -28,9 +28,9 @@ type Rethinkdb struct {
 	client *gorethink.Session
 }
 
-func NewRethinkdb(p *pipe.Pipe, extra ExtraConfig) (StopStartListener, error) {
+func NewRethinkdb(p *pipe.Pipe, extra Config) (StopStartListener, error) {
 	var (
-		conf RethinkdbConfig
+		conf DBConfig
 		err  error
 	)
 	if err = extra.Construct(&conf); err != nil {
@@ -47,7 +47,7 @@ func NewRethinkdb(p *pipe.Pipe, extra ExtraConfig) (StopStartListener, error) {
 		pipe: p,
 	}
 
-	r.database, r.table, err = r.splitNamespace(conf.Namespace)
+	r.database, r.table, err = extra.splitNamespace()
 	if err != nil {
 		return r, err
 	}
@@ -114,23 +114,7 @@ func (r *Rethinkdb) setupClient() (*gorethink.Session, error) {
 	return client, nil
 }
 
-/*
- * split a rethinkdb namespace into a database and table
- */
-func (r *Rethinkdb) splitNamespace(namespace string) (string, string, error) {
-	fields := strings.SplitN(namespace, ".", 2)
-
-	if len(fields) != 2 {
-		return "", "", fmt.Errorf("malformed rethinkdb namespace.")
-	}
-	return fields[0], fields[1], nil
-}
-
-/*
- *
- * we need to take the rethink response and turn it into something we can consume elsewhere
- *
- */
+// handleresponse takes the rethink response and turn it into something we can consume elsewhere
 func (r *Rethinkdb) handleResponse(resp *gorethink.WriteResponse) error {
 	if resp.Errors != 0 {
 		if !strings.Contains(resp.FirstError, "Duplicate primary key") { // we don't care about this error
@@ -141,11 +125,4 @@ func (r *Rethinkdb) handleResponse(resp *gorethink.WriteResponse) error {
 		}
 	}
 	return nil
-}
-
-// RethinkdbConfig options
-type RethinkdbConfig struct {
-	Uri       string `json:"uri"`       // the database uri
-	Namespace string `json:"namespace"` // namespace
-	Debug     bool   `json:"debug"`     // debug mode
 }

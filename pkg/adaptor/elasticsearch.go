@@ -23,9 +23,9 @@ type Elasticsearch struct {
 	running bool
 }
 
-func NewElasticsearch(p *pipe.Pipe, extra ExtraConfig) (StopStartListener, error) {
+func NewElasticsearch(p *pipe.Pipe, extra Config) (StopStartListener, error) {
 	var (
-		conf ElasticsearchConfig
+		conf DBConfig
 		err  error
 	)
 	if err = extra.Construct(&conf); err != nil {
@@ -42,7 +42,7 @@ func NewElasticsearch(p *pipe.Pipe, extra ExtraConfig) (StopStartListener, error
 		pipe: p,
 	}
 
-	e.index, e._type, err = e.splitNamespace(conf.Namespace)
+	e.index, e._type, err = extra.splitNamespace()
 	if err != nil {
 		return e, err
 	}
@@ -129,23 +129,4 @@ func (e *Elasticsearch) runCommand(msg *message.Msg) error {
 
 func (e *Elasticsearch) getNamespace() string {
 	return strings.Join([]string{e.index, e._type}, ".")
-}
-
-/*
- * split a elasticsearch namespace into a index and a type
- */
-func (e *Elasticsearch) splitNamespace(namespace string) (string, string, error) {
-	fields := strings.SplitN(namespace, ".", 2)
-
-	if len(fields) != 2 {
-		return "", "", fmt.Errorf("malformed elasticsearch namespace.")
-	}
-	return fields[0], fields[1], nil
-}
-
-// ElasticsearchConfig options
-type ElasticsearchConfig struct {
-	Uri       string `json:"uri"`       // the database uri
-	Namespace string `json:"namespace"` // namespace
-	Debug     bool   `json:"debug"`     // debug mode
 }

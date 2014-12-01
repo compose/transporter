@@ -34,19 +34,19 @@ func TestValidate(t *testing.T) {
 		out bool
 	}{
 		{
-			NewNode("first", "mongo", adaptor.ExtraConfig{}),
+			NewNode("first", "mongo", adaptor.Config{}),
 			false,
 		},
 		{
-			NewNode("second", "mongo", adaptor.ExtraConfig{}).Add(NewNode("name", "mongo", adaptor.ExtraConfig{})),
+			NewNode("second", "mongo", adaptor.Config{}).Add(NewNode("name", "mongo", adaptor.Config{})),
 			true,
 		},
 		{
-			NewNode("third", "mongo", adaptor.ExtraConfig{}).Add(NewNode("name", "transformer", adaptor.ExtraConfig{})),
+			NewNode("third", "mongo", adaptor.Config{}).Add(NewNode("name", "transformer", adaptor.Config{})),
 			false,
 		},
 		{
-			NewNode("fourth", "mongo", adaptor.ExtraConfig{}).Add(NewNode("name", "transformer", adaptor.ExtraConfig{}).Add(NewNode("name", "mongo", adaptor.ExtraConfig{}))),
+			NewNode("fourth", "mongo", adaptor.Config{}).Add(NewNode("name", "transformer", adaptor.Config{}).Add(NewNode("name", "mongo", adaptor.Config{}))),
 			true,
 		},
 	}
@@ -64,15 +64,15 @@ func TestPath(t *testing.T) {
 		out string
 	}{
 		{
-			NewNode("first", "mongo", adaptor.ExtraConfig{}),
+			NewNode("first", "mongo", adaptor.Config{}),
 			"first",
 		},
 		{
-			NewNode("first", "mongo", adaptor.ExtraConfig{}).Add(NewNode("second", "mongo", adaptor.ExtraConfig{})),
+			NewNode("first", "mongo", adaptor.Config{}).Add(NewNode("second", "mongo", adaptor.Config{})),
 			"first/second",
 		},
 		{
-			NewNode("first", "mongo", adaptor.ExtraConfig{}).Add(NewNode("second", "transformer", adaptor.ExtraConfig{}).Add(NewNode("third", "mongo", adaptor.ExtraConfig{}))),
+			NewNode("first", "mongo", adaptor.Config{}).Add(NewNode("second", "transformer", adaptor.Config{}).Add(NewNode("third", "mongo", adaptor.Config{}))),
 			"first/second/third",
 		},
 	}
