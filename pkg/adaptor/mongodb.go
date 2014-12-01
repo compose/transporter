@@ -131,7 +131,7 @@ func (m *Mongodb) catData() (err error) {
 			}
 
 			// set up the message
-			msg := message.NewMsg(message.Insert, m.getNamespace(), result)
+			msg := message.NewMsg(message.Insert, result)
 
 			m.pipe.Send(msg)
 			result = bson.M{}
@@ -175,7 +175,7 @@ func (m *Mongodb) tailData() (err error) {
 			}
 			if result.validOp() {
 
-				msg := message.NewMsg(message.OpTypeFromString(result.Op), result.Ns, nil)
+				msg := message.NewMsg(message.OpTypeFromString(result.Op), nil)
 				msg.Timestamp = int64(result.Ts) >> 32
 
 				switch result.Op {

@@ -92,7 +92,7 @@ func (d *File) readFile() (err error) {
 			d.pipe.Err <- err
 			return err
 		}
-		d.pipe.Send(message.NewMsg(message.Insert, d.uri, doc))
+		d.pipe.Send(message.NewMsg(message.Insert, doc))
 	}
 	return nil
 }

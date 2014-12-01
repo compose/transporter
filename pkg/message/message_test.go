@@ -9,7 +9,6 @@ import (
 
 type FakeMessage struct {
 	Op  OpType
-	Ns  string
 	Doc bson.M
 }
 
@@ -19,25 +18,25 @@ func TestNewMsg(t *testing.T) {
 		out *Msg
 	}{
 		{
-			FakeMessage{Op: Insert, Ns: "namespace", Doc: nil},
-			&Msg{Op: Insert, Namespace: "namespace", Id: nil, document: nil},
+			FakeMessage{Op: Insert, Doc: nil},
+			&Msg{Op: Insert, Id: nil, document: nil},
 		},
 		{
-			FakeMessage{Op: Command, Ns: "namespace", Doc: bson.M{"field1": 1}},
-			&Msg{Op: Command, Namespace: "namespace", Id: nil, document: bson.M{"field1": 1}},
+			FakeMessage{Op: Command, Doc: bson.M{"field1": 1}},
+			&Msg{Op: Command, Id: nil, document: bson.M{"field1": 1}},
 		},
 		{
-			FakeMessage{Op: Insert, Ns: "namespace", Doc: bson.M{"id": "nick", "field2": 1}},
-			&Msg{Op: Insert, Namespace: "namespace", Id: "nick", document: bson.M{"field2": 1}, idKey: "id"},
+			FakeMessage{Op: Insert, Doc: bson.M{"id": "nick", "field2": 1}},
+			&Msg{Op: Insert, Id: "nick", document: bson.M{"field2": 1}, idKey: "id"},
 		},
 		{
-			FakeMessage{Op: Insert, Ns: "namespace", Doc: bson.M{"_id": "nick", "field2": 1}},
-			&Msg{Op: Insert, Namespace: "namespace", Id: "nick", document: bson.M{"field2": 1}, idKey: "_id"},
+			FakeMessage{Op: Insert, Doc: bson.M{"_id": "nick", "field2": 1}},
+			&Msg{Op: Insert, Id: "nick", document: bson.M{"field2": 1}, idKey: "_id"},
 		},
 	}
 
 	for _, v := range data {
-		m := NewMsg(v.in.Op, v.in.Ns, v.in.Doc)
+		m := NewMsg(v.in.Op, v.in.Doc)
 
 		if !reflect.DeepEqual(m.Document(), v.out.Document()) {
 			t.Errorf("Bad doc.  expected %v, got %v", v.out.Document(), m.Document())
@@ -55,19 +54,19 @@ func TestDocument(t *testing.T) {
 		out bson.M
 	}{
 		{
-			NewMsg(Insert, "namespace", nil),
+			NewMsg(Insert, nil),
 			nil,
 		},
 		{
-			NewMsg(Insert, "namespace", bson.M{"field": 1}),
+			NewMsg(Insert, bson.M{"field": 1}),
 			bson.M{"field": 1},
 		},
 		{
-			NewMsg(Insert, "namespace", bson.M{"id": "nick", "field": 1}),
+			NewMsg(Insert, bson.M{"id": "nick", "field": 1}),
 			bson.M{"id": "nick", "field": 1},
 		},
 		{
-			NewMsg(Insert, "namespace", bson.M{"_id": "nick", "field": 1}),
+			NewMsg(Insert, bson.M{"_id": "nick", "field": 1}),
 			bson.M{"_id": "nick", "field": 1},
 		},
 	}
@@ -86,33 +85,33 @@ func TestDocumentWithId(t *testing.T) {
 		out   bson.M
 	}{
 		{
-			NewMsg(Insert, "namespace", nil),
+			NewMsg(Insert, nil),
 			"_id",
 			nil,
 		},
 
 		{
-			NewMsg(Insert, "namespace", bson.M{"field": 1}),
+			NewMsg(Insert, bson.M{"field": 1}),
 			"_id",
 			bson.M{"field": 1},
 		},
 		{
-			NewMsg(Insert, "namespace", bson.M{"id": "nick", "field": 1}),
+			NewMsg(Insert, bson.M{"id": "nick", "field": 1}),
 			"id",
 			bson.M{"id": "nick", "field": 1},
 		},
 		{
-			NewMsg(Insert, "namespace", bson.M{"id": "nick", "field": 1}),
+			NewMsg(Insert, bson.M{"id": "nick", "field": 1}),
 			"_id",
 			bson.M{"_id": "nick", "field": 1},
 		},
 		{
-			NewMsg(Insert, "namespace", bson.M{"_id": "nick", "field": 1}),
+			NewMsg(Insert, bson.M{"_id": "nick", "field": 1}),
 			"id",
 			bson.M{"id": "nick", "field": 1},
 		},
 		{
-			NewMsg(Insert, "namespace", bson.M{"id": "nick", "field": 1}),
+			NewMsg(Insert, bson.M{"id": "nick", "field": 1}),
 			"_id",
 			bson.M{"_id": "nick", "field": 1},
 		},
@@ -150,7 +149,7 @@ func TestOriginalIdOnNew(t *testing.T) {
 	}
 
 	for _, v := range data {
-		msg := NewMsg(OpTypeFromString("insertable"), "name.space", v.in)
+		msg := NewMsg(OpTypeFromString("insertable"), v.in)
 		if msg.OriginalId != v.originalId {
 			t.Errorf("NewMsg failed.  expected %+v, got %+v", v.originalId, msg.OriginalId)
 		}
@@ -182,7 +181,7 @@ func TestOriginalIdOnSet(t *testing.T) {
 	}
 
 	for _, v := range data {
-		msg := NewMsg(OpTypeFromString("inserty"), "name.space", nil)
+		msg := NewMsg(OpTypeFromString("inserty"), nil)
 		msg.SetDocument(v.in)
 		if msg.OriginalId != v.originalId {
 			t.Errorf("SetDocument failed.  expected %+v, got %+v", v.originalId, msg.OriginalId)

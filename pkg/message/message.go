@@ -22,7 +22,6 @@ var (
 // being transported.
 type Msg struct {
 	Timestamp  int64
-	Namespace  string
 	Op         OpType
 	Id         interface{}
 	OriginalId interface{}
@@ -32,10 +31,9 @@ type Msg struct {
 
 // NewMsg returns a new Msg with the Id extracted
 // from the original document
-func NewMsg(op OpType, ns string, doc bson.M) *Msg {
+func NewMsg(op OpType, doc bson.M) *Msg {
 	m := &Msg{
 		Timestamp: time.Now().Unix(),
-		Namespace: ns,
 		Op:        op,
 	}
 	if doc != nil {
