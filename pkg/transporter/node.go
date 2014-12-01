@@ -163,14 +163,11 @@ func (n *Node) Start() error {
 // dangling transformers are forbidden.  Validate only knows about default adaptors
 // in the adaptor package, it can't validate any custom adaptors
 func (n *Node) Validate() bool {
-
-	// the root node should have children
-	if n.Parent == nil && len(n.Children) == 0 {
+	if n.Parent == nil && len(n.Children) == 0 { // the root node should have children
 		return false
 	}
 
-	// transformers need children
-	if n.Type == "transformer" && len(n.Children) == 0 {
+	if n.Type == "transformer" && len(n.Children) == 0 { // transformers need children
 		return false
 	}
 
