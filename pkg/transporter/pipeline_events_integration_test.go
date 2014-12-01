@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/compose/transporter/pkg/adaptor"
-	"github.com/compose/transporter/pkg/events"
 )
 
 var (
@@ -56,13 +55,6 @@ func TestEventsBroadcast(t *testing.T) {
 	ts.Start()
 
 	var (
-		eventApiConfig = events.Api{
-			Uri:             ts.URL,
-			Pid:             "asdf",
-			Key:             "jklm",
-			MetricsInterval: 1000,
-		}
-
 		inFile  = "/tmp/dummyFileIn"
 		outFile = "/tmp/dummyFileOut"
 	)
@@ -73,7 +65,7 @@ func TestEventsBroadcast(t *testing.T) {
 	dummyOutNode := NewNode("dummyFileOut", "file", adaptor.Config{"uri": "file://" + outFile})
 	dummyOutNode.Add(NewNode("dummyFileIn", "file", adaptor.Config{"uri": "file://" + inFile}))
 
-	p, err := NewDefaultPipeline(dummyOutNode, eventApiConfig)
+	p, err := NewDefaultPipeline(dummyOutNode, ts.URL, "asdf", "jklm", 1*time.Second)
 	if err != nil {
 		t.Errorf("can't create pipeline, got %s", err.Error())
 		t.FailNow()

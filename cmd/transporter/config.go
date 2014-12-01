@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/compose/transporter/pkg/adaptor"
-	"github.com/compose/transporter/pkg/events"
 	"github.com/compose/transporter/pkg/transporter"
 	"github.com/nu7hatch/gouuid"
 	"github.com/robertkrimen/otto"
@@ -16,7 +15,12 @@ import (
 // as well as information about the api used to handle transporter events, and the interval
 // between metrics events.
 type Config struct {
-	Api   events.Api `json:"api" yaml:"api"`
+	Api struct {
+		Uri             string `json:"uri" yaml:"uri"`           // Uri to connect to
+		MetricsInterval string `json:"interval" yaml:"interval"` // how often to emit metrics, (in ms)
+		Key             string `json:"key" yaml:"key"`           // http basic auth password to send with each event
+		Pid             string `json:"pid" yaml:"pid"`           // http basic auth username to send with each event
+	} `json:"api" yaml:"api"`
 	Nodes map[string]struct {
 		Type string `json:"type" yaml:"type"`
 		Uri  string `json:"uri" yaml:"uri"`

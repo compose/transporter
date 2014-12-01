@@ -30,9 +30,9 @@ type Pipeline struct {
 // 	  os.Exit(1)
 //   }
 // pipeline.Run()
-func NewDefaultPipeline(source *Node, api events.Api) (*Pipeline, error) {
-	emitter := events.HttpPostEmitter(api)
-	return NewPipeline(source, emitter, time.Duration(api.MetricsInterval)*time.Millisecond)
+func NewDefaultPipeline(source *Node, uri, key, pid string, interval time.Duration) (*Pipeline, error) {
+	emitter := events.HttpPostEmitter(uri, key, pid)
+	return NewPipeline(source, emitter, interval)
 }
 
 // NewPipeline creates a new Transporter Pipeline using the given tree of nodes, and Event Emitter

@@ -3,10 +3,10 @@ package main
 import (
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/transporter"
-	// "github.com/kr/pretty"
 	"github.com/nu7hatch/gouuid"
 	"github.com/robertkrimen/otto"
 )
@@ -194,11 +194,16 @@ func (js *JavascriptBuilder) Build() (Application, error) {
 	if err != nil {
 		return nil, err
 	}
-	// pretty.Println(js.nodes)
+
 	for _, node := range js.nodes {
 		n := node.CreateTransporterNode()
 
-		pipeline, err := transporter.NewDefaultPipeline(n, js.app.Config.Api)
+		interval, err := time.ParseDuration(js.app.Config.Api.MetricsInterval)
+		if err != nil {
+			return nil, err
+		}
+
+		pipeline, err := transporter.NewDefaultPipeline(n, js.app.Config.Api.Uri, js.app.Config.Api.Key, js.app.Config.Api.Pid, interval)
 		if err != nil {
 			return js.app, err
 		}

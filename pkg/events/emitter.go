@@ -23,31 +23,23 @@ type Emitter interface {
 	Stop()
 }
 
-// An Api is the definition of the remote endpoint that receieves event and error posts
-// for the HttpPostEmitter.
-// TODO it's kind of janky that this is here, it would be great if this didn't exist, and the
-// HttpPostEmitter just took the uri, etc etc as args.  MetricsInterval isn't even relevent to this
-// package
-type Api struct {
-	Uri             string `json:"uri" yaml:"uri"`           // Uri to connect to
-	MetricsInterval int    `json:"interval" yaml:"interval"` // how often to emit metrics, (in ms)
-	Key             string `json:"key" yaml:"key"`           // http basic auth password to send with each event
-	Pid             string `json:"pid" yaml:"pid"`           // http basic auth username to send with each event
-}
-
 // HttpPostEmitter listens on the event channel and posts the events to an http server
 // Events are serialized into json, and sent via a POST request to the given Uri
 // http errors are logged as warnings to the console, and won't stop the Emitter
-func HttpPostEmitter(api Api) *httpPostEmitter {
+func HttpPostEmitter(uri, key, pid string) *httpPostEmitter {
 	return &httpPostEmitter{
-		api:      api,
+		uri:      uri,
+		key:      key,
+		pid:      pid,
 		chstop:   make(chan chan bool),
 		inflight: &sync.WaitGroup{},
 	}
 }
 
 type httpPostEmitter struct {
-	api Api
+	uri string
+	key string
+	pid string
 
 	inflight *sync.WaitGroup
 	ch       chan Event
@@ -87,19 +79,20 @@ func (e *httpPostEmitter) startEventListener() {
 					return
 				}
 
-				req, err := http.NewRequest("POST", e.api.Uri, bytes.NewBuffer(ba))
+				req, err := http.NewRequest("POST", e.uri, bytes.NewBuffer(ba))
 				req.Header.Set("Content-Type", "application/json")
-				if len(e.api.Pid) > 0 && len(e.api.Key) > 0 {
-					req.SetBasicAuth(e.api.Pid, e.api.Key)
+				if len(e.pid) > 0 && len(e.key) > 0 {
+					req.SetBasicAuth(e.pid, e.key)
 				}
 				cli := &http.Client{}
 				resp, err := cli.Do(req)
-				defer resp.Body.Close()
+
 				if err != nil {
 					log.Printf("EventEmitter Error: %s", err)
 					return
 				}
 				_, err = ioutil.ReadAll(resp.Body)
+				defer resp.Body.Close()
 				if resp.StatusCode != 200 && resp.StatusCode != 201 {
 					log.Printf("EventEmitter Error: http error code, expected 200 or 201, got %d", resp.StatusCode)
 					return
