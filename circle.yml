@@ -5,9 +5,10 @@ machine:
 
 dependencies:
   override:
-    - go get ./...
-    - test -d $HOME/boto || pip install -t $HOME/boto boto
     - test -e /home/ubuntu/.go_workspace/src/github.com/compose/transporter || ln -s /home/ubuntu/transporter/ /home/ubuntu/.go_workspace/src/github.com/compose/
+    - cd /home/ubuntu/.go_workspace/src/github.com/compose/ && go get ./...
+    - test -d $HOME/boto || pip install -t $HOME/boto boto
+
 
   cache_directories:
   - "/home/ubuntu/boto"
