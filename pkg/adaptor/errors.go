@@ -9,7 +9,8 @@ import (
 const (
 	NOTICE ErrorLevel = iota
 	WARNING
-	FATAL
+	ERROR
+	CRITICAL
 )
 
 type ErrorLevel int
@@ -20,8 +21,10 @@ func levelToString(lvl ErrorLevel) string {
 		return "NOTICE"
 	case WARNING:
 		return "WARNING"
-	case FATAL:
-		return "FATAL"
+	case ERROR:
+		return "ERROR"
+	case CRITICAL:
+		return "CRITICAL"
 	default:
 		return "UNKNOWN"
 	}

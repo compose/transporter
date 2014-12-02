@@ -25,6 +25,7 @@ func NewFile(p *pipe.Pipe, extra Config) (StopStartListener, error) {
 		err  error
 	)
 	if err = extra.Construct(&conf); err != nil {
+		p.Err <- NewError(CRITICAL, fmt.Sprintf("Can't configure adaptor (%s)", err.Error()), nil)
 		return nil, err
 	}
 
@@ -53,7 +54,7 @@ func (d *File) Listen() (err error) {
 		filename := strings.Replace(d.uri, "file://", "", 1)
 		d.filehandle, err = os.Create(filename)
 		if err != nil {
-			d.pipe.Err <- NewError(FATAL, fmt.Sprintf("Can't open output file (%s)", err.Error()), nil)
+			d.pipe.Err <- NewError(CRITICAL, fmt.Sprintf("Can't open output file (%s)", err.Error()), nil)
 			return err
 		}
 	}
@@ -76,7 +77,7 @@ func (d *File) readFile() (err error) {
 	filename := strings.Replace(d.uri, "file://", "", 1)
 	d.filehandle, err = os.Open(filename)
 	if err != nil {
-		d.pipe.Err <- err
+		d.pipe.Err <- NewError(CRITICAL, fmt.Sprintf("Can't open input file (%s)", err.Error()), nil)
 		return err
 	}
 
@@ -86,7 +87,7 @@ func (d *File) readFile() (err error) {
 		if err := decoder.Decode(&doc); err == io.EOF {
 			break
 		} else if err != nil {
-			d.pipe.Err <- err
+			d.pipe.Err <- NewError(ERROR, fmt.Sprintf("Can't marshal document (%s)", err.Error()), nil)
 			return err
 		}
 		d.pipe.Send(message.NewMsg(message.Insert, doc))
@@ -100,7 +101,8 @@ func (d *File) readFile() (err error) {
 func (d *File) dumpMessage(msg *message.Msg) (*message.Msg, error) {
 	jdoc, err := json.Marshal(msg.Document())
 	if err != nil {
-		return msg, fmt.Errorf("can't unmarshal doc %v", err)
+		d.pipe.Err <- NewError(ERROR, fmt.Sprintf("Can't unmarshal document (%s)", err.Error()), msg.Document())
+		return msg, nil
 	}
 
 	if strings.HasPrefix(d.uri, "stdout://") {
@@ -108,7 +110,8 @@ func (d *File) dumpMessage(msg *message.Msg) (*message.Msg, error) {
 	} else {
 		_, err = fmt.Fprintln(d.filehandle, string(jdoc))
 		if err != nil {
-			return msg, err
+			d.pipe.Err <- NewError(ERROR, fmt.Sprintf("Can't unmarshal document (%s)", err.Error()), msg.Document())
+			return msg, nil
 		}
 	}
 
