@@ -18,6 +18,7 @@ type Elasticsearch struct {
 	index string
 
 	pipe *pipe.Pipe
+	path string
 
 	indexer *elastigo.BulkIndexer
 	running bool
@@ -29,7 +30,7 @@ func NewElasticsearch(p *pipe.Pipe, path string, extra Config) (StopStartListene
 		err  error
 	)
 	if err = extra.Construct(&conf); err != nil {
-		return nil, NewError(CRITICAL, fmt.Sprintf("Can't create constructor (%s)", err.Error()), nil)
+		return nil, NewError(CRITICAL, path, fmt.Sprintf("Can't create constructor (%s)", err.Error()), nil)
 	}
 
 	u, err := url.Parse(conf.Uri)
@@ -44,7 +45,7 @@ func NewElasticsearch(p *pipe.Pipe, path string, extra Config) (StopStartListene
 
 	e.index, e._type, err = extra.splitNamespace()
 	if err != nil {
-		return e, NewError(CRITICAL, fmt.Sprintf("Can't split namespace into _index._type (%s)", err.Error()), nil)
+		return e, NewError(CRITICAL, path, fmt.Sprintf("Can't split namespace into _index._type (%s)", err.Error()), nil)
 	}
 
 	return e, nil
@@ -62,7 +63,7 @@ func (e *Elasticsearch) Listen() error {
 
 	go func(cherr chan *elastigo.ErrorBuffer) {
 		for err := range e.indexer.ErrorChannel {
-			e.pipe.Err <- NewError(CRITICAL, fmt.Sprintf("Elasitcsearch error (%s)", err.Err), nil)
+			e.pipe.Err <- NewError(CRITICAL, e.path, fmt.Sprintf("Elasitcsearch error (%s)", err.Err), nil)
 		}
 	}(e.indexer.ErrorChannel)
 
@@ -91,10 +92,14 @@ func (e *Elasticsearch) Stop() error {
 
 func (e *Elasticsearch) applyOp(msg *message.Msg) (*message.Msg, error) {
 	if msg.Op == message.Command {
-		return msg, e.runCommand(msg)
+		err := e.runCommand(msg)
+		e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("Elasitcsearch error (%s)", err), msg.Document())
+		return msg, nil
 	}
 
-	return msg, e.indexer.Index(e.index, e._type, msg.IdAsString(), "", nil, msg.Document(), false)
+	err := e.indexer.Index(e.index, e._type, msg.IdAsString(), "", nil, msg.Document(), false)
+	e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("Elasitcsearch error (%s)", err), msg.Document())
+	return msg, nil
 }
 
 func (e *Elasticsearch) setupClient() {

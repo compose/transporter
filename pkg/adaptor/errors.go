@@ -33,11 +33,12 @@ func levelToString(lvl ErrorLevel) string {
 type Error struct {
 	Lvl    ErrorLevel
 	Str    string
+	Path   string
 	Record bson.M
 }
 
-func NewError(lvl ErrorLevel, str string, record bson.M) Error {
-	return Error{Lvl: lvl, Str: str, Record: record}
+func NewError(lvl ErrorLevel, path, str string, record bson.M) Error {
+	return Error{Lvl: lvl, Path: path, Str: str, Record: record}
 }
 
 func (t Error) Error() string {

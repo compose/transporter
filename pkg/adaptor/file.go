@@ -12,9 +12,9 @@ import (
 )
 
 type File struct {
-	uri  string
-	pipe *pipe.Pipe
-
+	uri        string
+	pipe       *pipe.Pipe
+	path       string
 	filehandle *os.File
 }
 
@@ -25,12 +25,13 @@ func NewFile(p *pipe.Pipe, path string, extra Config) (StopStartListener, error)
 		err  error
 	)
 	if err = extra.Construct(&conf); err != nil {
-		return nil, NewError(CRITICAL, fmt.Sprintf("Can't configure adaptor (%s)", err.Error()), nil)
+		return nil, NewError(CRITICAL, path, fmt.Sprintf("Can't configure adaptor (%s)", err.Error()), nil)
 	}
 
 	return &File{
 		uri:  conf.Uri,
 		pipe: p,
+		path: path,
 	}, nil
 }
 
@@ -53,7 +54,7 @@ func (d *File) Listen() (err error) {
 		filename := strings.Replace(d.uri, "file://", "", 1)
 		d.filehandle, err = os.Create(filename)
 		if err != nil {
-			d.pipe.Err <- NewError(CRITICAL, fmt.Sprintf("Can't open output file (%s)", err.Error()), nil)
+			d.pipe.Err <- NewError(CRITICAL, d.path, fmt.Sprintf("Can't open output file (%s)", err.Error()), nil)
 			return err
 		}
 	}
@@ -76,7 +77,7 @@ func (d *File) readFile() (err error) {
 	filename := strings.Replace(d.uri, "file://", "", 1)
 	d.filehandle, err = os.Open(filename)
 	if err != nil {
-		d.pipe.Err <- NewError(CRITICAL, fmt.Sprintf("Can't open input file (%s)", err.Error()), nil)
+		d.pipe.Err <- NewError(CRITICAL, d.path, fmt.Sprintf("Can't open input file (%s)", err.Error()), nil)
 		return err
 	}
 
@@ -86,7 +87,7 @@ func (d *File) readFile() (err error) {
 		if err := decoder.Decode(&doc); err == io.EOF {
 			break
 		} else if err != nil {
-			d.pipe.Err <- NewError(ERROR, fmt.Sprintf("Can't marshal document (%s)", err.Error()), nil)
+			d.pipe.Err <- NewError(ERROR, d.path, fmt.Sprintf("Can't marshal document (%s)", err.Error()), nil)
 			return err
 		}
 		d.pipe.Send(message.NewMsg(message.Insert, doc))
@@ -100,7 +101,7 @@ func (d *File) readFile() (err error) {
 func (d *File) dumpMessage(msg *message.Msg) (*message.Msg, error) {
 	jdoc, err := json.Marshal(msg.Document())
 	if err != nil {
-		d.pipe.Err <- NewError(ERROR, fmt.Sprintf("Can't unmarshal document (%s)", err.Error()), msg.Document())
+		d.pipe.Err <- NewError(ERROR, d.path, fmt.Sprintf("Can't unmarshal document (%s)", err.Error()), msg.Document())
 		return msg, nil
 	}
 
@@ -109,7 +110,7 @@ func (d *File) dumpMessage(msg *message.Msg) (*message.Msg, error) {
 	} else {
 		_, err = fmt.Fprintln(d.filehandle, string(jdoc))
 		if err != nil {
-			d.pipe.Err <- NewError(ERROR, fmt.Sprintf("Can't unmarshal document (%s)", err.Error()), msg.Document())
+			d.pipe.Err <- NewError(ERROR, d.path, fmt.Sprintf("Can't unmarshal document (%s)", err.Error()), msg.Document())
 			return msg, nil
 		}
 	}
