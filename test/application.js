@@ -1,14 +1,4 @@
 
-// create a transporter
-t = Transporter()
-
-// create a pipeline
-pipeline = Source({name:"crapfile", namespace: ""})
-  .transform("transformers/passthrough_and_log.js")
-  .save({name:"stdout"})
-
-
-// add the pipeline to the transporter
-t.add(pipeline)
-
+// create a pipeline that reads documents from a file, transforms them, and writes them
+pipeline = Source({name:"crapfile"}).transform("transformers/passthrough_and_log.js").save({name:"stdout"})
 
