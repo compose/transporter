@@ -117,7 +117,6 @@ func (m *Pipe) Stop() {
 // send emits the given message on the 'Out' channel.  the send Timesout after 100 ms in order to chaeck of the Pipe has stopped and we've been asked to exit.
 // If the Pipe has been stopped, the send will fail and there is no guarantee of either success or failure
 func (m *Pipe) Send(msg *message.Msg) {
-
 	for _, ch := range m.Out {
 
 	A:
@@ -135,7 +134,3 @@ func (m *Pipe) Send(msg *message.Msg) {
 		}
 	}
 }
-
-// func (m *Pipe) Send(msg *message.Msg) {
-
-// }
