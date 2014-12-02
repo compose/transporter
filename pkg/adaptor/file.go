@@ -34,11 +34,8 @@ func NewFile(p *pipe.Pipe, extra Config) (StopStartListener, error) {
 	}, nil
 }
 
-/*
- * start the module
- * TODO: we only know how to listen on stdout for now
- */
-
+// Start the file adaptor
+// TODO: we only know how to listen on stdout for now
 func (d *File) Start() (err error) {
 	defer func() {
 		d.Stop()
@@ -56,7 +53,7 @@ func (d *File) Listen() (err error) {
 		filename := strings.Replace(d.uri, "file://", "", 1)
 		d.filehandle, err = os.Create(filename)
 		if err != nil {
-			d.pipe.Err <- err
+			d.pipe.Err <- NewError(FATAL, fmt.Sprintf("Can't open output file (%s)", err.Error()), nil)
 			return err
 		}
 	}

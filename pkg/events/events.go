@@ -3,6 +3,8 @@ package events
 import (
 	"encoding/json"
 	"time"
+
+	"gopkg.in/mgo.v2/bson"
 )
 
 type eventKind int
@@ -33,10 +35,13 @@ const (
 // Events come in multiple kinds.  BootEvents are emitted when the transporter starts,
 // MetricsEvents are emittied by each pipe and include a measure of how many messages have been processed
 type Event struct {
-	Ts           int64  `json:"ts"`
-	Kind         string `json:"name"`
+	Ts   int64  `json:"ts"`
+	Kind string `json:"name"`
+
+	Path         string `json:"path,omitempty"`
 	bootEvent    `json:",omitempty"`
 	metricsEvent `json:",omitempty"`
+	errorEvent   `json:",omitempty"`
 }
 
 func (e Event) String() string {
@@ -60,9 +65,8 @@ func BootEvent(ts int64, version string, endpoints map[string]string) Event {
 
 // Metrics events are sent by the nodes periodically
 type metricsEvent struct {
-	Path       string `json:"path,omitempty"`
-	RecordsIn  int    `json:"records_in,omitempty"`
-	RecordsOut int    `json:"records_out,omitempty"`
+	RecordsIn  int `json:"records_in,omitempty"`
+	RecordsOut int `json:"records_out,omitempty"`
 }
 
 // newMetricsEvent creates a new metrics event
@@ -79,6 +83,19 @@ func ExitEvent(ts int64, version string, endpoints map[string]string) Event {
 	e := Event{Ts: ts, Kind: exitKind.String()}
 	e.Version = version
 	e.Endpoints = endpoints
+	return e
+}
+
+type errorEvent struct {
+	Record  bson.M `json:"record,omitempty"`
+	Message string `json:"message,omitempty"`
+}
+
+// ErrorEvents are sent to indicate a problem processing on one of the nodes
+func ErrorEvent(ts int64, record bson.M, message string) Event {
+	e := Event{Ts: ts, Kind: errorKind.String()}
+	e.Record = record
+	e.Message = message
 	return e
 }
 

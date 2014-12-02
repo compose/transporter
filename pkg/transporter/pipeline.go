@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/events"
 )
 
@@ -106,7 +107,12 @@ func (pipeline *Pipeline) Run() error {
 // when it receives one
 func (pipeline *Pipeline) startErrorListener(cherr chan error) {
 	for err := range cherr {
-		fmt.Printf("Pipeline error %v\nShutting down pipeline\n", err)
-		pipeline.Stop()
+		if aerr, ok := err.(adaptor.Error); ok {
+			fmt.Printf("we got an adaptor error, %+v\n", aerr)
+			pipeline.source.pipe.Event <- events.ErrorEvent(time.Now().Unix(), aerr.Record, aerr.Error())
+		} else {
+			fmt.Printf("Pipeline error %v\nShutting down pipeline\n", err)
+			pipeline.Stop()
+		}
 	}
 }
