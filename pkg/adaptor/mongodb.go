@@ -165,7 +165,7 @@ func (m *Mongodb) tailData() (err error) {
 		query      = bson.M{
 			"ns": m.getNamespace(),
 		}
-		iter = collection.Find(query).Sort("$natural").Tail(m.oplogTimeout)
+		iter = collection.Find(query).LogReplay().Sort("$natural").Tail(m.oplogTimeout)
 	)
 
 	for {
@@ -209,7 +209,7 @@ func (m *Mongodb) tailData() (err error) {
 			return fmt.Errorf("got err reading collection. %v\n", iter.Err())
 		}
 
-		iter = collection.Find(query).Sort("$natural").Tail(m.oplogTimeout)
+		iter = collection.Find(query).LogReplay().Sort("$natural").Tail(m.oplogTimeout)
 	}
 }
 
