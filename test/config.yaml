@@ -1,6 +1,6 @@
 api:
-  interval: 500ms
-  uri: "http://requestb.in/17wj5nj1"
+  interval: 1s
+  uri: "http://requestb.in/uz6b62uz"
 nodes:
   localmongo:
     type: mongo
@@ -20,6 +20,9 @@ nodes:
   crapfile2:
     type: file
     uri: file:///tmp/crap2
+  errorfile:
+    type: file
+    uri: file:///var/gonnaerror
   stdout:
     type: file
     uri: stdout://

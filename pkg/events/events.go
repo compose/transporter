@@ -19,19 +19,19 @@ type Event interface {
 
 // baseevents are sent when the pipeline has been started or exited
 type baseEvent struct {
-	ts        int64             `json:"ts"`
-	kind      string            `json:"name"`
-	version   string            `json:"version,omitempty"`
-	endpoints map[string]string `json:"endpoints,omitempty"`
+	Ts        int64             `json:"ts"`
+	Kind      string            `json:"name"`
+	Version   string            `json:"version,omitempty"`
+	Endpoints map[string]string `json:"endpoints,omitempty"`
 }
 
 // BootEvent (surprisingly) creates a new baseEvent
 func BootEvent(ts int64, version string, endpoints map[string]string) *baseEvent {
 	e := &baseEvent{
-		ts:        ts,
-		kind:      "boot",
-		version:   version,
-		endpoints: endpoints,
+		Ts:        ts,
+		Kind:      "boot",
+		Version:   version,
+		Endpoints: endpoints,
 	}
 	return e
 }
@@ -39,10 +39,10 @@ func BootEvent(ts int64, version string, endpoints map[string]string) *baseEvent
 // ExitEvent (surprisingly) creates a new baseEvent
 func ExitEvent(ts int64, version string, endpoints map[string]string) *baseEvent {
 	e := &baseEvent{
-		ts:        ts,
-		kind:      "exit",
-		version:   version,
-		endpoints: endpoints,
+		Ts:        ts,
+		Kind:      "exit",
+		Version:   version,
+		Endpoints: endpoints,
 	}
 	return e
 }
@@ -52,27 +52,27 @@ func (e *baseEvent) Emit() ([]byte, error) {
 }
 
 func (e *baseEvent) String() string {
-	msg := fmt.Sprintf("%s", e.kind)
-	msg += fmt.Sprintf("%v", e.endpoints)
+	msg := fmt.Sprintf("%s", e.Kind)
+	msg += fmt.Sprintf("%v", e.Endpoints)
 	return msg
 }
 
 type metricsEvent struct {
-	ts         int64  `json:"ts"`
-	kind       string `json:"name"`
-	path       string `json:"path,omitempty"`
-	recordsIn  int    `json:"records_in,omitempty"`
-	recordsOut int    `json:"records_out,omitempty"`
+	Ts         int64  `json:"ts"`
+	Kind       string `json:"name"`
+	Path       string `json:"path,omitempty"`
+	RecordsIn  int    `json:"records_in,omitempty"`
+	RecordsOut int    `json:"records_out,omitempty"`
 }
 
 // MetricsEvent creates a new metrics event
 func MetricsEvent(ts int64, path string, in, out int) *metricsEvent {
 	e := &metricsEvent{
-		ts:         ts,
-		kind:       "metrics",
-		path:       path,
-		recordsIn:  in,
-		recordsOut: out,
+		Ts:         ts,
+		Kind:       "metrics",
+		Path:       path,
+		RecordsIn:  in,
+		RecordsOut: out,
 	}
 	return e
 }
@@ -82,25 +82,27 @@ func (e *metricsEvent) Emit() ([]byte, error) {
 }
 
 func (e *metricsEvent) String() string {
-	msg := fmt.Sprintf("%s %s", e.kind, e.path)
-	msg += fmt.Sprintf(" recordsIn: %d, recordsOut: %d", e.recordsIn, e.recordsOut)
+	msg := fmt.Sprintf("%s %s", e.Kind, e.Path)
+	msg += fmt.Sprintf(" recordsIn: %d, recordsOut: %d", e.RecordsIn, e.RecordsOut)
 	return msg
 }
 
 type errorEvent struct {
-	ts      int64  `json:"ts"`
-	kind    string `json:"name"`
-	record  bson.M `json:"record,omitempty"`
-	message string `json:"message,omitempty"`
+	Ts      int64  `json:"ts"`
+	Kind    string `json:"name"`
+	Path    string `json:"path"`
+	Record  bson.M `json:"record,omitempty"`
+	Message string `json:"message,omitempty"`
 }
 
 // ErrorEvents are sent to indicate a problem processing on one of the nodes
-func ErrorEvent(ts int64, record bson.M, message string) *errorEvent {
+func ErrorEvent(ts int64, path string, record bson.M, message string) *errorEvent {
 	e := &errorEvent{
-		ts:      ts,
-		kind:    "error",
-		record:  record,
-		message: message,
+		Ts:      ts,
+		Kind:    "error",
+		Path:    path,
+		Record:  record,
+		Message: message,
 	}
 	return e
 }
@@ -110,8 +112,8 @@ func (e *errorEvent) Emit() ([]byte, error) {
 }
 
 func (e *errorEvent) String() string {
-	msg := fmt.Sprintf("%s", e.kind)
-	msg += fmt.Sprintf(" record: %v, message: %s", e.record, e.message)
+	msg := fmt.Sprintf("%s", e.Kind)
+	msg += fmt.Sprintf(" record: %v, message: %s", e.Record, e.Message)
 	return msg
 }
 

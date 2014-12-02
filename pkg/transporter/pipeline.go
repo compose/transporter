@@ -109,7 +109,7 @@ func (pipeline *Pipeline) startErrorListener(cherr chan error) {
 	for err := range cherr {
 		if aerr, ok := err.(adaptor.Error); ok {
 			fmt.Printf("we got an adaptor error, %+v\n", aerr)
-			pipeline.source.pipe.Event <- events.ErrorEvent(time.Now().Unix(), aerr.Record, aerr.Error())
+			pipeline.source.pipe.Event <- events.ErrorEvent(time.Now().Unix(), aerr.Path, aerr.Record, aerr.Error())
 		} else {
 			fmt.Printf("Pipeline error %v\nShutting down pipeline\n", err)
 			pipeline.Stop()
