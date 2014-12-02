@@ -2,101 +2,117 @@ package events
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"gopkg.in/mgo.v2/bson"
 )
 
-type eventKind int
-
-func (e eventKind) String() string {
-	switch e {
-	case bootKind:
-		return "boot"
-	case errorKind:
-		return "error"
-	case metricsKind:
-		return "metrics"
-	case exitKind:
-		return "exit"
-	}
-	return ""
-}
-
-const (
-	bootKind eventKind = iota
-	errorKind
-	metricsKind
-	exitKind
-)
-
 // an Event is produced periodically by the running transporter.
 //
-// Events come in multiple kinds.  BootEvents are emitted when the transporter starts,
-// MetricsEvents are emittied by each pipe and include a measure of how many messages have been processed
-type Event struct {
-	Ts   int64  `json:"ts"`
-	Kind string `json:"name"`
-
-	Path         string `json:"path,omitempty"`
-	bootEvent    `json:",omitempty"`
-	metricsEvent `json:",omitempty"`
-	errorEvent   `json:",omitempty"`
+// Events come in multiple kinds.  baseEvents are emitted when the transporter starts and stops,
+// metricsEvents are emittied by each pipe and include a measure of how many messages have been processed
+type Event interface {
+	Emit() ([]byte, error)
+	String() string
 }
 
-func (e Event) String() string {
-	ba, _ := json.Marshal(e)
-	return string(ba)
+// baseevents are sent when the pipeline has been started or exited
+type baseEvent struct {
+	ts        int64             `json:"ts"`
+	kind      string            `json:"name"`
+	version   string            `json:"version,omitempty"`
+	endpoints map[string]string `json:"endpoints,omitempty"`
 }
 
-// bootevents are sent when the pipeline has been started
-type bootEvent struct {
-	Version   string            `json:"version,omitempty"`
-	Endpoints map[string]string `json:"endpoints,omitempty"`
-}
-
-// NewBootEvent (surprisingly) creates a new bootevent
-func BootEvent(ts int64, version string, endpoints map[string]string) Event {
-	e := Event{Ts: ts, Kind: bootKind.String()}
-	e.Version = version
-	e.Endpoints = endpoints
+// BootEvent (surprisingly) creates a new baseEvent
+func BootEvent(ts int64, version string, endpoints map[string]string) *baseEvent {
+	e := &baseEvent{
+		ts:        ts,
+		kind:      "boot",
+		version:   version,
+		endpoints: endpoints,
+	}
 	return e
 }
 
-// Metrics events are sent by the nodes periodically
+// ExitEvent (surprisingly) creates a new baseEvent
+func ExitEvent(ts int64, version string, endpoints map[string]string) *baseEvent {
+	e := &baseEvent{
+		ts:        ts,
+		kind:      "exit",
+		version:   version,
+		endpoints: endpoints,
+	}
+	return e
+}
+
+func (e *baseEvent) Emit() ([]byte, error) {
+	return json.Marshal(e)
+}
+
+func (e *baseEvent) String() string {
+	msg := fmt.Sprintf("%s", e.kind)
+	msg += fmt.Sprintf("%v", e.endpoints)
+	return msg
+}
+
 type metricsEvent struct {
-	RecordsIn  int `json:"records_in,omitempty"`
-	RecordsOut int `json:"records_out,omitempty"`
+	ts         int64  `json:"ts"`
+	kind       string `json:"name"`
+	path       string `json:"path,omitempty"`
+	recordsIn  int    `json:"records_in,omitempty"`
+	recordsOut int    `json:"records_out,omitempty"`
 }
 
-// newMetricsEvent creates a new metrics event
-func MetricsEvent(ts int64, path string, in, out int) Event {
-	e := Event{Ts: ts, Kind: metricsKind.String()}
-	e.Path = path
-	e.RecordsIn = in
-	e.RecordsOut = out
+// MetricsEvent creates a new metrics event
+func MetricsEvent(ts int64, path string, in, out int) *metricsEvent {
+	e := &metricsEvent{
+		ts:         ts,
+		kind:       "metrics",
+		path:       path,
+		recordsIn:  in,
+		recordsOut: out,
+	}
 	return e
 }
 
-// NewExitEvent (surprisingly) creates a new exitevent
-func ExitEvent(ts int64, version string, endpoints map[string]string) Event {
-	e := Event{Ts: ts, Kind: exitKind.String()}
-	e.Version = version
-	e.Endpoints = endpoints
-	return e
+func (e *metricsEvent) Emit() ([]byte, error) {
+	return json.Marshal(e)
+}
+
+func (e *metricsEvent) String() string {
+	msg := fmt.Sprintf("%s %s", e.kind, e.path)
+	msg += fmt.Sprintf(" recordsIn: %d, recordsOut: %d", e.recordsIn, e.recordsOut)
+	return msg
 }
 
 type errorEvent struct {
-	Record  bson.M `json:"record,omitempty"`
-	Message string `json:"message,omitempty"`
+	ts      int64  `json:"ts"`
+	kind    string `json:"name"`
+	record  bson.M `json:"record,omitempty"`
+	message string `json:"message,omitempty"`
 }
 
 // ErrorEvents are sent to indicate a problem processing on one of the nodes
-func ErrorEvent(ts int64, record bson.M, message string) Event {
-	e := Event{Ts: ts, Kind: errorKind.String()}
-	e.Record = record
-	e.Message = message
+func ErrorEvent(ts int64, record bson.M, message string) *errorEvent {
+	e := &errorEvent{
+		ts:      ts,
+		kind:    "error",
+		record:  record,
+		message: message,
+	}
 	return e
+}
+
+func (e *errorEvent) Emit() ([]byte, error) {
+	return json.Marshal(e)
+}
+
+func (e *errorEvent) String() string {
+	msg := fmt.Sprintf("%s", e.kind)
+	msg += fmt.Sprintf(" record: %v, message: %s", e.record, e.message)
+	return msg
 }
 
 //

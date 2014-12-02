@@ -2,8 +2,6 @@ package events
 
 import (
 	"bytes"
-	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -74,7 +72,7 @@ func (e *httpPostEmitter) startEventListener() {
 			e.inflight.Add(1)
 			go func(event Event) {
 				defer e.inflight.Done()
-				ba, err := json.Marshal(event)
+				ba, err := event.Emit()
 				if err != err {
 					log.Printf("EventEmitter Error: %s", err)
 					return
@@ -197,16 +195,7 @@ func (e *logEmitter) startEventListener() {
 			s <- true
 			return
 		case event := <-e.ch:
-			msg := fmt.Sprintf("%s %s", event.Kind, event.Path)
-
-			switch event.Kind {
-			case metricsKind.String():
-				msg += fmt.Sprintf(" recordsIn: %d, recordsOut: %d", event.RecordsIn, event.RecordsOut)
-			case bootKind.String():
-				msg += fmt.Sprintf("%v", event.Endpoints)
-
-			}
-			log.Println(msg)
+			log.Println(event.String())
 		case <-time.After(100 * time.Millisecond):
 			continue
 			// noop
