@@ -13,12 +13,15 @@ import (
 
 type Mongodb struct {
 	// pull these in from the node
-	uri  string
-	tail bool // run the tail oplog
+	uri   string
+	tail  bool // run the tail oplog
+	debug bool
 
 	// save time by setting these once
 	collection string
 	database   string
+
+	oplogTime bson.MongoTimestamp
 
 	//
 	pipe *pipe.Pipe
@@ -53,6 +56,7 @@ func NewMongodb(p *pipe.Pipe, path string, extra Config) (StopStartListener, err
 		pipe:         p,
 		uri:          conf.Uri,
 		tail:         conf.Tail,
+		debug:        conf.Debug,
 	}
 
 	m.database, m.collection, err = m.splitNamespace(conf.Namespace)
@@ -72,6 +76,11 @@ func (m *Mongodb) Start() (err error) {
 	defer func() {
 		m.pipe.Stop()
 	}()
+
+	m.oplogTime = nowAsMongoTimestamp()
+	if m.debug {
+		fmt.Printf("setting start timestamp: %s", m.oplogTime)
+	}
 
 	err = m.catData()
 	if err != nil {
@@ -163,8 +172,10 @@ func (m *Mongodb) tailData() (err error) {
 		collection = m.mongoSession.DB("local").C("oplog.rs")
 		result     oplogDoc // hold the document
 		query      = bson.M{
+			"ts": bson.M{"$gte": m.oplogTime},
 			"ns": m.getNamespace(),
 		}
+
 		iter = collection.Find(query).LogReplay().Sort("$natural").Tail(m.oplogTimeout)
 	)
 
@@ -191,7 +202,7 @@ func (m *Mongodb) tailData() (err error) {
 					}
 					msg.SetDocument(doc)
 				}
-
+				m.oplogTime = result.Ts
 				m.pipe.Send(msg)
 			}
 			result = oplogDoc{}
@@ -209,7 +220,12 @@ func (m *Mongodb) tailData() (err error) {
 			return fmt.Errorf("got err reading collection. %v\n", iter.Err())
 		}
 
-		iter = collection.Find(query).LogReplay().Sort("$natural").Tail(m.oplogTimeout)
+		// query will change,
+		query = bson.M{
+			"ts": bson.M{"$gte": m.oplogTime},
+			"ns": m.getNamespace(),
+		}
+		iter = collection.Find(query).LogReplay().Tail(m.oplogTimeout)
 	}
 }
 
@@ -269,4 +285,12 @@ type MongodbConfig struct {
 	Namespace string `json:"namespace"`
 	Debug     bool   `json:"debug"`
 	Tail      bool   `json:"tail"`
+}
+
+func nowAsMongoTimestamp() bson.MongoTimestamp {
+	return bson.MongoTimestamp(time.Now().Unix() << 32)
+}
+
+func newMongoTimestamp(s, i int) bson.MongoTimestamp {
+	return bson.MongoTimestamp(int64(s)<<32 + int64(i))
 }
