@@ -23,13 +23,13 @@ type Elasticsearch struct {
 	running bool
 }
 
-func NewElasticsearch(p *pipe.Pipe, extra Config) (StopStartListener, error) {
+func NewElasticsearch(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
 	var (
 		conf dbConfig
 		err  error
 	)
 	if err = extra.Construct(&conf); err != nil {
-		return nil, err
+		return nil, NewError(CRITICAL, fmt.Sprintf("Can't create constructor (%s)", err.Error()), nil)
 	}
 
 	u, err := url.Parse(conf.Uri)
@@ -44,7 +44,7 @@ func NewElasticsearch(p *pipe.Pipe, extra Config) (StopStartListener, error) {
 
 	e.index, e._type, err = extra.splitNamespace()
 	if err != nil {
-		return e, err
+		return e, NewError(CRITICAL, fmt.Sprintf("Can't split namespace into _index._type (%s)", err.Error()), nil)
 	}
 
 	return e, nil
@@ -62,7 +62,7 @@ func (e *Elasticsearch) Listen() error {
 
 	go func(cherr chan *elastigo.ErrorBuffer) {
 		for err := range e.indexer.ErrorChannel {
-			e.pipe.Err <- err.Err
+			e.pipe.Err <- NewError(CRITICAL, fmt.Sprintf("Elasitcsearch error (%s)", err.Err), nil)
 		}
 	}(e.indexer.ErrorChannel)
 

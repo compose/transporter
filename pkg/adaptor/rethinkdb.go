@@ -28,7 +28,7 @@ type Rethinkdb struct {
 	client *gorethink.Session
 }
 
-func NewRethinkdb(p *pipe.Pipe, extra Config) (StopStartListener, error) {
+func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
 	var (
 		conf dbConfig
 		err  error

@@ -18,15 +18,14 @@ type File struct {
 	filehandle *os.File
 }
 
-func NewFile(p *pipe.Pipe, extra Config) (StopStartListener, error) {
+func NewFile(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
 
 	var (
 		conf FileConfig
 		err  error
 	)
 	if err = extra.Construct(&conf); err != nil {
-		p.Err <- NewError(CRITICAL, fmt.Sprintf("Can't configure adaptor (%s)", err.Error()), nil)
-		return nil, err
+		return nil, NewError(CRITICAL, fmt.Sprintf("Can't configure adaptor (%s)", err.Error()), nil)
 	}
 
 	return &File{

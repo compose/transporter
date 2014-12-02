@@ -27,7 +27,7 @@ var (
 // Register registers an adaptor (database adaptor) for use with Transporter
 // The second argument, fn, is a constructor that returns an instance of the
 // given adaptor
-func Register(name string, fn func(*pipe.Pipe, Config) (StopStartListener, error)) {
+func Register(name string, fn func(*pipe.Pipe, string, Config) (StopStartListener, error)) {
 	registry[name] = fn
 }
 
@@ -45,7 +45,7 @@ type StopStartListener interface {
 // Constructors are expected to be in the form
 //   func NewWhatever(p *pipe.Pipe, extra Config) (*Whatever, error) {}
 // and are expected to confirm to the adaptor interface
-func Createadaptor(kind string, extra Config, p *pipe.Pipe) (adaptor StopStartListener, err error) {
+func Createadaptor(kind, path string, extra Config, p *pipe.Pipe) (adaptor StopStartListener, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("cannot create node: %v", r)
@@ -59,6 +59,7 @@ func Createadaptor(kind string, extra Config, p *pipe.Pipe) (adaptor StopStartLi
 
 	args := []reflect.Value{
 		reflect.ValueOf(p),
+		reflect.ValueOf(path),
 		reflect.ValueOf(extra),
 	}
 

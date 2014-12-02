@@ -16,7 +16,7 @@ type Testadaptor struct {
 	value string
 }
 
-func NewTestadaptor(p *pipe.Pipe, extra Config) (StopStartListener, error) {
+func NewTestadaptor(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
 	val, ok := extra["value"]
 	if !ok {
 		return nil, errors.New("this is an error")
@@ -65,7 +65,7 @@ func TestCreateadaptor(t *testing.T) {
 		},
 	}
 	for _, v := range data {
-		adaptor, err := Createadaptor(v.kind, v.extra, pipe.NewPipe(nil, "some name", 1*time.Second))
+		adaptor, err := Createadaptor(v.kind, "a/b/c", v.extra, pipe.NewPipe(nil, "some name", 1*time.Second))
 
 		if err != nil && err.Error() != v.err {
 			t.Errorf("\nexpected error: %v\ngot error: %v\n", v.err, err.Error())

@@ -22,7 +22,7 @@ type Transformer struct {
 	vm     *otto.Otto
 }
 
-func NewTransformer(p *pipe.Pipe, extra Config) (StopStartListener, error) {
+func NewTransformer(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
 	var (
 		conf TransformerConfig
 		err  error

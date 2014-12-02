@@ -24,7 +24,7 @@ type Influxdb struct {
 	influxClient *client.Client
 }
 
-func NewInfluxdb(p *pipe.Pipe, extra Config) (StopStartListener, error) {
+func NewInfluxdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
 	var (
 		conf dbConfig
 		err  error

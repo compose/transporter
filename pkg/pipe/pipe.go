@@ -25,11 +25,13 @@ func newMessageChan() messageChan {
 // Pipes come in three flavours, a sourcePipe, which only emits messages and has no listening loop, a sinkPipe which has a listening loop, but doesn't emit any messages,
 // and joinPipe which has a li tening loop that also emits messages.
 type Pipe struct {
-	In              messageChan
-	Out             []messageChan
-	Err             chan error
-	Event           chan events.Event
-	Stopped         bool // has the pipe been stopped?
+	In      messageChan
+	Out     []messageChan
+	Err     chan error
+	Event   chan events.Event
+	Stopped bool // has the pipe been stopped?
+
+	path            string // the path of this pipe (for events and errors)
 	chStop          chan chan bool
 	listening       bool
 	metrics         *events.NodeMetrics
@@ -43,13 +45,13 @@ func NewPipe(pipe *Pipe, path string, interval time.Duration) *Pipe {
 
 	p := &Pipe{
 		Out:             make([]messageChan, 0),
+		path:            path,
 		chStop:          make(chan chan bool),
 		metricsInterval: interval,
 	}
 
 	if pipe != nil {
 		pipe.Out = append(pipe.Out, newMessageChan())
-
 		p.In = pipe.Out[len(pipe.Out)-1] // use the last out channel
 		p.Err = pipe.Err
 		p.Event = pipe.Event
@@ -58,7 +60,7 @@ func NewPipe(pipe *Pipe, path string, interval time.Duration) *Pipe {
 		p.Event = make(chan events.Event)
 	}
 
-	p.metrics = events.NewNodeMetrics(path, p.Event, interval)
+	p.metrics = events.NewNodeMetrics(p.path, p.Event, interval)
 	return p
 }
 
