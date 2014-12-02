@@ -1,5 +1,5 @@
 api:
-  interval: 1s
+  interval: 250ms
   uri: "http://requestb.in/uz6b62uz"
 nodes:
   localmongo:

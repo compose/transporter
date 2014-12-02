@@ -4,12 +4,9 @@ import (
 	"errors"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/compose/transporter/pkg/pipe"
 )
-
-// var anError = errors.New("this is an error")
 
 // a random type that adaptorements the adaptor interface
 type Testadaptor struct {
@@ -65,7 +62,7 @@ func TestCreateadaptor(t *testing.T) {
 		},
 	}
 	for _, v := range data {
-		adaptor, err := Createadaptor(v.kind, "a/b/c", v.extra, pipe.NewPipe(nil, "some name", 1*time.Second))
+		adaptor, err := Createadaptor(v.kind, "a/b/c", v.extra, pipe.NewPipe(nil, "some name"))
 
 		if err != nil && err.Error() != v.err {
 			t.Errorf("\nexpected error: %v\ngot error: %v\n", v.err, err.Error())

@@ -21,8 +21,8 @@ func TestEvent(t *testing.T) {
 			[]byte("{\"ts\":12345,\"name\":\"boot\",\"version\":\"1.2.3\",\"endpoints\":{\"nick\":\"yay\"}}"),
 		},
 		{
-			MetricsEvent(12345, "nick/yay", 1, 1),
-			[]byte("{\"ts\":12345,\"name\":\"metrics\",\"path\":\"nick/yay\",\"records_in\":1,\"records_out\":1}"),
+			MetricsEvent(12345, "nick/yay", 1),
+			[]byte("{\"ts\":12345,\"name\":\"metrics\",\"path\":\"nick/yay\",\"records\":1}"),
 		},
 	}
 
