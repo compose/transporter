@@ -31,23 +31,22 @@ type Pipe struct {
 	Event   chan events.Event
 	Stopped bool // has the pipe been stopped?
 
-	path            string // the path of this pipe (for events and errors)
-	chStop          chan chan bool
-	listening       bool
-	metrics         *events.NodeMetrics
-	metricsInterval time.Duration
+	MessageCount int
+
+	path      string // the path of this pipe (for events and errors)
+	chStop    chan chan bool
+	listening bool
 }
 
 // NewSourcePipe creates a new Pipe.  If the pipe that is passed in is nil, then this pipe will be treaded as a source pipe that just serves to emit messages.
 // Otherwise, the pipe returned will be created and chained from the last member of the Out slice of the parent.  This function has side effects, and will add
 // an Out channel to the pipe that is passed in
-func NewPipe(pipe *Pipe, path string, interval time.Duration) *Pipe {
+func NewPipe(pipe *Pipe, path string) *Pipe {
 
 	p := &Pipe{
-		Out:             make([]messageChan, 0),
-		path:            path,
-		chStop:          make(chan chan bool),
-		metricsInterval: interval,
+		Out:    make([]messageChan, 0),
+		path:   path,
+		chStop: make(chan chan bool),
 	}
 
 	if pipe != nil {
@@ -60,7 +59,6 @@ func NewPipe(pipe *Pipe, path string, interval time.Duration) *Pipe {
 		p.Event = make(chan events.Event)
 	}
 
-	p.metrics = events.NewNodeMetrics(p.path, p.Event, interval)
 	return p
 }
 
@@ -86,7 +84,7 @@ func (m *Pipe) Listen(fn func(*message.Msg) (*message.Msg, error)) error {
 
 		select {
 		case msg := <-m.In:
-			m.metrics.RecordsIn += 1
+
 			outmsg, err := fn(msg)
 			if err != nil {
 				m.Err <- err
@@ -94,6 +92,8 @@ func (m *Pipe) Listen(fn func(*message.Msg) (*message.Msg, error)) error {
 			}
 			if len(m.Out) > 0 {
 				m.Send(outmsg)
+			} else {
+				m.MessageCount += 1 // update the count anyway
 			}
 		case <-time.After(100 * time.Millisecond):
 			// NOP, just breath
@@ -105,7 +105,6 @@ func (m *Pipe) Listen(fn func(*message.Msg) (*message.Msg, error)) error {
 func (m *Pipe) Stop() {
 	if !m.Stopped {
 		m.Stopped = true
-		m.metrics.Stop()
 
 		// we only worry about the stop channel if we're in a listening loop
 		if m.listening {
@@ -125,7 +124,7 @@ func (m *Pipe) Send(msg *message.Msg) {
 		for {
 			select {
 			case ch <- msg:
-				m.metrics.RecordsOut += 1
+				m.MessageCount += 1
 				break A
 			case <-time.After(100 * time.Millisecond):
 				if m.Stopped {

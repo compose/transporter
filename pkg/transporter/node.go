@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/compose/transporter/pkg/adaptor"
+	"github.com/compose/transporter/pkg/events"
 	"github.com/compose/transporter/pkg/pipe"
 )
 
@@ -33,6 +34,8 @@ type Node struct {
 
 	adaptor adaptor.StopStartListener
 	pipe    *pipe.Pipe
+
+	metricsTicker *time.Ticker
 }
 
 func NewNode(name, kind string, extra adaptor.Config) *Node {
@@ -114,9 +117,9 @@ func (n *Node) Add(node *Node) *Node {
 func (n *Node) Init(interval time.Duration) (err error) {
 	path := n.Path()
 	if n.Parent == nil { // we don't have a parent, we're the source
-		n.pipe = pipe.NewPipe(nil, path, interval)
+		n.pipe = pipe.NewPipe(nil, path)
 	} else { // we have a parent, so pass in the parent's pipe here
-		n.pipe = pipe.NewPipe(n.Parent.pipe, path, interval)
+		n.pipe = pipe.NewPipe(n.Parent.pipe, path)
 	}
 
 	n.adaptor, err = adaptor.Createadaptor(n.Type, path, n.Extra, n.pipe)
@@ -130,14 +133,56 @@ func (n *Node) Init(interval time.Duration) (err error) {
 			return err
 		}
 	}
+
+	if n.Parent == nil {
+		n.metricsTicker = time.NewTicker(interval)
+		go func() {
+			for _ = range n.metricsTicker.C {
+				n.emitMetrics()
+			}
+		}()
+	}
+
 	return nil
+}
+
+// emit the metrics
+func (n *Node) emitMetrics() {
+
+	frontier := make([]*Node, 1)
+	frontier[0] = n
+
+	for {
+		// pop the first item
+		node := frontier[0]
+		frontier = frontier[1:]
+
+		// do something with the node
+		n.pipe.Event <- events.MetricsEvent(time.Now().Unix(), node.Path(), node.pipe.MessageCount)
+		// fmt.Printf("THIS NODE (%s) HAS: %d\n", node.Path(), node.inboundMetricsCount())
+
+		// add this nodes children to the frontier
+		for _, child := range node.Children {
+			frontier = append(frontier, child)
+		}
+
+		// if we're empty
+		if len(frontier) == 0 {
+			break
+		}
+	}
 }
 
 // Stop's this node's adaptor, and sends a stop to each child of this node
 func (n *Node) Stop() {
-	n.adaptor.Stop()
 	for _, node := range n.Children {
 		node.Stop()
+	}
+	n.adaptor.Stop()
+
+	if n.metricsTicker != nil {
+		n.emitMetrics()
+		n.metricsTicker.Stop()
 	}
 }
 
