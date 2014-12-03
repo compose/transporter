@@ -72,6 +72,7 @@ func (e *httpPostEmitter) startEventListener() {
 			e.inflight.Add(1)
 			go func(event Event) {
 				defer e.inflight.Done()
+
 				ba, err := event.Emit()
 				if err != err {
 					log.Printf("EventEmitter Error: %s", err)
@@ -97,9 +98,10 @@ func (e *httpPostEmitter) startEventListener() {
 				_, err = ioutil.ReadAll(resp.Body)
 				defer resp.Body.Close()
 				if resp.StatusCode != 200 && resp.StatusCode != 201 {
-					log.Printf("EventEmitter Error: http error code, expected 200 or 201, got %d", resp.StatusCode)
+					log.Printf("EventEmitter Error: http error code, expected 200 or 201, got %d, (%s)", resp.StatusCode, ba)
 					return
 				}
+				// fmt.Printf("EventEmitter, got http statuscode:%d for event: %s", resp.StatusCode, event)
 			}(event)
 		case <-time.After(100 * time.Millisecond):
 			continue

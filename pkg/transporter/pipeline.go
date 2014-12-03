@@ -15,8 +15,9 @@ const (
 // A Pipeline is a the end to end description of a transporter data flow.
 // including the source, sink, and all the transformers along the way
 type Pipeline struct {
-	source  *Node
-	emitter events.Emitter
+	source        *Node
+	emitter       events.Emitter
+	metricsTicker *time.Ticker
 }
 
 // NewDefaultPipeline returns a new Transporter Pipeline with the given node tree, and
@@ -49,8 +50,9 @@ func NewDefaultPipeline(source *Node, uri, key, pid string, interval time.Durati
 // pipeline.Run()
 func NewPipeline(source *Node, emitter events.Emitter, interval time.Duration) (*Pipeline, error) {
 	pipeline := &Pipeline{
-		source:  source,
-		emitter: emitter,
+		source:        source,
+		emitter:       emitter,
+		metricsTicker: time.NewTicker(interval),
 	}
 
 	// init the pipeline
@@ -64,6 +66,7 @@ func NewPipeline(source *Node, emitter events.Emitter, interval time.Duration) (
 
 	// start the emitters
 	go pipeline.startErrorListener(source.pipe.Err)
+	go pipeline.startMetricsGatherer()
 	pipeline.emitter.Start()
 
 	return pipeline, nil
@@ -80,19 +83,20 @@ func (pipeline *Pipeline) String() string {
 func (pipeline *Pipeline) Stop() {
 	pipeline.source.Stop()
 	pipeline.emitter.Stop()
+	pipeline.metricsTicker.Stop()
 }
 
 // run the pipeline
 func (pipeline *Pipeline) Run() error {
 	endpoints := pipeline.source.Endpoints()
-
 	// send a boot event
 	pipeline.source.pipe.Event <- events.BootEvent(time.Now().Unix(), VERSION, endpoints)
 
 	// start the source
 	err := pipeline.source.Start()
 
-	// pipeline has stopped, send the exit event
+	// pipeline has stopped, emit one last round of metrics and send the exit event
+	pipeline.emitMetrics()
 	pipeline.source.pipe.Event <- events.ExitEvent(time.Now().Unix(), VERSION, endpoints)
 
 	// the source has exited, stop all the other nodes
@@ -113,6 +117,38 @@ func (pipeline *Pipeline) startErrorListener(cherr chan error) {
 		} else {
 			fmt.Printf("Pipeline error %v\nShutting down pipeline\n", err)
 			pipeline.Stop()
+		}
+	}
+}
+
+func (pipeline *Pipeline) startMetricsGatherer() {
+	for _ = range pipeline.metricsTicker.C {
+		pipeline.emitMetrics()
+	}
+}
+
+// emit the metrics
+func (pipeline *Pipeline) emitMetrics() {
+
+	frontier := make([]*Node, 1)
+	frontier[0] = pipeline.source
+
+	for {
+		// pop the first item
+		node := frontier[0]
+		frontier = frontier[1:]
+
+		// do something with the node
+		pipeline.source.pipe.Event <- events.MetricsEvent(time.Now().Unix(), node.Path(), node.pipe.MessageCount)
+
+		// add this nodes children to the frontier
+		for _, child := range node.Children {
+			frontier = append(frontier, child)
+		}
+
+		// if we're empty
+		if len(frontier) == 0 {
+			break
 		}
 	}
 }

@@ -1,6 +1,9 @@
 api:
-  interval: 250ms
-  uri: "http://requestb.in/uz6b62uz"
+  interval: 1s
+  uri: "https://app.compose.io/services/transporter/v1/events"
+  # uri: "http://requestb.in/13gerls1"
+  key: "48593282-b38d-4bf5-af58-f7327271e73d"
+  pid: "something-static"
 nodes:
   localmongo:
     type: mongo

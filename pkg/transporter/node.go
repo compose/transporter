@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/compose/transporter/pkg/adaptor"
-	"github.com/compose/transporter/pkg/events"
 	"github.com/compose/transporter/pkg/pipe"
 )
 
@@ -35,7 +34,7 @@ type Node struct {
 	adaptor adaptor.StopStartListener
 	pipe    *pipe.Pipe
 
-	metricsTicker *time.Ticker
+	// metricsTicker *time.Ticker
 }
 
 func NewNode(name, kind string, extra adaptor.Config) *Node {
@@ -134,43 +133,7 @@ func (n *Node) Init(interval time.Duration) (err error) {
 		}
 	}
 
-	if n.Parent == nil {
-		n.metricsTicker = time.NewTicker(interval)
-		go func() {
-			for _ = range n.metricsTicker.C {
-				n.emitMetrics()
-			}
-		}()
-	}
-
 	return nil
-}
-
-// emit the metrics
-func (n *Node) emitMetrics() {
-
-	frontier := make([]*Node, 1)
-	frontier[0] = n
-
-	for {
-		// pop the first item
-		node := frontier[0]
-		frontier = frontier[1:]
-
-		// do something with the node
-		n.pipe.Event <- events.MetricsEvent(time.Now().Unix(), node.Path(), node.pipe.MessageCount)
-		// fmt.Printf("THIS NODE (%s) HAS: %d\n", node.Path(), node.inboundMetricsCount())
-
-		// add this nodes children to the frontier
-		for _, child := range node.Children {
-			frontier = append(frontier, child)
-		}
-
-		// if we're empty
-		if len(frontier) == 0 {
-			break
-		}
-	}
 }
 
 // Stop's this node's adaptor, and sends a stop to each child of this node
@@ -179,11 +142,6 @@ func (n *Node) Stop() {
 		node.Stop()
 	}
 	n.adaptor.Stop()
-
-	if n.metricsTicker != nil {
-		n.emitMetrics()
-		n.metricsTicker.Stop()
-	}
 }
 
 // Start starts the nodes children in a go routine, and then runs either Start() or Listen()

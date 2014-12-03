@@ -53,7 +53,7 @@ func (e *baseEvent) Emit() ([]byte, error) {
 
 func (e *baseEvent) String() string {
 	msg := fmt.Sprintf("%s", e.Kind)
-	msg += fmt.Sprintf("%v", e.Endpoints)
+	msg += fmt.Sprintf(" %v", e.Endpoints)
 	return msg
 }
 
