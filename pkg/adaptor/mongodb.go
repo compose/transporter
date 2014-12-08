@@ -116,7 +116,7 @@ func (m *Mongodb) writeMessage(msg *message.Msg) (*message.Msg, error) {
 		err = collection.Update(bson.M{"_id": msg.Id}, msg.Document())
 	}
 	if err != nil {
-		m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("Mongodb error (%s)", err.Error()), nil)
+		m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("Mongodb error (%s)", err.Error()), msg.Document())
 	}
 	return msg, nil
 }
