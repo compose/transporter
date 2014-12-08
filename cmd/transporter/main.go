@@ -16,10 +16,10 @@ func main() {
 
 	c.Args = os.Args[1:]
 	c.Commands = map[string]cli.CommandFactory{
-		"list": newListCommand,
-		"run":  newRunCommand,
-		"eval": newEvalCommand,
-		"test": newTestCommand,
+		"list": subCommandFactory["list"],
+		"run":  subCommandFactory["run"],
+		"eval": subCommandFactory["eval"],
+		"test": subCommandFactory["test"],
 	}
 
 	exitStatus, err := c.Run()

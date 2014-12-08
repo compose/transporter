@@ -7,13 +7,25 @@ import (
 	"github.com/mitchellh/cli"
 )
 
+// a list of generators for all the subcommand types
+var subCommandFactory = map[string]cli.CommandFactory{
+	"list": func() (cli.Command, error) {
+		return &listCommand{}, nil
+	},
+	"test": func() (cli.Command, error) {
+		return &testCommand{}, nil
+	},
+	"run": func() (cli.Command, error) {
+		return &runCommand{}, nil
+	},
+	"eval": func() (cli.Command, error) {
+		return &evalCommand{}, nil
+	},
+}
+
 // listCommand loads the config, and lists the configured nodes
 type listCommand struct {
 	configFilename string
-}
-
-func newListCommand() (cli.Command, error) {
-	return &listCommand{}, nil
 }
 
 func (c *listCommand) Synopsis() string {
@@ -99,10 +111,6 @@ func (c *runCommand) Run(args []string) int {
 type testCommand struct {
 }
 
-func newTestCommand() (cli.Command, error) {
-	return &testCommand{}, nil
-}
-
 func (c *testCommand) Help() string {
 	return `Usage: transporter test [--config file]  <filename>
 
@@ -110,7 +118,7 @@ Compile a transporter application by sourcing an application file, but do not ru
 }
 
 func (c *testCommand) Synopsis() string {
-	return "load a transporter application from a file, compile the pipeline and display the compiled nodes (does not run it)"
+	return "display the compiled nodes without starting a pipeline"
 }
 
 func (c *testCommand) Run(args []string) int {
@@ -143,10 +151,6 @@ func (c *testCommand) Run(args []string) int {
 // evalCommand compiles inline javascript into a transporter pipeline,
 // and runs it
 type evalCommand struct {
-}
-
-func newEvalCommand() (cli.Command, error) {
-	return &evalCommand{}, nil
 }
 
 func (c *evalCommand) Help() string {
