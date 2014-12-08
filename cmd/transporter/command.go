@@ -102,7 +102,11 @@ func (c *runCommand) Run(args []string) int {
 		return 1
 	}
 
-	js.Run()
+	err = js.Run()
+	if err != nil {
+		fmt.Println(err)
+		return 1
+	}
 	return 0
 }
 
@@ -186,6 +190,12 @@ func (c *evalCommand) Run(args []string) int {
 		fmt.Println(err)
 		return 1
 	}
-	fmt.Println(js)
+
+	err = js.Run()
+	if err != nil {
+		fmt.Println(err)
+		return 1
+	}
+
 	return 0
 }
