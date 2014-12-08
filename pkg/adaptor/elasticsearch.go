@@ -63,7 +63,7 @@ func (e *Elasticsearch) Listen() error {
 
 	go func(cherr chan *elastigo.ErrorBuffer) {
 		for err := range e.indexer.ErrorChannel {
-			e.pipe.Err <- NewError(CRITICAL, e.path, fmt.Sprintf("Elasitcsearch error (%s)", err.Err), nil)
+			e.pipe.Err <- NewError(CRITICAL, e.path, fmt.Sprintf("Elasticsearch error (%s)", err.Err), nil)
 		}
 	}(e.indexer.ErrorChannel)
 
@@ -93,12 +93,12 @@ func (e *Elasticsearch) Stop() error {
 func (e *Elasticsearch) applyOp(msg *message.Msg) (*message.Msg, error) {
 	if msg.Op == message.Command {
 		err := e.runCommand(msg)
-		e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("Elasitcsearch error (%s)", err), msg.Document())
+		e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("Elasticsearch error (%s)", err), msg.Document())
 		return msg, nil
 	}
 
 	err := e.indexer.Index(e.index, e._type, msg.IdAsString(), "", nil, msg.Document(), false)
-	e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("Elasitcsearch error (%s)", err), msg.Document())
+	e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("Elasticsearch error (%s)", err), msg.Document())
 	return msg, nil
 }
 
