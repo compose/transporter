@@ -3,11 +3,15 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"time"
 
 	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/transporter"
 	"github.com/nu7hatch/gouuid"
 	"github.com/robertkrimen/otto"
+	"gopkg.in/yaml.v2"
 )
 
 // A Config stores meta information about the transporter.  This contains a
@@ -25,6 +29,34 @@ type Config struct {
 		Type string `json:"type" yaml:"type"`
 		Uri  string `json:"uri" yaml:"uri"`
 	}
+}
+
+func LoadConfig(filename string) (config Config, err error) {
+	if filename == "" {
+		return
+	}
+
+	ba, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return
+	}
+
+	err = yaml.Unmarshal(ba, &config)
+
+	for k, v := range config.Nodes {
+		config.Nodes[k] = v
+	}
+
+	if len(config.Api.Pid) < 1 {
+		config.Api.Pid = os.Getenv("TRANSPORTER_PID")
+	}
+
+	if len(config.Api.Pid) < 1 {
+		hostname, _ := os.Hostname()
+		config.Api.Pid = fmt.Sprintf("%s@%d", hostname, time.Now().Unix())
+	}
+
+	return
 }
 
 type Node struct {

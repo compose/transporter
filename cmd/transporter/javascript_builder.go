@@ -18,12 +18,12 @@ type JavascriptBuilder struct {
 	vm     *otto.Otto
 
 	nodes map[string]Node
-	app   *TransporterApplication
+	app   *Application
 	err   error
 }
 
 func NewJavascriptBuilder(config Config, file, src string) (*JavascriptBuilder, error) {
-	js := &JavascriptBuilder{file: file, vm: otto.New(), path: filepath.Dir(file), nodes: make(map[string]Node), app: NewTransporterApplication(config)}
+	js := &JavascriptBuilder{file: file, vm: otto.New(), path: filepath.Dir(file), nodes: make(map[string]Node), app: NewApplication(config)}
 
 	var (
 		script *otto.Script
@@ -186,7 +186,7 @@ func (js *JavascriptBuilder) findNode(in otto.Value) (n Node, err error) {
 // each call to the Source() in the javascript creates a new JavascriptPipeline struct,
 // and transformers and sinks are added with calls to Transform(), and Save().
 // the call to Transporter.add(pipeline) adds the JavascriptPipeline to the Builder's js_pipeline property
-func (js *JavascriptBuilder) Build() (Application, error) {
+func (js *JavascriptBuilder) Build() (*Application, error) {
 	_, err := js.vm.Run(js.script)
 	if js.err != nil {
 		return nil, js.err

@@ -6,21 +6,21 @@ import (
 	"github.com/compose/transporter/pkg/transporter"
 )
 
-type TransporterApplication struct {
+type Application struct {
 	Config    Config
 	Pipelines []*transporter.Pipeline
 }
 
-func NewTransporterApplication(config Config) *TransporterApplication {
-	return &TransporterApplication{Pipelines: make([]*transporter.Pipeline, 0), Config: config}
+func NewApplication(config Config) *Application {
+	return &Application{Pipelines: make([]*transporter.Pipeline, 0), Config: config}
 }
 
-func (t *TransporterApplication) AddPipeline(p *transporter.Pipeline) {
+func (t *Application) AddPipeline(p *transporter.Pipeline) {
 	t.Pipelines = append(t.Pipelines, p)
 }
 
 // Run performs a .Run() on each Pipeline contained in the Transporter Application
-func (t *TransporterApplication) Run() (err error) {
+func (t *Application) Run() (err error) {
 
 	for _, p := range t.Pipelines {
 		err = p.Run()
@@ -32,12 +32,12 @@ func (t *TransporterApplication) Run() (err error) {
 	return nil
 }
 
-func (t *TransporterApplication) Stop() error {
+func (t *Application) Stop() error {
 	return nil
 }
 
 // represent this as a string
-func (t *TransporterApplication) String() string {
+func (t *Application) String() string {
 	out := "TransporterApplication:\n"
 	for _, p := range t.Pipelines {
 		out += fmt.Sprintf("%s", p.String())
