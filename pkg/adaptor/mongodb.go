@@ -25,6 +25,7 @@ type Mongodb struct {
 
 	//
 	pipe *pipe.Pipe
+	path string
 
 	// mongo connection and options
 	mongoSession *mgo.Session
@@ -57,6 +58,7 @@ func NewMongodb(p *pipe.Pipe, path string, extra Config) (StopStartListener, err
 		uri:          conf.Uri,
 		tail:         conf.Tail,
 		debug:        conf.Debug,
+		path:         path,
 	}
 
 	m.database, m.collection, err = m.splitNamespace(conf.Namespace)
@@ -65,10 +67,6 @@ func NewMongodb(p *pipe.Pipe, path string, extra Config) (StopStartListener, err
 	}
 
 	m.mongoSession, err = mgo.Dial(m.uri)
-	if err != nil {
-		m.pipe.Err <- err
-	}
-
 	return m, err
 }
 
@@ -117,7 +115,10 @@ func (m *Mongodb) writeMessage(msg *message.Msg) (*message.Msg, error) {
 	if mgo.IsDup(err) {
 		err = collection.Update(bson.M{"_id": msg.Id}, msg.Document())
 	}
-	return msg, err
+	if err != nil {
+		m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("Mongodb error (%s)", err.Error()), nil)
+	}
+	return msg, nil
 }
 
 /*
@@ -185,7 +186,6 @@ func (m *Mongodb) tailData() (err error) {
 				return
 			}
 			if result.validOp() {
-
 				msg := message.NewMsg(message.OpTypeFromString(result.Op), nil)
 				msg.Timestamp = int64(result.Ts) >> 32
 
@@ -196,11 +196,14 @@ func (m *Mongodb) tailData() (err error) {
 					msg.SetDocument(result.O)
 				case "u":
 					doc, err := m.getOriginalDoc(result.O2)
-					if err != nil {
-						m.pipe.Err <- err
-						return err
+					if err != nil { // errors aren't fatal here, but we need to send it down the pipe
+						m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("Mongodb error (%s)", err.Error()), nil)
+						continue
 					}
 					msg.SetDocument(doc)
+				default:
+					m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("Mongodb error (unknown op type)", err.Error()), nil)
+					continue
 				}
 				m.oplogTime = result.Ts
 				m.pipe.Send(msg)
@@ -217,7 +220,7 @@ func (m *Mongodb) tailData() (err error) {
 			continue
 		}
 		if iter.Err() != nil {
-			return fmt.Errorf("got err reading collection. %v\n", iter.Err())
+			return NewError(CRITICAL, m.path, fmt.Sprintf("Mongodb error (error reading collection %s)", iter.Err()), nil)
 		}
 
 		// query will change,
