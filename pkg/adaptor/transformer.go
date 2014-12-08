@@ -16,6 +16,7 @@ type Transformer struct {
 	fn string
 
 	pipe *pipe.Pipe
+	path string
 
 	debug  bool
 	script *otto.Script
@@ -31,7 +32,7 @@ func NewTransformer(p *pipe.Pipe, path string, extra Config) (StopStartListener,
 		return nil, err
 	}
 
-	t := &Transformer{pipe: p}
+	t := &Transformer{pipe: p, path: path}
 
 	if conf.Filename == "" {
 		return t, fmt.Errorf("No filename specified")
@@ -52,18 +53,18 @@ func (t *Transformer) Listen() (err error) {
 
 	// set up the vm environment, make `module = {}`
 	if _, err = t.vm.Run(`module = {}`); err != nil {
-		return err
+		return t.transformerError(CRITICAL, err, nil)
 	}
 
 	// compile our script
 	if t.script, err = t.vm.Compile("", t.fn); err != nil {
-		return err
+		return t.transformerError(CRITICAL, err, nil)
 	}
 
 	// run the script, ignore the output
 	_, err = t.vm.Run(t.script)
 	if err != nil {
-		return err
+		return t.transformerError(CRITICAL, err, nil)
 	}
 
 	return t.pipe.Listen(t.transformOne)
@@ -96,22 +97,26 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 	now := time.Now().Nanosecond()
 
 	if doc, err = mejson.Marshal(msg.Document()); err != nil {
-		return msg, err
+		t.pipe.Err <- t.transformerError(ERROR, err, msg)
+		return msg, nil
 	}
 
 	if value, err = t.vm.ToValue(doc); err != nil {
-		return msg, err
+		t.pipe.Err <- t.transformerError(ERROR, err, msg)
+		return msg, nil
 	}
 
 	// now that we have finished casting our map to a bunch of different types,
 	// lets run our transformer on the document
 	beforeVM := time.Now().Nanosecond()
 	if outDoc, err = t.vm.Call(`module.exports`, nil, value); err != nil {
-		return msg, err
+		t.pipe.Err <- t.transformerError(ERROR, err, msg)
+		return msg, nil
 	}
 
 	if result, err = outDoc.Export(); err != nil {
-		return msg, err
+		t.pipe.Err <- t.transformerError(ERROR, err, msg)
+		return msg, nil
 	}
 
 	afterVM := time.Now().Nanosecond()
@@ -120,10 +125,10 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 	case map[string]interface{}:
 		doc, err := mejson.Unmarshal(r)
 		if err != nil {
-			return msg, err
+			t.pipe.Err <- t.transformerError(ERROR, err, msg)
+			return msg, nil
 		}
 		msg.SetDocument(doc)
-		// t.pipe.Send(msg)
 	default:
 		if t.debug {
 			fmt.Println("transformer skipping doc")
@@ -136,6 +141,13 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 	}
 
 	return msg, nil
+}
+
+func (t *Transformer) transformerError(lvl ErrorLevel, err error, msg *message.Msg) error {
+	if e, ok := err.(*otto.Error); ok {
+		return NewError(lvl, t.path, fmt.Sprintf("Transformer error (%s)", e.String()), msg.Document())
+	}
+	return NewError(lvl, t.path, fmt.Sprintf("Transformer error (%s)", err.Error()), msg.Document())
 }
 
 // InfluxdbConfig options
