@@ -117,19 +117,19 @@ func (e *Elasticsearch) setupClient() {
 	}
 
 	// we might have a port in the host bit
-	host_bits := strings.Split(e.uri.Host, ":")
-	if len(host_bits) > 1 {
-		client.SetPort(host_bits[1])
+	hostBits := strings.Split(e.uri.Host, ":")
+	if len(hostBits) > 1 {
+		client.SetPort(hostBits[1])
 	}
 
-	client.SetHosts(strings.Split(host_bits[0], ","))
+	client.SetHosts(strings.Split(hostBits[0], ","))
 	client.Protocol = e.uri.Scheme
 
 	e.indexer = client.NewBulkIndexerErrors(10, 60)
 }
 
 func (e *Elasticsearch) runCommand(msg *message.Msg) error {
-	if _, has_key := msg.Document()["flush"]; has_key {
+	if _, hasKey := msg.Document()["flush"]; hasKey {
 		e.indexer.Flush()
 	}
 	return nil
