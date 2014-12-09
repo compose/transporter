@@ -8,6 +8,7 @@ package message
 // performed against a document (i.e. Insert, Update, etc.)
 type OpType int
 
+// messages refer to specific types database operations which are enumerated here.
 const (
 	Insert OpType = iota
 	Update
@@ -54,6 +55,10 @@ func OpTypeFromString(s string) OpType {
 // of being executed against a database.
 type CommandType int
 
+// Transporter understands the following different command types
 const (
+
+	// Flush is interpreted by the recieving sink adaptors to attempt to flush all buffered
+	// operations to the database.  This can be useful when switching from a copy to a tail operation
 	Flush CommandType = iota
 )
