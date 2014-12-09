@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// Emitters are used by the transporter pipeline to consume events from a pipeline's event channel
+// Emitter types are used by the transporter pipeline to consume events from a pipeline's event channel
 // and process them.
 // Start() will start the emitter and being consuming events
 // Init() serves to set the Emitter's listening channel

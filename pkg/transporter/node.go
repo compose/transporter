@@ -136,7 +136,7 @@ func (n *Node) Init(interval time.Duration) (err error) {
 	return nil
 }
 
-// Stop's this node's adaptor, and sends a stop to each child of this node
+// Stop this node's adaptor, and sends a stop to each child of this node
 func (n *Node) Stop() {
 	for _, node := range n.Children {
 		node.Stop()

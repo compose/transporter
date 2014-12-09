@@ -87,7 +87,7 @@ func (pipeline *Pipeline) Stop() {
 	pipeline.metricsTicker.Stop()
 }
 
-// run the pipeline
+// Run the pipeline
 func (pipeline *Pipeline) Run() error {
 	endpoints := pipeline.source.Endpoints()
 	// send a boot event

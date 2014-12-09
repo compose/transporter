@@ -51,11 +51,12 @@ func NewElasticsearch(p *pipe.Pipe, path string, extra Config) (StopStartListene
 	return e, nil
 }
 
+// Start the adaptor
 func (e *Elasticsearch) Start() error {
 	return fmt.Errorf("Elasticsearch can't function as a source")
 }
 
-// start the listener
+// Listen starts the listener
 func (e *Elasticsearch) Listen() error {
 	e.setupClient()
 	e.indexer.Start()
@@ -78,9 +79,7 @@ func (e *Elasticsearch) Listen() error {
 	return e.pipe.Listen(e.applyOp)
 }
 
-/*
- * stop the capsule
- */
+// Stop the adaptor
 func (e *Elasticsearch) Stop() error {
 	if e.running {
 		e.running = false

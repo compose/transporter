@@ -19,7 +19,6 @@ type File struct {
 }
 
 func NewFile(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
-
 	var (
 		conf FileConfig
 		err  error
@@ -62,9 +61,7 @@ func (d *File) Listen() (err error) {
 	return d.pipe.Listen(d.dumpMessage)
 }
 
-/*
- * stop the capsule
- */
+// Stop the adaptor
 func (d *File) Stop() error {
 	d.pipe.Stop()
 	return nil

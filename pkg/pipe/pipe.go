@@ -38,7 +38,7 @@ type Pipe struct {
 	listening bool
 }
 
-// NewSourcePipe creates a new Pipe.  If the pipe that is passed in is nil, then this pipe will be treaded as a source pipe that just serves to emit messages.
+// NewPipe creates a new Pipe.  If the pipe that is passed in is nil, then this pipe will be treaded as a source pipe that just serves to emit messages.
 // Otherwise, the pipe returned will be created and chained from the last member of the Out slice of the parent.  This function has side effects, and will add
 // an Out channel to the pipe that is passed in
 func NewPipe(pipe *Pipe, path string) *Pipe {
@@ -115,7 +115,7 @@ func (m *Pipe) Stop() {
 	}
 }
 
-// send emits the given message on the 'Out' channel.  the send Timesout after 100 ms in order to chaeck of the Pipe has stopped and we've been asked to exit.
+// Send emits the given message on the 'Out' channel.  the send Timesout after 100 ms in order to chaeck of the Pipe has stopped and we've been asked to exit.
 // If the Pipe has been stopped, the send will fail and there is no guarantee of either success or failure
 func (m *Pipe) Send(msg *message.Msg) {
 	for _, ch := range m.Out {

@@ -93,7 +93,7 @@ type errorEvent struct {
 	Message string `json:"message,omitempty"`
 }
 
-// ErrorEvents are sent to indicate a problem processing on one of the nodes
+// ErrorEvent are events sent to indicate a problem processing on one of the nodes
 func ErrorEvent(ts int64, path string, record bson.M, message string) *errorEvent {
 	e := &errorEvent{
 		Ts:      ts,
