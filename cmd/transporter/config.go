@@ -26,6 +26,9 @@ type Config struct {
 	}
 }
 
+// LoadConfig loads a config yaml from a file on disk.
+// if the pid is not set in the yaml, pull it from the environment TRANSPORTER_PID.
+// if that env var isn't present, then generate a pid
 func LoadConfig(filename string) (config Config, err error) {
 	if filename == "" {
 		return
