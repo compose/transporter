@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	// The node was not found in the map
+	// ErrMissingNode is returned when the requested node type was not found in the map
 	ErrMissingNode = errors.New("adaptor not found in registry")
 
 	// a registry of adaptor types and their constructors
