@@ -53,7 +53,7 @@ func NewInfluxdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, er
 	return i, nil
 }
 
-func (e *Influxdb) Start() error {
+func (i *Influxdb) Start() error {
 	return fmt.Errorf("Influxdb can't function as a source")
 }
 
