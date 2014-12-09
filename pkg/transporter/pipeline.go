@@ -9,6 +9,7 @@ import (
 )
 
 const (
+	// VERSION the library
 	VERSION = "0.0.1"
 )
 
