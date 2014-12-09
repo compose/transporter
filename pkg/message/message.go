@@ -60,7 +60,7 @@ func (m *Msg) extractID(doc bson.M) (bson.M, interface{}) {
 	return doc, nil
 }
 
-// IdString returns the original id as a string value
+// IDString returns the original id as a string value
 func (m *Msg) IDString() string {
 	switch t := m.ID.(type) {
 	case string:

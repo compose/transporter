@@ -8,7 +8,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-// an Event is produced periodically by the running transporter.
+// Event is an interface that describes data which is produced periodically by the running transporter.
 //
 // Events come in multiple kinds.  baseEvents are emitted when the transporter starts and stops,
 // metricsEvents are emittied by each pipe and include a measure of how many messages have been processed
