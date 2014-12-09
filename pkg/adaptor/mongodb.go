@@ -11,6 +11,8 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
+// Mongodb is an adaptor to read / write to mongodb.
+// it works as a source by copying files, and then optionally tailing the oplog
 type Mongodb struct {
 	// pull these in from the node
 	uri   string
@@ -34,6 +36,7 @@ type Mongodb struct {
 	restartable bool // this refers to being able to refresh the iterator, not to the restart based on session op
 }
 
+// NewMongodb creates a new Mongodb adaptor
 func NewMongodb(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
 	var (
 		conf MongodbConfig
@@ -112,6 +115,9 @@ func (m *Mongodb) Stop() error {
 	return nil
 }
 
+// writeMessage writes one message to the destination mongo, or sends an error down the pipe
+// TODO this can be cleaned up.  I'm not sure whether this should pipe the error, or whether the
+//   caller should pipe the error
 func (m *Mongodb) writeMessage(msg *message.Msg) (*message.Msg, error) {
 	collection := m.mongoSession.DB(m.database).C(m.collection)
 	err := collection.Insert(msg.Document())
@@ -126,7 +132,6 @@ func (m *Mongodb) writeMessage(msg *message.Msg) (*message.Msg, error) {
 
 // catdata pulls down the original collection
 func (m *Mongodb) catData() (err error) {
-
 	var (
 		collection = m.mongoSession.DB(m.database).C(m.collection)
 		query      = bson.M{}
@@ -155,7 +160,7 @@ func (m *Mongodb) catData() (err error) {
 		}
 
 		if iter.Err() != nil && m.restartable {
-			fmt.Printf("got err reading collection. reissuing query. %v\n", iter.Err())
+			fmt.Printf("got err reading collection. reissuing query %v\n", iter.Err())
 			time.Sleep(1 * time.Second)
 			iter = collection.Find(query).Sort("_id").Iter()
 			continue
@@ -260,7 +265,7 @@ func (m *Mongodb) splitNamespace(namespace string) (string, string, error) {
 	fields := strings.SplitN(namespace, ".", 2)
 
 	if len(fields) != 2 {
-		return "", "", fmt.Errorf("malformed mongo namespace.")
+		return "", "", fmt.Errorf("malformed mongo namespace")
 	}
 	return fields[0], fields[1], nil
 }
@@ -284,6 +289,8 @@ func (o *oplogDoc) validOp() bool {
 	return o.Op == "i" || o.Op == "d" || o.Op == "u"
 }
 
+// MongodbConfig provides configuration options for a mongodb adaptor
+// the notable difference between this and dbConfig is the presence of the Tail option
 type MongodbConfig struct {
 	URI       string `json:"uri"`
 	Namespace string `json:"namespace"`
