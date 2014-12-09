@@ -14,7 +14,7 @@ import (
 // as well as information about the api used to handle transporter events, and the interval
 // between metrics events.
 type Config struct {
-	Api struct {
+	API struct {
 		URI             string `json:"uri" yaml:"uri"`           // Uri to connect to
 		MetricsInterval string `json:"interval" yaml:"interval"` // how often to emit metrics, (in ms)
 		Key             string `json:"key" yaml:"key"`           // http basic auth password to send with each event
@@ -42,13 +42,13 @@ func LoadConfig(filename string) (config Config, err error) {
 		config.Nodes[k] = v
 	}
 
-	if len(config.Api.Pid) < 1 {
-		config.Api.Pid = os.Getenv("TRANSPORTER_PID")
+	if len(config.API.Pid) < 1 {
+		config.API.Pid = os.Getenv("TRANSPORTER_PID")
 	}
 
-	if len(config.Api.Pid) < 1 {
+	if len(config.API.Pid) < 1 {
 		hostname, _ := os.Hostname()
-		config.Api.Pid = fmt.Sprintf("%s@%d", hostname, time.Now().Unix())
+		config.API.Pid = fmt.Sprintf("%s@%d", hostname, time.Now().Unix())
 	}
 
 	return

@@ -75,17 +75,17 @@ func (js *JavascriptBuilder) source(call otto.FunctionCall) otto.Value {
 // save adds a sink to the transporter pipeline
 // each pipeline can have multiple sinks
 func (js *JavascriptBuilder) save(node Node, call otto.FunctionCall) (Node, error) {
-	this_node, err := js.findNode(call.Argument(0))
+	thisNode, err := js.findNode(call.Argument(0))
 	if err != nil {
 		return node, err
 	}
 	root := js.nodes[node.RootUUID]
 
 	if node.UUID == root.UUID { // save is being called on a root node
-		root.Add(&this_node)
+		root.Add(&thisNode)
 	} else {
-		node.Add(&this_node) // add the generated not to the `this`
-		root.Add(&node)      // add the result to the root
+		node.Add(&thisNode) // add the generated not to the `this`
+		root.Add(&node)     // add the result to the root
 	}
 
 	js.nodes[root.UUID] = root
@@ -198,12 +198,12 @@ func (js *JavascriptBuilder) Build() (*application, error) {
 	for _, node := range js.nodes {
 		n := node.CreateTransporterNode()
 
-		interval, err := time.ParseDuration(js.app.Config.Api.MetricsInterval)
+		interval, err := time.ParseDuration(js.app.Config.API.MetricsInterval)
 		if err != nil {
 			return nil, err
 		}
 
-		pipeline, err := transporter.NewDefaultPipeline(n, js.app.Config.Api.URI, js.app.Config.Api.Key, js.app.Config.Api.Pid, interval)
+		pipeline, err := transporter.NewDefaultPipeline(n, js.app.Config.API.URI, js.app.Config.API.Key, js.app.Config.API.Pid, interval)
 		if err != nil {
 			return js.app, err
 		}
