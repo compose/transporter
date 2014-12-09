@@ -43,7 +43,7 @@ func NewMongodb(p *pipe.Pipe, path string, extra Config) (StopStartListener, err
 		return nil, err
 	}
 
-	if conf.Uri == "" || conf.Namespace == "" {
+	if conf.URI == "" || conf.Namespace == "" {
 		return nil, fmt.Errorf("both uri and namespace required, but missing ")
 	}
 
@@ -55,7 +55,7 @@ func NewMongodb(p *pipe.Pipe, path string, extra Config) (StopStartListener, err
 		restartable:  true,            // assume for that we're able to restart the process
 		oplogTimeout: 5 * time.Second, // timeout the oplog iterator
 		pipe:         p,
-		uri:          conf.Uri,
+		uri:          conf.URI,
 		tail:         conf.Tail,
 		debug:        conf.Debug,
 		path:         path,
@@ -116,7 +116,7 @@ func (m *Mongodb) writeMessage(msg *message.Msg) (*message.Msg, error) {
 	collection := m.mongoSession.DB(m.database).C(m.collection)
 	err := collection.Insert(msg.Document())
 	if mgo.IsDup(err) {
-		err = collection.Update(bson.M{"_id": msg.Id}, msg.Document())
+		err = collection.Update(bson.M{"_id": msg.ID}, msg.Document())
 	}
 	if err != nil {
 		m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("Mongodb error (%s)", err.Error()), msg.Document())
@@ -285,7 +285,7 @@ func (o *oplogDoc) validOp() bool {
 }
 
 type MongodbConfig struct {
-	Uri       string `json:"uri"`
+	URI       string `json:"uri"`
 	Namespace string `json:"namespace"`
 	Debug     bool   `json:"debug"`
 	Tail      bool   `json:"tail"`

@@ -23,13 +23,13 @@ var (
 type Msg struct {
 	Timestamp  int64
 	Op         OpType
-	Id         interface{}
-	OriginalId interface{}
+	ID         interface{}
+	OriginalID interface{}
 	document   bson.M // document is private
 	idKey      string // where the original id value is stored, either "_id" or "id"
 }
 
-// NewMsg returns a new Msg with the Id extracted
+// NewMsg returns a new Msg with the ID extracted
 // from the original document
 func NewMsg(op OpType, doc bson.M) *Msg {
 	m := &Msg{
@@ -37,16 +37,16 @@ func NewMsg(op OpType, doc bson.M) *Msg {
 		Op:        op,
 	}
 	if doc != nil {
-		m.document, m.Id = m.extractId(doc)
-		m.OriginalId = m.Id
+		m.document, m.ID = m.extractID(doc)
+		m.OriginalID = m.ID
 	}
 
 	return m
 }
 
-// extractId will handle separating the id field from the
+// extractID will handle separating the id field from the
 // rest of the document, can handle both 'id' and '_id'
-func (m *Msg) extractId(doc bson.M) (bson.M, interface{}) {
+func (m *Msg) extractID(doc bson.M) (bson.M, interface{}) {
 	for _, key := range idKeys {
 		id, exists := doc[key]
 		if exists {
@@ -60,9 +60,9 @@ func (m *Msg) extractId(doc bson.M) (bson.M, interface{}) {
 	return doc, nil
 }
 
-// IdAsString returns the original id as a string value
-func (m *Msg) IdAsString() string {
-	switch t := m.Id.(type) {
+// IdString returns the original id as a string value
+func (m *Msg) IDString() string {
+	switch t := m.ID.(type) {
 	case string:
 		return t
 	case bson.ObjectId:
@@ -78,24 +78,24 @@ func (m *Msg) IdAsString() string {
 
 // Document returns the original doc, unaltered
 func (m *Msg) Document() bson.M {
-	return m.DocumentWithId(m.idKey)
+	return m.DocumentWithID(m.idKey)
 }
 
 // SetDocument will set the document variable and
 // extract out the id and preserve it
 func (m *Msg) SetDocument(doc bson.M) {
-	m.document, m.Id = m.extractId(doc)
-	if m.OriginalId == nil { // if we don't have an original id, then set it here
-		m.OriginalId = m.Id
+	m.document, m.ID = m.extractID(doc)
+	if m.OriginalID == nil { // if we don't have an original id, then set it here
+		m.OriginalID = m.ID
 	}
 }
 
-// DocumentWithId returns the document with the id field
+// DocumentWithID returns the document with the id field
 // attached to the specified key
-func (m *Msg) DocumentWithId(key string) bson.M {
+func (m *Msg) DocumentWithID(key string) bson.M {
 	doc := m.document
-	if m.Id != nil {
-		doc[key] = m.Id
+	if m.ID != nil {
+		doc[key] = m.ID
 	}
 	return doc
 }

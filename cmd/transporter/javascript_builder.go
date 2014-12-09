@@ -177,7 +177,7 @@ func (js *JavascriptBuilder) findNode(in otto.Value) (n Node, err error) {
 	if !ok {
 		return n, fmt.Errorf("no configured nodes found named %s", sourceString)
 	}
-	rawMap["uri"] = val.Uri
+	rawMap["uri"] = val.URI
 
 	return NewNode(sourceString, val.Type, rawMap)
 }
@@ -203,7 +203,7 @@ func (js *JavascriptBuilder) Build() (*application, error) {
 			return nil, err
 		}
 
-		pipeline, err := transporter.NewDefaultPipeline(n, js.app.Config.Api.Uri, js.app.Config.Api.Key, js.app.Config.Api.Pid, interval)
+		pipeline, err := transporter.NewDefaultPipeline(n, js.app.Config.Api.URI, js.app.Config.Api.Key, js.app.Config.Api.Pid, interval)
 		if err != nil {
 			return js.app, err
 		}

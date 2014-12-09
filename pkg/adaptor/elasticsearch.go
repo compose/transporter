@@ -37,7 +37,7 @@ func NewElasticsearch(p *pipe.Pipe, path string, extra Config) (StopStartListene
 		return nil, NewError(CRITICAL, path, fmt.Sprintf("Can't create constructor (%s)", err.Error()), nil)
 	}
 
-	u, err := url.Parse(conf.Uri)
+	u, err := url.Parse(conf.URI)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func (e *Elasticsearch) applyOp(msg *message.Msg) (*message.Msg, error) {
 		return msg, nil
 	}
 
-	err := e.indexer.Index(e.index, e._type, msg.IdAsString(), "", nil, msg.Document(), false)
+	err := e.indexer.Index(e.index, e._type, msg.IDString(), "", nil, msg.Document(), false)
 	e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("Elasticsearch error (%s)", err), msg.Document())
 	return msg, nil
 }

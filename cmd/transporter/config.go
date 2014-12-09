@@ -15,14 +15,14 @@ import (
 // between metrics events.
 type Config struct {
 	Api struct {
-		Uri             string `json:"uri" yaml:"uri"`           // Uri to connect to
+		URI             string `json:"uri" yaml:"uri"`           // Uri to connect to
 		MetricsInterval string `json:"interval" yaml:"interval"` // how often to emit metrics, (in ms)
 		Key             string `json:"key" yaml:"key"`           // http basic auth password to send with each event
 		Pid             string `json:"pid" yaml:"pid"`           // http basic auth username to send with each event
 	} `json:"api" yaml:"api"`
 	Nodes map[string]struct {
 		Type string `json:"type" yaml:"type"`
-		Uri  string `json:"uri" yaml:"uri"`
+		URI  string `json:"uri" yaml:"uri"`
 	}
 }
 

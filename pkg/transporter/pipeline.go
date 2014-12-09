@@ -27,7 +27,7 @@ type Pipeline struct {
 //   source :=
 //   	transporter.NewNode("source", "mongo", adaptor.Config{"uri": "mongodb://localhost/", "namespace": "boom.foo", "debug": false, "tail": true}).
 // 	  	Add(transporter.NewNode("out", "file", adaptor.Config{"uri": "stdout://"}))
-//   pipeline, err := transporter.NewDefaultPipeline(source, events.Api{Uri: "http://localhost/endpoint"}, 1*time.Second)
+//   pipeline, err := transporter.NewDefaultPipeline(source, events.Api{URI: "http://localhost/endpoint"}, 1*time.Second)
 //   if err != nil {
 // 	  fmt.Println(err)
 // 	  os.Exit(1)

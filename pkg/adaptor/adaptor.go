@@ -122,7 +122,7 @@ func (c *Config) splitNamespace() (string, string, error) {
 
 // dbConfig is a standard typed config struct to use for as general purpose config for most databases.
 type dbConfig struct {
-	Uri       string `json:"uri"`       // the database uri
+	URI       string `json:"uri"`       // the database uri
 	Namespace string `json:"namespace"` // namespace
 	Debug     bool   `json:"debug"`     // debug mode
 }

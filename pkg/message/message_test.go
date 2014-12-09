@@ -19,19 +19,19 @@ func TestNewMsg(t *testing.T) {
 	}{
 		{
 			FakeMessage{Op: Insert, Doc: nil},
-			&Msg{Op: Insert, Id: nil, document: nil},
+			&Msg{Op: Insert, ID: nil, document: nil},
 		},
 		{
 			FakeMessage{Op: Command, Doc: bson.M{"field1": 1}},
-			&Msg{Op: Command, Id: nil, document: bson.M{"field1": 1}},
+			&Msg{Op: Command, ID: nil, document: bson.M{"field1": 1}},
 		},
 		{
 			FakeMessage{Op: Insert, Doc: bson.M{"id": "nick", "field2": 1}},
-			&Msg{Op: Insert, Id: "nick", document: bson.M{"field2": 1}, idKey: "id"},
+			&Msg{Op: Insert, ID: "nick", document: bson.M{"field2": 1}, idKey: "id"},
 		},
 		{
 			FakeMessage{Op: Insert, Doc: bson.M{"_id": "nick", "field2": 1}},
-			&Msg{Op: Insert, Id: "nick", document: bson.M{"field2": 1}, idKey: "_id"},
+			&Msg{Op: Insert, ID: "nick", document: bson.M{"field2": 1}, idKey: "_id"},
 		},
 	}
 
@@ -42,8 +42,8 @@ func TestNewMsg(t *testing.T) {
 			t.Errorf("Bad doc.  expected %v, got %v", v.out.Document(), m.Document())
 		}
 
-		if !reflect.DeepEqual(m.Id, v.out.Id) {
-			t.Errorf("Bad Id.  expected %v, got %v", v.out.Id, m.Id)
+		if !reflect.DeepEqual(m.ID, v.out.ID) {
+			t.Errorf("Bad Id.  expected %v, got %v", v.out.ID, m.ID)
 		}
 	}
 }
@@ -118,8 +118,8 @@ func TestDocumentWithId(t *testing.T) {
 	}
 
 	for _, v := range data {
-		if !reflect.DeepEqual(v.in.DocumentWithId(v.idkey), v.out) {
-			t.Errorf("Bad doc.  expected %+v, got %+v", v.out, v.in.DocumentWithId(v.idkey))
+		if !reflect.DeepEqual(v.in.DocumentWithID(v.idkey), v.out) {
+			t.Errorf("Bad doc.  expected %+v, got %+v", v.out, v.in.DocumentWithID(v.idkey))
 		}
 	}
 }
@@ -127,7 +127,7 @@ func TestDocumentWithId(t *testing.T) {
 func TestOriginalIdOnNew(t *testing.T) {
 	data := []struct {
 		in         bson.M
-		originalId interface{}
+		originalID interface{}
 	}{
 		{
 			nil,
@@ -150,8 +150,8 @@ func TestOriginalIdOnNew(t *testing.T) {
 
 	for _, v := range data {
 		msg := NewMsg(OpTypeFromString("insertable"), v.in)
-		if msg.OriginalId != v.originalId {
-			t.Errorf("NewMsg failed.  expected %+v, got %+v", v.originalId, msg.OriginalId)
+		if msg.OriginalID != v.originalID {
+			t.Errorf("NewMsg failed.  expected %+v, got %+v", v.originalID, msg.OriginalID)
 		}
 	}
 }
@@ -159,7 +159,7 @@ func TestOriginalIdOnNew(t *testing.T) {
 func TestOriginalIdOnSet(t *testing.T) {
 	data := []struct {
 		in         bson.M
-		originalId interface{}
+		originalID interface{}
 	}{
 		{
 			nil,
@@ -183,8 +183,8 @@ func TestOriginalIdOnSet(t *testing.T) {
 	for _, v := range data {
 		msg := NewMsg(OpTypeFromString("inserty"), nil)
 		msg.SetDocument(v.in)
-		if msg.OriginalId != v.originalId {
-			t.Errorf("SetDocument failed.  expected %+v, got %+v", v.originalId, msg.OriginalId)
+		if msg.OriginalID != v.originalID {
+			t.Errorf("SetDocument failed.  expected %+v, got %+v", v.originalID, msg.OriginalID)
 		}
 	}
 }

@@ -64,7 +64,7 @@ func (n *Node) String() string {
 	prefixformatter := fmt.Sprintf("%%%ds%%-%ds", depth, 18-depth)
 
 	if n.Parent == nil { // root node
-		// s = fmt.Sprintf("%18s %-40s %-15s %-30s %s\n", " ", "Name", "Type", "Namespace", "Uri")
+		// s = fmt.Sprintf("%18s %-40s %-15s %-30s %s\n", " ", "Name", "Type", "Namespace", "URI")
 		prefix = fmt.Sprintf(prefixformatter, " ", "- Source: ")
 	} else if len(n.Children) == 0 {
 		prefix = fmt.Sprintf(prefixformatter, " ", "- Sink: ")

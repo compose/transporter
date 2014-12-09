@@ -28,7 +28,7 @@ func NewFile(p *pipe.Pipe, path string, extra Config) (StopStartListener, error)
 	}
 
 	return &File{
-		uri:  conf.Uri,
+		uri:  conf.URI,
 		pipe: p,
 		path: path,
 	}, nil
@@ -116,5 +116,5 @@ func (d *File) dumpMessage(msg *message.Msg) (*message.Msg, error) {
 }
 
 type FileConfig struct {
-	Uri string `json:"uri"`
+	URI string `json:"uri"`
 }

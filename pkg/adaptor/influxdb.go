@@ -34,7 +34,7 @@ func NewInfluxdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, er
 		return nil, err
 	}
 
-	u, err := url.Parse(conf.Uri)
+	u, err := url.Parse(conf.URI)
 	if err != nil {
 		return nil, err
 	}

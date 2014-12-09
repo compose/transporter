@@ -38,7 +38,7 @@ func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, e
 		return nil, err
 	}
 
-	u, err := url.Parse(conf.Uri)
+	u, err := url.Parse(conf.URI)
 	if err != nil {
 		return nil, err
 	}
@@ -89,11 +89,11 @@ func (r *Rethinkdb) applyOp(msg *message.Msg) (*message.Msg, error) {
 
 	switch msg.Op {
 	case message.Delete:
-		resp, err = gorethink.Table(r.table).Get(msg.IdAsString()).Delete().RunWrite(r.client)
+		resp, err = gorethink.Table(r.table).Get(msg.IDString()).Delete().RunWrite(r.client)
 	case message.Insert:
 		resp, err = gorethink.Table(r.table).Insert(msg.Document()).RunWrite(r.client)
 	case message.Update:
-		resp, err = gorethink.Table(r.table).Insert(msg.DocumentWithId("id"), gorethink.InsertOpts{Conflict: "replace"}).RunWrite(r.client)
+		resp, err = gorethink.Table(r.table).Insert(msg.DocumentWithID("id"), gorethink.InsertOpts{Conflict: "replace"}).RunWrite(r.client)
 	}
 	if err != nil {
 		return msg, err
