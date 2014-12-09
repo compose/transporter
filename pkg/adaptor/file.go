@@ -11,6 +11,8 @@ import (
 	"github.com/compose/transporter/pkg/pipe"
 )
 
+// File is an adaptor that can be used as a
+// source / sink for file's on disk, as well as a sink to stdout.
 type File struct {
 	uri        string
 	pipe       *pipe.Pipe
@@ -18,6 +20,7 @@ type File struct {
 	filehandle *os.File
 }
 
+// NewFile returns a File Adaptor
 func NewFile(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
 	var (
 		conf FileConfig
@@ -44,6 +47,7 @@ func (d *File) Start() (err error) {
 	return d.readFile()
 }
 
+// Listen starts the listen loop
 func (d *File) Listen() (err error) {
 	defer func() {
 		d.Stop()
@@ -115,6 +119,8 @@ func (d *File) dumpMessage(msg *message.Msg) (*message.Msg, error) {
 	return msg, nil
 }
 
+// FileConfig is used to configure the File Adaptor,
 type FileConfig struct {
+	// URI pointing to the resource.  We only recognize file:// and stdout:// currently
 	URI string `json:"uri"`
 }
