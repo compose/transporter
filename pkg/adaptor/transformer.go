@@ -150,7 +150,7 @@ func (t *Transformer) transformerError(lvl ErrorLevel, err error, msg *message.M
 	return NewError(lvl, t.path, fmt.Sprintf("Transformer error (%s)", err.Error()), msg.Document())
 }
 
-// InfluxdbConfig options
+// TransformerConfig holds config options
 type TransformerConfig struct {
 	Filename string `json:"filename"` // file containing transformer javascript
 	Debug    bool   `json:"debug"`    // debug mode
