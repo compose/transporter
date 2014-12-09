@@ -6,6 +6,15 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
+// Adaptor errors have levels to indicate their severity.
+// CRITICAL errors indicate that the program cannot continue running.
+//
+// ERROR errors indicate a problem with a specific document or message.
+// a document might not have been applied properly to a source, but the program can continue
+//
+// WARNING Todo
+//
+// NOTICE ToDo
 const (
 	NOTICE ErrorLevel = iota
 	WARNING
