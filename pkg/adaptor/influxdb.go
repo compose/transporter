@@ -19,6 +19,7 @@ type Influxdb struct {
 
 	//
 	pipe *pipe.Pipe
+	path string
 
 	// influx connection and options
 	influxClient *client.Client
@@ -41,6 +42,7 @@ func NewInfluxdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, er
 	i := &Influxdb{
 		uri:  u,
 		pipe: p,
+		path: path,
 	}
 
 	i.database, i.series_name, err = extra.splitNamespace()

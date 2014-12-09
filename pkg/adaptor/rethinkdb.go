@@ -23,6 +23,7 @@ type Rethinkdb struct {
 
 	//
 	pipe *pipe.Pipe
+	path string
 
 	// rethinkdb connection and options
 	client *gorethink.Session
@@ -45,6 +46,7 @@ func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, e
 	r := &Rethinkdb{
 		uri:  u,
 		pipe: p,
+		path: path,
 	}
 
 	r.database, r.table, err = extra.splitNamespace()
