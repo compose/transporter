@@ -93,7 +93,7 @@ func (m *Pipe) Listen(fn func(*message.Msg) (*message.Msg, error)) error {
 			if len(m.Out) > 0 {
 				m.Send(outmsg)
 			} else {
-				m.MessageCount += 1 // update the count anyway
+				m.MessageCount++ // update the count anyway
 			}
 		case <-time.After(100 * time.Millisecond):
 			// NOP, just breath
@@ -124,7 +124,7 @@ func (m *Pipe) Send(msg *message.Msg) {
 		for {
 			select {
 			case ch <- msg:
-				m.MessageCount += 1
+				m.MessageCount++
 				break A
 			case <-time.After(100 * time.Millisecond):
 				if m.Stopped {
