@@ -58,7 +58,7 @@ func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, e
 	return r, nil
 }
 
-func (e *Rethinkdb) Start() error {
+func (r *Rethinkdb) Start() error {
 	return fmt.Errorf("Rethinkdb can't function as a source")
 }
 
