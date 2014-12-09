@@ -115,7 +115,7 @@ func (c *Config) splitNamespace() (string, string, error) {
 	fields := strings.SplitN(c.GetString("namespace"), ".", 2)
 
 	if len(fields) != 2 {
-		return "", "", fmt.Errorf("malformed namespace, expected a '.' deliminated string.")
+		return "", "", fmt.Errorf("malformed namespace, expected a '.' deliminated string")
 	}
 	return fields[0], fields[1], nil
 }
