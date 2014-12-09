@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	id_keys = []string{"_id", "id"}
+	idKeys = []string{"_id", "id"}
 )
 
 // A Msg serves to wrap the actual document to
@@ -47,7 +47,7 @@ func NewMsg(op OpType, doc bson.M) *Msg {
 // extractId will handle separating the id field from the
 // rest of the document, can handle both 'id' and '_id'
 func (m *Msg) extractId(doc bson.M) (bson.M, interface{}) {
-	for _, key := range id_keys {
+	for _, key := range idKeys {
 		id, exists := doc[key]
 		if exists {
 			m.idKey = key
