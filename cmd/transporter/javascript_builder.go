@@ -11,6 +11,8 @@ import (
 	"github.com/robertkrimen/otto"
 )
 
+// JavascriptBuilder runs the javascript provided and uses it to compile a
+// list of transporter nodes and instantiate a transporter pipeline
 type JavascriptBuilder struct {
 	file   string
 	path   string
@@ -22,6 +24,7 @@ type JavascriptBuilder struct {
 	err   error
 }
 
+// NewJavascriptBuilder compiles the supplied javascript and creates a Javascriptbulder
 func NewJavascriptBuilder(config Config, file, src string) (*JavascriptBuilder, error) {
 	js := &JavascriptBuilder{file: file, vm: otto.New(), path: filepath.Dir(file), nodes: make(map[string]Node), app: Application(config)}
 
