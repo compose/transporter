@@ -14,8 +14,8 @@ type Influxdb struct {
 	uri *url.URL
 
 	// save time by setting these once
-	database    string
-	series_name string
+	database   string
+	seriesName string
 
 	//
 	pipe *pipe.Pipe
@@ -45,7 +45,7 @@ func NewInfluxdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, er
 		path: path,
 	}
 
-	i.database, i.series_name, err = extra.splitNamespace()
+	i.database, i.seriesName, err = extra.splitNamespace()
 	if err != nil {
 		return i, err
 	}
@@ -84,7 +84,7 @@ func (i *Influxdb) applyOp(msg *message.Msg) (*message.Msg, error) {
 			points[0] = append(points[0], msg.Document()[k])
 		}
 		series := &client.Series{
-			Name:    i.series_name,
+			Name:    i.seriesName,
 			Columns: columns,
 			Points:  points,
 		}
