@@ -19,6 +19,7 @@ type Node struct {
 	RootUUID string
 }
 
+// NewNode creates a node
 func NewNode(name, kind string, extra adaptor.Config) (node Node, err error) {
 	uuid, err := uuid.NewV4()
 	if err != nil {
@@ -28,6 +29,9 @@ func NewNode(name, kind string, extra adaptor.Config) (node Node, err error) {
 	return Node{UUID: uuid.String(), Name: name, Type: kind, Extra: extra, RootUUID: uuid.String(), Children: make([]*Node, 0)}, nil
 }
 
+// CreateNode creates a node by marshalling an interface to json,
+// and then unmarshalling into a struct.  Useful in the javascript builder
+// to persist nodes in the js environment
 func CreateNode(val interface{}) (Node, error) {
 	t := Node{}
 	ba, err := json.Marshal(val)
@@ -40,7 +44,7 @@ func CreateNode(val interface{}) (Node, error) {
 	return t, err
 }
 
-// turn this pipeline into an otto Object
+// Object turns this pipeline into an otto Object
 func (n *Node) Object() (*otto.Object, error) {
 	vm := otto.New()
 	ba, err := json.Marshal(n)
@@ -51,12 +55,14 @@ func (n *Node) Object() (*otto.Object, error) {
 	return vm.Object(fmt.Sprintf(`(%s)`, string(ba)))
 }
 
-// Add node adds a node as a child of the current node
+// Add will add a node as a child of the current node
 func (n *Node) Add(node *Node) {
 	node.RootUUID = n.RootUUID
 	n.Children = append(n.Children, node)
 }
 
+// CreateTransporterNode will turn this node into a transporter.Node.
+// will recurse down the tree and transform each child
 func (n *Node) CreateTransporterNode() *transporter.Node {
 	self := transporter.NewNode(n.Name, n.Type, n.Extra)
 
