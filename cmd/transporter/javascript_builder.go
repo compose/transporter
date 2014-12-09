@@ -18,12 +18,12 @@ type JavascriptBuilder struct {
 	vm     *otto.Otto
 
 	nodes map[string]Node
-	app   *Application
+	app   *application
 	err   error
 }
 
 func NewJavascriptBuilder(config Config, file, src string) (*JavascriptBuilder, error) {
-	js := &JavascriptBuilder{file: file, vm: otto.New(), path: filepath.Dir(file), nodes: make(map[string]Node), app: NewApplication(config)}
+	js := &JavascriptBuilder{file: file, vm: otto.New(), path: filepath.Dir(file), nodes: make(map[string]Node), app: Application(config)}
 
 	var (
 		script *otto.Script
@@ -59,7 +59,7 @@ func (js *JavascriptBuilder) source(call otto.FunctionCall) otto.Value {
 		js.err = err
 		return otto.NullValue()
 	}
-	js.nodes[node.Uuid] = node // persist this
+	js.nodes[node.UUID] = node // persist this
 
 	nodeObject, err := node.Object()
 	if err != nil {
@@ -79,16 +79,16 @@ func (js *JavascriptBuilder) save(node Node, call otto.FunctionCall) (Node, erro
 	if err != nil {
 		return node, err
 	}
-	root := js.nodes[node.RootUuid]
+	root := js.nodes[node.RootUUID]
 
-	if node.Uuid == root.Uuid { // save is being called on a root node
+	if node.UUID == root.UUID { // save is being called on a root node
 		root.Add(&this_node)
 	} else {
 		node.Add(&this_node) // add the generated not to the `this`
 		root.Add(&node)      // add the result to the root
 	}
 
-	js.nodes[root.Uuid] = root
+	js.nodes[root.UUID] = root
 	return root, err
 }
 
@@ -186,7 +186,7 @@ func (js *JavascriptBuilder) findNode(in otto.Value) (n Node, err error) {
 // each call to the Source() in the javascript creates a new JavascriptPipeline struct,
 // and transformers and sinks are added with calls to Transform(), and Save().
 // the call to Transporter.add(pipeline) adds the JavascriptPipeline to the Builder's js_pipeline property
-func (js *JavascriptBuilder) Build() (*Application, error) {
+func (js *JavascriptBuilder) Build() (*application, error) {
 	_, err := js.vm.Run(js.script)
 	if js.err != nil {
 		return nil, js.err

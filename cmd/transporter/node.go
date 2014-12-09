@@ -11,12 +11,12 @@ import (
 )
 
 type Node struct {
-	Uuid     string
+	UUID     string
 	Name     string         `json:"name"`
 	Type     string         `json:"type"`
 	Extra    adaptor.Config `json:"extra"`
 	Children []*Node        `json:"children"`
-	RootUuid string
+	RootUUID string
 }
 
 func NewNode(name, kind string, extra adaptor.Config) (node Node, err error) {
@@ -25,7 +25,7 @@ func NewNode(name, kind string, extra adaptor.Config) (node Node, err error) {
 		return node, err
 	}
 
-	return Node{Uuid: uuid.String(), Name: name, Type: kind, Extra: extra, RootUuid: uuid.String(), Children: make([]*Node, 0)}, nil
+	return Node{UUID: uuid.String(), Name: name, Type: kind, Extra: extra, RootUUID: uuid.String(), Children: make([]*Node, 0)}, nil
 }
 
 func CreateNode(val interface{}) (Node, error) {
@@ -53,7 +53,7 @@ func (n *Node) Object() (*otto.Object, error) {
 
 // Add node adds a node as a child of the current node
 func (n *Node) Add(node *Node) {
-	node.RootUuid = n.RootUuid
+	node.RootUUID = n.RootUUID
 	n.Children = append(n.Children, node)
 }
 
