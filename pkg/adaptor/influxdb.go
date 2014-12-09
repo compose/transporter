@@ -53,10 +53,12 @@ func NewInfluxdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, er
 	return i, nil
 }
 
+// Start the adaptor as a source (not implemented)
 func (i *Influxdb) Start() error {
 	return fmt.Errorf("Influxdb can't function as a source")
 }
 
+// Listen starts the listener
 func (i *Influxdb) Listen() (err error) {
 	i.influxClient, err = i.setupClient()
 	if err != nil {
@@ -67,6 +69,7 @@ func (i *Influxdb) Listen() (err error) {
 	return i.pipe.Listen(i.applyOp)
 }
 
+// Stop the adaptor
 func (i *Influxdb) Stop() error {
 	i.pipe.Stop()
 	return nil

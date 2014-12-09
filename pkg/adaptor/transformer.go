@@ -12,6 +12,9 @@ import (
 	_ "github.com/robertkrimen/otto/underscore" // enable underscore
 )
 
+// Transformer is an adaptor which consumes data from a source, transforms it using a supplied javascript
+// function and then emits it.  The javascript transformation function is supplied as a seperate file on disk,
+// and is called by calling the defined module.exports function
 type Transformer struct {
 	fn string
 
@@ -23,6 +26,7 @@ type Transformer struct {
 	vm     *otto.Otto
 }
 
+// NewTransformer creates a new transformer object
 func NewTransformer(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
 	var (
 		conf TransformerConfig
@@ -48,6 +52,9 @@ func NewTransformer(p *pipe.Pipe, path string, extra Config) (StopStartListener,
 	return t, nil
 }
 
+// Listen starts the transformer's listener, reads each message from the incoming channel
+// transformers it into mejson, and then uses the supplied javascript module.exports function
+// to transform the document.  The document is then emited to this adaptor's children
 func (t *Transformer) Listen() (err error) {
 	t.vm = otto.New()
 
@@ -70,10 +77,12 @@ func (t *Transformer) Listen() (err error) {
 	return t.pipe.Listen(t.transformOne)
 }
 
+// Start the adaptor as a source (not implemented for this adaptor)
 func (t *Transformer) Start() error {
 	return fmt.Errorf("Transformers can't be used as a source")
 }
 
+// Stop the adaptor
 func (t *Transformer) Stop() error {
 	t.pipe.Stop()
 	return nil
@@ -150,8 +159,12 @@ func (t *Transformer) transformerError(lvl ErrorLevel, err error, msg *message.M
 	return NewError(lvl, t.path, fmt.Sprintf("Transformer error (%s)", err.Error()), msg.Document())
 }
 
-// TransformerConfig holds config options
+// TransformerConfig holds config options for a transformer adaptor
 type TransformerConfig struct {
-	Filename string `json:"filename"` // file containing transformer javascript
-	Debug    bool   `json:"debug"`    // debug mode
+	// file containing transformer javascript
+	// must define a module.exports = function(doc) { .....; return doc }
+	Filename string `json:"filename"`
+
+	// verbose output
+	Debug bool `json:"debug"` // debug mode
 }

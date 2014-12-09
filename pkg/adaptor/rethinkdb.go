@@ -58,10 +58,12 @@ func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, e
 	return r, nil
 }
 
+// Start the adaptor as a source (not implemented)
 func (r *Rethinkdb) Start() error {
 	return fmt.Errorf("Rethinkdb can't function as a source")
 }
 
+// Listen start's the adaptor's listener
 func (r *Rethinkdb) Listen() (err error) {
 	r.client, err = r.setupClient()
 	if err != nil {
@@ -72,11 +74,13 @@ func (r *Rethinkdb) Listen() (err error) {
 	return r.pipe.Listen(r.applyOp)
 }
 
+// Stop the adaptor
 func (r *Rethinkdb) Stop() error {
 	r.pipe.Stop()
 	return nil
 }
 
+// applyOp applies one operation to the database
 func (r *Rethinkdb) applyOp(msg *message.Msg) (*message.Msg, error) {
 	var (
 		resp gorethink.WriteResponse

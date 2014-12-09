@@ -10,6 +10,8 @@ import (
 	elastigo "github.com/mattbaird/elastigo/lib"
 )
 
+// Elasticsearch is an adaptor to connect a pipeline to
+// an elasticsearch cluster.
 type Elasticsearch struct {
 	// pull these in from the node
 	uri *url.URL
@@ -24,6 +26,8 @@ type Elasticsearch struct {
 	running bool
 }
 
+// NewElasticsearch creates a new Elasticsearch adaptor.
+// Elasticsearch adaptors cannot be used as a source,
 func NewElasticsearch(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
 	var (
 		conf dbConfig
@@ -51,7 +55,7 @@ func NewElasticsearch(p *pipe.Pipe, path string, extra Config) (StopStartListene
 	return e, nil
 }
 
-// Start the adaptor
+// Start the adaptor as a source (not implemented)
 func (e *Elasticsearch) Start() error {
 	return fmt.Errorf("Elasticsearch can't function as a source")
 }

@@ -70,6 +70,7 @@ func NewMongodb(p *pipe.Pipe, path string, extra Config) (StopStartListener, err
 	return m, err
 }
 
+// Start the adaptor as a source
 func (m *Mongodb) Start() (err error) {
 	defer func() {
 		m.pipe.Stop()
@@ -97,6 +98,7 @@ func (m *Mongodb) Start() (err error) {
 	return
 }
 
+// Listen starts the pipe's listener
 func (m *Mongodb) Listen() (err error) {
 	defer func() {
 		m.pipe.Stop()
@@ -104,6 +106,7 @@ func (m *Mongodb) Listen() (err error) {
 	return m.pipe.Listen(m.writeMessage)
 }
 
+// Stop the adaptor
 func (m *Mongodb) Stop() error {
 	m.pipe.Stop()
 	return nil
@@ -121,9 +124,7 @@ func (m *Mongodb) writeMessage(msg *message.Msg) (*message.Msg, error) {
 	return msg, nil
 }
 
-/*
- * pull down the original connection
- */
+// catdata pulls down the original collection
 func (m *Mongodb) catData() (err error) {
 
 	var (
