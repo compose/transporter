@@ -12,7 +12,7 @@ import (
 
 var (
 	// The node was not found in the map
-	MissingNodeError = errors.New("adaptor not found in registry")
+	ErrMissingNode = errors.New("adaptor not found in registry")
 
 	// a registry of adaptor types and their constructors
 	registry = map[string]interface{}{
@@ -54,7 +54,7 @@ func Createadaptor(kind, path string, extra Config, p *pipe.Pipe) (adaptor StopS
 
 	fn, ok := registry[kind]
 	if !ok {
-		return nil, MissingNodeError
+		return nil, ErrMissingNode
 	}
 
 	args := []reflect.Value{
