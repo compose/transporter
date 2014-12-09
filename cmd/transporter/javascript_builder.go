@@ -67,8 +67,8 @@ func (js *JavascriptBuilder) source(call otto.FunctionCall) otto.Value {
 		return otto.NullValue()
 	}
 
-	js.SetFunc(nodeObject, "transform", js.transform)
-	js.SetFunc(nodeObject, "save", js.save)
+	js.setFunc(nodeObject, "transform", js.transform)
+	js.setFunc(nodeObject, "save", js.save)
 	return nodeObject.Value()
 }
 
@@ -121,7 +121,7 @@ func (js *JavascriptBuilder) transform(node Node, call otto.FunctionCall) (Node,
 
 // pipelines in javascript are chainable, you take in a pipeline, and you return a pipeline
 // we just generalize some of that logic here
-func (js *JavascriptBuilder) SetFunc(obj *otto.Object, token string, fn func(Node, otto.FunctionCall) (Node, error)) error {
+func (js *JavascriptBuilder) setFunc(obj *otto.Object, token string, fn func(Node, otto.FunctionCall) (Node, error)) error {
 	return obj.Set(token, func(call otto.FunctionCall) otto.Value {
 		this, _ := call.This.Export()
 
@@ -143,8 +143,8 @@ func (js *JavascriptBuilder) SetFunc(obj *otto.Object, token string, fn func(Nod
 			return otto.NullValue()
 		}
 
-		js.SetFunc(o, "transform", js.transform)
-		js.SetFunc(o, "save", js.save)
+		js.setFunc(o, "transform", js.transform)
+		js.setFunc(o, "save", js.save)
 
 		return o.Value()
 	})
