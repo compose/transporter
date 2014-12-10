@@ -31,34 +31,31 @@ nodes:
 ```
 
 There is also a sample 'application.js' in test/application.js.  The application is responsible for building transporter pipelines.
-Given the above config, this Transporter will copy from a file (in /tmp/crap) to stdout.
+Given the above config, this Transporter application.js will copy from a file (in /tmp/crap) to stdout.
 ```js
-t = Transporter()
-t.add(Source({name:"crapfile"}).save({name:"stdout"}))
+Source({name:"crapfile"}).save({name:"stdout"})
 
 ```
 
-This will copy from the local mongo to a file on the local disk
+This application.js will copy from the local mongo to a file on the local disk
 ```js
-t = Transporter()
-t.add(Source({name:"localmongo", namespace: "boom.foo"}).save({name:"tofile"}))
+Source({name:"localmongo", namespace: "boom.foo"}).save({name:"tofile"})
 ```
 
-Transformers are also configured in the application.js as follows
+Transformers can also configured in the application.js as follows
 ```js
-var t = Transporter()
 var pipeline = Source({name:"mongodb-production", namespace: "compose.milestones2"})
-pipeline = transporter.transform("transformers/transform1.js")
-pipeline = transporter.transform("transformers/transform2.js")
-pipeline = transporter.save({name:"supernick", namespace: "something/posts2"});
-t.add(pipeline)
+pipeline = pipeline.transform("transformers/transform1.js").transform("transformers/transform2.js")
+pipeline.save({name:"supernick", namespace: "something/posts2"});
+
 ```
 Run
 ---
 
-- list `./transporter --config ./test/config.yaml list`
-- run `./transporter --config ./test/config.yaml run ./test/application.js`
-
+- list `./transporter list --config ./test/config.yaml`
+- run `./transporter run --config ./test/config.yaml ./test/application.js`
+- eval `./transporter eval --config ./test/config.yaml 'Source({name:"localmongo", namespace: "boom.foo"}).save({name:"tofile"})' `
+- test `./transporter test --config ./test/config.yaml test/application.js `
 
 Contributing to Transporter
 ======================
@@ -66,10 +63,7 @@ Contributing to Transporter
 [![Circle CI](https://circleci.com/gh/compose/transporter/tree/master.png?style=badge)](https://circleci.com/gh/compose/transporter/tree/master)
 
 Want to help out with Transporter? Great! There are instructions to get you
-started [here](CONTRIBUTING.md). If you'd like to contribute to the
-documentation, please take a look at this [README.md](https://github.com/docker/docker/blob/master/docs/README.md).
-
-
+started [here](CONTRIBUTING.md).
 
 Licensing
 =========
