@@ -238,9 +238,8 @@ func (m *Mongodb) tailData() (err error) {
 	}
 }
 
-/*
- * update operations need us to get the original document from mongo
- */
+// getOriginalDoc retrieves the original document from the database.  transport has no knowledge of update operations, all updates
+// work as wholesale document replaces
 func (m *Mongodb) getOriginalDoc(doc bson.M) (result bson.M, err error) {
 	id, exists := doc["_id"]
 	if !exists {
@@ -258,9 +257,7 @@ func (m *Mongodb) getNamespace() string {
 	return strings.Join([]string{m.database, m.collection}, ".")
 }
 
-/*
- * split a mongo namespace into a database and a collection
- */
+// splitNamespace split's a mongo namespace by the first '.' into a database and a collection
 func (m *Mongodb) splitNamespace(namespace string) (string, string, error) {
 	fields := strings.SplitN(namespace, ".", 2)
 
@@ -270,9 +267,8 @@ func (m *Mongodb) splitNamespace(namespace string) (string, string, error) {
 	return fields[0], fields[1], nil
 }
 
-/*
- * oplog documents are a specific structure
- */
+// oplogDoc are representations of the mongodb oplog document
+// detailed here, among other places.  http://www.kchodorow.com/blog/2010/10/12/replication-internals/
 type oplogDoc struct {
 	Ts bson.MongoTimestamp `bson:"ts"`
 	H  int64               `bson:"h"`
@@ -283,8 +279,9 @@ type oplogDoc struct {
 	O2 bson.M              `bson:"o2"`
 }
 
+// validOp checks to see if we're an insert, delete, or update, otherwise the
+// document is skilled.
 // TODO: skip system collections
-// BUG: skip system collections
 func (o *oplogDoc) validOp() bool {
 	return o.Op == "i" || o.Op == "d" || o.Op == "u"
 }
