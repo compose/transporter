@@ -96,14 +96,12 @@ func (c *runCommand) Run(args []string) int {
 		fmt.Println(err)
 		return 1
 	}
-	js, err := builder.Build()
-	if err != nil {
+	if err = builder.Build(); err != nil {
 		fmt.Println(err)
 		return 1
 	}
 
-	err = js.Run()
-	if err != nil {
+	if err = builder.Run(); err != nil {
 		fmt.Println(err)
 		return 1
 	}
@@ -127,7 +125,7 @@ func (c *testCommand) Synopsis() string {
 
 func (c *testCommand) Run(args []string) int {
 	var configFilename string
-	cmdFlags := flag.NewFlagSet("run", flag.ContinueOnError)
+	cmdFlags := flag.NewFlagSet("test", flag.ContinueOnError)
 	cmdFlags.Usage = func() { c.Help() }
 	cmdFlags.StringVar(&configFilename, "config", "config.yaml", "config file")
 	cmdFlags.Parse(args)
@@ -143,12 +141,11 @@ func (c *testCommand) Run(args []string) int {
 		fmt.Println(err)
 		return 1
 	}
-	js, err := builder.Build()
-	if err != nil {
+	if err = builder.Build(); err != nil {
 		fmt.Println(err)
 		return 1
 	}
-	fmt.Println(js)
+	fmt.Println(builder)
 	return 0
 }
 
@@ -185,14 +182,12 @@ func (c *evalCommand) Run(args []string) int {
 		fmt.Println(err)
 		return 1
 	}
-	js, err := builder.Build()
-	if err != nil {
+	if err = builder.Build(); err != nil {
 		fmt.Println(err)
 		return 1
 	}
 
-	err = js.Run()
-	if err != nil {
+	if err = builder.Run(); err != nil {
 		fmt.Println(err)
 		return 1
 	}

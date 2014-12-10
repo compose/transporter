@@ -19,14 +19,23 @@ type JavascriptBuilder struct {
 	script *otto.Script
 	vm     *otto.Otto
 
-	nodes map[string]Node
-	app   *application
-	err   error
+	nodes     map[string]Node
+	pipelines []*transporter.Pipeline
+
+	err    error
+	config Config
 }
 
 // NewJavascriptBuilder compiles the supplied javascript and creates a Javascriptbulder
 func NewJavascriptBuilder(config Config, file, src string) (*JavascriptBuilder, error) {
-	js := &JavascriptBuilder{file: file, vm: otto.New(), path: filepath.Dir(file), nodes: make(map[string]Node), app: Application(config)}
+	js := &JavascriptBuilder{
+		file:      file,
+		vm:        otto.New(),
+		path:      filepath.Dir(file),
+		config:    config,
+		nodes:     make(map[string]Node),
+		pipelines: make([]*transporter.Pipeline, 0),
+	}
 
 	var (
 		script *otto.Script
@@ -99,7 +108,7 @@ func (js *JavascriptBuilder) save(node Node, call otto.FunctionCall) (Node, erro
 // transform takes one argument, which is a path to a transformer file.
 func (js *JavascriptBuilder) transform(node Node, call otto.FunctionCall) (Node, error) {
 	if !call.Argument(0).IsString() {
-		return node, fmt.Errorf("bad arguments, expected string, got %d.", len(call.Argument(0).Class()))
+		return node, fmt.Errorf("bad arguments, expected string, got %T", call.Argument(0).Class())
 	}
 
 	fn, _ := call.Argument(0).Export()
@@ -176,7 +185,7 @@ func (js *JavascriptBuilder) findNode(in otto.Value) (n Node, err error) {
 		return n, fmt.Errorf("hash requires a name")
 	}
 
-	val, ok := js.app.Config.Nodes[sourceString]
+	val, ok := js.config.Nodes[sourceString]
 	if !ok {
 		return n, fmt.Errorf("no configured nodes found named %s", sourceString)
 	}
@@ -189,29 +198,50 @@ func (js *JavascriptBuilder) findNode(in otto.Value) (n Node, err error) {
 // each call to the Source() in the javascript creates a new JavascriptPipeline struct,
 // and transformers and sinks are added with calls to Transform(), and Save().
 // the call to Transporter.add(pipeline) adds the JavascriptPipeline to the Builder's js_pipeline property
-func (js *JavascriptBuilder) Build() (*application, error) {
+func (js *JavascriptBuilder) Build() error {
 	_, err := js.vm.Run(js.script)
 	if js.err != nil {
-		return nil, js.err
+		return js.err
 	}
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	for _, node := range js.nodes {
 		n := node.CreateTransporterNode()
 
-		interval, err := time.ParseDuration(js.app.Config.API.MetricsInterval)
+		interval, err := time.ParseDuration(js.config.API.MetricsInterval)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		pipeline, err := transporter.NewDefaultPipeline(n, js.app.Config.API.URI, js.app.Config.API.Key, js.app.Config.API.Pid, interval)
+		pipeline, err := transporter.NewDefaultPipeline(n, js.config.API.URI, js.config.API.Key, js.config.API.Pid, interval)
 		if err != nil {
-			return js.app, err
+			return err
 		}
-		js.app.AddPipeline(pipeline)
+		js.pipelines = append(js.pipelines, pipeline) // remember this pipeline
 	}
 
-	return js.app, nil
+	return nil
+}
+
+// Run runs each of the transporter pipelines sequentially
+func (js *JavascriptBuilder) Run() error {
+	for _, p := range js.pipelines {
+		err := p.Run()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// String represents the pipelines as a string
+func (js *JavascriptBuilder) String() string {
+	out := "TransporterApplication:\n"
+	for _, p := range js.pipelines {
+		out += fmt.Sprintf("%s", p.String())
+	}
+	return out
 }
