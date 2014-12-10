@@ -10,6 +10,8 @@ import (
 	"github.com/robertkrimen/otto"
 )
 
+// Node is a struct modelled after the transporter.Node struct, but
+// more easily able to serialize to json for to use within the application.js
 type Node struct {
 	UUID     string
 	Name     string         `json:"name"`

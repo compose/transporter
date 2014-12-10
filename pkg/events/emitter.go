@@ -21,20 +21,10 @@ type Emitter interface {
 	Stop()
 }
 
-// HttpPostEmitter listens on the event channel and posts the events to an http server
+// HTTPPostEmitter listens on the event channel and posts the events to an http server
 // Events are serialized into json, and sent via a POST request to the given Uri
 // http errors are logged as warnings to the console, and won't stop the Emitter
-func HttpPostEmitter(uri, key, pid string) *httpPostEmitter {
-	return &httpPostEmitter{
-		uri:      uri,
-		key:      key,
-		pid:      pid,
-		chstop:   make(chan chan bool),
-		inflight: &sync.WaitGroup{},
-	}
-}
-
-type httpPostEmitter struct {
+type HTTPPostEmitter struct {
 	uri string
 	key string
 	pid string
@@ -44,25 +34,36 @@ type httpPostEmitter struct {
 	chstop   chan chan bool
 }
 
+// NewHTTPPostEmitter creates a new HTTPPostEmitter
+func NewHTTPPostEmitter(uri, key, pid string) *HTTPPostEmitter {
+	return &HTTPPostEmitter{
+		uri:      uri,
+		key:      key,
+		pid:      pid,
+		chstop:   make(chan chan bool),
+		inflight: &sync.WaitGroup{},
+	}
+}
+
 // Start the emitter
-func (e *httpPostEmitter) Start() {
+func (e *HTTPPostEmitter) Start() {
 	go e.startEventListener()
 }
 
-// Init Set's the event channel
-func (e *httpPostEmitter) Init(ch chan Event) {
+// Init sets the event channel
+func (e *HTTPPostEmitter) Init(ch chan Event) {
 	e.ch = ch
 }
 
 // Stop sends a stop signal and waits for the inflight posts to complete before exiting
-func (e *httpPostEmitter) Stop() {
+func (e *HTTPPostEmitter) Stop() {
 	s := make(chan bool)
 	e.chstop <- s
 	<-s
 	e.inflight.Wait()
 }
 
-func (e *httpPostEmitter) startEventListener() {
+func (e *HTTPPostEmitter) startEventListener() {
 	for {
 		select {
 		case s := <-e.chstop:
@@ -110,24 +111,24 @@ func (e *httpPostEmitter) startEventListener() {
 	}
 }
 
-// NoopEmitter constructs a NoopEmitter to use with a transporter pipeline.
+// NewNoopEmitter constructs a NoopEmitter to use with a transporter pipeline.
 // a NoopEmitter consumes the events from the listening channel and does nothing with them
 // this is useful for cli utilities that dump output to stdout in any case, and don't want
 // to clutter the program's output with metrics
-func NoopEmitter() *noopEmitter {
-	return &noopEmitter{chstop: make(chan chan bool)}
+func NewNoopEmitter() *NoopEmitter {
+	return &NoopEmitter{chstop: make(chan chan bool)}
 }
 
 // NoopEmitter consumes the events from the listening channel and does nothing with them
 // this is useful for cli utilities that dump output to stdout in any case, and don't want
 // to clutter the program's output with metrics
-type noopEmitter struct {
+type NoopEmitter struct {
 	chstop chan chan bool
 	ch     chan Event
 }
 
-// consume events
-func (e *noopEmitter) Start() {
+// Start the event consumer
+func (e *NoopEmitter) Start() {
 	go func() {
 		for {
 			select {
@@ -143,15 +144,23 @@ func (e *noopEmitter) Start() {
 	}()
 }
 
-// Init Set's the event channel
-func (e *noopEmitter) Init(ch chan Event) {
+// Init sets the event channel
+func (e *NoopEmitter) Init(ch chan Event) {
 	e.ch = ch
 }
 
-func (e *noopEmitter) Stop() {
+// Stop the event consumer
+func (e *NoopEmitter) Stop() {
 	s := make(chan bool)
 	e.chstop <- s
 	<-s
+}
+
+// NewLogEmitter creates a new LogEmitter
+func NewLogEmitter() *LogEmitter {
+	return &LogEmitter{
+		chstop: make(chan chan bool),
+	}
 }
 
 // LogEmitter constructs a LogEmitter to use with a transporter pipeline.
@@ -161,36 +170,29 @@ func (e *noopEmitter) Stop() {
 //   2014/11/28 16:56:58 metrics source recordsIn: 0, recordsOut: 203
 //   2014/11/28 16:56:58 exit
 //   2014/11/28 16:56:58 metrics source/out recordsIn: 203, recordsOut: 0
-func LogEmitter() *logEmitter {
-	return &logEmitter{
-		chstop: make(chan chan bool),
-	}
-}
-
-// LogEmitter listens on the event channel and uses go's log package to emit the event,
-type logEmitter struct {
+type LogEmitter struct {
 	chstop chan chan bool
 	ch     chan Event
 }
 
 // Start the emitter
-func (e *logEmitter) Start() {
+func (e *LogEmitter) Start() {
 	go e.startEventListener()
 }
 
-// Init Set's the event channel
-func (e *logEmitter) Init(ch chan Event) {
+// Init sets the event channel
+func (e *LogEmitter) Init(ch chan Event) {
 	e.ch = ch
 }
 
 // Stop the emitter
-func (e *logEmitter) Stop() {
+func (e *LogEmitter) Stop() {
 	s := make(chan bool)
 	e.chstop <- s
 	<-s
 }
 
-func (e *logEmitter) startEventListener() {
+func (e *LogEmitter) startEventListener() {
 	for {
 		select {
 		case s := <-e.chstop:

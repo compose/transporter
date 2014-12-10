@@ -81,7 +81,7 @@ func (m *Mongodb) Start() (err error) {
 
 	m.oplogTime = nowAsMongoTimestamp()
 	if m.debug {
-		fmt.Printf("setting start timestamp: %s", m.oplogTime)
+		fmt.Printf("setting start timestamp: %d", m.oplogTime)
 	}
 
 	err = m.catData()
@@ -208,7 +208,7 @@ func (m *Mongodb) tailData() (err error) {
 					}
 					msg.SetDocument(doc)
 				default:
-					m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("Mongodb error (unknown op type)", err.Error()), nil)
+					m.pipe.Err <- NewError(ERROR, m.path, "Mongodb error (unknown op type)", nil)
 					continue
 				}
 				m.oplogTime = result.Ts

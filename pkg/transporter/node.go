@@ -33,10 +33,9 @@ type Node struct {
 
 	adaptor adaptor.StopStartListener
 	pipe    *pipe.Pipe
-
-	// metricsTicker *time.Ticker
 }
 
+// NewNode creates a new Node struct
 func NewNode(name, kind string, extra adaptor.Config) *Node {
 	return &Node{
 		Name:     name,

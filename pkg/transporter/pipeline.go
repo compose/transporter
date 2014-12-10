@@ -8,8 +8,8 @@ import (
 	"github.com/compose/transporter/pkg/events"
 )
 
+// VERSION the library
 const (
-	// VERSION the library
 	VERSION = "0.0.1"
 )
 
@@ -34,7 +34,7 @@ type Pipeline struct {
 //   }
 // pipeline.Run()
 func NewDefaultPipeline(source *Node, uri, key, pid string, interval time.Duration) (*Pipeline, error) {
-	emitter := events.HttpPostEmitter(uri, key, pid)
+	emitter := events.NewHTTPPostEmitter(uri, key, pid)
 	return NewPipeline(source, emitter, interval)
 }
 
@@ -91,14 +91,14 @@ func (pipeline *Pipeline) Stop() {
 func (pipeline *Pipeline) Run() error {
 	endpoints := pipeline.source.Endpoints()
 	// send a boot event
-	pipeline.source.pipe.Event <- events.BootEvent(time.Now().Unix(), VERSION, endpoints)
+	pipeline.source.pipe.Event <- events.NewBootEvent(time.Now().Unix(), VERSION, endpoints)
 
 	// start the source
 	err := pipeline.source.Start()
 
 	// pipeline has stopped, emit one last round of metrics and send the exit event
 	pipeline.emitMetrics()
-	pipeline.source.pipe.Event <- events.ExitEvent(time.Now().Unix(), VERSION, endpoints)
+	pipeline.source.pipe.Event <- events.NewExitEvent(time.Now().Unix(), VERSION, endpoints)
 
 	// the source has exited, stop all the other nodes
 	pipeline.Stop()
@@ -114,7 +114,7 @@ func (pipeline *Pipeline) startErrorListener(cherr chan error) {
 	for err := range cherr {
 		if aerr, ok := err.(adaptor.Error); ok {
 			fmt.Printf("Adaptor error, %+v\n", aerr)
-			pipeline.source.pipe.Event <- events.ErrorEvent(time.Now().Unix(), aerr.Path, aerr.Record, aerr.Error())
+			pipeline.source.pipe.Event <- events.NewErrorEvent(time.Now().Unix(), aerr.Path, aerr.Record, aerr.Error())
 		} else {
 			fmt.Printf("Pipeline error %v\nShutting down pipeline\n", err)
 			pipeline.Stop()
@@ -140,7 +140,7 @@ func (pipeline *Pipeline) emitMetrics() {
 		frontier = frontier[1:]
 
 		// do something with the node
-		pipeline.source.pipe.Event <- events.MetricsEvent(time.Now().Unix(), node.Path(), node.pipe.MessageCount)
+		pipeline.source.pipe.Event <- events.NewMetricsEvent(time.Now().Unix(), node.Path(), node.pipe.MessageCount)
 
 		// add this nodes children to the frontier
 		for _, child := range node.Children {

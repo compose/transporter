@@ -9,6 +9,8 @@ import (
 	"github.com/influxdb/influxdb/client"
 )
 
+// Influxdb is an adaptor that writes metrics to influxdb (http://influxdb.com/)
+// a high performant time series database
 type Influxdb struct {
 	// pull these in from the node
 	uri *url.URL
@@ -25,6 +27,7 @@ type Influxdb struct {
 	influxClient *client.Client
 }
 
+// NewInfluxdb creates an Influxdb adaptor
 func NewInfluxdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
 	var (
 		conf dbConfig

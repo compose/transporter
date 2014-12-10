@@ -11,6 +11,8 @@ import (
 	gorethink "github.com/dancannon/gorethink"
 )
 
+// Rethinkdb is an adaptor that writes metrics to rethinkdb (http://rethinkdb.com/)
+// An open-source distributed database
 type Rethinkdb struct {
 	// pull these in from the config
 	uri *url.URL
@@ -29,6 +31,7 @@ type Rethinkdb struct {
 	client *gorethink.Session
 }
 
+// NewRethinkdb creates a new Rethinkdb database adaptor
 func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
 	var (
 		conf dbConfig
