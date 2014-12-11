@@ -22,18 +22,18 @@ nodes:
   debug:
     type: file
     uri: stdout://
-  testfile:
+  foofile:
     type: file
-    uri: file:///tmp/test
+    uri: file:///tmp/foo
   stdout:
     type: file
     uri: stdout://
 ```
 
 There is also a sample 'application.js' in test/application.js.  The application is responsible for building transporter pipelines.
-Given the above config, this Transporter application.js will copy from a file (in /tmp/test) to stdout.
+Given the above config, this Transporter application.js will copy from a file (in /tmp/foo) to stdout.
 ```js
-Source({name:"testfile"}).save({name:"stdout"})
+Source({name:"foofile"}).save({name:"stdout"})
 
 ```
 

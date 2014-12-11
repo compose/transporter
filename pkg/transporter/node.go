@@ -19,8 +19,8 @@ import (
 // data to each of it's children.
 // Node tree's can be constructed as follows:
 // 	source := transporter.NewNode("name1", "mongo", adaptor.Config{"uri": "mongodb://localhost/boom", "namespace": "boom.foo", "debug": true})
-// 	sink1 := transporter.NewNode("crapfile", "file", adaptor.Config{"uri": "stdout://"})
-// 	sink2 := transporter.NewNode("crapfile2", "file", adaptor.Config{"uri": "stdout://"})
+// 	sink1 := transporter.NewNode("foofile", "file", adaptor.Config{"uri": "stdout://"})
+// 	sink2 := transporter.NewNode("foofile2", "file", adaptor.Config{"uri": "stdout://"})
 // 	source.Add(sink1)
 // 	source.Add(sink2)
 //
@@ -91,7 +91,7 @@ func (n *Node) depth() int {
 // Path returns a string representation of the names of all the node's parents concatenated with "/"  used in metrics
 // eg. for the following tree
 // source := transporter.NewNode("name1", "mongo", adaptor.Config{"uri": "mongodb://localhost/boom", "namespace": "boom.foo", "debug": true})
-// 	sink1 := transporter.NewNode("crapfile", "file", adaptor.Config{"uri": "stdout://"})
+// 	sink1 := transporter.NewNode("foofile", "file", adaptor.Config{"uri": "stdout://"})
 // 	source.Add(sink1)
 // 'source' will have a Path of 'name1', and 'sink1' will have a path of 'name1/sink1'
 func (n *Node) Path() string {
