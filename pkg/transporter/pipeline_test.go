@@ -11,7 +11,7 @@ import (
 
 var (
 	fakesourceCN = NewNode("source1", "source", adaptor.Config{"value": "rockettes"})
-	fileNode     = NewNode("localfile", "file", adaptor.Config{"uri": "file:///tmp/crap"})
+	fileNode     = NewNode("localfile", "file", adaptor.Config{"uri": "file:///tmp/foo"})
 )
 
 // a noop node adaptor to help test
@@ -55,7 +55,7 @@ func TestPipelineString(t *testing.T) {
 		{
 			fakesourceCN,
 			fileNode,
-			" - Source:         source1                                  source                                         \n  - Sink:          localfile                                file                                           file:///tmp/crap",
+			" - Source:         source1                                  source                                         \n  - Sink:          localfile                                file                                           file:///tmp/foo",
 		},
 	}
 

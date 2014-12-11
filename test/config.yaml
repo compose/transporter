@@ -17,12 +17,12 @@ nodes:
   debug:
     type: file
     uri: stdout://
-  crapfile:
+  foofile:
     type: file
-    uri: file:///tmp/crap
-  crapfile2:
+    uri: file:///tmp/foo
+  foofile2:
     type: file
-    uri: file:///tmp/crap2
+    uri: file:///tmp/foo2
   errorfile:
     type: file
     uri: file:///var/gonnaerror

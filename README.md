@@ -22,18 +22,18 @@ nodes:
   debug:
     type: file
     uri: stdout://
-  crapfile:
+  testfile:
     type: file
-    uri: file:///tmp/crap
+    uri: file:///tmp/test
   stdout:
     type: file
     uri: stdout://
 ```
 
 There is also a sample 'application.js' in test/application.js.  The application is responsible for building transporter pipelines.
-Given the above config, this Transporter application.js will copy from a file (in /tmp/crap) to stdout.
+Given the above config, this Transporter application.js will copy from a file (in /tmp/test) to stdout.
 ```js
-Source({name:"crapfile"}).save({name:"stdout"})
+Source({name:"testfile"}).save({name:"stdout"})
 
 ```
 
@@ -68,4 +68,3 @@ started [here](CONTRIBUTING.md).
 Licensing
 =========
 Transporter is licensed under the New BSD. See LICENSE for full license text.
-
