@@ -60,8 +60,6 @@ Run
 Contributing to Transporter
 ======================
 
-[![Circle CI](https://circleci.com/gh/compose/transporter/tree/master.png?style=badge)](https://circleci.com/gh/compose/transporter/tree/master)
-
 Want to help out with Transporter? Great! There are instructions to get you
 started [here](CONTRIBUTING.md).
 
