@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/compose/transporter/pkg/transporter"
 	"github.com/mitchellh/cli"
 )
 
@@ -12,7 +13,7 @@ func main() {
 	log.SetPrefix("transporter: ")
 	log.SetFlags(0)
 
-	c := cli.NewCLI("transporter", "1.0.0")
+	c := cli.NewCLI("transporter", transporter.VERSION)
 
 	c.Args = os.Args[1:]
 	c.Commands = map[string]cli.CommandFactory{
