@@ -50,9 +50,9 @@ func (c *listCommand) Run(args []string) int {
 		fmt.Println(err)
 		return 1
 	}
-
+	fmt.Printf("%-20s %-15s %s\n", "Name", "Type", "URI")
 	for n, v := range config.Nodes {
-		fmt.Println(n, v)
+		fmt.Printf("%-20s %-15s %s\n", n, v.Type, v.URI)
 	}
 
 	return 0
