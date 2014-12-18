@@ -59,6 +59,8 @@ Run
 
 Complete beginners guide (OS X)
 ---
+- ensure you have mercurial installed as it is required for a dependency
+    - using the homebrew package manager `brew install hg` [Homebrew Guide/Install](http://brew.sh/)
 - install the Mac OS X binary build from https://golang.org/dl/
 - follow instructions on http://golang.org/doc/install
 - VERY IMPORANT: Go has a required directory structure which the GOPATH needs to point to. Instructions can be found on http://golang.org/doc/code.html or by typing `go help gopath` in terminal.
