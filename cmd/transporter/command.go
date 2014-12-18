@@ -51,8 +51,8 @@ func (c *listCommand) Run(args []string) int {
 		return 1
 	}
 
-	for _, v := range config.Nodes {
-		fmt.Println(v)
+	for n, v := range config.Nodes {
+		fmt.Println(n, v)
 	}
 
 	return 0
@@ -88,6 +88,11 @@ func (c *runCommand) Run(args []string) int {
 	config, err := LoadConfig(configFilename)
 	if err != nil {
 		fmt.Println(err)
+		return 1
+	}
+
+	if len(cmdFlags.Args()) == 0 {
+		fmt.Println("Error: A name of a file to run is required")
 		return 1
 	}
 
@@ -136,6 +141,11 @@ func (c *testCommand) Run(args []string) int {
 		return 1
 	}
 
+	if len(cmdFlags.Args()) == 0 {
+		fmt.Println("Error: A name of a file to test is required")
+		return 1
+	}
+
 	builder, err := NewJavascriptBuilder(config, cmdFlags.Args()[0], "")
 	if err != nil {
 		fmt.Println(err)
@@ -174,6 +184,11 @@ func (c *evalCommand) Run(args []string) int {
 	config, err := LoadConfig(configFilename)
 	if err != nil {
 		fmt.Println(err)
+		return 1
+	}
+
+	if len(cmdFlags.Args()) == 0 {
+		fmt.Println("Error: A string to evaluate is required")
 		return 1
 	}
 
