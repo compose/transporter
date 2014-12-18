@@ -1,4 +1,5 @@
 Transporter
+===========
 
 Build
 -----
@@ -10,7 +11,7 @@ Configure
 there is a sample config in test/config.yaml.  The config defines the endpoints, (either sources or sinks) that are available to the application.
 ```yaml
 api:
-  interval: 1 # number of milliseconds between metrics pings
+  interval: 60s # time interval between metrics posts to the api endpoint
   uri: "http://requestb.in/1a0zlf11"
 nodes:
   localmongo:
@@ -65,4 +66,4 @@ started [here](CONTRIBUTING.md).
 
 Licensing
 =========
-Transporter is licensed under the New BSD. See LICENSE for full license text.
+Transporter is licensed under the New BSD License. See LICENSE for full license text.
