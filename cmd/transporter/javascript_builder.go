@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/compose/transporter/pkg/adaptor"
+	"github.com/compose/transporter/pkg/events"
 	"github.com/compose/transporter/pkg/transporter"
 	"github.com/nu7hatch/gouuid"
 	"github.com/robertkrimen/otto"
@@ -194,6 +195,17 @@ func (js *JavascriptBuilder) findNode(in otto.Value) (n Node, err error) {
 	return NewNode(sourceString, val.Type, rawMap)
 }
 
+// emitter examines the config file for api information
+// and returns the correct
+func (js *JavascriptBuilder) emitter() events.Emitter {
+	if js.config.API.URI == "" {
+		// no URI set, return a noop emitter
+		return events.NewNoopEmitter()
+	}
+
+	return events.NewHTTPPostEmitter(js.config.API.URI, js.config.API.Key, js.config.API.Pid)
+}
+
 // Build runs the javascript script.
 // each call to the Source() in the javascript creates a new JavascriptPipeline struct,
 // and transformers and sinks are added with calls to Transform(), and Save().
@@ -207,15 +219,21 @@ func (js *JavascriptBuilder) Build() error {
 		return err
 	}
 
+	// get the interval from the config, or else default to 60 seconds
+	var interval time.Duration
+	if js.config.API.MetricsInterval == "" {
+		interval = 60 * time.Second
+	} else {
+		interval, err = time.ParseDuration(js.config.API.MetricsInterval)
+		if err != nil {
+			return fmt.Errorf("can't parse api interval (%s)", err.Error())
+		}
+	}
+
+	// build each pipeline
 	for _, node := range js.nodes {
 		n := node.CreateTransporterNode()
-
-		interval, err := time.ParseDuration(js.config.API.MetricsInterval)
-		if err != nil {
-			return err
-		}
-
-		pipeline, err := transporter.NewDefaultPipeline(n, js.config.API.URI, js.config.API.Key, js.config.API.Pid, interval)
+		pipeline, err := transporter.NewPipeline(n, js.emitter(), interval)
 		if err != nil {
 			return err
 		}
