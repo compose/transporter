@@ -1,6 +1,7 @@
 package transporter
 
 import (
+	"log"
 	"time"
 
 	"github.com/compose/transporter/pkg/adaptor"
@@ -119,6 +120,9 @@ func (pipeline *Pipeline) startErrorListener(cherr chan error) {
 	for err := range cherr {
 		if aerr, ok := err.(adaptor.Error); ok {
 			pipeline.source.pipe.Event <- events.NewErrorEvent(time.Now().Unix(), aerr.Path, aerr.Record, aerr.Error())
+			if aerr.Lvl == adaptor.ERROR || aerr.Lvl == adaptor.CRITICAL {
+				log.Println(aerr)
+			}
 		} else {
 			if pipeline.Err == nil {
 				pipeline.Err = err
