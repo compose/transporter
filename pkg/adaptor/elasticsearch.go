@@ -96,12 +96,16 @@ func (e *Elasticsearch) Stop() error {
 func (e *Elasticsearch) applyOp(msg *message.Msg) (*message.Msg, error) {
 	if msg.Op == message.Command {
 		err := e.runCommand(msg)
-		e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("Elasticsearch error (%s)", err), msg.Document())
+		if err != nil {
+			e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("Elasticsearch error (%s)", err), msg.Document())
+		}
 		return msg, nil
 	}
 
 	err := e.indexer.Index(e.index, e._type, msg.IDString(), "", nil, msg.Document(), false)
-	e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("Elasticsearch error (%s)", err), msg.Document())
+	if err != nil {
+		e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("Elasticsearch error (%s)", err), msg.Document())
+	}
 	return msg, nil
 }
 
