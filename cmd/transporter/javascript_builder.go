@@ -108,21 +108,36 @@ func (js *JavascriptBuilder) save(node Node, call otto.FunctionCall) (Node, erro
 // adds a transform function to the transporter pipeline
 // transform takes one argument, which is a path to a transformer file.
 func (js *JavascriptBuilder) transform(node Node, call otto.FunctionCall) (Node, error) {
-	if !call.Argument(0).IsString() {
-		return node, fmt.Errorf("bad arguments, expected string, got %T", call.Argument(0).Class())
-	}
-
-	fn, _ := call.Argument(0).Export()
-
-	filename := fn.(string)
-	if !filepath.IsAbs(filename) {
-		filename = filepath.Join(js.path, filename)
-	}
-	name, err := uuid.NewV4()
+	e, err := call.Argument(0).Export()
 	if err != nil {
 		return node, err
 	}
-	transformer, err := NewNode(name.String(), "transformer", adaptor.Config{"filename": filename})
+
+	rawMap, ok := e.(map[string]interface{})
+	if !ok {
+		return node, fmt.Errorf("first argument must be an hash. (got %T instead)", e)
+	}
+
+	filename, ok := rawMap["filename"].(string)
+	if !ok {
+		return node, fmt.Errorf("transformer config must contain a valid filename key")
+	}
+	if !filepath.IsAbs(filename) {
+		filename = filepath.Join(js.path, filename)
+	}
+
+	debug, ok := rawMap["debug"].(bool)
+
+	name, ok := rawMap["name"].(string)
+	if !(ok) {
+		u, err := uuid.NewV4()
+		if err != nil {
+			return node, err
+		}
+		name = u.String()
+	}
+
+	transformer, err := NewNode(name, "transformer", adaptor.Config{"filename": filename, "debug": debug})
 	if err != nil {
 		return node, err
 	}
