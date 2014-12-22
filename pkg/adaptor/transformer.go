@@ -163,8 +163,8 @@ func (t *Transformer) transformerError(lvl ErrorLevel, err error, msg *message.M
 type TransformerConfig struct {
 	// file containing transformer javascript
 	// must define a module.exports = function(doc) { .....; return doc }
-	Filename string `json:"filename"`
+	Filename string `json:"filename" doc:"the filename containing the javascript transform fn"`
 
 	// verbose output
-	Debug bool `json:"debug"` // debug mode
+	Debug bool `json:"debug" doc:"display debug information"` // debug mode
 }

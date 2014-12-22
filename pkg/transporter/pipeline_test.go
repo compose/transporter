@@ -40,7 +40,7 @@ func (s *Testadaptor) Listen() error {
 }
 
 func TestPipelineString(t *testing.T) {
-	adaptor.Register("source", NewTestadaptor)
+	adaptor.Register("source", "description", NewTestadaptor, struct{}{})
 
 	data := []struct {
 		in           *Node

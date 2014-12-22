@@ -13,23 +13,7 @@ import (
 var (
 	// ErrMissingNode is returned when the requested node type was not found in the map
 	ErrMissingNode = errors.New("adaptor not found in registry")
-
-	// a registry of adaptor types and their constructors
-	registry = map[string]interface{}{
-		"mongo":         NewMongodb,
-		"file":          NewFile,
-		"elasticsearch": NewElasticsearch,
-		"influx":        NewInfluxdb,
-		"transformer":   NewTransformer,
-	}
 )
-
-// Register registers an adaptor (database adaptor) for use with Transporter
-// The second argument, fn, is a constructor that returns an instance of the
-// given adaptor
-func Register(name string, fn func(*pipe.Pipe, string, Config) (StopStartListener, error)) {
-	registry[name] = fn
-}
 
 // StopStartListener defines the interface that all database connectors and nodes must follow.
 // Start() consumes data from the interface,
@@ -52,7 +36,7 @@ func Createadaptor(kind, path string, extra Config, p *pipe.Pipe) (adaptor StopS
 		}
 	}()
 
-	fn, ok := registry[kind]
+	regentry, ok := Adaptors[kind]
 	if !ok {
 		return nil, ErrMissingNode
 	}
@@ -63,7 +47,7 @@ func Createadaptor(kind, path string, extra Config, p *pipe.Pipe) (adaptor StopS
 		reflect.ValueOf(extra),
 	}
 
-	result := reflect.ValueOf(fn).Call(args)
+	result := reflect.ValueOf(regentry.Constructor).Call(args)
 
 	val := result[0]
 	inter := result[1].Interface()
@@ -122,7 +106,7 @@ func (c *Config) splitNamespace() (string, string, error) {
 
 // dbConfig is a standard typed config struct to use for as general purpose config for most databases.
 type dbConfig struct {
-	URI       string `json:"uri"`       // the database uri
-	Namespace string `json:"namespace"` // namespace
-	Debug     bool   `json:"debug"`     // debug mode
+	URI       string `json:"uri" doc:"the uri to connect to, in the form mongo://user:password@host.com:8080/database"` // the database uri
+	Namespace string `json:"namespace" doc:"mongo namespace to read/write"`                                             // namespace
+	Debug     bool   `json:"debug" doc:"display debug information"`                                                     // debug mode
 }

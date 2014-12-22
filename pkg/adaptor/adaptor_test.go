@@ -34,7 +34,7 @@ func (s *Testadaptor) Listen() error {
 }
 
 func TestCreateadaptor(t *testing.T) {
-	Register("testadaptor", NewTestadaptor)
+	Register("testadaptor", "description", NewTestadaptor, struct{}{})
 
 	data := []struct {
 		kind  string
