@@ -289,10 +289,10 @@ func (o *oplogDoc) validOp() bool {
 // MongodbConfig provides configuration options for a mongodb adaptor
 // the notable difference between this and dbConfig is the presence of the Tail option
 type MongodbConfig struct {
-	URI       string `json:"uri"`
-	Namespace string `json:"namespace"`
-	Debug     bool   `json:"debug"`
-	Tail      bool   `json:"tail"`
+	URI       string `json:"uri" doc:"the uri to connect to, in the form mongodb://user:password@host.com:27017/auth_database"`
+	Namespace string `json:"namespace" doc:"mongo namespace to read/write"`
+	Debug     bool   `json:"debug" doc:"display debug information"`
+	Tail      bool   `json:"tail" doc:"if tail is true, then the mongodb source will tail the oplog after copying the namespace"`
 }
 
 func nowAsMongoTimestamp() bson.MongoTimestamp {

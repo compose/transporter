@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/mitchellh/cli"
 )
 
@@ -20,6 +21,9 @@ var subCommandFactory = map[string]cli.CommandFactory{
 	},
 	"eval": func() (cli.Command, error) {
 		return &evalCommand{}, nil
+	},
+	"about": func() (cli.Command, error) {
+		return &aboutCommand{}, nil
 	},
 }
 
@@ -207,5 +211,37 @@ func (c *evalCommand) Run(args []string) int {
 		return 1
 	}
 
+	return 0
+}
+
+type aboutCommand struct{}
+
+func (c *aboutCommand) Help() string {
+	return `Usage: transporter about [adaptor]
+
+display information about the included database adaptors.
+specifying the adaptor will display the adaptors configuration options
+`
+}
+
+func (c *aboutCommand) Synopsis() string {
+	return "Show information about database adaptors"
+}
+
+func (c *aboutCommand) Run(args []string) int {
+
+	if len(args) == 0 {
+		for _, a := range adaptor.Adaptors {
+			fmt.Printf("%-20s %s\n", a.Name, a.Description)
+		}
+		return 0
+	}
+
+	a, ok := adaptor.Adaptors[args[0]]
+	if !ok {
+		fmt.Printf("no adaptor named '%s' exists\n", args[0])
+		return 1
+	}
+	fmt.Print(a.About())
 	return 0
 }

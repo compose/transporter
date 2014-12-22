@@ -1,3 +1,3 @@
 
-Source({name:"foofile"}).transform("transformers/passthrough_and_log.js").save({name:"stdout"})
-Source({name:"foofile"}).transform("transformers/passthrough_and_log.js").save({name:"foofile2"})
+Source({name:"foofile"}).transform({filename: "transformers/passthrough_and_log.js"}).save({name:"stdout"})
+Source({name:"foofile"}).transform({filename: "transformers/passthrough_and_log.js"}).save({name:"foofile2"})
