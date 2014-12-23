@@ -46,8 +46,9 @@ type RegistryEntry struct {
 // About inspects the  RegistryEntry's Config object, and uses
 // each field's tags as a docstring
 func (r *RegistryEntry) About() string {
+	doc := fmt.Sprintf("%s %s\n\n",r.Name,r.Description);
 	t := reflect.TypeOf(r.Config)
-	doc := fmt.Sprintf("%-15s %-10s %s\n", "name", "type", "description")
+	doc += fmt.Sprintf("%-15s %-10s %s\n", "name", "type", "description")
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
 		doc += fmt.Sprintf("%-15s %-10s %s\n", f.Tag.Get("json"), f.Type, f.Tag.Get("doc"))
