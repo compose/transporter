@@ -69,7 +69,7 @@ func (js *JavascriptBuilder) source(call otto.FunctionCall) otto.Value {
 
 	node, err := js.findNode(call.Argument(0))
 	if err != nil {
-		js.err = err
+		js.err = fmt.Errorf("source error, %s", err.Error())
 		return otto.NullValue()
 	}
 	js.nodes[node.UUID] = node // persist this
@@ -90,7 +90,7 @@ func (js *JavascriptBuilder) source(call otto.FunctionCall) otto.Value {
 func (js *JavascriptBuilder) save(node Node, call otto.FunctionCall) (Node, error) {
 	thisNode, err := js.findNode(call.Argument(0))
 	if err != nil {
-		return node, err
+		return node, fmt.Errorf("save error, %s", err.Error())
 	}
 	root := js.nodes[node.RootUUID]
 
@@ -102,7 +102,7 @@ func (js *JavascriptBuilder) save(node Node, call otto.FunctionCall) (Node, erro
 	}
 
 	js.nodes[root.UUID] = root
-	return root, err
+	return root, nil
 }
 
 // adds a transform function to the transporter pipeline
@@ -115,7 +115,7 @@ func (js *JavascriptBuilder) transform(node Node, call otto.FunctionCall) (Node,
 
 	rawMap, ok := e.(map[string]interface{})
 	if !ok {
-		return node, fmt.Errorf("first argument must be an hash. (got %T instead)", e)
+		return node, fmt.Errorf("transform error. first argument must be an hash. (got %T instead)", e)
 	}
 
 	filename, ok := rawMap["filename"].(string)
@@ -132,14 +132,14 @@ func (js *JavascriptBuilder) transform(node Node, call otto.FunctionCall) (Node,
 	if !(ok) {
 		u, err := uuid.NewV4()
 		if err != nil {
-			return node, err
+			return node, fmt.Errorf("transform error. uuid error (%s)", err.Error())
 		}
 		name = u.String()
 	}
 
 	transformer, err := NewNode(name, "transformer", adaptor.Config{"filename": filename, "debug": debug})
 	if err != nil {
-		return node, err
+		return node, fmt.Errorf("transform error. cannot create node (%s)", err.Error())
 	}
 
 	node.Add(&transformer)
