@@ -35,7 +35,7 @@ func Register(name, desc string, fn func(*pipe.Pipe, string, Config) (StopStartL
 // Registry maps the adaptor's name to the RegistryEntry
 type Registry map[string]RegistryEntry
 
-// RegistryEnrtry stores the adaptor constructor and configuration struct
+// RegistryEntry stores the adaptor constructor and configuration struct
 type RegistryEntry struct {
 	Name        string
 	Description string
@@ -46,7 +46,7 @@ type RegistryEntry struct {
 // About inspects the  RegistryEntry's Config object, and uses
 // each field's tags as a docstring
 func (r *RegistryEntry) About() string {
-	doc := fmt.Sprintf("%s %s\n\n",r.Name,r.Description);
+	doc := fmt.Sprintf("%s %s\n\n", r.Name, r.Description)
 	t := reflect.TypeOf(r.Config)
 	doc += fmt.Sprintf("%-15s %-10s %s\n", "name", "type", "description")
 	for i := 0; i < t.NumField(); i++ {
