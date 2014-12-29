@@ -31,7 +31,8 @@ type Pipe struct {
 	Event   chan events.Event
 	Stopped bool // has the pipe been stopped?
 
-	MessageCount int
+	MessageCount   int
+	LastKnownState *message.Msg
 
 	path      string // the path of this pipe (for events and errors)
 	chStop    chan chan bool
@@ -95,6 +96,7 @@ func (m *Pipe) Listen(fn func(*message.Msg) (*message.Msg, error)) error {
 			} else {
 				m.MessageCount++ // update the count anyway
 			}
+			m.LastKnownState = msg
 		case <-time.After(100 * time.Millisecond):
 			// NOP, just breath
 		}

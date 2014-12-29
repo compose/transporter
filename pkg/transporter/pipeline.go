@@ -6,6 +6,7 @@ import (
 
 	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/events"
+	"github.com/compose/transporter/pkg/state"
 )
 
 // VERSION the library
@@ -18,12 +19,14 @@ const (
 type Pipeline struct {
 	source        *Node
 	emitter       events.Emitter
+	sessionStore  state.SessionStore
 	metricsTicker *time.Ticker
 
 	// Err is the fatal error that was sent from the adaptor
 	// that caused us to stop this process.  If this is nil, then
 	// the transporter is running
-	Err error
+	Err           error
+	sessionTicker *time.Ticker
 }
 
 // NewDefaultPipeline returns a new Transporter Pipeline with the given node tree, and
@@ -40,6 +43,7 @@ type Pipeline struct {
 // pipeline.Run()
 func NewDefaultPipeline(source *Node, uri, key, pid string, interval time.Duration) (*Pipeline, error) {
 	emitter := events.NewHTTPPostEmitter(uri, key, pid)
+	sessionStore := state.NewFilestore(key, "/tmp/transporter.state", interval)
 	return NewPipeline(source, emitter, interval)
 }
 
@@ -58,7 +62,9 @@ func NewPipeline(source *Node, emitter events.Emitter, interval time.Duration) (
 	pipeline := &Pipeline{
 		source:        source,
 		emitter:       emitter,
+		sessionStore:  sessionStore,
 		metricsTicker: time.NewTicker(interval),
+		sessionTicker: time.NewTicker(10 * time.Second),
 	}
 
 	// init the pipeline
@@ -89,6 +95,7 @@ func (pipeline *Pipeline) String() string {
 func (pipeline *Pipeline) Stop() {
 	pipeline.source.Stop()
 	pipeline.emitter.Stop()
+	pipeline.sessionTicker.Stop()
 	pipeline.metricsTicker.Stop()
 }
 
