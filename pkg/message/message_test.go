@@ -13,7 +13,7 @@ type FakeMessage struct {
 
 func TestIdString(t *testing.T) {
 	data := []struct {
-		in   bson.M
+		in   map[string]interface{}
 		key  string
 		want string
 	}{
@@ -24,17 +24,17 @@ func TestIdString(t *testing.T) {
 		},
 
 		{
-			bson.M{"field0": 1},
+			map[string]interface{}{"field0": 1},
 			"id",
 			"",
 		},
 		{
-			bson.M{"id": "nick1", "field1": 1},
+			map[string]interface{}{"id": "nick1", "field1": 1},
 			"id",
 			"nick1",
 		},
 		{
-			bson.M{"_id": "nick2", "field2": 1},
+			map[string]interface{}{"_id": "nick2", "field2": 1},
 			"_id",
 			"nick2",
 		},

@@ -19,24 +19,51 @@ import (
 type Msg struct {
 	Timestamp int64
 	Op        OpType
-	Document  bson.M
+	Data      interface{}
 }
 
 // NewMsg returns a new Msg with the ID extracted
 // from the original document
-func NewMsg(op OpType, doc bson.M) *Msg {
+func NewMsg(op OpType, data interface{}) *Msg {
 	m := &Msg{
 		Timestamp: time.Now().Unix(),
 		Op:        op,
-		Document:  doc,
+		Data:      data,
 	}
 
 	return m
 }
 
+// IsMap returns a bool indicating whether or not the msg.Data is maplike, i.e. a map[string]interface
+// or a bson.M
+func (m *Msg) IsMap() bool {
+	switch m.Data.(type) {
+	case map[string]interface{}, bson.M:
+		return true
+	default:
+		return false
+	}
+}
+
+// Map casts the Msg.Data into a map[string]interface{}
+func (m *Msg) Map() map[string]interface{} {
+	switch d := m.Data.(type) {
+	case map[string]interface{}:
+		return d
+	case bson.M:
+		return map[string]interface{}(d)
+	default:
+		return nil
+	}
+}
+
 // IDString returns the original id as a string value
 func (m *Msg) IDString(key string) string {
-	id, ok := m.Document[key]
+	doc, ok := m.Data.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	id, ok := doc[key]
 	if !ok {
 		return ""
 	}

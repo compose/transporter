@@ -90,13 +90,19 @@ func (r *Rethinkdb) applyOp(msg *message.Msg) (*message.Msg, error) {
 		err  error
 	)
 
+	if !msg.IsMap() {
+		r.pipe.Err <- NewError(ERROR, r.path, "Rethinkdb error (document must be a json document)", msg.Data)
+		return msg, nil
+	}
+	doc := msg.Map()
+
 	switch msg.Op {
 	case message.Delete:
 		resp, err = gorethink.Table(r.table).Get(msg.IDString("id")).Delete().RunWrite(r.client)
 	case message.Insert:
-		resp, err = gorethink.Table(r.table).Insert(msg.Document).RunWrite(r.client)
+		resp, err = gorethink.Table(r.table).Insert(doc).RunWrite(r.client)
 	case message.Update:
-		resp, err = gorethink.Table(r.table).Insert(msg.Document, gorethink.InsertOpts{Conflict: "replace"}).RunWrite(r.client)
+		resp, err = gorethink.Table(r.table).Insert(doc, gorethink.InsertOpts{Conflict: "replace"}).RunWrite(r.client)
 	}
 	if err != nil {
 		return msg, err

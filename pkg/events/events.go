@@ -3,9 +3,6 @@ package events
 import (
 	"encoding/json"
 	"fmt"
-	// "time"
-
-	"gopkg.in/mgo.v2/bson"
 )
 
 // Event is an interface that describes data which is produced periodically by the running transporter.
@@ -99,14 +96,14 @@ type ErrorEvent struct {
 	Path string `json:"path"`
 
 	// Record is the document (if any) that was in progress when the error occured
-	Record bson.M `json:"record,omitempty"`
+	Record interface{} `json:"record,omitempty"`
 
 	// Message is the error message as a string
 	Message string `json:"message,omitempty"`
 }
 
 // NewErrorEvent are events sent to indicate a problem processing on one of the nodes
-func NewErrorEvent(ts int64, path string, record bson.M, message string) *ErrorEvent {
+func NewErrorEvent(ts int64, path string, record interface{}, message string) *ErrorEvent {
 	e := &ErrorEvent{
 		Ts:      ts,
 		Kind:    "error",

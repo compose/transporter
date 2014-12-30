@@ -104,10 +104,13 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 	}
 
 	now := time.Now().Nanosecond()
-
-	if doc, err = mejson.Marshal(msg.Document); err != nil {
-		t.pipe.Err <- t.transformerError(ERROR, err, msg)
-		return msg, nil
+	if msg.IsMap() {
+		if doc, err = mejson.Marshal(msg.Data); err != nil {
+			t.pipe.Err <- t.transformerError(ERROR, err, msg)
+			return msg, nil
+		}
+	} else {
+		doc = msg.Data
 	}
 
 	if value, err = t.vm.ToValue(doc); err != nil {
@@ -137,11 +140,9 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 			t.pipe.Err <- t.transformerError(ERROR, err, msg)
 			return msg, nil
 		}
-		msg.Document = doc
+		msg.Data = doc
 	default:
-		if t.debug {
-			fmt.Println("transformer skipping doc")
-		}
+		msg.Data = r
 	}
 
 	if t.debug {
@@ -154,9 +155,9 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 
 func (t *Transformer) transformerError(lvl ErrorLevel, err error, msg *message.Msg) error {
 	if e, ok := err.(*otto.Error); ok {
-		return NewError(lvl, t.path, fmt.Sprintf("Transformer error (%s)", e.String()), msg.Document)
+		return NewError(lvl, t.path, fmt.Sprintf("Transformer error (%s)", e.String()), msg.Data)
 	}
-	return NewError(lvl, t.path, fmt.Sprintf("Transformer error (%s)", err.Error()), msg.Document)
+	return NewError(lvl, t.path, fmt.Sprintf("Transformer error (%s)", err.Error()), msg.Data)
 }
 
 // TransformerConfig holds config options for a transformer adaptor

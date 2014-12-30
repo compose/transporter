@@ -2,8 +2,6 @@ package adaptor
 
 import (
 	"fmt"
-
-	"gopkg.in/mgo.v2/bson"
 )
 
 // Adaptor errors have levels to indicate their severity.
@@ -47,11 +45,11 @@ type Error struct {
 	Lvl    ErrorLevel
 	Str    string
 	Path   string
-	Record bson.M
+	Record interface{}
 }
 
 // NewError creates an Error type with the specificed level, path, message and record
-func NewError(lvl ErrorLevel, path, str string, record bson.M) Error {
+func NewError(lvl ErrorLevel, path, str string, record interface{}) Error {
 	return Error{Lvl: lvl, Path: path, Str: str, Record: record}
 }
 
