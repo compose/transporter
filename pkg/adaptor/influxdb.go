@@ -81,13 +81,13 @@ func (i *Influxdb) Stop() error {
 func (i *Influxdb) applyOp(msg *message.Msg) (*message.Msg, error) {
 	switch msg.Op {
 	case message.Insert:
-		docSize := len(msg.Document())
+		docSize := len(msg.Document)
 		columns := make([]string, 0, docSize)
 		points := make([][]interface{}, 1)
 		points[0] = make([]interface{}, 0, docSize)
-		for k := range msg.Document() {
+		for k := range msg.Document {
 			columns = append(columns, k)
-			points[0] = append(points[0], msg.Document()[k])
+			points[0] = append(points[0], msg.Document[k])
 		}
 		series := &client.Series{
 			Name:    i.seriesName,

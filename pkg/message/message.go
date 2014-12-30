@@ -13,20 +13,13 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-var (
-	idKeys = []string{"_id", "id"}
-)
-
 // A Msg serves to wrap the actual document to
 // provide additional metadata about the document
 // being transported.
 type Msg struct {
-	Timestamp  int64
-	Op         OpType
-	ID         interface{}
-	OriginalID interface{}
-	document   bson.M // document is private
-	idKey      string // where the original id value is stored, either "_id" or "id"
+	Timestamp int64
+	Op        OpType
+	Document  bson.M
 }
 
 // NewMsg returns a new Msg with the ID extracted
@@ -35,34 +28,19 @@ func NewMsg(op OpType, doc bson.M) *Msg {
 	m := &Msg{
 		Timestamp: time.Now().Unix(),
 		Op:        op,
-	}
-	if doc != nil {
-		m.document, m.ID = m.extractID(doc)
-		m.OriginalID = m.ID
+		Document:  doc,
 	}
 
 	return m
 }
 
-// extractID will handle separating the id field from the
-// rest of the document, can handle both 'id' and '_id'
-func (m *Msg) extractID(doc bson.M) (bson.M, interface{}) {
-	for _, key := range idKeys {
-		id, exists := doc[key]
-		if exists {
-			m.idKey = key
-			delete(doc, key)
-			return doc, id
-		}
-	}
-
-	fmt.Printf("id not found %+v\n", doc)
-	return doc, nil
-}
-
 // IDString returns the original id as a string value
-func (m *Msg) IDString() string {
-	switch t := m.ID.(type) {
+func (m *Msg) IDString(key string) string {
+	id, ok := m.Document[key]
+	if !ok {
+		return ""
+	}
+	switch t := id.(type) {
 	case string:
 		return t
 	case bson.ObjectId:
@@ -74,28 +52,4 @@ func (m *Msg) IDString() string {
 	default:
 		return fmt.Sprintf("%v", t)
 	}
-}
-
-// Document returns the original doc, unaltered
-func (m *Msg) Document() bson.M {
-	return m.DocumentWithID(m.idKey)
-}
-
-// SetDocument will set the document variable and
-// extract out the id and preserve it
-func (m *Msg) SetDocument(doc bson.M) {
-	m.document, m.ID = m.extractID(doc)
-	if m.OriginalID == nil { // if we don't have an original id, then set it here
-		m.OriginalID = m.ID
-	}
-}
-
-// DocumentWithID returns the document with the id field
-// attached to the specified key
-func (m *Msg) DocumentWithID(key string) bson.M {
-	doc := m.document
-	if m.ID != nil {
-		doc[key] = m.ID
-	}
-	return doc
 }

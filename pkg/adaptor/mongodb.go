@@ -120,12 +120,12 @@ func (m *Mongodb) Stop() error {
 //   caller should pipe the error
 func (m *Mongodb) writeMessage(msg *message.Msg) (*message.Msg, error) {
 	collection := m.mongoSession.DB(m.database).C(m.collection)
-	err := collection.Insert(msg.Document())
+	err := collection.Insert(msg.Document)
 	if mgo.IsDup(err) {
-		err = collection.Update(bson.M{"_id": msg.ID}, msg.Document())
+		err = collection.Update(bson.M{"_id": msg.Document["_id"]}, msg.Document)
 	}
 	if err != nil {
-		m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("Mongodb error (%s)", err.Error()), msg.Document())
+		m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("Mongodb error (%s)", err.Error()), msg.Document)
 	}
 	return msg, nil
 }
@@ -197,16 +197,16 @@ func (m *Mongodb) tailData() (err error) {
 
 				switch result.Op {
 				case "i":
-					msg.SetDocument(result.O)
+					msg.Document = result.O
 				case "d":
-					msg.SetDocument(result.O)
+					msg.Document = result.O
 				case "u":
 					doc, err := m.getOriginalDoc(result.O2)
 					if err != nil { // errors aren't fatal here, but we need to send it down the pipe
 						m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("Mongodb error (%s)", err.Error()), nil)
 						continue
 					}
-					msg.SetDocument(doc)
+					msg.Document = doc
 				default:
 					m.pipe.Err <- NewError(ERROR, m.path, "Mongodb error (unknown op type)", nil)
 					continue

@@ -100,9 +100,9 @@ func (d *File) readFile() (err error) {
  * dump each message to the file
  */
 func (d *File) dumpMessage(msg *message.Msg) (*message.Msg, error) {
-	jdoc, err := json.Marshal(msg.Document())
+	jdoc, err := json.Marshal(msg.Document)
 	if err != nil {
-		d.pipe.Err <- NewError(ERROR, d.path, fmt.Sprintf("Can't unmarshal document (%s)", err.Error()), msg.Document())
+		d.pipe.Err <- NewError(ERROR, d.path, fmt.Sprintf("Can't unmarshal document (%s)", err.Error()), msg.Document)
 		return msg, nil
 	}
 
@@ -111,7 +111,7 @@ func (d *File) dumpMessage(msg *message.Msg) (*message.Msg, error) {
 	} else {
 		_, err = fmt.Fprintln(d.filehandle, string(jdoc))
 		if err != nil {
-			d.pipe.Err <- NewError(ERROR, d.path, fmt.Sprintf("Can't unmarshal document (%s)", err.Error()), msg.Document())
+			d.pipe.Err <- NewError(ERROR, d.path, fmt.Sprintf("Can't unmarshal document (%s)", err.Error()), msg.Document)
 			return msg, nil
 		}
 	}
