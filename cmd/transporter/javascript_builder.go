@@ -81,20 +81,21 @@ func (js *JavascriptBuilder) source(call otto.FunctionCall) otto.Value {
 	}
 
 	js.setFunc(nodeObject, "transform", js.transform)
-	js.setFunc(nodeObject, "save", js.save)
+	js.setFunc(nodeObject, "sink", js.sink)
+	js.setFunc(nodeObject, "save", js.sink)
 	return nodeObject.Value()
 }
 
-// save adds a sink to the transporter pipeline
+// sink adds a sink to the transporter pipeline
 // each pipeline can have multiple sinks
-func (js *JavascriptBuilder) save(node Node, call otto.FunctionCall) (Node, error) {
+func (js *JavascriptBuilder) sink(node Node, call otto.FunctionCall) (Node, error) {
 	thisNode, err := js.findNode(call.Argument(0))
 	if err != nil {
-		return node, fmt.Errorf("save error, %s", err.Error())
+		return node, fmt.Errorf("sink error, %s", err.Error())
 	}
 	root := js.nodes[node.RootUUID]
 
-	if node.UUID == root.UUID { // save is being called on a root node
+	if node.UUID == root.UUID { // sink is being called on a root node
 		root.Add(&thisNode)
 	} else {
 		node.Add(&thisNode) // add the generated not to the `this`
@@ -172,7 +173,8 @@ func (js *JavascriptBuilder) setFunc(obj *otto.Object, token string, fn func(Nod
 		}
 
 		js.setFunc(o, "transform", js.transform)
-		js.setFunc(o, "save", js.save)
+		js.setFunc(o, "sink", js.sink)
+		js.setFunc(o, "save", js.sink)
 
 		return o.Value()
 	})
@@ -223,7 +225,7 @@ func (js *JavascriptBuilder) emitter() events.Emitter {
 
 // Build runs the javascript script.
 // each call to the Source() in the javascript creates a new JavascriptPipeline struct,
-// and transformers and sinks are added with calls to Transform(), and Save().
+// and transformers and sinks are added with calls to transform(), and sink().
 // the call to Transporter.add(pipeline) adds the JavascriptPipeline to the Builder's js_pipeline property
 func (js *JavascriptBuilder) Build() error {
 	_, err := js.vm.Run(js.script)
