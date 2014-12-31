@@ -82,7 +82,7 @@ func (i *Influxdb) applyOp(msg *message.Msg) (*message.Msg, error) {
 	switch msg.Op {
 	case message.Insert:
 		if !msg.IsMap() {
-			i.pipe.Err <- NewError(ERROR, i.path, "Rethinkdb error (document must be a json document)", msg.Data)
+			i.pipe.Err <- NewError(ERROR, i.path, "Influxdb error (document must be a json document)", msg.Data)
 			return msg, nil
 		}
 		doc := msg.Map()
