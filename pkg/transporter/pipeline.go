@@ -87,6 +87,8 @@ func NewPipeline(source *Node, emitter events.Emitter, interval time.Duration, s
 	}
 	pipeline.emitter.Start()
 
+	pipeline.initState()
+
 	return pipeline, nil
 }
 
@@ -119,7 +121,7 @@ func (pipeline *Pipeline) Run() error {
 
 	// pipeline has stopped, emit one last round of metrics and send the exit event
 	pipeline.emitMetrics()
-	pipeline.persisteState()
+	pipeline.setState()
 	pipeline.source.pipe.Event <- events.NewExitEvent(time.Now().Unix(), VERSION, endpoints)
 
 	// the source has exited, stop all the other nodes
@@ -180,11 +182,11 @@ func (pipeline *Pipeline) emitMetrics() {
 
 func (pipeline *Pipeline) startStateSaver() {
 	for _ = range pipeline.sessionTicker.C {
-		pipeline.persisteState()
+		pipeline.setState()
 	}
 }
 
-func (pipeline *Pipeline) persisteState() {
+func (pipeline *Pipeline) setState() {
 	frontier := make([]*Node, 1)
 	frontier[0] = pipeline.source
 
@@ -196,6 +198,32 @@ func (pipeline *Pipeline) persisteState() {
 		// do something with the node
 		if node.Type != "transformer" && node.pipe.LastKnownState != nil {
 			pipeline.sessionStore.Set(node.Path(), node.pipe.LastKnownState)
+		}
+
+		// add this nodes children to the frontier
+		for _, child := range node.Children {
+			frontier = append(frontier, child)
+		}
+
+		// if we're empty
+		if len(frontier) == 0 {
+			break
+		}
+	}
+}
+
+func (pipeline *Pipeline) initState() {
+	frontier := make([]*Node, 1)
+	frontier[0] = pipeline.source
+
+	for {
+		// pop the first item
+		node := frontier[0]
+		frontier = frontier[1:]
+
+		// do something with the node
+		if node.Type != "transformer" {
+			node.pipe.LastKnownState, _ = pipeline.sessionStore.Get(node.Path())
 		}
 
 		// add this nodes children to the frontier
