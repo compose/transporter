@@ -13,20 +13,23 @@ func TestFilestore(t *testing.T) {
 
 	data := []struct {
 		path string
-		in   map[string]interface{}
+		in   *message.Msg
+		out  *message.Msg
 	}{
 		{
 			"somepath",
-			map[string]interface{}{"id": "nick1", "field1": 1},
+			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 1}),
+			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 1}),
 		},
 		{
 			"somepath/morepath",
-			map[string]interface{}{"id": "nick1", "field1": 1},
+			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 1}),
+			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 1}),
 		},
 	}
 
 	for _, d := range data {
-		err := fs.Save(d.path, message.NewMsg(OpTypeFromString("insert"), d.in)
+		err := fs.Set(d.path, d.in)
 		if err != nil {
 			t.Errorf("got error: %s\n", err)
 			t.FailNow()
@@ -34,16 +37,13 @@ func TestFilestore(t *testing.T) {
 	}
 
 	for _, d := range data {
-		id, ts, err := fs.Get(d.path)
+		out, err := fs.Get(d.path)
 		if err != nil {
 			t.Errorf("got error: %s\n", err)
 			t.FailNow()
 		}
-		if !reflect.DeepEqual(id, d.id) {
-			t.Errorf("wanted: %s, got: %s", d.id, id)
-		}
-		if !reflect.DeepEqual(ts, d.ts) {
-			t.Errorf("wanted: %s, got: %s", d.ts, ts)
+		if !reflect.DeepEqual(out, d.out) {
+			t.Errorf("wanted: %s, got: %s", d.out, out)
 		}
 	}
 
@@ -54,20 +54,23 @@ func TestFilestoreUpdates(t *testing.T) {
 
 	data := []struct {
 		path string
-		in   map[string]interface{}
+		in   *message.Msg
+		out  *message.Msg
 	}{
 		{
 			"somepath",
-			map[string]interface{}{"id": "nick1", "field1": 1},
+			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 1}),
+			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 1}),
 		},
 		{
 			"somepath",
-			map[string]interface{}{"id": "nick1", "field1": 2},
+			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 2}),
+			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 2}),
 		},
 	}
 
 	for _, d := range data {
-		err := fs.Save(d.path, message.NewMsg(OpTypeFromString("insert"), d.in)
+		err := fs.Set(d.path, d.in)
 		if err != nil {
 			t.Errorf("got error: %s\n", err)
 			t.FailNow()
@@ -75,16 +78,13 @@ func TestFilestoreUpdates(t *testing.T) {
 	}
 
 	d := data[len(data)-1]
-	id, ts, err := fs.Get(d.path)
+	out, err := fs.Get(d.path)
 	if err != nil {
 		t.Errorf("got error: %s\n", err)
 		t.FailNow()
 	}
-	if !reflect.DeepEqual(id, d.id) {
-		t.Errorf("wanted: %s, got: %s", d.id, id)
-	}
-	if !reflect.DeepEqual(ts, d.ts) {
-		t.Errorf("wanted: %s, got: %s", d.ts, ts)
+	if !reflect.DeepEqual(out, d.out) {
+		t.Errorf("wanted: %s, got: %s", d.out, out)
 	}
 
 }
