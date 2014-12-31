@@ -98,17 +98,28 @@ func (r *Rethinkdb) applyOp(msg *message.Msg) (*message.Msg, error) {
 
 	switch msg.Op {
 	case message.Delete:
-		resp, err = gorethink.Table(r.table).Get(msg.IDString("id")).Delete().RunWrite(r.client)
+		id, err := msg.IDString("id")
+		if err != nil {
+			r.pipe.Err <- NewError(ERROR, r.path, "Rethinkdb error (cannot delete an object with a nil id)", msg.Data)
+			return msg, nil
+		}
+		resp, err = gorethink.Table(r.table).Get(id).Delete().RunWrite(r.client)
 	case message.Insert:
 		resp, err = gorethink.Table(r.table).Insert(doc).RunWrite(r.client)
 	case message.Update:
 		resp, err = gorethink.Table(r.table).Insert(doc, gorethink.InsertOpts{Conflict: "replace"}).RunWrite(r.client)
 	}
 	if err != nil {
-		return msg, err
+		r.pipe.Err <- NewError(ERROR, r.path, "Rethinkdb error (%s)", err)
+		return msg, nil
 	}
 
-	return msg, r.handleResponse(&resp)
+	err = r.handleResponse(&resp)
+	if err != nil {
+		r.pipe.Err <- NewError(ERROR, r.path, "Rethinkdb error (%s)", err)
+	}
+
+	return msg, nil
 }
 
 func (r *Rethinkdb) setupClient() (*gorethink.Session, error) {

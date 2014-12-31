@@ -58,25 +58,25 @@ func (m *Msg) Map() map[string]interface{} {
 }
 
 // IDString returns the original id as a string value
-func (m *Msg) IDString(key string) string {
+func (m *Msg) IDString(key string) (string, error) {
 	doc, ok := m.Data.(map[string]interface{})
 	if !ok {
-		return ""
+		return "", fmt.Errorf("Data is not a map")
 	}
 	id, ok := doc[key]
 	if !ok {
-		return ""
+		return "", fmt.Errorf("No key %s found in Data", key)
 	}
 	switch t := id.(type) {
 	case string:
-		return t
+		return t, nil
 	case bson.ObjectId:
-		return t.Hex()
+		return t.Hex(), nil
 	case int32, int64, uint32, uint64:
-		return fmt.Sprintf("%d", t)
+		return fmt.Sprintf("%d", t), nil
 	case float32, float64:
-		return fmt.Sprintf("%f", t)
+		return fmt.Sprintf("%f", t), nil
 	default:
-		return fmt.Sprintf("%v", t)
+		return fmt.Sprintf("%v", t), nil
 	}
 }
