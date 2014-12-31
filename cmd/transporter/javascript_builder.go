@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"time"
 
-	// "github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/events"
 	"github.com/compose/transporter/pkg/transporter"
 	"github.com/nu7hatch/gouuid"
