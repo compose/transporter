@@ -27,7 +27,7 @@ type Transformer struct {
 }
 
 // NewTransformer creates a new transformer object
-func NewTransformer(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
+func NewTransformer(pipe *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
 	var (
 		conf TransformerConfig
 		err  error
@@ -36,7 +36,7 @@ func NewTransformer(p *pipe.Pipe, path string, extra Config) (StopStartListener,
 		return nil, err
 	}
 
-	t := &Transformer{pipe: p, path: path}
+	t := &Transformer{pipe: pipe, path: path}
 
 	if conf.Filename == "" {
 		return t, fmt.Errorf("No filename specified")
@@ -56,6 +56,15 @@ func NewTransformer(p *pipe.Pipe, path string, extra Config) (StopStartListener,
 // transformers it into mejson, and then uses the supplied javascript module.exports function
 // to transform the document.  The document is then emited to this adaptor's children
 func (t *Transformer) Listen() (err error) {
+	if err = t.initEnvironment(); err != nil {
+		return err
+	}
+
+	return t.pipe.Listen(t.transformOne)
+}
+
+// initEvironment prepares the javascript vm and compiles the transformer script
+func (t *Transformer) initEnvironment() (err error) {
 	t.vm = otto.New()
 
 	// set up the vm environment, make `module = {}`
@@ -73,8 +82,7 @@ func (t *Transformer) Listen() (err error) {
 	if err != nil {
 		return t.transformerError(CRITICAL, err, nil)
 	}
-
-	return t.pipe.Listen(t.transformOne)
+	return
 }
 
 // Start the adaptor as a source (not implemented for this adaptor)
@@ -140,7 +148,7 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 			t.pipe.Err <- t.transformerError(ERROR, err, msg)
 			return msg, nil
 		}
-		msg.Data = doc
+		msg.Data = map[string]interface{}(doc)
 	default:
 		msg.Data = r
 	}
@@ -154,10 +162,15 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 }
 
 func (t *Transformer) transformerError(lvl ErrorLevel, err error, msg *message.Msg) error {
-	if e, ok := err.(*otto.Error); ok {
-		return NewError(lvl, t.path, fmt.Sprintf("Transformer error (%s)", e.String()), msg.Data)
+	var data interface{}
+	if msg != nil {
+		data = msg.Data
 	}
-	return NewError(lvl, t.path, fmt.Sprintf("Transformer error (%s)", err.Error()), msg.Data)
+
+	if e, ok := err.(*otto.Error); ok {
+		return NewError(lvl, t.path, fmt.Sprintf("Transformer error (%s)", e.String()), data)
+	}
+	return NewError(lvl, t.path, fmt.Sprintf("Transformer error (%s)", err.Error()), data)
 }
 
 // TransformerConfig holds config options for a transformer adaptor
