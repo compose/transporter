@@ -62,9 +62,12 @@ func NewPipeline(source *Node, emitter events.Emitter, interval time.Duration, s
 	pipeline := &Pipeline{
 		source:        source,
 		emitter:       emitter,
-		sessionStore:  sessionStore,
 		metricsTicker: time.NewTicker(interval),
 		sessionTicker: time.NewTicker(10 * time.Second),
+	}
+
+	if sessionStore != nil {
+		pipeline.sessionStore = sessionStore
 	}
 
 	// init the pipeline
@@ -158,6 +161,38 @@ func (pipeline *Pipeline) emitMetrics() {
 
 		// do something with the node
 		pipeline.source.pipe.Event <- events.NewMetricsEvent(time.Now().Unix(), node.Path(), node.pipe.MessageCount)
+
+		// add this nodes children to the frontier
+		for _, child := range node.Children {
+			frontier = append(frontier, child)
+		}
+
+		// if we're empty
+		if len(frontier) == 0 {
+			break
+		}
+	}
+}
+
+func (pipeline *Pipeline) startStateSaver() {
+	for _ = range pipeline.sessionTicker.C {
+		pipeline.persisteState()
+	}
+}
+
+func (pipeline *Pipeline) persisteState() {
+	frontier := make([]*Node, 1)
+	frontier[0] = pipeline.source
+
+	for {
+		// pop the first item
+		node := frontier[0]
+		frontier = frontier[1:]
+
+		// do something with the node
+		if node.Type != "transformer" && node.pipe.LastKnownState != nil {
+			pipeline.sessionStore.Set(node.Path(), node.pipe.LastKnownState)
+		}
 
 		// add this nodes children to the frontier
 		for _, child := range node.Children {
