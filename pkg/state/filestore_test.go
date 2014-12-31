@@ -13,23 +13,20 @@ func TestFilestore(t *testing.T) {
 
 	data := []struct {
 		path string
-		id   interface{}
-		ts   int64
+		in   map[string]interface{}
 	}{
 		{
 			"somepath",
-			"123",
-			time.Now().Unix(),
+			map[string]interface{}{"id": "nick1", "field1": 1},
 		},
 		{
 			"somepath/morepath",
-			"1234",
-			time.Now().Unix(),
+			map[string]interface{}{"id": "nick1", "field1": 1},
 		},
 	}
 
 	for _, d := range data {
-		err := fs.Save(d.path, &message.Msg{Id: d.id, Timestamp: d.ts})
+		err := fs.Save(d.path, message.NewMsg(OpTypeFromString("insert"), d.in)
 		if err != nil {
 			t.Errorf("got error: %s\n", err)
 			t.FailNow()
@@ -57,23 +54,20 @@ func TestFilestoreUpdates(t *testing.T) {
 
 	data := []struct {
 		path string
-		id   interface{}
-		ts   int64
+		in   map[string]interface{}
 	}{
 		{
 			"somepath",
-			"123",
-			time.Now().Unix(),
+			map[string]interface{}{"id": "nick1", "field1": 1},
 		},
 		{
 			"somepath",
-			"1234",
-			time.Now().Add(10 * time.Second).Unix(),
+			map[string]interface{}{"id": "nick1", "field1": 2},
 		},
 	}
 
 	for _, d := range data {
-		err := fs.Save(d.path, &message.Msg{Id: d.id, Timestamp: d.ts})
+		err := fs.Save(d.path, message.NewMsg(OpTypeFromString("insert"), d.in)
 		if err != nil {
 			t.Errorf("got error: %s\n", err)
 			t.FailNow()
