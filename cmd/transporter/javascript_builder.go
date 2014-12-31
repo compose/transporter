@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/compose/transporter/pkg/adaptor"
+	// "github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/events"
 	"github.com/compose/transporter/pkg/transporter"
 	"github.com/nu7hatch/gouuid"
@@ -108,42 +108,21 @@ func (js *JavascriptBuilder) save(token string, node Node, call otto.FunctionCal
 // adds a transform function to the transporter pipeline
 // transform takes one argument, which is a path to a transformer file.
 func (js *JavascriptBuilder) transform(token string, node Node, call otto.FunctionCall) (Node, error) {
-	e, err := call.Argument(0).Export()
+	transformer, err := js.findNode(token, call.Argument(0))
 	if err != nil {
-		return node, err
+		return node, fmt.Errorf("save error, %s", err.Error())
 	}
 
-	rawMap, ok := e.(map[string]interface{})
-	if !ok {
-		return node, fmt.Errorf("transform error. first argument must be an hash. (got %T instead)", e)
-	}
-
-	filename, ok := rawMap["filename"].(string)
-	if !ok {
+	filename := transformer.Extra.GetString("filename")
+	if filename == "" {
 		return node, fmt.Errorf("transformer config must contain a valid filename key")
 	}
+
 	if !filepath.IsAbs(filename) {
-		filename = filepath.Join(js.path, filename)
-	}
-
-	debug, ok := rawMap["debug"].(bool)
-
-	name, ok := rawMap["name"].(string)
-	if !(ok) {
-		u, err := uuid.NewV4()
-		if err != nil {
-			return node, fmt.Errorf("transform error. uuid error (%s)", err.Error())
-		}
-		name = u.String()
-	}
-
-	transformer, err := NewNode(name, "transformer", adaptor.Config{"filename": filename, "debug": debug})
-	if err != nil {
-		return node, fmt.Errorf("transform error. cannot create node (%s)", err.Error())
+		transformer.Extra["filename"] = filepath.Join(js.path, filename)
 	}
 
 	node.Add(&transformer)
-
 	return transformer, nil
 }
 
@@ -186,6 +165,7 @@ func (js *JavascriptBuilder) findNode(token string, in otto.Value) (n Node, err 
 		givenOptions  map[string]interface{}
 		ok            bool
 		name          string
+		kind          string
 	)
 
 	e, err := in.Export()
@@ -193,39 +173,52 @@ func (js *JavascriptBuilder) findNode(token string, in otto.Value) (n Node, err 
 		return n, err
 	}
 
-	givenOptions, ok = e.(map[string]interface{})
-	if !ok {
-		return n, fmt.Errorf("first argument to %s must be an hash. (got %T instead)", token, in)
-	}
+	// accept both a json hash and a string as an argument.
+	// if the arg is a hash, then we should extract the name,
+	// and pull the node from the yaml, and then merge the given options
+	// over top of the options presented in the config node.
+	//
+	// if the arg is a string, then use that string as the name
+	// and pull the config node
+	switch arg := e.(type) {
+	case map[string]interface{}:
+		givenOptions = arg
+		if name, ok = givenOptions["name"].(string); ok {
+			configOptions, ok = js.config.Nodes[name]
+			if !ok { // we can't pull in any config options here
+				configOptions = make(map[string]interface{})
+			}
 
-	// make sure the hash validates.
-	// we need a "name" property, and it must be a string
-	if name, ok = givenOptions["name"].(string); ok {
-		// we don't have a name, so lets generate one.
-		// we can't pull in any config options here
-		configOptions, ok = js.config.Nodes[name]
+			for k, v := range givenOptions {
+				configOptions[k] = v
+			}
+			givenOptions = configOptions
+
+		} else { // we don't have a name, so lets generate one.
+			u, err := uuid.NewV4()
+			if err != nil {
+				return n, fmt.Errorf("transform error. uuid error (%s)", err.Error())
+			}
+			name = u.String()
+			givenOptions["name"] = name
+		}
+	case string:
+		name = arg
+		givenOptions, ok = js.config.Nodes[name]
 		if !ok {
-			configOptions = make(map[string]interface{})
-			// return n, fmt.Errorf("%s: given name=%s, but no configured node exists with that name", token, name)
+			return n, fmt.Errorf("transform error. unable to find node '%s'", name)
 		}
-
-		for k, v := range givenOptions {
-			configOptions[k] = v
-		}
-		givenOptions = configOptions
-
-	} else {
-		u, err := uuid.NewV4()
-		if err != nil {
-			return n, fmt.Errorf("transform error. uuid error (%s)", err.Error())
-		}
-		name = u.String()
-		givenOptions["name"] = name
 	}
 
-	kind, ok := givenOptions["type"].(string)
-	if !ok {
-		return n, fmt.Errorf("%s: hash requires a type field, but no type given", token)
+	if token == "transform" {
+		// this is a little bit of magic so that
+		// transformers (which are added by the )
+		kind = "transformer"
+	} else {
+		kind, ok = givenOptions["type"].(string)
+		if !ok {
+			return n, fmt.Errorf("%s: hash requires a type field, but no type given", token)
+		}
 	}
 
 	return NewNode(name, kind, givenOptions)
