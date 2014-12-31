@@ -93,3 +93,23 @@ func TestTransformOne(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkTransformOne(b *testing.B) {
+	tpipe := pipe.NewPipe(nil, "path")
+	transformer := &Transformer{
+		pipe: tpipe,
+		path: "path",
+		fn:   "module.exports=function(doc) { return doc }",
+	}
+	err := transformer.initEnvironment()
+	if err != nil {
+		panic(err)
+	}
+
+	msg := message.NewMsg(message.Insert, map[string]interface{}{"id": bson.NewObjectId(), "name": "nick"})
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		transformer.transformOne(msg)
+	}
+}
