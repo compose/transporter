@@ -67,7 +67,7 @@ func (js *JavascriptBuilder) source(call otto.FunctionCall) otto.Value {
 		return otto.NullValue()
 	}
 
-	node, err := js.findNode(call.Argument(0))
+	node, err := js.findNode("source", call.Argument(0))
 	if err != nil {
 		js.err = fmt.Errorf("source error, %s", err.Error())
 		return otto.NullValue()
@@ -87,8 +87,8 @@ func (js *JavascriptBuilder) source(call otto.FunctionCall) otto.Value {
 
 // save adds a sink to the transporter pipeline
 // each pipeline can have multiple sinks
-func (js *JavascriptBuilder) save(node Node, call otto.FunctionCall) (Node, error) {
-	thisNode, err := js.findNode(call.Argument(0))
+func (js *JavascriptBuilder) save(token string, node Node, call otto.FunctionCall) (Node, error) {
+	thisNode, err := js.findNode(token, call.Argument(0))
 	if err != nil {
 		return node, fmt.Errorf("save error, %s", err.Error())
 	}
@@ -107,7 +107,7 @@ func (js *JavascriptBuilder) save(node Node, call otto.FunctionCall) (Node, erro
 
 // adds a transform function to the transporter pipeline
 // transform takes one argument, which is a path to a transformer file.
-func (js *JavascriptBuilder) transform(node Node, call otto.FunctionCall) (Node, error) {
+func (js *JavascriptBuilder) transform(token string, node Node, call otto.FunctionCall) (Node, error) {
 	e, err := call.Argument(0).Export()
 	if err != nil {
 		return node, err
@@ -149,7 +149,7 @@ func (js *JavascriptBuilder) transform(node Node, call otto.FunctionCall) (Node,
 
 // pipelines in javascript are chainable, you take in a pipeline, and you return a pipeline
 // we just generalize some of that logic here
-func (js *JavascriptBuilder) setFunc(obj *otto.Object, token string, fn func(Node, otto.FunctionCall) (Node, error)) error {
+func (js *JavascriptBuilder) setFunc(obj *otto.Object, token string, fn func(string, Node, otto.FunctionCall) (Node, error)) error {
 	return obj.Set(token, func(call otto.FunctionCall) otto.Value {
 		this, _ := call.This.Export()
 
@@ -159,7 +159,7 @@ func (js *JavascriptBuilder) setFunc(obj *otto.Object, token string, fn func(Nod
 			return otto.NullValue()
 		}
 
-		node, err = fn(node, call)
+		node, err = fn(token, node, call)
 		if err != nil {
 			js.err = err
 			return otto.NullValue()
@@ -180,34 +180,55 @@ func (js *JavascriptBuilder) setFunc(obj *otto.Object, token string, fn func(Nod
 
 // find the node from the based ont the hash passed in
 // the hash needs to at least have a {name: }property
-func (js *JavascriptBuilder) findNode(in otto.Value) (n Node, err error) {
+func (js *JavascriptBuilder) findNode(token string, in otto.Value) (n Node, err error) {
+	var (
+		configOptions map[string]interface{}
+		givenOptions  map[string]interface{}
+		ok            bool
+		name          string
+	)
+
 	e, err := in.Export()
 	if err != nil {
 		return n, err
 	}
 
-	rawMap, ok := e.(map[string]interface{})
+	givenOptions, ok = e.(map[string]interface{})
 	if !ok {
-		return n, fmt.Errorf("first argument must be an hash. (got %T instead)", in)
+		return n, fmt.Errorf("first argument to %s must be an hash. (got %T instead)", token, in)
 	}
 
 	// make sure the hash validates.
 	// we need a "name" property, and it must be a string
-	if _, ok := rawMap["name"]; !ok {
-		return n, fmt.Errorf("hash requires a name")
-	}
-	sourceString, ok := rawMap["name"].(string)
-	if !(ok) {
-		return n, fmt.Errorf("hash requires a name")
+	if name, ok = givenOptions["name"].(string); ok {
+		// we don't have a name, so lets generate one.
+		// we can't pull in any config options here
+		configOptions, ok = js.config.Nodes[name]
+		if !ok {
+			configOptions = make(map[string]interface{})
+			// return n, fmt.Errorf("%s: given name=%s, but no configured node exists with that name", token, name)
+		}
+
+		for k, v := range givenOptions {
+			configOptions[k] = v
+		}
+		givenOptions = configOptions
+
+	} else {
+		u, err := uuid.NewV4()
+		if err != nil {
+			return n, fmt.Errorf("transform error. uuid error (%s)", err.Error())
+		}
+		name = u.String()
+		givenOptions["name"] = name
 	}
 
-	val, ok := js.config.Nodes[sourceString]
+	kind, ok := givenOptions["type"].(string)
 	if !ok {
-		return n, fmt.Errorf("no configured nodes found named %s", sourceString)
+		return n, fmt.Errorf("%s: hash requires a type field, but no type given", token)
 	}
-	rawMap["uri"] = val.URI
 
-	return NewNode(sourceString, val.Type, rawMap)
+	return NewNode(name, kind, givenOptions)
 }
 
 // emitter examines the config file for api information
