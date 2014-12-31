@@ -71,9 +71,7 @@ func (d *File) Stop() error {
 	return nil
 }
 
-/*
- * read each message from the file
- */
+// read each message from the file
 func (d *File) readFile() (err error) {
 	filename := strings.Replace(d.uri, "file://", "", 1)
 	d.filehandle, err = os.Open(filename)
@@ -100,18 +98,25 @@ func (d *File) readFile() (err error) {
  * dump each message to the file
  */
 func (d *File) dumpMessage(msg *message.Msg) (*message.Msg, error) {
-	jdoc, err := json.Marshal(msg.Document())
-	if err != nil {
-		d.pipe.Err <- NewError(ERROR, d.path, fmt.Sprintf("Can't unmarshal document (%s)", err.Error()), msg.Document())
-		return msg, nil
+	var line string
+
+	if msg.IsMap() {
+		ba, err := json.Marshal(msg.Map())
+		if err != nil {
+			d.pipe.Err <- NewError(ERROR, d.path, fmt.Sprintf("Can't unmarshal document (%s)", err.Error()), msg.Data)
+			return msg, nil
+		}
+		line = string(ba)
+	} else {
+		line = fmt.Sprintf("%v", msg.Data)
 	}
 
 	if strings.HasPrefix(d.uri, "stdout://") {
-		fmt.Println(string(jdoc))
+		fmt.Println(line)
 	} else {
-		_, err = fmt.Fprintln(d.filehandle, string(jdoc))
+		_, err := fmt.Fprintln(d.filehandle, line)
 		if err != nil {
-			d.pipe.Err <- NewError(ERROR, d.path, fmt.Sprintf("Can't unmarshal document (%s)", err.Error()), msg.Document())
+			d.pipe.Err <- NewError(ERROR, d.path, fmt.Sprintf("Error writing to file (%s)", err.Error()), msg.Data)
 			return msg, nil
 		}
 	}

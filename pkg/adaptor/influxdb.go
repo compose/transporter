@@ -81,13 +81,19 @@ func (i *Influxdb) Stop() error {
 func (i *Influxdb) applyOp(msg *message.Msg) (*message.Msg, error) {
 	switch msg.Op {
 	case message.Insert:
-		docSize := len(msg.Document())
-		columns := make([]string, 0, docSize)
+		if !msg.IsMap() {
+			i.pipe.Err <- NewError(ERROR, i.path, "Influxdb error (document must be a json document)", msg.Data)
+			return msg, nil
+		}
+		doc := msg.Map()
+
+		sz := len(doc)
+		columns := make([]string, 0, sz)
 		points := make([][]interface{}, 1)
-		points[0] = make([]interface{}, 0, docSize)
-		for k := range msg.Document() {
+		points[0] = make([]interface{}, 0, sz)
+		for k, v := range doc {
 			columns = append(columns, k)
-			points[0] = append(points[0], msg.Document()[k])
+			points[0] = append(points[0], v)
 		}
 		series := &client.Series{
 			Name:    i.seriesName,

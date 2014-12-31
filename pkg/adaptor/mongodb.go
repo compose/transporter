@@ -120,12 +120,20 @@ func (m *Mongodb) Stop() error {
 //   caller should pipe the error
 func (m *Mongodb) writeMessage(msg *message.Msg) (*message.Msg, error) {
 	collection := m.mongoSession.DB(m.database).C(m.collection)
-	err := collection.Insert(msg.Document())
+
+	if !msg.IsMap() {
+		m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("Mongodb error (document must be a bson document, got %T instead)", msg.Data), msg.Data)
+		return msg, nil
+	}
+
+	doc := msg.Map()
+
+	err := collection.Insert(doc)
 	if mgo.IsDup(err) {
-		err = collection.Update(bson.M{"_id": msg.ID}, msg.Document())
+		err = collection.Update(bson.M{"_id": doc["_id"]}, doc)
 	}
 	if err != nil {
-		m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("Mongodb error (%s)", err.Error()), msg.Document())
+		m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("Mongodb error (%s)", err.Error()), msg.Data)
 	}
 	return msg, nil
 }
@@ -192,25 +200,27 @@ func (m *Mongodb) tailData() (err error) {
 				return
 			}
 			if result.validOp() {
-				msg := message.NewMsg(message.OpTypeFromString(result.Op), nil)
-				msg.Timestamp = int64(result.Ts) >> 32
 
+				var doc bson.M
 				switch result.Op {
 				case "i":
-					msg.SetDocument(result.O)
+					doc = result.O
 				case "d":
-					msg.SetDocument(result.O)
+					doc = result.O
 				case "u":
-					doc, err := m.getOriginalDoc(result.O2)
+					doc, err = m.getOriginalDoc(result.O2)
 					if err != nil { // errors aren't fatal here, but we need to send it down the pipe
 						m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("Mongodb error (%s)", err.Error()), nil)
 						continue
 					}
-					msg.SetDocument(doc)
 				default:
 					m.pipe.Err <- NewError(ERROR, m.path, "Mongodb error (unknown op type)", nil)
 					continue
 				}
+
+				msg := message.NewMsg(message.OpTypeFromString(result.Op), doc)
+				msg.Timestamp = int64(result.Ts) >> 32
+
 				m.oplogTime = result.Ts
 				m.pipe.Send(msg)
 			}

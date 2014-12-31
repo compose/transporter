@@ -13,89 +13,70 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-var (
-	idKeys = []string{"_id", "id"}
-)
-
 // A Msg serves to wrap the actual document to
 // provide additional metadata about the document
 // being transported.
 type Msg struct {
-	Timestamp  int64
-	Op         OpType
-	ID         interface{}
-	OriginalID interface{}
-	document   bson.M // document is private
-	idKey      string // where the original id value is stored, either "_id" or "id"
+	Timestamp int64
+	Op        OpType
+	Data      interface{}
 }
 
 // NewMsg returns a new Msg with the ID extracted
 // from the original document
-func NewMsg(op OpType, doc bson.M) *Msg {
+func NewMsg(op OpType, data interface{}) *Msg {
 	m := &Msg{
 		Timestamp: time.Now().Unix(),
 		Op:        op,
-	}
-	if doc != nil {
-		m.document, m.ID = m.extractID(doc)
-		m.OriginalID = m.ID
+		Data:      data,
 	}
 
 	return m
 }
 
-// extractID will handle separating the id field from the
-// rest of the document, can handle both 'id' and '_id'
-func (m *Msg) extractID(doc bson.M) (bson.M, interface{}) {
-	for _, key := range idKeys {
-		id, exists := doc[key]
-		if exists {
-			m.idKey = key
-			delete(doc, key)
-			return doc, id
-		}
+// IsMap returns a bool indicating whether or not the msg.Data is maplike, i.e. a map[string]interface
+// or a bson.M
+func (m *Msg) IsMap() bool {
+	switch m.Data.(type) {
+	case map[string]interface{}, bson.M:
+		return true
+	default:
+		return false
 	}
+}
 
-	fmt.Printf("id not found %+v\n", doc)
-	return doc, nil
+// Map casts the Msg.Data into a map[string]interface{}
+func (m *Msg) Map() map[string]interface{} {
+	switch d := m.Data.(type) {
+	case map[string]interface{}:
+		return d
+	case bson.M:
+		return map[string]interface{}(d)
+	default:
+		return nil
+	}
 }
 
 // IDString returns the original id as a string value
-func (m *Msg) IDString() string {
-	switch t := m.ID.(type) {
+func (m *Msg) IDString(key string) (string, error) {
+	doc, ok := m.Data.(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("Data is not a map")
+	}
+	id, ok := doc[key]
+	if !ok {
+		return "", fmt.Errorf("No key %s found in Data", key)
+	}
+	switch t := id.(type) {
 	case string:
-		return t
+		return t, nil
 	case bson.ObjectId:
-		return t.Hex()
+		return t.Hex(), nil
 	case int32, int64, uint32, uint64:
-		return fmt.Sprintf("%d", t)
+		return fmt.Sprintf("%d", t), nil
 	case float32, float64:
-		return fmt.Sprintf("%f", t)
+		return fmt.Sprintf("%f", t), nil
 	default:
-		return fmt.Sprintf("%v", t)
+		return fmt.Sprintf("%v", t), nil
 	}
-}
-
-// Document returns the original doc, unaltered
-func (m *Msg) Document() bson.M {
-	return m.DocumentWithID(m.idKey)
-}
-
-// SetDocument will set the document variable and
-// extract out the id and preserve it
-func (m *Msg) SetDocument(doc bson.M) {
-	m.document, m.ID = m.extractID(doc)
-	if m.OriginalID == nil { // if we don't have an original id, then set it here
-		m.OriginalID = m.ID
-	}
-}
-
-// DocumentWithID returns the document with the id field
-// attached to the specified key
-func (m *Msg) DocumentWithID(key string) bson.M {
-	doc := m.document
-	if m.ID != nil {
-		doc[key] = m.ID
-	}
-	return doc
 }

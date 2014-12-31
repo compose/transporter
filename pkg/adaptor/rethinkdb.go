@@ -90,23 +90,43 @@ func (r *Rethinkdb) applyOp(msg *message.Msg) (*message.Msg, error) {
 		err  error
 	)
 
+	if !msg.IsMap() {
+		r.pipe.Err <- NewError(ERROR, r.path, "Rethinkdb error (document must be a json document)", msg.Data)
+		return msg, nil
+	}
+	doc := msg.Map()
+
 	switch msg.Op {
 	case message.Delete:
-		resp, err = gorethink.Table(r.table).Get(msg.IDString()).Delete().RunWrite(r.client)
+		id, err := msg.IDString("id")
+		if err != nil {
+			r.pipe.Err <- NewError(ERROR, r.path, "Rethinkdb error (cannot delete an object with a nil id)", msg.Data)
+			return msg, nil
+		}
+		resp, err = gorethink.Table(r.table).Get(id).Delete().RunWrite(r.client)
 	case message.Insert:
-		resp, err = gorethink.Table(r.table).Insert(msg.Document()).RunWrite(r.client)
+		resp, err = gorethink.Table(r.table).Insert(doc).RunWrite(r.client)
 	case message.Update:
-		resp, err = gorethink.Table(r.table).Insert(msg.DocumentWithID("id"), gorethink.InsertOpts{Conflict: "replace"}).RunWrite(r.client)
+		resp, err = gorethink.Table(r.table).Insert(doc, gorethink.InsertOpts{Conflict: "replace"}).RunWrite(r.client)
 	}
 	if err != nil {
-		return msg, err
+		r.pipe.Err <- NewError(ERROR, r.path, "Rethinkdb error (%s)", err)
+		return msg, nil
 	}
 
-	return msg, r.handleResponse(&resp)
+	err = r.handleResponse(&resp)
+	if err != nil {
+		r.pipe.Err <- NewError(ERROR, r.path, "Rethinkdb error (%s)", err)
+	}
+
+	return msg, nil
 }
 
 func (r *Rethinkdb) setupClient() (*gorethink.Session, error) {
 	// set up the clientConfig, we need host:port, username, password, and database name
+	if r.debug {
+		fmt.Printf("Connecting to %s\n", r.uri.Host)
+	}
 	client, err := gorethink.Connect(gorethink.ConnectOpts{
 		Address:     r.uri.Host,
 		MaxIdle:     10,
@@ -116,6 +136,9 @@ func (r *Rethinkdb) setupClient() (*gorethink.Session, error) {
 		return nil, fmt.Errorf("Unable to connect: %s", err)
 	}
 
+	if r.debug {
+		fmt.Printf("dropping and creating table '%s' on database '%s'\n", r.table, r.database)
+	}
 	gorethink.Db(r.database).TableDrop(r.table).RunWrite(client)
 	gorethink.Db(r.database).TableCreate(r.table).RunWrite(client)
 

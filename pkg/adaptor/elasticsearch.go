@@ -97,14 +97,19 @@ func (e *Elasticsearch) applyOp(msg *message.Msg) (*message.Msg, error) {
 	if msg.Op == message.Command {
 		err := e.runCommand(msg)
 		if err != nil {
-			e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("Elasticsearch error (%s)", err), msg.Document())
+			e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("Elasticsearch error (%s)", err), msg.Data)
 		}
 		return msg, nil
 	}
-
-	err := e.indexer.Index(e.index, e._type, msg.IDString(), "", nil, msg.Document(), false)
+	// TODO there might be some inconsistency here.  elasticsearch uses the _id field for an primary index,
+	//  and we're just mapping it to a string here.
+	id, err := msg.IDString("_id")
 	if err != nil {
-		e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("Elasticsearch error (%s)", err), msg.Document())
+		id = ""
+	}
+	err = e.indexer.Index(e.index, e._type, id, "", nil, msg.Data, false)
+	if err != nil {
+		e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("Elasticsearch error (%s)", err), msg.Data)
 	}
 	return msg, nil
 }
@@ -133,7 +138,11 @@ func (e *Elasticsearch) setupClient() {
 }
 
 func (e *Elasticsearch) runCommand(msg *message.Msg) error {
-	if _, hasKey := msg.Document()["flush"]; hasKey {
+	if !msg.IsMap() {
+		return nil
+	}
+
+	if _, hasKey := msg.Map()["flush"]; hasKey {
 		e.indexer.Flush()
 	}
 	return nil
