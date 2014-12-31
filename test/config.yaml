@@ -7,6 +7,8 @@ nodes:
   localmongo:
     type: mongo
     uri: mongodb://localhost/boom
+    namespace: boom.foo
+    debug: true
   es:
     type: elasticsearch
     uri: https://nick:darling@haproxy1.dblayer.com:10291/thisgetsignored
@@ -28,3 +30,11 @@ nodes:
   stdout:
     type: file
     uri: stdout://
+  rethink1:
+    type: rethinkdb
+    uri: rethink://127.0.0.2:28015/
+  loosefile:
+    type: file
+  logtransformer:
+    filename: test/transformers/passthrough_and_log.js
+    type: transformer

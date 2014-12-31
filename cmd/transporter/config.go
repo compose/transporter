@@ -20,10 +20,7 @@ type Config struct {
 		Key             string `json:"key" yaml:"key"`           // http basic auth password to send with each event
 		Pid             string `json:"pid" yaml:"pid"`           // http basic auth username to send with each event
 	} `json:"api" yaml:"api"`
-	Nodes map[string]struct {
-		Type string `json:"type" yaml:"type"`
-		URI  string `json:"uri" yaml:"uri"`
-	}
+	Nodes map[string]map[string]interface{}
 }
 
 // LoadConfig loads a config yaml from a file on disk.
@@ -31,7 +28,10 @@ type Config struct {
 // if that env var isn't present, then generate a pid
 func LoadConfig(filename string) (config Config, err error) {
 	if filename == "" {
-		return
+		if _, err := os.Stat("config.yaml"); os.IsNotExist(err) {
+			return config, nil // return the default config
+		}
+		filename = "config.yaml"
 	}
 
 	ba, err := ioutil.ReadFile(filename)

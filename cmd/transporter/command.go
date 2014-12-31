@@ -46,7 +46,7 @@ func (c *listCommand) Run(args []string) int {
 	var configFilename string
 	cmdFlags := flag.NewFlagSet("list", flag.ContinueOnError)
 	cmdFlags.Usage = func() { c.Help() }
-	cmdFlags.StringVar(&configFilename, "config", "config.yaml", "config file")
+	cmdFlags.StringVar(&configFilename, "config", "", "config file")
 	cmdFlags.Parse(args)
 
 	config, err := LoadConfig(configFilename)
@@ -56,7 +56,9 @@ func (c *listCommand) Run(args []string) int {
 	}
 	fmt.Printf("%-20s %-15s %s\n", "Name", "Type", "URI")
 	for n, v := range config.Nodes {
-		fmt.Printf("%-20s %-15s %s\n", n, v.Type, v.URI)
+		kind, _ := v["type"].(string)
+		uri, _ := v["uri"].(string)
+		fmt.Printf("%-20s %-15s %s\n", n, kind, uri)
 	}
 
 	return 0
@@ -86,7 +88,7 @@ func (c *runCommand) Run(args []string) int {
 	var configFilename string
 	cmdFlags := flag.NewFlagSet("run", flag.ContinueOnError)
 	cmdFlags.Usage = func() { c.Help() }
-	cmdFlags.StringVar(&configFilename, "config", "config.yaml", "config file")
+	cmdFlags.StringVar(&configFilename, "config", "", "config file")
 	cmdFlags.Parse(args)
 
 	config, err := LoadConfig(configFilename)
@@ -136,7 +138,7 @@ func (c *testCommand) Run(args []string) int {
 	var configFilename string
 	cmdFlags := flag.NewFlagSet("test", flag.ContinueOnError)
 	cmdFlags.Usage = func() { c.Help() }
-	cmdFlags.StringVar(&configFilename, "config", "config.yaml", "config file")
+	cmdFlags.StringVar(&configFilename, "config", "", "config file")
 	cmdFlags.Parse(args)
 
 	config, err := LoadConfig(configFilename)
@@ -182,7 +184,7 @@ func (c *evalCommand) Run(args []string) int {
 	var configFilename string
 	cmdFlags := flag.NewFlagSet("run", flag.ContinueOnError)
 	cmdFlags.Usage = func() { c.Help() }
-	cmdFlags.StringVar(&configFilename, "config", "config.yaml", "config file")
+	cmdFlags.StringVar(&configFilename, "config", "", "config file")
 	cmdFlags.Parse(args)
 
 	config, err := LoadConfig(configFilename)

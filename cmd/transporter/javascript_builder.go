@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/events"
 	"github.com/compose/transporter/pkg/transporter"
 	"github.com/nu7hatch/gouuid"
@@ -67,7 +66,7 @@ func (js *JavascriptBuilder) source(call otto.FunctionCall) otto.Value {
 		return otto.NullValue()
 	}
 
-	node, err := js.findNode(call.Argument(0))
+	node, err := js.findNode("source", call.Argument(0))
 	if err != nil {
 		js.err = fmt.Errorf("source error, %s", err.Error())
 		return otto.NullValue()
@@ -87,8 +86,8 @@ func (js *JavascriptBuilder) source(call otto.FunctionCall) otto.Value {
 
 // save adds a sink to the transporter pipeline
 // each pipeline can have multiple sinks
-func (js *JavascriptBuilder) save(node Node, call otto.FunctionCall) (Node, error) {
-	thisNode, err := js.findNode(call.Argument(0))
+func (js *JavascriptBuilder) save(token string, node Node, call otto.FunctionCall) (Node, error) {
+	thisNode, err := js.findNode(token, call.Argument(0))
 	if err != nil {
 		return node, fmt.Errorf("save error, %s", err.Error())
 	}
@@ -107,49 +106,28 @@ func (js *JavascriptBuilder) save(node Node, call otto.FunctionCall) (Node, erro
 
 // adds a transform function to the transporter pipeline
 // transform takes one argument, which is a path to a transformer file.
-func (js *JavascriptBuilder) transform(node Node, call otto.FunctionCall) (Node, error) {
-	e, err := call.Argument(0).Export()
+func (js *JavascriptBuilder) transform(token string, node Node, call otto.FunctionCall) (Node, error) {
+	transformer, err := js.findNode(token, call.Argument(0))
 	if err != nil {
-		return node, err
+		return node, fmt.Errorf("save error, %s", err.Error())
 	}
 
-	rawMap, ok := e.(map[string]interface{})
-	if !ok {
-		return node, fmt.Errorf("transform error. first argument must be an hash. (got %T instead)", e)
-	}
-
-	filename, ok := rawMap["filename"].(string)
-	if !ok {
+	filename := transformer.Extra.GetString("filename")
+	if filename == "" {
 		return node, fmt.Errorf("transformer config must contain a valid filename key")
 	}
+
 	if !filepath.IsAbs(filename) {
-		filename = filepath.Join(js.path, filename)
-	}
-
-	debug, ok := rawMap["debug"].(bool)
-
-	name, ok := rawMap["name"].(string)
-	if !(ok) {
-		u, err := uuid.NewV4()
-		if err != nil {
-			return node, fmt.Errorf("transform error. uuid error (%s)", err.Error())
-		}
-		name = u.String()
-	}
-
-	transformer, err := NewNode(name, "transformer", adaptor.Config{"filename": filename, "debug": debug})
-	if err != nil {
-		return node, fmt.Errorf("transform error. cannot create node (%s)", err.Error())
+		transformer.Extra["filename"] = filepath.Join(js.path, filename)
 	}
 
 	node.Add(&transformer)
-
 	return transformer, nil
 }
 
 // pipelines in javascript are chainable, you take in a pipeline, and you return a pipeline
 // we just generalize some of that logic here
-func (js *JavascriptBuilder) setFunc(obj *otto.Object, token string, fn func(Node, otto.FunctionCall) (Node, error)) error {
+func (js *JavascriptBuilder) setFunc(obj *otto.Object, token string, fn func(string, Node, otto.FunctionCall) (Node, error)) error {
 	return obj.Set(token, func(call otto.FunctionCall) otto.Value {
 		this, _ := call.This.Export()
 
@@ -159,7 +137,7 @@ func (js *JavascriptBuilder) setFunc(obj *otto.Object, token string, fn func(Nod
 			return otto.NullValue()
 		}
 
-		node, err = fn(node, call)
+		node, err = fn(token, node, call)
 		if err != nil {
 			js.err = err
 			return otto.NullValue()
@@ -180,34 +158,69 @@ func (js *JavascriptBuilder) setFunc(obj *otto.Object, token string, fn func(Nod
 
 // find the node from the based ont the hash passed in
 // the hash needs to at least have a {name: }property
-func (js *JavascriptBuilder) findNode(in otto.Value) (n Node, err error) {
+func (js *JavascriptBuilder) findNode(token string, in otto.Value) (n Node, err error) {
+	var (
+		configOptions map[string]interface{}
+		givenOptions  map[string]interface{}
+		ok            bool
+		name          string
+		kind          string
+	)
+
 	e, err := in.Export()
 	if err != nil {
 		return n, err
 	}
 
-	rawMap, ok := e.(map[string]interface{})
-	if !ok {
-		return n, fmt.Errorf("first argument must be an hash. (got %T instead)", in)
+	// accept both a json hash and a string as an argument.
+	// if the arg is a hash, then we should extract the name,
+	// and pull the node from the yaml, and then merge the given options
+	// over top of the options presented in the config node.
+	//
+	// if the arg is a string, then use that string as the name
+	// and pull the config node
+	switch arg := e.(type) {
+	case map[string]interface{}:
+		givenOptions = arg
+		if name, ok = givenOptions["name"].(string); ok {
+			configOptions, ok = js.config.Nodes[name]
+			if !ok { // we can't pull in any config options here
+				configOptions = make(map[string]interface{})
+			}
+
+			for k, v := range givenOptions {
+				configOptions[k] = v
+			}
+			givenOptions = configOptions
+
+		} else { // we don't have a name, so lets generate one.
+			u, err := uuid.NewV4()
+			if err != nil {
+				return n, fmt.Errorf("%s error. unable to create uuid (%s)", token, err.Error())
+			}
+			name = u.String()
+			givenOptions["name"] = name
+		}
+	case string:
+		name = arg
+		givenOptions, ok = js.config.Nodes[name]
+		if !ok {
+			return n, fmt.Errorf("%s error. unable to find node '%s'", token, name)
+		}
 	}
 
-	// make sure the hash validates.
-	// we need a "name" property, and it must be a string
-	if _, ok := rawMap["name"]; !ok {
-		return n, fmt.Errorf("hash requires a name")
-	}
-	sourceString, ok := rawMap["name"].(string)
-	if !(ok) {
-		return n, fmt.Errorf("hash requires a name")
+	if token == "transform" {
+		// this is a little bit of magic so that
+		// transformers (which are added by the )
+		kind = "transformer"
+	} else {
+		kind, ok = givenOptions["type"].(string)
+		if !ok {
+			return n, fmt.Errorf("%s: hash requires a type field, but no type given", token)
+		}
 	}
 
-	val, ok := js.config.Nodes[sourceString]
-	if !ok {
-		return n, fmt.Errorf("no configured nodes found named %s", sourceString)
-	}
-	rawMap["uri"] = val.URI
-
-	return NewNode(sourceString, val.Type, rawMap)
+	return NewNode(name, kind, givenOptions)
 }
 
 // emitter examines the config file for api information
