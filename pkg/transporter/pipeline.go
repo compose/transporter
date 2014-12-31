@@ -44,7 +44,7 @@ type Pipeline struct {
 func NewDefaultPipeline(source *Node, uri, key, pid string, interval time.Duration) (*Pipeline, error) {
 	emitter := events.NewHTTPPostEmitter(uri, key, pid)
 	sessionStore := state.NewFilestore(key, "/tmp/transporter.state", interval)
-	return NewPipeline(source, emitter, interval)
+	return NewPipeline(source, emitter, interval, sessionStore)
 }
 
 // NewPipeline creates a new Transporter Pipeline using the given tree of nodes, and Event Emitter
@@ -58,7 +58,7 @@ func NewDefaultPipeline(source *Node, uri, key, pid string, interval time.Durati
 // 	  os.Exit(1)
 //   }
 // pipeline.Run()
-func NewPipeline(source *Node, emitter events.Emitter, interval time.Duration) (*Pipeline, error) {
+func NewPipeline(source *Node, emitter events.Emitter, interval time.Duration, sessionStore state.SessionStore) (*Pipeline, error) {
 	pipeline := &Pipeline{
 		source:        source,
 		emitter:       emitter,
