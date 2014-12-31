@@ -196,7 +196,7 @@ func (js *JavascriptBuilder) findNode(token string, in otto.Value) (n Node, err 
 		} else { // we don't have a name, so lets generate one.
 			u, err := uuid.NewV4()
 			if err != nil {
-				return n, fmt.Errorf("transform error. uuid error (%s)", err.Error())
+				return n, fmt.Errorf("%s error. unable to create uuid (%s)", token, err.Error())
 			}
 			name = u.String()
 			givenOptions["name"] = name
@@ -205,7 +205,7 @@ func (js *JavascriptBuilder) findNode(token string, in otto.Value) (n Node, err 
 		name = arg
 		givenOptions, ok = js.config.Nodes[name]
 		if !ok {
-			return n, fmt.Errorf("transform error. unable to find node '%s'", name)
+			return n, fmt.Errorf("%s error. unable to find node '%s'", token, name)
 		}
 	}
 
