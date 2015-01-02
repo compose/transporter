@@ -46,9 +46,10 @@ type Pipe struct {
 func NewPipe(pipe *Pipe, path string) *Pipe {
 
 	p := &Pipe{
-		Out:    make([]messageChan, 0),
-		path:   path,
-		chStop: make(chan chan bool),
+		Out:            make([]messageChan, 0),
+		path:           path,
+		chStop:         make(chan chan bool),
+		LastKnownState: make(*state.MsgState),
 	}
 
 	if pipe != nil {
