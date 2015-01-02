@@ -3,7 +3,6 @@ package state
 import (
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/compose/transporter/pkg/message"
 )
