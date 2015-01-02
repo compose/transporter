@@ -43,7 +43,7 @@ type Pipeline struct {
 // pipeline.Run()
 func NewDefaultPipeline(source *Node, uri, key, pid string, interval time.Duration) (*Pipeline, error) {
 	emitter := events.NewHTTPPostEmitter(uri, key, pid)
-	sessionStore := state.NewFilestore(key, "/tmp/transporter.state")
+	sessionStore := state.NewFilestore(pid, "/tmp/transporter.state")
 	return NewPipeline(source, emitter, interval, sessionStore, 10*time.Second)
 }
 
@@ -52,7 +52,7 @@ func NewDefaultPipeline(source *Node, uri, key, pid string, interval time.Durati
 //   source :=
 //   	transporter.NewNode("source", "mongo", adaptor.Config{"uri": "mongodb://localhost/", "namespace": "boom.foo", "debug": false, "tail": true}).
 // 	  	Add(transporter.NewNode("out", "file", adaptor.Config{"uri": "stdout://"}))
-//   pipeline, err := transporter.NewPipeline(source, events.NewNoopEmitter(), 1*time.Second)
+//   pipeline, err := transporter.NewPipeline(source, events.NewNoopEmitter(), 1*time.Second, state.NewFilestore(pid, "/tmp/transporter.state"), 10*time.Second)
 //   if err != nil {
 // 	  fmt.Println(err)
 // 	  os.Exit(1)
