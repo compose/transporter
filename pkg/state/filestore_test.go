@@ -9,7 +9,7 @@ import (
 )
 
 func TestFilestore(t *testing.T) {
-	fs := NewFilestore("somelongkey", "/tmp/transporter.db", 10000*time.Millisecond)
+	fs := NewFilestore("somelongkey", "/tmp/transporter.db")
 
 	data := []struct {
 		path string
@@ -50,7 +50,7 @@ func TestFilestore(t *testing.T) {
 }
 
 func TestFilestoreUpdates(t *testing.T) {
-	fs := NewFilestore("somelongkey", "/tmp/transporter.db", 10000*time.Millisecond)
+	fs := NewFilestore("somelongkey", "/tmp/transporter.db")
 
 	data := []struct {
 		path string

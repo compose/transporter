@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/compose/transporter/pkg/message"
 )
@@ -18,36 +17,26 @@ var (
 )
 
 type filestore struct {
-	key         string
-	filename    string
-	flushTicker *time.Ticker
-	states      map[string]*message.Msg
+	key      string
+	filename string
+	states   map[string]*message.Msg
 }
 
-func NewFilestore(key, filename string, interval time.Duration) SessionStore {
+func NewFilestore(key, filename string) SessionStore {
 	filestore := &filestore{
-		key:         key,
-		filename:    filename,
-		flushTicker: time.NewTicker(interval),
-		states:      make(map[string]*message.Msg),
+		key:      key,
+		filename: filename,
+		states:   make(map[string]*message.Msg),
 	}
-	go filestore.startFlusher()
 	signal.Notify(chQuit, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		select {
 		case <-chQuit:
 			fmt.Println("Got signal, wrapping up")
-			filestore.flushTicker.Stop()
 			filestore.flushToDisk()
 		}
 	}()
 	return filestore
-}
-
-func (f *filestore) startFlusher() {
-	for _ = range f.flushTicker.C {
-		f.flushToDisk()
-	}
 }
 
 func (f *filestore) flushToDisk() error {
@@ -73,7 +62,7 @@ func (f *filestore) flushToDisk() error {
 
 func (f *filestore) Set(path string, msg *message.Msg) error {
 	f.states[f.key+"-"+path] = msg
-	return nil
+	return f.flushToDisk()
 }
 
 func (f *filestore) Get(path string) (*message.Msg, error) {
