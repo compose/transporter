@@ -199,7 +199,7 @@ func (pipeline *Pipeline) setState() {
 
 		// do something with the node
 		if node.Type != "transformer" {
-			pipeline.sessionStore.Set(node.Path(), node.pipe.LastKnownState)
+			pipeline.sessionStore.Set(node.Path(), &state.MsgState{Msg: node.pipe.LastMsg, Extra: node.pipe.ExtraState})
 		}
 
 		// add this nodes children to the frontier
@@ -225,7 +225,11 @@ func (pipeline *Pipeline) initState() {
 
 		// do something with the node
 		if node.Type != "transformer" {
-			node.pipe.LastKnownState, _ = pipeline.sessionStore.Get(node.Path())
+			nodeState, _ := pipeline.sessionStore.Get(node.Path())
+			if nodeState != nil {
+				node.pipe.LastMsg = nodeState.Msg
+				node.pipe.ExtraState = nodeState.Extra
+			}
 		}
 
 		// add this nodes children to the frontier

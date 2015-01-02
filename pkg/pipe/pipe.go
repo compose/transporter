@@ -11,7 +11,6 @@ import (
 
 	"github.com/compose/transporter/pkg/events"
 	"github.com/compose/transporter/pkg/message"
-	"github.com/compose/transporter/pkg/state"
 )
 
 type messageChan chan *message.Msg
@@ -32,8 +31,9 @@ type Pipe struct {
 	Event   chan events.Event
 	Stopped bool // has the pipe been stopped?
 
-	MessageCount   int
-	LastKnownState *state.MsgState
+	MessageCount int
+	LastMsg      *message.Msg
+	ExtraState   map[string]interface{}
 
 	path      string // the path of this pipe (for events and errors)
 	chStop    chan chan bool
@@ -46,10 +46,9 @@ type Pipe struct {
 func NewPipe(pipe *Pipe, path string) *Pipe {
 
 	p := &Pipe{
-		Out:            make([]messageChan, 0),
-		path:           path,
-		chStop:         make(chan chan bool),
-		LastKnownState: &state.MsgState{Msg: &message.Msg{}, Extra: make(map[string]interface{})},
+		Out:    make([]messageChan, 0),
+		path:   path,
+		chStop: make(chan chan bool),
 	}
 
 	if pipe != nil {
@@ -98,7 +97,7 @@ func (m *Pipe) Listen(fn func(*message.Msg) (*message.Msg, error)) error {
 			} else {
 				m.MessageCount++ // update the count anyway
 			}
-			m.LastKnownState.Msg = msg
+			m.LastMsg = msg
 		case <-time.After(100 * time.Millisecond):
 			// NOP, just breath
 		}

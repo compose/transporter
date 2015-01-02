@@ -35,7 +35,6 @@ func NewFilestore(key, filename string) SessionStore {
 		}
 	}()
 	gob.Register(map[string]interface{}{})
-	// gob.Register(MsgState{})
 	return filestore
 }
 
