@@ -198,7 +198,7 @@ func (pipeline *Pipeline) setState() {
 		frontier = frontier[1:]
 
 		// do something with the node
-		if node.Type != "transformer" && node.pipe.LastKnownState.Msg != nil {
+		if node.Type != "transformer" {
 			pipeline.sessionStore.Set(node.Path(), node.pipe.LastKnownState)
 		}
 

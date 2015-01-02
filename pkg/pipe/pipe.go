@@ -49,7 +49,7 @@ func NewPipe(pipe *Pipe, path string) *Pipe {
 		Out:            make([]messageChan, 0),
 		path:           path,
 		chStop:         make(chan chan bool),
-		LastKnownState: &state.MsgState{},
+		LastKnownState: &state.MsgState{Msg: &message.Msg{}, Extra: make(map[string]interface{})},
 	}
 
 	if pipe != nil {
