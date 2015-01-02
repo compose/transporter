@@ -7,8 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-
-	"github.com/compose/transporter/pkg/message"
 )
 
 // listen for signals, and send stops to the generator
@@ -19,14 +17,14 @@ var (
 type filestore struct {
 	key      string
 	filename string
-	states   map[string]*message.Msg
+	states   map[string]*MsgState
 }
 
 func NewFilestore(key, filename string) SessionStore {
 	filestore := &filestore{
 		key:      key,
 		filename: filename,
-		states:   make(map[string]*message.Msg),
+		states:   make(map[string]*MsgState),
 	}
 	signal.Notify(chQuit, os.Interrupt, syscall.SIGTERM)
 	go func() {
@@ -37,6 +35,7 @@ func NewFilestore(key, filename string) SessionStore {
 		}
 	}()
 	gob.Register(map[string]interface{}{})
+	// gob.Register(MsgState{})
 	return filestore
 }
 
@@ -61,12 +60,12 @@ func (f *filestore) flushToDisk() error {
 	return nil
 }
 
-func (f *filestore) Set(path string, msg *message.Msg) error {
-	f.states[f.key+"-"+path] = msg
+func (f *filestore) Set(path string, state *MsgState) error {
+	f.states[f.key+"-"+path] = state
 	return f.flushToDisk()
 }
 
-func (f *filestore) Get(path string) (*message.Msg, error) {
+func (f *filestore) Get(path string) (*MsgState, error) {
 	currentState := f.states[f.key+"-"+path]
 
 	if currentState == nil {
@@ -74,7 +73,7 @@ func (f *filestore) Get(path string) (*message.Msg, error) {
 		if err != nil {
 			return currentState, err
 		}
-		states := make(map[string]*message.Msg)
+		states := make(map[string]*MsgState)
 		dec := gob.NewDecoder(fh)
 		err = dec.Decode(&states)
 		if err != nil {

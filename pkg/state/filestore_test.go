@@ -30,7 +30,7 @@ func TestFilestore(t *testing.T) {
 	}
 
 	for _, d := range data {
-		err := fs.Set(d.path, d.in)
+		err := fs.Set(d.path, &MsgState{Msg: d.in, Extra: make(map[string]interface{})})
 		if err != nil {
 			t.Errorf("got error: %s\n", err)
 			t.FailNow()
@@ -43,8 +43,8 @@ func TestFilestore(t *testing.T) {
 			t.Errorf("got error: %s\n", err)
 			t.FailNow()
 		}
-		if !reflect.DeepEqual(out, d.out) {
-			t.Errorf("wanted: %s, got: %s", d.out, out)
+		if !reflect.DeepEqual(out.Msg, d.out) {
+			t.Errorf("wanted: %s, got: %s", d.out, out.Msg)
 		}
 	}
 
@@ -71,7 +71,7 @@ func TestFilestoreUpdates(t *testing.T) {
 	}
 
 	for _, d := range data {
-		err := fs.Set(d.path, d.in)
+		err := fs.Set(d.path, &MsgState{Msg: d.in, Extra: make(map[string]interface{})})
 		if err != nil {
 			t.Errorf("got error: %s\n", err)
 			t.FailNow()
@@ -84,7 +84,7 @@ func TestFilestoreUpdates(t *testing.T) {
 		t.Errorf("got error: %s\n", err)
 		t.FailNow()
 	}
-	states := make(map[string]*message.Msg)
+	states := make(map[string]*MsgState)
 	dec := gob.NewDecoder(fh)
 	err = dec.Decode(&states)
 	if err != nil {
@@ -92,8 +92,8 @@ func TestFilestoreUpdates(t *testing.T) {
 		t.FailNow()
 	}
 	out := states["somelongkey-somepath"]
-	if !reflect.DeepEqual(out, d.out) {
-		t.Errorf("wanted: %s, got: %s", d.out, out)
+	if !reflect.DeepEqual(out.Msg, d.out) {
+		t.Errorf("wanted: %s, got: %s", d.out, out.Msg)
 	}
 
 }
