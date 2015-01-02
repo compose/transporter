@@ -43,8 +43,8 @@ type Pipeline struct {
 // pipeline.Run()
 func NewDefaultPipeline(source *Node, uri, key, pid string, interval time.Duration) (*Pipeline, error) {
 	emitter := events.NewHTTPPostEmitter(uri, key, pid)
-	sessionStore := state.NewFilestore(key, "/tmp/transporter.state", interval)
-	return NewPipeline(source, emitter, interval, sessionStore)
+	sessionStore := state.NewFilestore(key, "/tmp/transporter.state", 10*time.Second)
+	return NewPipeline(source, emitter, interval, sessionStore, 10*time.Second)
 }
 
 // NewPipeline creates a new Transporter Pipeline using the given tree of nodes, and Event Emitter
@@ -58,16 +58,16 @@ func NewDefaultPipeline(source *Node, uri, key, pid string, interval time.Durati
 // 	  os.Exit(1)
 //   }
 // pipeline.Run()
-func NewPipeline(source *Node, emitter events.Emitter, interval time.Duration, sessionStore state.SessionStore) (*Pipeline, error) {
+func NewPipeline(source *Node, emitter events.Emitter, interval time.Duration, sessionStore state.SessionStore, sessionInterval time.Duration) (*Pipeline, error) {
 	pipeline := &Pipeline{
 		source:        source,
 		emitter:       emitter,
 		metricsTicker: time.NewTicker(interval),
-		sessionTicker: time.NewTicker(10 * time.Second),
 	}
 
 	if sessionStore != nil {
 		pipeline.sessionStore = sessionStore
+		pipeline.sessionTicker = time.NewTicker(sessionInterval)
 	}
 
 	// init the pipeline
@@ -103,7 +103,9 @@ func (pipeline *Pipeline) String() string {
 func (pipeline *Pipeline) Stop() {
 	pipeline.source.Stop()
 	pipeline.emitter.Stop()
-	pipeline.sessionTicker.Stop()
+	if pipeline.sessionStore != nil {
+		pipeline.sessionTicker.Stop()
+	}
 	pipeline.metricsTicker.Stop()
 }
 
