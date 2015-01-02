@@ -1,6 +1,8 @@
 package state
 
 import (
+	"encoding/gob"
+	"os"
 	"reflect"
 	"testing"
 
@@ -8,7 +10,7 @@ import (
 )
 
 func TestFilestore(t *testing.T) {
-	fs := NewFilestore("somelongkey", "/tmp/transporter.db")
+	fs := NewFilestore("somelongkey", "/tmp/transporter.state")
 
 	data := []struct {
 		path string
@@ -49,7 +51,7 @@ func TestFilestore(t *testing.T) {
 }
 
 func TestFilestoreUpdates(t *testing.T) {
-	fs := NewFilestore("somelongkey", "/tmp/transporter.db")
+	fs := NewFilestore("somelongkey", "/tmp/transporter.state")
 
 	data := []struct {
 		path string
@@ -77,11 +79,19 @@ func TestFilestoreUpdates(t *testing.T) {
 	}
 
 	d := data[len(data)-1]
-	out, err := fs.Get(d.path)
+	fh, err := os.Open("/tmp/transporter.state")
 	if err != nil {
 		t.Errorf("got error: %s\n", err)
 		t.FailNow()
 	}
+	states := make(map[string]*message.Msg)
+	dec := gob.NewDecoder(fh)
+	err = dec.Decode(&states)
+	if err != nil {
+		t.Errorf("got error: %s\n", err)
+		t.FailNow()
+	}
+	out := states["somelongkey-somepath"]
 	if !reflect.DeepEqual(out, d.out) {
 		t.Errorf("wanted: %s, got: %s", d.out, out)
 	}
