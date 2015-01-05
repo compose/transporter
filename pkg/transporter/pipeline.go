@@ -66,7 +66,6 @@ func NewPipeline(source *Node, emitter events.Emitter, interval time.Duration, s
 	}
 
 	if sessionStore != nil {
-		fmt.Printf("initializing sessionStore -> %v\n", sessionStore)
 		pipeline.sessionStore = sessionStore
 		pipeline.sessionTicker = time.NewTicker(sessionInterval)
 	}
