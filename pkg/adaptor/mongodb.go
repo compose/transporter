@@ -81,7 +81,7 @@ func (m *Mongodb) Start() (err error) {
 
 	m.oplogTime = nowAsMongoTimestamp()
 	if m.debug {
-		fmt.Printf("setting start timestamp: %d", m.oplogTime)
+		fmt.Printf("setting start timestamp: %d\n", m.oplogTime)
 	}
 
 	err = m.catData()

@@ -128,6 +128,7 @@ func (m *Pipe) Send(msg *message.Msg) {
 			select {
 			case ch <- msg:
 				m.MessageCount++
+				m.LastMsg = msg
 				break A
 			case <-time.After(100 * time.Millisecond):
 				if m.Stopped {

@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
+
+	"gopkg.in/mgo.v2/bson"
 )
 
 // listen for signals, and send stops to the generator
@@ -22,9 +25,13 @@ type filestore struct {
 
 func NewFilestore(key, filename string) SessionStore {
 	filestore := &filestore{
-		key:      key,
-		filename: filename,
-		states:   make(map[string]*MsgState),
+		key:    key,
+		states: make(map[string]*MsgState),
+	}
+	if strings.HasPrefix(filename, "file://") {
+		filestore.filename = strings.Replace(filename, "file://", "", 1)
+	} else {
+		filestore.filename = filename
 	}
 	signal.Notify(chQuit, os.Interrupt, syscall.SIGTERM)
 	go func() {
@@ -35,6 +42,9 @@ func NewFilestore(key, filename string) SessionStore {
 		}
 	}()
 	gob.Register(map[string]interface{}{})
+	gob.Register(bson.D{})
+	gob.Register(bson.M{})
+	gob.Register(bson.NewObjectId())
 	return filestore
 }
 
@@ -43,16 +53,19 @@ func (f *filestore) flushToDisk() error {
 	enc := gob.NewEncoder(b)
 	err := enc.Encode(f.states)
 	if err != nil {
+		fmt.Printf("error encoding states, %s\n", err.Error())
 		return err
 	}
 
 	fh, eopen := os.OpenFile(f.filename, os.O_CREATE|os.O_WRONLY, 0666)
 	defer fh.Close()
 	if eopen != nil {
+		fmt.Printf("error opening file %s\n", eopen.Error())
 		return eopen
 	}
 	n, e := fh.Write(b.Bytes())
 	if e != nil {
+		fmt.Printf("error writing file %s\n", e.Error())
 		return e
 	}
 	fmt.Fprintf(os.Stderr, "%d bytes successfully written to file\n", n)

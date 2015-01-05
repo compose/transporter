@@ -66,6 +66,7 @@ func NewPipeline(source *Node, emitter events.Emitter, interval time.Duration, s
 	}
 
 	if sessionStore != nil {
+		fmt.Printf("initializing sessionStore -> %v\n", sessionStore)
 		pipeline.sessionStore = sessionStore
 		pipeline.sessionTicker = time.NewTicker(sessionInterval)
 	}
@@ -82,12 +83,12 @@ func NewPipeline(source *Node, emitter events.Emitter, interval time.Duration, s
 	// start the emitters
 	go pipeline.startErrorListener(source.pipe.Err)
 	go pipeline.startMetricsGatherer()
+
 	if sessionStore != nil {
+		pipeline.initState()
 		go pipeline.startStateSaver()
 	}
 	pipeline.emitter.Start()
-
-	pipeline.initState()
 
 	return pipeline, nil
 }
@@ -123,7 +124,9 @@ func (pipeline *Pipeline) Run() error {
 
 	// pipeline has stopped, emit one last round of metrics and send the exit event
 	pipeline.emitMetrics()
-	pipeline.setState()
+	if pipeline.sessionStore != nil {
+		pipeline.setState()
+	}
 	pipeline.source.pipe.Event <- events.NewExitEvent(time.Now().Unix(), VERSION, endpoints)
 
 	// the source has exited, stop all the other nodes
