@@ -62,7 +62,7 @@ func NewJavascriptBuilder(config Config, file, src string) (*JavascriptBuilder, 
 //   {name: .., namespace: ..}
 func (js *JavascriptBuilder) source(call otto.FunctionCall) otto.Value {
 	if len(call.ArgumentList) != 1 {
-		js.err = fmt.Errorf("Source must be called with 1 arg. (%d given)", len(call.ArgumentList))
+		js.err = fmt.Errorf("source must be called with 1 arg. (%d given)", len(call.ArgumentList))
 		return otto.NullValue()
 	}
 
@@ -160,11 +160,9 @@ func (js *JavascriptBuilder) setFunc(obj *otto.Object, token string, fn func(str
 // the hash needs to at least have a {name: }property
 func (js *JavascriptBuilder) findNode(token string, in otto.Value) (n Node, err error) {
 	var (
-		configOptions map[string]interface{}
-		givenOptions  map[string]interface{}
-		ok            bool
-		name          string
-		kind          string
+		givenOptions map[string]interface{}
+		ok           bool
+		name         string
 	)
 
 	e, err := in.Export()
@@ -183,16 +181,15 @@ func (js *JavascriptBuilder) findNode(token string, in otto.Value) (n Node, err 
 	case map[string]interface{}:
 		givenOptions = arg
 		if name, ok = givenOptions["name"].(string); ok {
-			configOptions, ok = js.config.Nodes[name]
-			if !ok { // we can't pull in any config options here
-				configOptions = make(map[string]interface{})
+			// merge the two maps
+			tmpMap := make(map[string]interface{})
+			for k, v := range js.config.Nodes[name] {
+				tmpMap[k] = v
 			}
-
 			for k, v := range givenOptions {
-				configOptions[k] = v
+				tmpMap[k] = v
 			}
-			givenOptions = configOptions
-
+			givenOptions = tmpMap
 		} else { // we don't have a name, so lets generate one.
 			u, err := uuid.NewV4()
 			if err != nil {
@@ -209,15 +206,13 @@ func (js *JavascriptBuilder) findNode(token string, in otto.Value) (n Node, err 
 		}
 	}
 
+	kind, ok := givenOptions["type"].(string)
+	if !ok {
+		return n, fmt.Errorf("%s: hash requires a type field, but no type given", token)
+	}
 	if token == "transform" {
-		// this is a little bit of magic so that
-		// transformers (which are added by the )
+		// this is a little bit of magic so that transformers (which are added by the transform fn get the right kind)
 		kind = "transformer"
-	} else {
-		kind, ok = givenOptions["type"].(string)
-		if !ok {
-			return n, fmt.Errorf("%s: hash requires a type field, but no type given", token)
-		}
 	}
 
 	return NewNode(name, kind, givenOptions)
