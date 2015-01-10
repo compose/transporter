@@ -58,14 +58,14 @@ func TestCreateadaptor(t *testing.T) {
 			"notasource",
 			Config{"blah": "rockettes"},
 			nil,
-			"adaptor not found in registry",
+			"adaptor 'notasource' not found in registry",
 		},
 	}
 	for _, v := range data {
 		adaptor, err := Createadaptor(v.kind, "a/b/c", v.extra, pipe.NewPipe(nil, "some name"))
 
 		if err != nil && err.Error() != v.err {
-			t.Errorf("\nexpected error: %v\ngot error: %v\n", v.err, err.Error())
+			t.Errorf("\nexpected error: `%v`\ngot error: `%v`\n", v.err, err.Error())
 			t.FailNow()
 		}
 		if !reflect.DeepEqual(v.out, adaptor) && err == nil {
