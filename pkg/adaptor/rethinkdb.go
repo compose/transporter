@@ -63,7 +63,7 @@ func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, e
 
 // Start the adaptor as a source (not implemented)
 func (r *Rethinkdb) Start() error {
-	return fmt.Errorf("Rethinkdb can't function as a source")
+	return fmt.Errorf("rethinkdb can't function as a source")
 }
 
 // Listen start's the adaptor's listener
@@ -91,7 +91,7 @@ func (r *Rethinkdb) applyOp(msg *message.Msg) (*message.Msg, error) {
 	)
 
 	if !msg.IsMap() {
-		r.pipe.Err <- NewError(ERROR, r.path, "Rethinkdb error (document must be a json document)", msg.Data)
+		r.pipe.Err <- NewError(ERROR, r.path, "rethinkdb error (document must be a json document)", msg.Data)
 		return msg, nil
 	}
 	doc := msg.Map()
@@ -100,7 +100,7 @@ func (r *Rethinkdb) applyOp(msg *message.Msg) (*message.Msg, error) {
 	case message.Delete:
 		id, err := msg.IDString("id")
 		if err != nil {
-			r.pipe.Err <- NewError(ERROR, r.path, "Rethinkdb error (cannot delete an object with a nil id)", msg.Data)
+			r.pipe.Err <- NewError(ERROR, r.path, "rethinkdb error (cannot delete an object with a nil id)", msg.Data)
 			return msg, nil
 		}
 		resp, err = gorethink.Table(r.table).Get(id).Delete().RunWrite(r.client)
@@ -110,13 +110,13 @@ func (r *Rethinkdb) applyOp(msg *message.Msg) (*message.Msg, error) {
 		resp, err = gorethink.Table(r.table).Insert(doc, gorethink.InsertOpts{Conflict: "replace"}).RunWrite(r.client)
 	}
 	if err != nil {
-		r.pipe.Err <- NewError(ERROR, r.path, "Rethinkdb error (%s)", err)
+		r.pipe.Err <- NewError(ERROR, r.path, "rethinkdb error (%s)", err)
 		return msg, nil
 	}
 
 	err = r.handleResponse(&resp)
 	if err != nil {
-		r.pipe.Err <- NewError(ERROR, r.path, "Rethinkdb error (%s)", err)
+		r.pipe.Err <- NewError(ERROR, r.path, "rethinkdb error (%s)", err)
 	}
 
 	return msg, nil
@@ -133,7 +133,7 @@ func (r *Rethinkdb) setupClient() (*gorethink.Session, error) {
 		IdleTimeout: time.Second * 10,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("Unable to connect: %s", err)
+		return nil, fmt.Errorf("unable to connect: %s", err)
 	}
 
 	if r.debug {
@@ -153,7 +153,7 @@ func (r *Rethinkdb) handleResponse(resp *gorethink.WriteResponse) error {
 			if r.debug {
 				fmt.Printf("Reported %d errors\n", resp.Errors)
 			}
-			return fmt.Errorf("%s\n%s", "Problem inserting docs", resp.FirstError)
+			return fmt.Errorf("%s\n%s", "problem inserting docs", resp.FirstError)
 		}
 	}
 	return nil

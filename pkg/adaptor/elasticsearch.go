@@ -34,7 +34,7 @@ func NewElasticsearch(p *pipe.Pipe, path string, extra Config) (StopStartListene
 		err  error
 	)
 	if err = extra.Construct(&conf); err != nil {
-		return nil, NewError(CRITICAL, path, fmt.Sprintf("Can't create constructor (%s)", err.Error()), nil)
+		return nil, NewError(CRITICAL, path, fmt.Sprintf("can't create constructor (%s)", err.Error()), nil)
 	}
 
 	u, err := url.Parse(conf.URI)
@@ -49,7 +49,7 @@ func NewElasticsearch(p *pipe.Pipe, path string, extra Config) (StopStartListene
 
 	e.index, e._type, err = extra.splitNamespace()
 	if err != nil {
-		return e, NewError(CRITICAL, path, fmt.Sprintf("Can't split namespace into _index._type (%s)", err.Error()), nil)
+		return e, NewError(CRITICAL, path, fmt.Sprintf("can't split namespace into _index._type (%s)", err.Error()), nil)
 	}
 
 	return e, nil
@@ -57,7 +57,7 @@ func NewElasticsearch(p *pipe.Pipe, path string, extra Config) (StopStartListene
 
 // Start the adaptor as a source (not implemented)
 func (e *Elasticsearch) Start() error {
-	return fmt.Errorf("Elasticsearch can't function as a source")
+	return fmt.Errorf("elasticsearch can't function as a source")
 }
 
 // Listen starts the listener
@@ -68,7 +68,7 @@ func (e *Elasticsearch) Listen() error {
 
 	go func(cherr chan *elastigo.ErrorBuffer) {
 		for err := range e.indexer.ErrorChannel {
-			e.pipe.Err <- NewError(CRITICAL, e.path, fmt.Sprintf("Elasticsearch error (%s)", err.Err), nil)
+			e.pipe.Err <- NewError(CRITICAL, e.path, fmt.Sprintf("elasticsearch error (%s)", err.Err), nil)
 		}
 	}(e.indexer.ErrorChannel)
 
@@ -97,7 +97,7 @@ func (e *Elasticsearch) applyOp(msg *message.Msg) (*message.Msg, error) {
 	if msg.Op == message.Command {
 		err := e.runCommand(msg)
 		if err != nil {
-			e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("Elasticsearch error (%s)", err), msg.Data)
+			e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("elasticsearch error (%s)", err), msg.Data)
 		}
 		return msg, nil
 	}
@@ -109,7 +109,7 @@ func (e *Elasticsearch) applyOp(msg *message.Msg) (*message.Msg, error) {
 	}
 	err = e.indexer.Index(e.index, e._type, id, "", nil, msg.Data, false)
 	if err != nil {
-		e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("Elasticsearch error (%s)", err), msg.Data)
+		e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("elasticsearch error (%s)", err), msg.Data)
 	}
 	return msg, nil
 }

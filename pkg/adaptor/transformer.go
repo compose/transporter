@@ -39,7 +39,7 @@ func NewTransformer(pipe *pipe.Pipe, path string, extra Config) (StopStartListen
 	t := &Transformer{pipe: pipe, path: path}
 
 	if conf.Filename == "" {
-		return t, fmt.Errorf("No filename specified")
+		return t, fmt.Errorf("no filename specified")
 	}
 
 	ba, err := ioutil.ReadFile(conf.Filename)
@@ -87,7 +87,7 @@ func (t *Transformer) initEnvironment() (err error) {
 
 // Start the adaptor as a source (not implemented for this adaptor)
 func (t *Transformer) Start() error {
-	return fmt.Errorf("Transformers can't be used as a source")
+	return fmt.Errorf("transformers can't be used as a source")
 }
 
 // Stop the adaptor
@@ -168,9 +168,9 @@ func (t *Transformer) transformerError(lvl ErrorLevel, err error, msg *message.M
 	}
 
 	if e, ok := err.(*otto.Error); ok {
-		return NewError(lvl, t.path, fmt.Sprintf("Transformer error (%s)", e.String()), data)
+		return NewError(lvl, t.path, fmt.Sprintf("transformer error (%s)", e.String()), data)
 	}
-	return NewError(lvl, t.path, fmt.Sprintf("Transformer error (%s)", err.Error()), data)
+	return NewError(lvl, t.path, fmt.Sprintf("transformer error (%s)", err.Error()), data)
 }
 
 // TransformerConfig holds config options for a transformer adaptor

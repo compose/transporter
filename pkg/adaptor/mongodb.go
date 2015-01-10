@@ -122,7 +122,7 @@ func (m *Mongodb) writeMessage(msg *message.Msg) (*message.Msg, error) {
 	collection := m.mongoSession.DB(m.database).C(m.collection)
 
 	if !msg.IsMap() {
-		m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("Mongodb error (document must be a bson document, got %T instead)", msg.Data), msg.Data)
+		m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("mongodb error (document must be a bson document, got %T instead)", msg.Data), msg.Data)
 		return msg, nil
 	}
 
@@ -133,7 +133,7 @@ func (m *Mongodb) writeMessage(msg *message.Msg) (*message.Msg, error) {
 		err = collection.Update(bson.M{"_id": doc["_id"]}, doc)
 	}
 	if err != nil {
-		m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("Mongodb error (%s)", err.Error()), msg.Data)
+		m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("mongodb error (%s)", err.Error()), msg.Data)
 	}
 	return msg, nil
 }
@@ -253,7 +253,7 @@ func (m *Mongodb) tailData() (err error) {
 func (m *Mongodb) getOriginalDoc(doc bson.M) (result bson.M, err error) {
 	id, exists := doc["_id"]
 	if !exists {
-		return result, fmt.Errorf("Can't get _id from document")
+		return result, fmt.Errorf("can't get _id from document")
 	}
 
 	err = m.mongoSession.DB(m.database).C(m.collection).FindId(id).One(&result)

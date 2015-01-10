@@ -58,7 +58,7 @@ func NewInfluxdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, er
 
 // Start the adaptor as a source (not implemented)
 func (i *Influxdb) Start() error {
-	return fmt.Errorf("Influxdb can't function as a source")
+	return fmt.Errorf("influxdb can't function as a source")
 }
 
 // Listen starts the listener
@@ -82,7 +82,7 @@ func (i *Influxdb) applyOp(msg *message.Msg) (*message.Msg, error) {
 	switch msg.Op {
 	case message.Insert:
 		if !msg.IsMap() {
-			i.pipe.Err <- NewError(ERROR, i.path, "Influxdb error (document must be a json document)", msg.Data)
+			i.pipe.Err <- NewError(ERROR, i.path, "influxdb error (document must be a json document)", msg.Data)
 			return msg, nil
 		}
 		doc := msg.Map()
