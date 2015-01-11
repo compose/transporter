@@ -2,7 +2,7 @@ package adaptor
 
 import (
 	"encoding/json"
-	"errors"
+	// "errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -10,10 +10,14 @@ import (
 	"github.com/compose/transporter/pkg/pipe"
 )
 
-var (
-	// ErrMissingNode is returned when the requested node type was not found in the map
-	ErrMissingNode = errors.New("adaptor not found in registry")
-)
+// ErrAdaptor gives the details of the failed adaptor
+type ErrAdaptor struct {
+	name string
+}
+
+func (a ErrAdaptor) Error() string {
+	return fmt.Sprintf("adaptor '%s' not found in registry", a.name)
+}
 
 // StopStartListener defines the interface that all database connectors and nodes must follow.
 // Start() consumes data from the interface,
@@ -38,7 +42,7 @@ func Createadaptor(kind, path string, extra Config, p *pipe.Pipe) (adaptor StopS
 
 	regentry, ok := Adaptors[kind]
 	if !ok {
-		return nil, ErrMissingNode
+		return nil, ErrAdaptor{kind}
 	}
 
 	args := []reflect.Value{

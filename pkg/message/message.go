@@ -61,11 +61,11 @@ func (m *Msg) Map() map[string]interface{} {
 func (m *Msg) IDString(key string) (string, error) {
 	doc, ok := m.Data.(map[string]interface{})
 	if !ok {
-		return "", fmt.Errorf("Data is not a map")
+		return "", fmt.Errorf("data is not a map")
 	}
 	id, ok := doc[key]
 	if !ok {
-		return "", fmt.Errorf("No key %s found in Data", key)
+		return "", fmt.Errorf("no key %s found in Data", key)
 	}
 	switch t := id.(type) {
 	case string:
