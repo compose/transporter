@@ -206,13 +206,14 @@ func (js *JavascriptBuilder) findNode(token string, in otto.Value) (n Node, err 
 		}
 	}
 
+	if token == "transform" {
+		// this is a little bit of magic so that transformers (which are added by the transform fn get the right kind)
+		givenOptions["type"] = "transformer"
+	}
+
 	kind, ok := givenOptions["type"].(string)
 	if !ok {
 		return n, fmt.Errorf("%s: hash requires a type field, but no type given", token)
-	}
-	if token == "transform" {
-		// this is a little bit of magic so that transformers (which are added by the transform fn get the right kind)
-		kind = "transformer"
 	}
 
 	return NewNode(name, kind, givenOptions)
