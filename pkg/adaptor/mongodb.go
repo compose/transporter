@@ -3,12 +3,18 @@ package adaptor
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/compose/transporter/pkg/message"
 	"github.com/compose/transporter/pkg/pipe"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+)
+
+const (
+	MONGO_BUFFER_SIZE int = 1e6
+	MONGO_BUFFER_LEN  int = 1e5
 )
 
 // Mongodb is an adaptor to read / write to mongodb.
@@ -33,6 +39,14 @@ type Mongodb struct {
 	mongoSession *mgo.Session
 	oplogTimeout time.Duration
 
+	// a buffer to hold documents
+	buffLock         sync.Mutex
+	opsBuffer        []interface{}
+	opsBufferSize    int
+	bulkWriteChannel chan interface{}
+	bulkQuitChannel  chan chan bool
+	bulk             bool
+
 	restartable bool // this refers to being able to refresh the iterator, not to the restart based on session op
 }
 
@@ -55,13 +69,17 @@ func NewMongodb(p *pipe.Pipe, path string, extra Config) (StopStartListener, err
 	}
 
 	m := &Mongodb{
-		restartable:  true,            // assume for that we're able to restart the process
-		oplogTimeout: 5 * time.Second, // timeout the oplog iterator
-		pipe:         p,
-		uri:          conf.URI,
-		tail:         conf.Tail,
-		debug:        conf.Debug,
-		path:         path,
+		restartable:      true,            // assume for that we're able to restart the process
+		oplogTimeout:     5 * time.Second, // timeout the oplog iterator
+		pipe:             p,
+		uri:              conf.URI,
+		tail:             conf.Tail,
+		debug:            conf.Debug,
+		path:             path,
+		opsBuffer:        make([]interface{}, 0, MONGO_BUFFER_SIZE),
+		bulkWriteChannel: make(chan interface{}),
+		bulkQuitChannel:  make(chan chan bool),
+		bulk:             conf.Bulk,
 	}
 
 	m.database, m.collection, err = m.splitNamespace(conf.Namespace)
@@ -70,6 +88,12 @@ func NewMongodb(p *pipe.Pipe, path string, extra Config) (StopStartListener, err
 	}
 
 	m.mongoSession, err = mgo.Dial(m.uri)
+
+	// set some options on the session
+	m.mongoSession.EnsureSafe(&mgo.Safe{W: conf.Wc, FSync: conf.FSync})
+	m.mongoSession.SetBatch(1000)
+	m.mongoSession.SetPrefetch(0.5)
+
 	return m, err
 }
 
@@ -106,12 +130,24 @@ func (m *Mongodb) Listen() (err error) {
 	defer func() {
 		m.pipe.Stop()
 	}()
+
+	if m.bulk {
+		go m.bulkWriter()
+	}
 	return m.pipe.Listen(m.writeMessage)
 }
 
 // Stop the adaptor
 func (m *Mongodb) Stop() error {
 	m.pipe.Stop()
+
+	// if we're bulk writing, ask our writer to exit here
+	if m.bulk {
+		q := make(chan bool)
+		m.bulkQuitChannel <- q
+		<-q
+	}
+
 	return nil
 }
 
@@ -127,15 +163,80 @@ func (m *Mongodb) writeMessage(msg *message.Msg) (*message.Msg, error) {
 	}
 
 	doc := msg.Map()
+	if m.bulk {
+		m.bulkWriteChannel <- doc
+	} else {
+		err := collection.Insert(doc)
+		if mgo.IsDup(err) {
+			err = collection.Update(bson.M{"_id": doc["_id"]}, doc)
+		}
+		if err != nil {
+			m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("mongodb error (%s)", err.Error()), msg.Data)
+		}
+	}
 
-	err := collection.Insert(doc)
-	if mgo.IsDup(err) {
-		err = collection.Update(bson.M{"_id": doc["_id"]}, doc)
-	}
-	if err != nil {
-		m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("mongodb error (%s)", err.Error()), msg.Data)
-	}
 	return msg, nil
+}
+
+func (m *Mongodb) bulkWriter() {
+
+	for {
+		select {
+		case doc := <-m.bulkWriteChannel:
+			sz, err := docSize(doc)
+			if err != nil {
+				m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("mongodb error (%s)", err.Error()), doc)
+				break
+			}
+
+			if ((sz + m.opsBufferSize) > MONGO_BUFFER_SIZE) || (len(m.opsBuffer) == MONGO_BUFFER_LEN) {
+				m.writeBuffer() // send it off to be inserted
+			}
+
+			m.buffLock.Lock()
+			m.opsBuffer = append(m.opsBuffer, doc)
+			m.opsBufferSize += sz
+			m.buffLock.Unlock()
+		case <-time.After(2 * time.Second):
+			m.writeBuffer()
+		case q := <-m.bulkQuitChannel:
+			m.writeBuffer()
+			q <- true
+		}
+	}
+}
+
+func (m *Mongodb) writeBuffer() {
+	m.buffLock.Lock()
+	defer m.buffLock.Unlock()
+	collection := m.mongoSession.DB(m.database).C(m.collection)
+
+	err := collection.Insert(m.opsBuffer...)
+
+	if err != nil {
+		if mgo.IsDup(err) {
+			err = nil
+			for _, op := range m.opsBuffer {
+				e := collection.Insert(op)
+				if mgo.IsDup(e) {
+					doc, ok := op.(map[string]interface{})
+					if !ok {
+						m.pipe.Err <- NewError(ERROR, m.path, "mongodb error (Cannot cast document to bson)", op)
+					}
+
+					e = collection.Update(bson.M{"_id": doc["_id"]}, doc)
+				}
+				if e != nil {
+					m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("mongodb error (%s)", e.Error()), op)
+				}
+			}
+		} else {
+			m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("mongodb error (%s)", err.Error()), m.opsBuffer[0])
+		}
+	}
+
+	m.opsBuffer = make([]interface{}, 0, MONGO_BUFFER_SIZE)
+	m.opsBufferSize = 0
 }
 
 // catdata pulls down the original collection
@@ -303,6 +404,9 @@ type MongodbConfig struct {
 	Namespace string `json:"namespace" doc:"mongo namespace to read/write"`
 	Debug     bool   `json:"debug" doc:"display debug information"`
 	Tail      bool   `json:"tail" doc:"if tail is true, then the mongodb source will tail the oplog after copying the namespace"`
+	Wc        int    `json:"wc" doc:"The write concern to use for writes, Int, indicating the minimum number of servers to write to before returning success/failure"`
+	FSync     bool   `json:"fsync" doc:"When writing, should we flush to disk before returning success"`
+	Bulk      bool   `json:"bulk" doc:"use a buffer to bulk insert documents"`
 }
 
 func nowAsMongoTimestamp() bson.MongoTimestamp {
@@ -311,4 +415,13 @@ func nowAsMongoTimestamp() bson.MongoTimestamp {
 
 func newMongoTimestamp(s, i int) bson.MongoTimestamp {
 	return bson.MongoTimestamp(int64(s)<<32 + int64(i))
+}
+
+// find the size of a document in bytes
+func docSize(ops interface{}) (int, error) {
+	b, err := bson.Marshal(ops)
+	if err != nil {
+		return 0, err
+	}
+	return len(b), nil
 }
