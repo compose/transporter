@@ -8,7 +8,7 @@ Build
 
 Configure
 ---------
-there is a sample config in test/config.yaml.  The config defines the endpoints, (either sources or sinks) that are available to the application.
+There is a sample config in test/config.yaml.  The config defines the endpoints, (either sources or sinks) that are available to the application.
 ```yaml
 api:
   interval: 60s # time interval between metrics posts to the api endpoint
@@ -43,7 +43,7 @@ This application.js will copy from the local mongo to a file on the local disk
 Source({name:"localmongo", namespace: "boom.foo"}).save({name:"tofile"})
 ```
 
-Transformers can also configured in the application.js as follows
+Transformers can also be configured in the application.js as follows
 ```js
 var pipeline = Source({name:"mongodb-production", namespace: "compose.milestones2"})
 pipeline = pipeline.transform("transformers/transform1.js").transform("transformers/transform2.js")
