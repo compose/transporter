@@ -206,3 +206,58 @@ func (e *LogEmitter) startEventListener() {
 		}
 	}
 }
+
+// NewJsonLogEmitter creates a new LogEmitter
+func NewJsonLogEmitter() *JsonLogEmitter {
+	return &JsonLogEmitter{
+		chstop: make(chan chan bool),
+	}
+}
+
+// JsonLogEmitter constructs a LogEmitter to use with a transporter pipeline.
+// A LogEmitter listens on the event channel and uses go's log package to emit the event,
+// eg.
+//   2014/11/28 16:56:58 boot map[source:mongo out:mongo]
+//   2014/11/28 16:56:58 metrics source recordsIn: 0, recordsOut: 203
+//   2014/11/28 16:56:58 exit
+//   2014/11/28 16:56:58 metrics source/out recordsIn: 203, recordsOut: 0
+type JsonLogEmitter struct {
+	chstop chan chan bool
+	ch     chan Event
+}
+
+// Start the emitter
+func (e *JsonLogEmitter) Start() {
+	go e.startEventListener()
+}
+
+// Init sets the event channel
+func (e *JsonLogEmitter) Init(ch chan Event) {
+	e.ch = ch
+}
+
+// Stop the emitter
+func (e *JsonLogEmitter) Stop() {
+	s := make(chan bool)
+	e.chstop <- s
+	<-s
+}
+
+func (e *JsonLogEmitter) startEventListener() {
+	for {
+		select {
+		case s := <-e.chstop:
+			s <- true
+			return
+		case event := <-e.ch:
+			j, err := event.Emit()
+			if err != nil {
+				continue
+			}
+			log.Println(string(j))
+		case <-time.After(100 * time.Millisecond):
+			continue
+			// noop
+		}
+	}
+}
