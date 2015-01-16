@@ -52,7 +52,7 @@ func TestCreateadaptor(t *testing.T) {
 			"testadaptor",
 			Config{"blah": "rockettes"},
 			&Testadaptor{},
-			"this is an error",
+			"cannot create testadaptor adaptor (a/b/c). this is an error",
 		},
 		{
 			"notasource",
