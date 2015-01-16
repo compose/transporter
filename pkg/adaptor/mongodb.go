@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	MONGO_BUFFER_SIZE int = 1e6
-	MONGO_BUFFER_LEN  int = 1e5
+	MONGO_BUFFER_SIZE int = 5e6
+	MONGO_BUFFER_LEN  int = 5e5
 )
 
 // Mongodb is an adaptor to read / write to mongodb.
@@ -214,6 +214,9 @@ func (m *Mongodb) writeBuffer() {
 	m.buffLock.Lock()
 	defer m.buffLock.Unlock()
 	collection := m.mongoSession.DB(m.database).C(m.collection)
+	if len(m.opsBuffer) == 0 {
+		return
+	}
 
 	err := collection.Insert(m.opsBuffer...)
 
