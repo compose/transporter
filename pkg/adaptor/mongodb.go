@@ -89,12 +89,16 @@ func NewMongodb(p *pipe.Pipe, path string, extra Config) (StopStartListener, err
 
 	m.mongoSession, err = mgo.Dial(m.uri)
 
+	if err != nil {
+		return m, err
+	}
+
 	// set some options on the session
 	m.mongoSession.EnsureSafe(&mgo.Safe{W: conf.Wc, FSync: conf.FSync})
 	m.mongoSession.SetBatch(1000)
 	m.mongoSession.SetPrefetch(0.5)
 
-	return m, err
+	return m, nil
 }
 
 // Start the adaptor as a source

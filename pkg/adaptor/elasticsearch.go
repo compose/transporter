@@ -34,7 +34,7 @@ func NewElasticsearch(p *pipe.Pipe, path string, extra Config) (StopStartListene
 		err  error
 	)
 	if err = extra.Construct(&conf); err != nil {
-		return nil, NewError(CRITICAL, path, fmt.Sprintf("can't create constructor (%s)", err.Error()), nil)
+		return nil, NewError(CRITICAL, path, fmt.Sprintf("bad config (%s)", err.Error()), nil)
 	}
 
 	u, err := url.Parse(conf.URI)

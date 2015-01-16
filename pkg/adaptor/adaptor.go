@@ -57,7 +57,7 @@ func Createadaptor(kind, path string, extra Config, p *pipe.Pipe) (adaptor StopS
 	inter := result[1].Interface()
 
 	if inter != nil {
-		return nil, inter.(error)
+		return nil, fmt.Errorf("cannot create %s adaptor (%s). %v", kind, path, inter.(error))
 	}
 
 	return val.Interface().(StopStartListener), err
