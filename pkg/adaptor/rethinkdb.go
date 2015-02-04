@@ -8,7 +8,7 @@ import (
 
 	"github.com/compose/transporter/pkg/message"
 	"github.com/compose/transporter/pkg/pipe"
-	gorethink "github.com/dancannon/gorethink"
+	gorethink "gopkg.in/dancannon/gorethink.v0"
 )
 
 // Rethinkdb is an adaptor that writes metrics to rethinkdb (http://rethinkdb.com/)
@@ -128,9 +128,9 @@ func (r *Rethinkdb) setupClient() (*gorethink.Session, error) {
 		fmt.Printf("Connecting to %s\n", r.uri.Host)
 	}
 	client, err := gorethink.Connect(gorethink.ConnectOpts{
-		Address:     r.uri.Host,
-		MaxIdle:     10,
-		IdleTimeout: time.Second * 10,
+		Address: r.uri.Host,
+		MaxIdle: 10,
+		Timeout: time.Second * 10,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect: %s", err)
