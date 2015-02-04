@@ -16,7 +16,7 @@ func init() {
 	Register("mongo", "a mongodb adaptor that functions as both a source and a sink", NewMongodb, MongodbConfig{})
 	Register("file", "an adaptor that reads / writes files", NewFile, FileConfig{})
 	Register("elasticsearch", "an elasticsearch sink adaptor", NewElasticsearch, dbConfig{})
-	Register("influx", "an InfluxDB sink adaptor", NewInfluxdb, dbConfig{})
+	// Register("influx", "an InfluxDB sink adaptor", NewInfluxdb, dbConfig{})
 	Register("transformer", "an adaptor that transforms documents using a javascript function", NewTransformer, TransformerConfig{})
 	Register("rethinkdb", "a rethinkdb sink adaptor", NewRethinkdb, dbConfig{})
 }
