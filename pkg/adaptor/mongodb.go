@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	MONGO_BUFFER_SIZE int = 5e6
+	MONGO_BUFFER_SIZE int = 1e6
 	MONGO_BUFFER_LEN  int = 5e5
 )
 
@@ -76,7 +76,7 @@ func NewMongodb(p *pipe.Pipe, path string, extra Config) (StopStartListener, err
 		tail:             conf.Tail,
 		debug:            conf.Debug,
 		path:             path,
-		opsBuffer:        make([]interface{}, 0, MONGO_BUFFER_SIZE),
+		opsBuffer:        make([]interface{}, 0, MONGO_BUFFER_LEN),
 		bulkWriteChannel: make(chan interface{}),
 		bulkQuitChannel:  make(chan chan bool),
 		bulk:             conf.Bulk,
@@ -242,7 +242,7 @@ func (m *Mongodb) writeBuffer() {
 		}
 	}
 
-	m.opsBuffer = make([]interface{}, 0, MONGO_BUFFER_SIZE)
+	m.opsBuffer = make([]interface{}, 0, MONGO_BUFFER_LEN)
 	m.opsBufferSize = 0
 }
 
