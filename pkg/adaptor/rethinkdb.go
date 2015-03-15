@@ -101,6 +101,7 @@ func (r *Rethinkdb) Start() error {
 		r.pipe.Err <- err
 		return err
 	}
+	defer ccursor.Close()
 
 	if err := r.sendAllDocuments(); err != nil {
 		r.pipe.Err <- err
@@ -127,6 +128,7 @@ func (r *Rethinkdb) sendAllDocuments() error {
 	if err != nil {
 		return err
 	}
+	defer cursor.Close()
 
 	var doc map[string]interface{}
 	for cursor.Next(&doc) {
