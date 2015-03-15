@@ -40,7 +40,6 @@ type RethinkdbConfig struct {
 	Tail      bool   `json:"tail" doc:"if true, the RethinkDB table will be monitored for changes after copying the namespace"`
 }
 
-type rethinkDbDocument map[string]interface{}
 type rethinkDbChangeNotification map[string]map[string]interface{}
 
 // NewRethinkdb creates a new Rethinkdb database adaptor
@@ -129,13 +128,13 @@ func (r *Rethinkdb) sendAllDocuments() error {
 		return err
 	}
 
-	var doc rethinkDbDocument
+	var doc map[string]interface{}
 	for cursor.Next(&doc) {
 		if stop := r.pipe.Stopped; stop {
 			return nil
 		}
 
-		msg := message.NewMsg(message.Insert, r.prepareDocument(doc))
+		msg := message.NewMsg(message.Insert, doc)
 		r.pipe.Send(msg)
 	}
 
@@ -160,11 +159,11 @@ func (r *Rethinkdb) sendChanges(ccursor *gorethink.Cursor) error {
 
 		var msg *message.Msg
 		if change["old_val"] != nil && change["new_val"] != nil {
-			msg = message.NewMsg(message.Update, r.prepareDocument(change["new_val"]))
+			msg = message.NewMsg(message.Update, change["new_val"])
 		} else if change["new_val"] != nil {
-			msg = message.NewMsg(message.Insert, r.prepareDocument(change["new_val"]))
+			msg = message.NewMsg(message.Insert, change["new_val"])
 		} else if change["old_val"] != nil {
-			msg = message.NewMsg(message.Delete, r.prepareDocument(change["old_val"]))
+			msg = message.NewMsg(message.Delete, change["old_val"])
 		}
 
 		if msg != nil {
@@ -177,14 +176,6 @@ func (r *Rethinkdb) sendChanges(ccursor *gorethink.Cursor) error {
 	}
 
 	return nil
-}
-
-// prepareDocument munges the RethinkDB document slightly to play well with the
-// rest of the system. For instance, it copies the "id" field to "_id" which is
-// expected by some other databases.
-func (r *Rethinkdb) prepareDocument(document map[string]interface{}) map[string]interface{} {
-	document["_id"] = document["id"]
-	return document
 }
 
 // Listen start's the adaptor's listener
