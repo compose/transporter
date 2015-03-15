@@ -33,8 +33,8 @@ type Rethinkdb struct {
 	client *gorethink.Session
 }
 
-// RethinkdbConfig provides custom configuration options for the RethinkDB adapter
-type RethinkdbConfig struct {
+// rethinkDbConfig provides custom configuration options for the RethinkDB adapter
+type rethinkDbConfig struct {
 	URI       string `json:"uri" doc:"the uri to connect to, in the form rethink://user:password@host.example:28015/database"`
 	Namespace string `json:"namespace" doc:"rethink namespace to read/write, in the form database.table"`
 	Debug     bool   `json:"debug" doc:"if true, verbose debugging information is displayed"`
@@ -50,7 +50,7 @@ type rethinkDbChangeNotification struct {
 // NewRethinkdb creates a new Rethinkdb database adaptor
 func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
 	var (
-		conf RethinkdbConfig
+		conf rethinkDbConfig
 		err  error
 	)
 	if err = extra.Construct(&conf); err != nil {
@@ -63,7 +63,7 @@ func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, e
 	}
 
 	if conf.Debug {
-		fmt.Printf("RethinkdbConfig: %#v\n", conf)
+		fmt.Printf("rethinkDbConfig: %#v\n", conf)
 	}
 
 	r := &Rethinkdb{
