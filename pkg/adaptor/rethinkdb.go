@@ -1,6 +1,7 @@
 package adaptor
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -40,7 +41,11 @@ type RethinkdbConfig struct {
 	Tail      bool   `json:"tail" doc:"if true, the RethinkDB table will be monitored for changes after copying the namespace"`
 }
 
-type rethinkDbChangeNotification map[string]map[string]interface{}
+type rethinkDbChangeNotification struct {
+	Error  string                 `gorethink:"error"`
+	OldVal map[string]interface{} `gorethink:"old_val"`
+	NewVal map[string]interface{} `gorethink:"new_val"`
+}
 
 // NewRethinkdb creates a new Rethinkdb database adaptor
 func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
@@ -152,7 +157,6 @@ func (r *Rethinkdb) sendChanges(ccursor *gorethink.Cursor) error {
 		fmt.Printf("sending changes\n")
 	}
 
-	// { "new_val": {...}, "old_val": {...} }
 	var change rethinkDbChangeNotification
 	for ccursor.Next(&change) {
 		if stop := r.pipe.Stopped; stop {
@@ -164,12 +168,14 @@ func (r *Rethinkdb) sendChanges(ccursor *gorethink.Cursor) error {
 		}
 
 		var msg *message.Msg
-		if change["old_val"] != nil && change["new_val"] != nil {
-			msg = message.NewMsg(message.Update, r.prepareDocument(change["new_val"]))
-		} else if change["new_val"] != nil {
-			msg = message.NewMsg(message.Insert, r.prepareDocument(change["new_val"]))
-		} else if change["old_val"] != nil {
-			msg = message.NewMsg(message.Delete, r.prepareDocument(change["old_val"]))
+		if change.Error != "" {
+			return errors.New(change.Error)
+		} else if change.OldVal != nil && change.NewVal != nil {
+			msg = message.NewMsg(message.Update, r.prepareDocument(change.NewVal))
+		} else if change.NewVal != nil {
+			msg = message.NewMsg(message.Insert, r.prepareDocument(change.NewVal))
+		} else if change.OldVal != nil {
+			msg = message.NewMsg(message.Delete, r.prepareDocument(change.OldVal))
 		}
 
 		if msg != nil {
