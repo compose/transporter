@@ -40,6 +40,9 @@ type RethinkdbConfig struct {
 	Tail      bool   `json:"tail" doc:"if true, the RethinkDB table will be monitored for changes after copying the namespace"`
 }
 
+type rethinkDbDocument map[string]interface{}
+type rethinkDbChangeNotification map[string]map[string]interface{}
+
 // NewRethinkdb creates a new Rethinkdb database adaptor
 func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
 	var (
@@ -55,6 +58,10 @@ func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, e
 		return nil, err
 	}
 
+	if conf.Debug {
+		fmt.Printf("RethinkdbConfig: %#v\n", conf)
+	}
+
 	r := &Rethinkdb{
 		uri:  u,
 		pipe: p,
@@ -68,16 +75,13 @@ func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, e
 	}
 	r.debug = conf.Debug
 
-	if r.debug {
-		fmt.Printf("Connecting to %s (database %s, table %s)\n", r.uri.Host, r.database, r.table)
-	}
 	r.client, err = gorethink.Connect(gorethink.ConnectOpts{
 		Address: r.uri.Host,
 		MaxIdle: 10,
 		Timeout: time.Second * 10,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("unable to connect: %s", err)
+		return nil, err
 	}
 	r.client.Use(r.database)
 
@@ -90,6 +94,8 @@ func (r *Rethinkdb) Start() error {
 		fmt.Printf("getting a changes cursor\n")
 	}
 
+	// Grab a changes cursor before sending all rows. The server will buffer
+	// changes while we reindex the entire table.
 	var ccursor *gorethink.Cursor
 	ccursor, err := gorethink.Table(r.table).Changes().Run(r.client)
 	if err != nil {
@@ -97,7 +103,6 @@ func (r *Rethinkdb) Start() error {
 		return err
 	}
 
-	// Send all of the rows currently in the table
 	if err := r.sendAllDocuments(); err != nil {
 		r.pipe.Err <- err
 		return err
@@ -124,7 +129,7 @@ func (r *Rethinkdb) sendAllDocuments() error {
 		return err
 	}
 
-	var doc map[string]interface{}
+	var doc rethinkDbDocument
 	for cursor.Next(&doc) {
 		if stop := r.pipe.Stopped; stop {
 			return nil
@@ -147,7 +152,7 @@ func (r *Rethinkdb) sendChanges(ccursor *gorethink.Cursor) error {
 	}
 
 	// { "new_val": {...}, "old_val": {...} }
-	var change map[string]map[string]interface{}
+	var change rethinkDbChangeNotification
 	for ccursor.Next(&change) {
 		if stop := r.pipe.Stopped; stop {
 			return nil
@@ -168,7 +173,6 @@ func (r *Rethinkdb) sendChanges(ccursor *gorethink.Cursor) error {
 	}
 
 	if err := ccursor.Err(); err != nil {
-		r.pipe.Err <- err
 		return err
 	}
 
