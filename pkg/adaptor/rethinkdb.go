@@ -134,7 +134,7 @@ func (r *Rethinkdb) sendAllDocuments() error {
 			return nil
 		}
 
-		msg := message.NewMsg(message.Insert, doc)
+		msg := message.NewMsg(message.Insert, r.prepareDocument(doc))
 		r.pipe.Send(msg)
 	}
 
@@ -157,16 +157,21 @@ func (r *Rethinkdb) sendChanges(ccursor *gorethink.Cursor) error {
 			return nil
 		}
 
+		if r.debug {
+			fmt.Printf("change: %#v\n", change)
+		}
+
 		var msg *message.Msg
 		if change["old_val"] != nil && change["new_val"] != nil {
-			msg = message.NewMsg(message.Update, change["new_val"])
+			msg = message.NewMsg(message.Update, r.prepareDocument(change["new_val"]))
 		} else if change["new_val"] != nil {
-			msg = message.NewMsg(message.Insert, change["new_val"])
+			msg = message.NewMsg(message.Insert, r.prepareDocument(change["new_val"]))
 		} else if change["old_val"] != nil {
-			msg = message.NewMsg(message.Delete, change["old_val"])
+			msg = message.NewMsg(message.Delete, r.prepareDocument(change["old_val"]))
 		}
 
 		if msg != nil {
+			fmt.Printf("msg: %#v\n", msg)
 			r.pipe.Send(msg)
 		}
 	}
@@ -176,6 +181,17 @@ func (r *Rethinkdb) sendChanges(ccursor *gorethink.Cursor) error {
 	}
 
 	return nil
+}
+
+// prepareDocument moves the `id` field to the `_id` field, which is more
+// commonly used by downstream sinks. A transformer could be used to do the
+// same thing, but because transformers are not run for Delete messages, we
+// must do it here.
+func (r *Rethinkdb) prepareDocument(doc map[string]interface{}) map[string]interface{} {
+	doc["_id"] = doc["id"]
+	delete(doc, "id")
+
+	return doc
 }
 
 // Listen start's the adaptor's listener
