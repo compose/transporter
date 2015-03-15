@@ -113,7 +113,6 @@ func (r *Rethinkdb) Start() error {
 		return err
 	}
 
-	// Monitor for changes
 	if r.tail {
 		if err := r.sendChanges(ccursor); err != nil {
 			r.pipe.Err <- err
