@@ -84,7 +84,7 @@ func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, e
 	return r, nil
 }
 
-// Start the adaptor as a source (not implemented)
+// Start the adaptor as a source
 func (r *Rethinkdb) Start() error {
 	if r.debug {
 		fmt.Printf("getting a changes cursor\n")
