@@ -22,6 +22,7 @@ type Rethinkdb struct {
 	table    string
 
 	debug bool
+	tail  bool
 
 	//
 	pipe *pipe.Pipe
@@ -31,10 +32,18 @@ type Rethinkdb struct {
 	client *gorethink.Session
 }
 
+// RethinkdbConfig provides custom configuration options for the RethinkDB adapter
+type RethinkdbConfig struct {
+	URI       string `json:"uri" doc:"the uri to connect to, in the form rethink://user:password@host.example:28015/database"`
+	Namespace string `json:"namespace" doc:"rethink namespace to read/write, in the form database.table"`
+	Debug     bool   `json:"debug" doc:"if true, verbose debugging information is displayed"`
+	Tail      bool   `json:"tail" doc:"if true, the RethinkDB table will be monitored for changes after copying the namespace"`
+}
+
 // NewRethinkdb creates a new Rethinkdb database adaptor
 func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
 	var (
-		conf dbConfig
+		conf RethinkdbConfig
 		err  error
 	)
 	if err = extra.Construct(&conf); err != nil {
@@ -50,6 +59,7 @@ func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, e
 		uri:  u,
 		pipe: p,
 		path: path,
+		tail: conf.Tail,
 	}
 
 	r.database, r.table, err = extra.splitNamespace()
@@ -58,22 +68,124 @@ func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, e
 	}
 	r.debug = conf.Debug
 
+	if r.debug {
+		fmt.Printf("Connecting to %s (database %s, table %s)\n", r.uri.Host, r.database, r.table)
+	}
+	r.client, err = gorethink.Connect(gorethink.ConnectOpts{
+		Address: r.uri.Host,
+		MaxIdle: 10,
+		Timeout: time.Second * 10,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("unable to connect: %s", err)
+	}
+	r.client.Use(r.database)
+
 	return r, nil
 }
 
 // Start the adaptor as a source (not implemented)
 func (r *Rethinkdb) Start() error {
-	return fmt.Errorf("rethinkdb can't function as a source")
-}
+	if r.debug {
+		fmt.Printf("getting a changes cursor\n")
+	}
 
-// Listen start's the adaptor's listener
-func (r *Rethinkdb) Listen() (err error) {
-	r.client, err = r.setupClient()
+	var ccursor *gorethink.Cursor
+	ccursor, err := gorethink.Table(r.table).Changes().Run(r.client)
 	if err != nil {
 		r.pipe.Err <- err
 		return err
 	}
 
+	// Send all of the rows currently in the table
+	if err := r.sendAllDocuments(); err != nil {
+		r.pipe.Err <- err
+		return err
+	}
+
+	// Monitor for changes
+	if r.tail {
+		if err := r.sendChanges(ccursor); err != nil {
+			r.pipe.Err <- err
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *Rethinkdb) sendAllDocuments() error {
+	if r.debug {
+		fmt.Printf("sending all documents\n")
+	}
+
+	cursor, err := gorethink.Table(r.table).Run(r.client)
+	if err != nil {
+		return err
+	}
+
+	var doc map[string]interface{}
+	for cursor.Next(&doc) {
+		if stop := r.pipe.Stopped; stop {
+			return nil
+		}
+
+		msg := message.NewMsg(message.Insert, r.prepareDocument(doc))
+		r.pipe.Send(msg)
+	}
+
+	if err := cursor.Err(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *Rethinkdb) sendChanges(ccursor *gorethink.Cursor) error {
+	if r.debug {
+		fmt.Printf("sending changes\n")
+	}
+
+	// { "new_val": {...}, "old_val": {...} }
+	var change map[string]map[string]interface{}
+	for ccursor.Next(&change) {
+		if stop := r.pipe.Stopped; stop {
+			return nil
+		}
+
+		var msg *message.Msg
+		if change["old_val"] != nil && change["new_val"] != nil {
+			msg = message.NewMsg(message.Update, r.prepareDocument(change["new_val"]))
+		} else if change["new_val"] != nil {
+			msg = message.NewMsg(message.Insert, r.prepareDocument(change["new_val"]))
+		} else if change["old_val"] != nil {
+			msg = message.NewMsg(message.Delete, r.prepareDocument(change["old_val"]))
+		}
+
+		if msg != nil {
+			r.pipe.Send(msg)
+		}
+	}
+
+	if err := ccursor.Err(); err != nil {
+		r.pipe.Err <- err
+		return err
+	}
+
+	return nil
+}
+
+// prepareDocument munges the RethinkDB document slightly to play well with the
+// rest of the system. For instance, it copies the "id" field to "_id" which is
+// expected by some other databases.
+func (r *Rethinkdb) prepareDocument(document map[string]interface{}) map[string]interface{} {
+	document["_id"] = document["id"]
+	return document
+}
+
+// Listen start's the adaptor's listener
+func (r *Rethinkdb) Listen() (err error) {
+	r.recreateTable()
 	return r.pipe.Listen(r.applyOp)
 }
 
@@ -122,28 +234,12 @@ func (r *Rethinkdb) applyOp(msg *message.Msg) (*message.Msg, error) {
 	return msg, nil
 }
 
-func (r *Rethinkdb) setupClient() (*gorethink.Session, error) {
-	// set up the clientConfig, we need host:port, username, password, and database name
-	if r.debug {
-		fmt.Printf("Connecting to %s\n", r.uri.Host)
-	}
-	client, err := gorethink.Connect(gorethink.ConnectOpts{
-		Address: r.uri.Host,
-		MaxIdle: 10,
-		Timeout: time.Second * 10,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("unable to connect: %s", err)
-	}
-
+func (r *Rethinkdb) recreateTable() {
 	if r.debug {
 		fmt.Printf("dropping and creating table '%s' on database '%s'\n", r.table, r.database)
 	}
-	gorethink.Db(r.database).TableDrop(r.table).RunWrite(client)
-	gorethink.Db(r.database).TableCreate(r.table).RunWrite(client)
-
-	client.Use(r.database)
-	return client, nil
+	gorethink.Db(r.database).TableDrop(r.table).RunWrite(r.client)
+	gorethink.Db(r.database).TableCreate(r.table).RunWrite(r.client)
 }
 
 // handleresponse takes the rethink response and turn it into something we can consume elsewhere
