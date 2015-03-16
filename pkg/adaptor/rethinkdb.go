@@ -85,7 +85,7 @@ func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, e
 		Timeout: time.Second * 10,
 	})
 	if err != nil {
-		return nil, err
+		return r, err
 	}
 	r.client.Use(r.database)
 
