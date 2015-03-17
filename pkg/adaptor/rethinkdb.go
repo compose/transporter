@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -55,6 +56,10 @@ type rethinkDbProcessStatus struct {
 type rethinkDbServerStatus struct {
 	Process rethinkDbProcessStatus `gorethink:"process"`
 }
+
+var (
+	rethinkDbVersionMatcher *regexp.Regexp = regexp.MustCompile(`\d+\.\d+(\.\d+)?`)
+)
 
 // NewRethinkdb creates a new Rethinkdb database adaptor
 func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
@@ -130,7 +135,16 @@ func (r *Rethinkdb) assertServerVersion(constraint version.Constraints) error {
 		return fmt.Errorf("could not determine the RethinkDB server version: malformed version string (%v)", serverStatus.Process.Version)
 	}
 
-	serverVersion, err := version.NewVersion(pieces[1])
+	versionString := rethinkDbVersionMatcher.FindString(pieces[1])
+	if versionString == "" {
+		return fmt.Errorf("could not determine the RethinkDB server version: malformed version string (%v)", serverStatus.Process.Version)
+	}
+
+	if r.debug {
+		fmt.Printf("RethinkDB version: %v\n", versionString)
+	}
+
+	serverVersion, err := version.NewVersion(versionString)
 	if err != nil {
 		return fmt.Errorf("could not determine the RethinkDB server version: malformed version string (%v)", serverStatus.Process.Version)
 	}
