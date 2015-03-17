@@ -101,13 +101,21 @@ func (e *Elasticsearch) applyOp(msg *message.Msg) (*message.Msg, error) {
 		}
 		return msg, nil
 	}
+
 	// TODO there might be some inconsistency here.  elasticsearch uses the _id field for an primary index,
 	//  and we're just mapping it to a string here.
 	id, err := msg.IDString("_id")
 	if err != nil {
 		id = ""
 	}
-	err = e.indexer.Index(e.index, e._type, id, "", nil, msg.Data, false)
+
+	switch msg.Op {
+	case message.Delete:
+		e.indexer.Delete(e.index, e._type, id, false)
+		err = nil
+	default:
+		err = e.indexer.Index(e.index, e._type, id, "", nil, msg.Data, false)
+	}
 	if err != nil {
 		e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("elasticsearch error (%s)", err), msg.Data)
 	}

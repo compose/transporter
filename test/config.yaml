@@ -12,6 +12,9 @@ nodes:
   es:
     type: elasticsearch
     uri: https://nick:darling@haproxy1.dblayer.com:10291/thisgetsignored
+  locales:
+    type: elasticsearch
+    uri: http://localhost:9200/thisgetsignored
   timeseries:
     type: influx
     uri: influxdb://root:root@localhost:8086/compose
@@ -32,7 +35,7 @@ nodes:
     uri: stdout://
   rethink1:
     type: rethinkdb
-    uri: rethink://127.0.0.2:28015/
+    uri: rethink://localhost:28015/
   loosefile:
     type: file
   logtransformer:
