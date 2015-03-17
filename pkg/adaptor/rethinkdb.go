@@ -9,6 +9,7 @@ import (
 
 	"github.com/compose/transporter/pkg/message"
 	"github.com/compose/transporter/pkg/pipe"
+	version "github.com/hashicorp/go-version"
 	gorethink "gopkg.in/dancannon/gorethink.v0"
 )
 
@@ -45,6 +46,14 @@ type rethinkDbChangeNotification struct {
 	Error  string                 `gorethink:"error"`
 	OldVal map[string]interface{} `gorethink:"old_val"`
 	NewVal map[string]interface{} `gorethink:"new_val"`
+}
+
+type rethinkDbProcessStatus struct {
+	Version string `gorethink:"version"`
+}
+
+type rethinkDbServerStatus struct {
+	Process rethinkDbProcessStatus `gorethink:"process"`
 }
 
 // NewRethinkdb creates a new Rethinkdb database adaptor
@@ -89,7 +98,48 @@ func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, e
 	}
 	r.client.Use(r.database)
 
+	if r.tail {
+		constraint, _ := version.NewConstraint(">= 1.16")
+		if err := r.assertServerVersion(constraint); err != nil {
+			return r, err
+		}
+	}
+
 	return r, nil
+}
+
+func (r *Rethinkdb) assertServerVersion(constraint version.Constraints) error {
+	cursor, err := gorethink.Db("rethinkdb").Table("server_status").Run(r.client)
+	if err != nil {
+		return err
+	}
+
+	if cursor.IsNil() {
+		return errors.New("could not determine the RethinkDB server version: no rows returned from the server_status table")
+	}
+
+	var serverStatus rethinkDbServerStatus
+	cursor.Next(&serverStatus)
+
+	if serverStatus.Process.Version == "" {
+		return errors.New("could not determine the RethinkDB server version: process.version key missing")
+	}
+
+	pieces := strings.Split(serverStatus.Process.Version, " ")
+	if len(pieces) < 2 {
+		return fmt.Errorf("could not determine the RethinkDB server version: malformed version string (%v)", serverStatus.Process.Version)
+	}
+
+	serverVersion, err := version.NewVersion(pieces[1])
+	if err != nil {
+		return fmt.Errorf("could not determine the RethinkDB server version: malformed version string (%v)", serverStatus.Process.Version)
+	}
+
+	if !constraint.Check(serverVersion) {
+		return fmt.Errorf("RethinkDB server version too old: expected %v, but was %v", constraint, serverVersion)
+	}
+
+	return nil
 }
 
 // Start the adaptor as a source
