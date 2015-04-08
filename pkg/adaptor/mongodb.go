@@ -169,6 +169,11 @@ func (m *Mongodb) writeMessage(msg *message.Msg) (*message.Msg, error) {
 	doc := msg.Map()
 	if m.bulk {
 		m.bulkWriteChannel <- doc
+	} else if msg.Op == message.Delete {
+		err := collection.Remove(doc)
+		if err != nil {
+			m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("mongodb error removing (%s)", err.Error()), msg.Data)
+		}
 	} else {
 		err := collection.Insert(doc)
 		if mgo.IsDup(err) {
