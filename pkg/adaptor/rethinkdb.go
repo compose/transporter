@@ -41,6 +41,7 @@ type rethinkDbConfig struct {
 	Namespace string `json:"namespace" doc:"rethink namespace to read/write, in the form database.table"`
 	Debug     bool   `json:"debug" doc:"if true, verbose debugging information is displayed"`
 	Tail      bool   `json:"tail" doc:"if true, the RethinkDB table will be monitored for changes after copying the namespace"`
+	Timeout   int    `json:"timeout" doc:"timeout, in seconds, for connect, read, and write operations to the RethinkDB server; default is 10"`
 }
 
 type rethinkDbChangeNotification struct {
@@ -93,11 +94,16 @@ func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, e
 	}
 	r.debug = conf.Debug
 
-	r.client, err = gorethink.Connect(gorethink.ConnectOpts{
+	opts := gorethink.ConnectOpts{
 		Address: r.uri.Host,
 		MaxIdle: 10,
 		Timeout: time.Second * 10,
-	})
+	}
+	if conf.Timeout > 0 {
+		opts.Timeout = time.Duration(conf.Timeout) * time.Second
+	}
+
+	r.client, err = gorethink.Connect(opts)
 	if err != nil {
 		return r, err
 	}
