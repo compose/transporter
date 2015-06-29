@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/codepope/transporter/pkg/message"
-	"github.com/codepope/transporter/pkg/pipe"
+	"github.com/compose/transporter/pkg/message"
+	"github.com/compose/transporter/pkg/pipe"
 	"gopkg.in/mgo.v2/bson"
 )
 

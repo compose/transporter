@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/codepope/transporter/pkg/adaptor"
+	"github.com/compose/transporter/pkg/adaptor"
 )
 
 var (

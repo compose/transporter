@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/codepope/transporter/pkg/events"
-	"github.com/codepope/transporter/pkg/transporter"
+	"github.com/compose/transporter/pkg/events"
+	"github.com/compose/transporter/pkg/transporter"
 	"github.com/nu7hatch/gouuid"
 	"github.com/robertkrimen/otto"
 )

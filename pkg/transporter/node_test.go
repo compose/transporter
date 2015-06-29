@@ -3,7 +3,7 @@ package transporter
 import (
 	"testing"
 
-	"github.com/codepope/transporter/pkg/adaptor"
+	"github.com/compose/transporter/pkg/adaptor"
 )
 
 func TestNodeString(t *testing.T) {

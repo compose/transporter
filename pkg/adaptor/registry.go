@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/codepope/transporter/pkg/pipe"
+	"github.com/compose/transporter/pkg/pipe"
 )
 
 var (

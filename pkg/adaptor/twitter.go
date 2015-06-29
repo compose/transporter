@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/codepope/transporter/pkg/message"
-	"github.com/codepope/transporter/pkg/pipe"
+	"github.com/compose/transporter/pkg/message"
+	"github.com/compose/transporter/pkg/pipe"
 	"github.com/darkhelmet/twitterstream"
 	"github.com/fatih/structs"
 )

@@ -7,8 +7,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/codepope/transporter/pkg/message"
-	"github.com/codepope/transporter/pkg/pipe"
+	"github.com/compose/transporter/pkg/message"
+	"github.com/compose/transporter/pkg/pipe"
 )
 
 // File is an adaptor that can be used as a

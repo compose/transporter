@@ -9,8 +9,8 @@ package pipe
 import (
 	"time"
 
-	"github.com/codepope/transporter/pkg/events"
-	"github.com/codepope/transporter/pkg/message"
+	"github.com/compose/transporter/pkg/events"
+	"github.com/compose/transporter/pkg/message"
 )
 
 type messageChan chan *message.Msg

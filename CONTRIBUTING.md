@@ -16,7 +16,7 @@ When considering an architecture enhancement, we are looking for:
 * A description of the problem this change solves
 * An issue describing the design changes
   * Please prefix your issue with `Enhancement:` in the title
-* Please review [the existing Enhancements](https://github.com/codepope/transporter/issues?q=is%3Aopen+is%3Aissue+label%3Aenhancement)
+* Please review [the existing Enhancements](https://github.com/compose/transporter/issues?q=is%3Aopen+is%3Aissue+label%3Aenhancement)
   before reporting a new one.
 
 When considering an adaptor enhancement, we are looking for:
@@ -33,7 +33,7 @@ A great way to contribute to the project is to send a detailed report when you
 encounter an issue. We always appreciate a well-written, thorough bug report,
 and will thank you for it!
 
-When reporting [issues](https://github.com/codepope/transporter/issues) on
+When reporting [issues](https://github.com/compose/transporter/issues) on
 GitHub please include your host OS (Ubuntu 12.04, Fedora 19, etc).
 Please include:
 
@@ -64,7 +64,7 @@ that feature while still using Transporter.
 ### Create issues...
 
 Any significant improvement should be documented as [a GitHub
-issue](https://github.com/codepope/transporter/issues) before anybody
+issue](https://github.com/compose/transporter/issues) before anybody
 starts working on it.
 
 ### ...but check for existing issues first!

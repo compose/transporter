@@ -13,8 +13,8 @@ package adaptor
 // 	"fmt"
 // 	"net/url"
 
-// 	"github.com/codepope/transporter/pkg/message"
-// 	"github.com/codepope/transporter/pkg/pipe"
+// 	"github.com/compose/transporter/pkg/message"
+// 	"github.com/compose/transporter/pkg/pipe"
 // 	"github.com/influxdb/influxdb/client"
 // )
 

@@ -5,9 +5,9 @@ machine:
 
 dependencies:
   override:
-    - test -d /home/ubuntu/.go_workspace/src/github.com/codepope/ || mkdir -p /home/ubuntu/.go_workspace/src/github.com/codepope/
-    - test -e /home/ubuntu/.go_workspace/src/github.com/codepope/transporter || ln -s /home/ubuntu/transporter/ /home/ubuntu/.go_workspace/src/github.com/codepope/
-    - cd /home/ubuntu/.go_workspace/src/github.com/codepope/ && go get ./transporter/...
+    - test -d /home/ubuntu/.go_workspace/src/github.com/compose/ || mkdir -p /home/ubuntu/.go_workspace/src/github.com/compose/
+    - test -e /home/ubuntu/.go_workspace/src/github.com/compose/transporter || ln -s /home/ubuntu/transporter/ /home/ubuntu/.go_workspace/src/github.com/compose/
+    - cd /home/ubuntu/.go_workspace/src/github.com/compose/ && go get ./transporter/...
     - test -d $HOME/boto || pip install -t $HOME/boto boto
 
 

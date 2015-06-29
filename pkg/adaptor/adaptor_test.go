@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/codepope/transporter/pkg/pipe"
+	"github.com/compose/transporter/pkg/pipe"
 )
 
 // a random type that adaptorements the adaptor interface
