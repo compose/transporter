@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/compose/transporter/pkg/pipe"
+	"github.com/codepope/transporter/pkg/pipe"
 )
 
 // ErrAdaptor gives the details of the failed adaptor

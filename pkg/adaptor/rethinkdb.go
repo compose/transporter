@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/compose/transporter/pkg/message"
-	"github.com/compose/transporter/pkg/pipe"
+	"github.com/codepope/transporter/pkg/message"
+	"github.com/codepope/transporter/pkg/pipe"
 	version "github.com/hashicorp/go-version"
 	gorethink "gopkg.in/dancannon/gorethink.v0"
 )

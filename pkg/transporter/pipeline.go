@@ -4,8 +4,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/compose/transporter/pkg/adaptor"
-	"github.com/compose/transporter/pkg/events"
+	"github.com/codepope/transporter/pkg/adaptor"
+	"github.com/codepope/transporter/pkg/events"
 )
 
 // VERSION the library
