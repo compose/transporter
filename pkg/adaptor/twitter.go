@@ -3,6 +3,8 @@ package adaptor
 import (
 	"encoding/json"
 	"fmt"
+	"log"
+	"time"
 
 	"github.com/compose/transporter/pkg/message"
 	"github.com/compose/transporter/pkg/pipe"
@@ -73,30 +75,37 @@ func (d *Twitter) readTwitter() (err error) {
 
 	d.client = twitterstream.NewClient(d.consumerKey, d.consumerSecret, d.accessToken, d.accessSecret)
 
-	var conn *twitterstream.Connection
-
-	if d.keywords == "" {
-		fmt.Println("Sampling")
-		conn, err = d.client.Sample()
-	} else {
-		fmt.Printf("Tracking %s", d.keywords)
-		conn, err = d.client.Track(d.keywords)
-	}
-
 	for {
-		if tweet, err := conn.Next(); err == nil {
-			doc := structs.Map(tweet)
-			msg := message.NewMsg(message.Insert, doc)
-			if msg != nil {
-				fmt.Printf("msg: %#v\n", msg)
-				d.pipe.Send(msg)
-			}
+		var conn *twitterstream.Connection
+
+		if d.keywords == "" {
+			log.Println("Sampling Twitter")
+			conn, err = d.client.Sample()
 		} else {
-			break
+			log.Printf("Tracking %s", d.keywords)
+			conn, err = d.client.Track(d.keywords)
 		}
 
+		if err == nil {
+
+			for {
+				if tweet, err := conn.Next(); err == nil {
+					doc := structs.Map(tweet)
+					msg := message.NewMsg(message.Insert, doc)
+					if msg != nil {
+						d.pipe.Send(msg)
+					} else {
+						break
+					}
+				} else {
+					break
+				}
+			}
+		} else {
+			log.Println("Sleeping before reconnecting")
+			time.Sleep(time.Duration(10 * time.Second))
+		}
 	}
-	return nil
 }
 
 /*

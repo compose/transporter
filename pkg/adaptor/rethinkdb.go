@@ -11,7 +11,7 @@ import (
 	"github.com/compose/transporter/pkg/message"
 	"github.com/compose/transporter/pkg/pipe"
 	version "github.com/hashicorp/go-version"
-	gorethink "gopkg.in/dancannon/gorethink.v0"
+	gorethink "gopkg.in/dancannon/gorethink.v1"
 )
 
 // Rethinkdb is an adaptor that writes metrics to rethinkdb (http://rethinkdb.com/)
@@ -59,7 +59,7 @@ type rethinkDbServerStatus struct {
 }
 
 var (
-	rethinkDbVersionMatcher *regexp.Regexp = regexp.MustCompile(`\d+\.\d+(\.\d+)?`)
+	rethinkDbVersionMatcher = regexp.MustCompile(`\d+\.\d+(\.\d+)?`)
 )
 
 // NewRethinkdb creates a new Rethinkdb database adaptor
@@ -120,7 +120,7 @@ func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, e
 }
 
 func (r *Rethinkdb) assertServerVersion(constraint version.Constraints) error {
-	cursor, err := gorethink.Db("rethinkdb").Table("server_status").Run(r.client)
+	cursor, err := gorethink.DB("rethinkdb").Table("server_status").Run(r.client)
 	if err != nil {
 		return err
 	}
@@ -326,8 +326,8 @@ func (r *Rethinkdb) recreateTable() {
 	if r.debug {
 		fmt.Printf("dropping and creating table '%s' on database '%s'\n", r.table, r.database)
 	}
-	gorethink.Db(r.database).TableDrop(r.table).RunWrite(r.client)
-	gorethink.Db(r.database).TableCreate(r.table).RunWrite(r.client)
+	gorethink.DB(r.database).TableDrop(r.table).RunWrite(r.client)
+	gorethink.DB(r.database).TableCreate(r.table).RunWrite(r.client)
 }
 
 // handleresponse takes the rethink response and turn it into something we can consume elsewhere
