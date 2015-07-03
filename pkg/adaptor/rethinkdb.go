@@ -109,11 +109,9 @@ func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, e
 	}
 	r.client.Use(r.database)
 
-	if r.tail {
-		constraint, _ := version.NewConstraint(">= 1.16")
-		if err := r.assertServerVersion(constraint); err != nil {
-			return r, err
-		}
+	constraint, _ := version.NewConstraint(">= 2.0")
+	if err := r.assertServerVersion(constraint); err != nil {
+		return r, err
 	}
 
 	return r, nil
