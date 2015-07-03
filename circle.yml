@@ -5,13 +5,11 @@ machine:
 
 dependencies:
   override:
-    - go get -u github.com/tools/godep
+    - go get github.com/tools/godep
     - test -d /home/ubuntu/.go_workspace/src/github.com/compose/ || mkdir -p /home/ubuntu/.go_workspace/src/github.com/compose/
     - test -e /home/ubuntu/.go_workspace/src/github.com/compose/transporter || ln -s /home/ubuntu/transporter/ /home/ubuntu/.go_workspace/src/github.com/compose/
-    # - cd /home/ubuntu/.go_workspace/src/github.com/compose/ && go get ./transporter/...
     - cd /home/ubuntu/.go_workspace/src/github.com/compose/transporter && godep restore
     - test -d $HOME/boto || pip install -t $HOME/boto boto
-
 
   cache_directories:
   - "/home/ubuntu/boto"
@@ -19,7 +17,6 @@ dependencies:
 
 test:
   override:
-    # - $CIRCLE_ARTIFACTS/godep go test ./...
     - godep go test ./... -tags=integration -v
 
 deployment:
