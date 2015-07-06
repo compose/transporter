@@ -3,7 +3,8 @@ Transporter
 
 Build
 -----
-`go build -a ./cmd/...`
+make sure godep is installed, `go get github.com/tools/godep` and then build with
+`godep go build -a ./cmd/...`
 
 
 Configure
