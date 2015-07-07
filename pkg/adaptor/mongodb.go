@@ -115,6 +115,16 @@ func NewMongodb(p *pipe.Pipe, path string, extra Config) (StopStartListener, err
 		}
 	}
 
+	if conf.Timeout == "" {
+		dialInfo.Timeout = time.Duration(10) * time.Second
+	} else {
+		timeout, err := time.ParseDuration(conf.Timeout)
+		if err != nil {
+			return m, fmt.Errorf("unable to parse timeout (%s), %s\n", conf.Timeout, err.Error())
+		}
+		dialInfo.Timeout = timeout
+	}
+
 	m.mongoSession, err = mgo.DialWithInfo(dialInfo)
 	if err != nil {
 		return m, err
@@ -442,6 +452,7 @@ type MongodbConfig struct {
 	URI       string     `json:"uri" doc:"the uri to connect to, in the form mongodb://user:password@host.com:27017/auth_database"`
 	Namespace string     `json:"namespace" doc:"mongo namespace to read/write"`
 	Ssl       *SslConfig `json:"ssl,omitempty" doc:"ssl options for connection"`
+	Timeout   string     `json:timeout" doc:"timeout for establishing connection, format must be parsable by time.ParseDuration and defaults to 10s"`
 	Debug     bool       `json:"debug" doc:"display debug information"`
 	Tail      bool       `json:"tail" doc:"if tail is true, then the mongodb source will tail the oplog after copying the namespace"`
 	Wc        int        `json:"wc" doc:"The write concern to use for writes, Int, indicating the minimum number of servers to write to before returning success/failure"`
