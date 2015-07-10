@@ -34,21 +34,21 @@ func TestTransformOne(t *testing.T) {
 		},
 		{
 			// delete the 'name' property
-			"module.exports=function(doc) { return _.omit(doc, ['name']) }",
+			"module.exports=function(doc) { doc['data'] = _.omit(doc['data'], ['name']); return doc }",
 			message.NewMsg(message.Insert, map[string]interface{}{"id": "id2", "name": "nick"}),
 			message.NewMsg(message.Insert, map[string]interface{}{"id": "id2"}),
 			false,
 		},
 		{
 			// delete's and commands should pass through, and the transformer fn shouldn't run
-			"module.exports=function(doc) { return _.omit(doc, ['name']) }",
+			"module.exports=function(doc) { return _.omit(doc['data'], ['name']) }",
 			message.NewMsg(message.Delete, map[string]interface{}{"id": "id2", "name": "nick"}),
 			message.NewMsg(message.Delete, map[string]interface{}{"id": "id2", "name": "nick"}),
 			false,
 		},
 		{
 			// delete's and commands should pass through, and the transformer fn shouldn't run
-			"module.exports=function(doc) { return _.omit(doc, ['name']) }",
+			"module.exports=function(doc) { return _.omit(doc['data'], ['name']) }",
 			message.NewMsg(message.Command, map[string]interface{}{"id": "id2", "name": "nick"}),
 			message.NewMsg(message.Command, map[string]interface{}{"id": "id2", "name": "nick"}),
 			false,
@@ -62,14 +62,14 @@ func TestTransformOne(t *testing.T) {
 		},
 		{
 			// we should be able to change the bson
-			"module.exports=function(doc) { doc['id']['$oid'] = '54a4420502a14b9641000001'; return doc }",
+			"module.exports=function(doc) { doc['data']['id']['$oid'] = '54a4420502a14b9641000001'; return doc }",
 			message.NewMsg(message.Insert, map[string]interface{}{"id": bsonID1, "name": "nick"}),
 			message.NewMsg(message.Insert, map[string]interface{}{"id": bsonID2, "name": "nick"}),
 			false,
 		},
 		{
 			// we should be able to change the bson
-			"module.exports=function(doc) { return doc['name'] }",
+			"module.exports=function(doc) { return doc['data']['name'] }",
 			message.NewMsg(message.Insert, map[string]interface{}{"id": bsonID1, "name": "nick"}),
 			message.NewMsg(message.Insert, "nick"),
 			false,
@@ -99,7 +99,7 @@ func BenchmarkTransformOne(b *testing.B) {
 	transformer := &Transformer{
 		pipe: tpipe,
 		path: "path",
-		fn:   "module.exports=function(doc) { return doc }",
+		fn:   "module.exports=function(doc) { return doc['data'] }",
 	}
 	err := transformer.initEnvironment()
 	if err != nil {

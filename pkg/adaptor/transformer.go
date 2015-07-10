@@ -113,7 +113,14 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 
 	now := time.Now().Nanosecond()
 	if msg.IsMap() {
-		if doc, err = mejson.Marshal(msg.Data); err != nil {
+		var fullDoc interface{}
+		fullDoc = map[string]interface{}{
+			"data": msg.Data,
+			"ts":   msg.Timestamp,
+			"op":   msg.Op.String(),
+		}
+		// if doc, err = mejson.Marshal(msg.Data); err != nil {
+		if doc, err = mejson.Marshal(fullDoc); err != nil {
 			t.pipe.Err <- t.transformerError(ERROR, err, msg)
 			return msg, nil
 		}
@@ -143,12 +150,27 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 
 	switch r := result.(type) {
 	case map[string]interface{}:
-		doc, err := mejson.Unmarshal(r)
-		if err != nil {
-			t.pipe.Err <- t.transformerError(ERROR, err, msg)
-			return msg, nil
+		switch data := r["data"].(type) {
+		case otto.Value:
+			exported, err := data.Export()
+			if err != nil {
+				t.pipe.Err <- t.transformerError(ERROR, err, msg)
+				return msg, nil
+			}
+			d, err := mejson.Unmarshal(exported.(map[string]interface{}))
+			if err != nil {
+				t.pipe.Err <- t.transformerError(ERROR, err, msg)
+				return msg, nil
+			}
+			msg.Data = map[string]interface{}(d)
+		default:
+			d, err := mejson.Unmarshal(data.(map[string]interface{}))
+			if err != nil {
+				t.pipe.Err <- t.transformerError(ERROR, err, msg)
+				return msg, nil
+			}
+			msg.Data = map[string]interface{}(d)
 		}
-		msg.Data = map[string]interface{}(doc)
 	default:
 		msg.Data = r
 	}
