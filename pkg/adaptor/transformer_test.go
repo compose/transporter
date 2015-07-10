@@ -68,11 +68,11 @@ func TestTransformOne(t *testing.T) {
 			false,
 		},
 		{
-			// we should be able to change the bson
+			// this throws an error
 			"module.exports=function(doc) { return doc['data']['name'] }",
 			message.NewMsg(message.Insert, map[string]interface{}{"id": bsonID1, "name": "nick"}),
 			message.NewMsg(message.Insert, "nick"),
-			false,
+			true,
 		},
 	}
 	for _, v := range data {
@@ -88,7 +88,7 @@ func TestTransformOne(t *testing.T) {
 			t.Errorf("error expected %t but actually got %v", v.err, err)
 			continue
 		}
-		if !reflect.DeepEqual(msg.Data, v.out.Data) || err != nil {
+		if (!reflect.DeepEqual(msg.Data, v.out.Data) || err != nil) && !v.err {
 			t.Errorf("expected:\n(%T) %+v\ngot:\n(%T) %+v with error (%v)\n", v.out.Data, v.out.Data, msg.Data, msg.Data, err)
 		}
 	}
@@ -99,7 +99,7 @@ func BenchmarkTransformOne(b *testing.B) {
 	transformer := &Transformer{
 		pipe: tpipe,
 		path: "path",
-		fn:   "module.exports=function(doc) { return doc['data'] }",
+		fn:   "module.exports=function(doc) { return doc }",
 	}
 	err := transformer.initEnvironment()
 	if err != nil {

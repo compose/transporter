@@ -112,23 +112,20 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 	}
 
 	now := time.Now().Nanosecond()
+	fullDoc := map[string]interface{}{
+		"data": msg.Data,
+		"ts":   msg.Timestamp,
+		"op":   msg.Op.String(),
+	}
 	if msg.IsMap() {
-		var fullDoc interface{}
-		fullDoc = map[string]interface{}{
-			"data": msg.Data,
-			"ts":   msg.Timestamp,
-			"op":   msg.Op.String(),
-		}
-		// if doc, err = mejson.Marshal(msg.Data); err != nil {
-		if doc, err = mejson.Marshal(fullDoc); err != nil {
+		if doc, err = mejson.Marshal(msg.Data); err != nil {
 			t.pipe.Err <- t.transformerError(ERROR, err, msg)
 			return msg, nil
 		}
-	} else {
-		doc = msg.Data
+		fullDoc["data"] = doc
 	}
 
-	if value, err = t.vm.ToValue(doc); err != nil {
+	if value, err = t.vm.ToValue(fullDoc); err != nil {
 		t.pipe.Err <- t.transformerError(ERROR, err, msg)
 		return msg, nil
 	}
@@ -148,31 +145,36 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 
 	afterVM := time.Now().Nanosecond()
 
-	switch r := result.(type) {
-	case map[string]interface{}:
-		switch data := r["data"].(type) {
-		case otto.Value:
-			exported, err := data.Export()
-			if err != nil {
-				t.pipe.Err <- t.transformerError(ERROR, err, msg)
-				return msg, nil
-			}
-			d, err := mejson.Unmarshal(exported.(map[string]interface{}))
-			if err != nil {
-				t.pipe.Err <- t.transformerError(ERROR, err, msg)
-				return msg, nil
-			}
-			msg.Data = map[string]interface{}(d)
-		default:
-			d, err := mejson.Unmarshal(data.(map[string]interface{}))
-			if err != nil {
-				t.pipe.Err <- t.transformerError(ERROR, err, msg)
-				return msg, nil
-			}
-			msg.Data = map[string]interface{}(d)
+	fullDoc, ok := result.(map[string]interface{})
+	if !ok {
+		t.pipe.Err <- t.transformerError(ERROR, fmt.Errorf("returned doc was not a map[string]interface{}"), msg)
+		return msg, fmt.Errorf("returned doc was not a map[string]interface{}")
+	}
+
+	msg.Op = message.OpTypeFromString(fullDoc["op"].(string))
+	msg.Timestamp = fullDoc["ts"].(int64)
+	switch data := fullDoc["data"].(type) {
+	case otto.Value:
+		exported, err := data.Export()
+		if err != nil {
+			t.pipe.Err <- t.transformerError(ERROR, err, msg)
+			return msg, nil
 		}
+		d, err := mejson.Unmarshal(exported.(map[string]interface{}))
+		if err != nil {
+			t.pipe.Err <- t.transformerError(ERROR, err, msg)
+			return msg, nil
+		}
+		msg.Data = map[string]interface{}(d)
+	case map[string]interface{}:
+		d, err := mejson.Unmarshal(data)
+		if err != nil {
+			t.pipe.Err <- t.transformerError(ERROR, err, msg)
+			return msg, nil
+		}
+		msg.Data = map[string]interface{}(d)
 	default:
-		msg.Data = r
+		msg.Data = data
 	}
 
 	if t.debug {
