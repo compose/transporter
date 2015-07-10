@@ -40,10 +40,10 @@ func TestTransformOne(t *testing.T) {
 			false,
 		},
 		{
-			// delete's and commands should pass through, and the transformer fn shouldn't run
-			"module.exports=function(doc) { return _.omit(doc['data'], ['name']) }",
+			// delete's should be processed the same
+			"module.exports=function(doc) { doc['data'] =  _.omit(doc['data'], ['name']); return doc }",
 			message.NewMsg(message.Delete, map[string]interface{}{"id": "id2", "name": "nick"}),
-			message.NewMsg(message.Delete, map[string]interface{}{"id": "id2", "name": "nick"}),
+			message.NewMsg(message.Delete, map[string]interface{}{"id": "id2"}),
 			false,
 		},
 		{

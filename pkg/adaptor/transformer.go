@@ -107,7 +107,7 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 	)
 
 	// short circuit for deletes and commands
-	if msg.Op == message.Delete || msg.Op == message.Command {
+	if msg.Op == message.Command {
 		return msg, nil
 	}
 
