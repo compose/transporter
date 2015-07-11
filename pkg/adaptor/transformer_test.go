@@ -34,21 +34,21 @@ func TestTransformOne(t *testing.T) {
 		},
 		{
 			// delete the 'name' property
-			"module.exports=function(doc) { return _.omit(doc, ['name']) }",
+			"module.exports=function(doc) { doc['data'] = _.omit(doc['data'], ['name']); return doc }",
 			message.NewMsg(message.Insert, map[string]interface{}{"id": "id2", "name": "nick"}),
 			message.NewMsg(message.Insert, map[string]interface{}{"id": "id2"}),
 			false,
 		},
 		{
-			// delete's and commands should pass through, and the transformer fn shouldn't run
-			"module.exports=function(doc) { return _.omit(doc, ['name']) }",
+			// delete's should be processed the same
+			"module.exports=function(doc) { doc['data'] =  _.omit(doc['data'], ['name']); return doc }",
 			message.NewMsg(message.Delete, map[string]interface{}{"id": "id2", "name": "nick"}),
-			message.NewMsg(message.Delete, map[string]interface{}{"id": "id2", "name": "nick"}),
+			message.NewMsg(message.Delete, map[string]interface{}{"id": "id2"}),
 			false,
 		},
 		{
 			// delete's and commands should pass through, and the transformer fn shouldn't run
-			"module.exports=function(doc) { return _.omit(doc, ['name']) }",
+			"module.exports=function(doc) { return _.omit(doc['data'], ['name']) }",
 			message.NewMsg(message.Command, map[string]interface{}{"id": "id2", "name": "nick"}),
 			message.NewMsg(message.Command, map[string]interface{}{"id": "id2", "name": "nick"}),
 			false,
@@ -62,17 +62,17 @@ func TestTransformOne(t *testing.T) {
 		},
 		{
 			// we should be able to change the bson
-			"module.exports=function(doc) { doc['id']['$oid'] = '54a4420502a14b9641000001'; return doc }",
+			"module.exports=function(doc) { doc['data']['id']['$oid'] = '54a4420502a14b9641000001'; return doc }",
 			message.NewMsg(message.Insert, map[string]interface{}{"id": bsonID1, "name": "nick"}),
 			message.NewMsg(message.Insert, map[string]interface{}{"id": bsonID2, "name": "nick"}),
 			false,
 		},
 		{
-			// we should be able to change the bson
-			"module.exports=function(doc) { return doc['name'] }",
+			// this throws an error
+			"module.exports=function(doc) { return doc['data']['name'] }",
 			message.NewMsg(message.Insert, map[string]interface{}{"id": bsonID1, "name": "nick"}),
 			message.NewMsg(message.Insert, "nick"),
-			false,
+			true,
 		},
 	}
 	for _, v := range data {
@@ -88,7 +88,7 @@ func TestTransformOne(t *testing.T) {
 			t.Errorf("error expected %t but actually got %v", v.err, err)
 			continue
 		}
-		if !reflect.DeepEqual(msg.Data, v.out.Data) || err != nil {
+		if (!reflect.DeepEqual(msg.Data, v.out.Data) || err != nil) && !v.err {
 			t.Errorf("expected:\n(%T) %+v\ngot:\n(%T) %+v with error (%v)\n", v.out.Data, v.out.Data, msg.Data, msg.Data, err)
 		}
 	}
