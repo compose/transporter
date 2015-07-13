@@ -10,7 +10,7 @@ import (
 
 // VERSION the library
 const (
-	VERSION = "0.0.3"
+	VERSION = "0.0.4"
 )
 
 // A Pipeline is a the end to end description of a transporter data flow.
