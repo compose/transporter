@@ -215,12 +215,10 @@ func NewJsonLogEmitter() *JsonLogEmitter {
 }
 
 // JsonLogEmitter constructs a LogEmitter to use with a transporter pipeline.
-// A LogEmitter listens on the event channel and uses go's log package to emit the event,
+// A JsonLogEmitter listens on the event channel and uses go's log package to emit the event,
 // eg.
-//   2014/11/28 16:56:58 boot map[source:mongo out:mongo]
-//   2014/11/28 16:56:58 metrics source recordsIn: 0, recordsOut: 203
-//   2014/11/28 16:56:58 exit
-//   2014/11/28 16:56:58 metrics source/out recordsIn: 203, recordsOut: 0
+// 2015/07/14 11:52:01 {"ts":1436889121,"name":"metrics","path":"source-development.jobs/dest-x.jobs","records":121}
+// 2015/07/14 11:52:01 {"ts":1436889121,"name":"exit","version":"0.0.4","endpoints":{"dest-x.jobs":"mongo","source-development.jobs":"mongo"}}
 type JsonLogEmitter struct {
 	chstop chan chan bool
 	ch     chan Event
