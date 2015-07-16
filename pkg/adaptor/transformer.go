@@ -112,7 +112,7 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 	}
 
 	now := time.Now().Nanosecond()
-	fullDoc := map[string]interface{}{
+	currMsg := map[string]interface{}{
 		"data": msg.Data,
 		"ts":   msg.Timestamp,
 		"op":   msg.Op.String(),
@@ -122,10 +122,10 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 			t.pipe.Err <- t.transformerError(ERROR, err, msg)
 			return msg, nil
 		}
-		fullDoc["data"] = doc
+		currMsg["data"] = doc
 	}
 
-	if value, err = t.vm.ToValue(fullDoc); err != nil {
+	if value, err = t.vm.ToValue(currMsg); err != nil {
 		t.pipe.Err <- t.transformerError(ERROR, err, msg)
 		return msg, nil
 	}
@@ -145,36 +145,9 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 
 	afterVM := time.Now().Nanosecond()
 
-	fullDoc, ok := result.(map[string]interface{})
-	if !ok {
-		t.pipe.Err <- t.transformerError(ERROR, fmt.Errorf("returned doc was not a map[string]interface{}"), msg)
-		return msg, fmt.Errorf("returned doc was not a map[string]interface{}")
-	}
-
-	msg.Op = message.OpTypeFromString(fullDoc["op"].(string))
-	msg.Timestamp = fullDoc["ts"].(int64)
-	switch data := fullDoc["data"].(type) {
-	case otto.Value:
-		exported, err := data.Export()
-		if err != nil {
-			t.pipe.Err <- t.transformerError(ERROR, err, msg)
-			return msg, nil
-		}
-		d, err := mejson.Unmarshal(exported.(map[string]interface{}))
-		if err != nil {
-			t.pipe.Err <- t.transformerError(ERROR, err, msg)
-			return msg, nil
-		}
-		msg.Data = map[string]interface{}(d)
-	case map[string]interface{}:
-		d, err := mejson.Unmarshal(data)
-		if err != nil {
-			t.pipe.Err <- t.transformerError(ERROR, err, msg)
-			return msg, nil
-		}
-		msg.Data = map[string]interface{}(d)
-	default:
-		msg.Data = data
+	if err = t.toMsg(result, msg); err != nil {
+		t.pipe.Err <- t.transformerError(ERROR, err, msg)
+		return msg, err
 	}
 
 	if t.debug {
@@ -183,6 +156,48 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 	}
 
 	return msg, nil
+}
+
+func (t *Transformer) toMsg(incoming interface{}, msg *message.Msg) error {
+
+	switch newMsg := incoming.(type) {
+	case map[string]interface{}: // we're a proper message.Msg, so copy the data over
+		msg.Op = message.OpTypeFromString(newMsg["op"].(string))
+		msg.Timestamp = newMsg["ts"].(int64)
+
+		switch data := newMsg["data"].(type) {
+		case otto.Value:
+			exported, err := data.Export()
+			if err != nil {
+				t.pipe.Err <- t.transformerError(ERROR, err, msg)
+				return nil
+			}
+			d, err := mejson.Unmarshal(exported.(map[string]interface{}))
+			if err != nil {
+				t.pipe.Err <- t.transformerError(ERROR, err, msg)
+				return nil
+			}
+			msg.Data = map[string]interface{}(d)
+		case map[string]interface{}:
+			d, err := mejson.Unmarshal(data)
+			if err != nil {
+				t.pipe.Err <- t.transformerError(ERROR, err, msg)
+				return nil
+			}
+			msg.Data = map[string]interface{}(d)
+		default:
+			msg.Data = data
+		}
+	case bool: // skip this doc if we're a bool and we're false
+		if !newMsg {
+			msg.Op = message.Noop
+			return nil
+		}
+	default: // something went wrong
+		return fmt.Errorf("returned doc was not a map[string]interface{}")
+	}
+
+	return nil
 }
 
 func (t *Transformer) transformerError(lvl ErrorLevel, err error, msg *message.Msg) error {

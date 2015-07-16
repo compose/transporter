@@ -66,6 +66,12 @@ func TestTransformOne(t *testing.T) {
 			message.NewMsg(message.Insert, map[string]interface{}{"id": bsonID1, "name": "nick"}),
 			message.NewMsg(message.Insert, map[string]interface{}{"id": bsonID2, "name": "nick"}),
 			false,
+		}, {
+			// we should be able to skip a nil message
+			"module.exports=function(doc) { return false }",
+			message.NewMsg(message.Insert, map[string]interface{}{"id": bsonID1, "name": "nick"}),
+			message.NewMsg(message.Noop, map[string]interface{}{"id": bsonID1, "name": "nick"}),
+			false,
 		},
 		{
 			// this throws an error
@@ -82,14 +88,14 @@ func TestTransformOne(t *testing.T) {
 		if err != nil {
 			panic(err)
 		}
-
 		msg, err := transformer.transformOne(v.in)
+
 		if (err != nil) != v.err {
 			t.Errorf("error expected %t but actually got %v", v.err, err)
 			continue
 		}
-		if (!reflect.DeepEqual(msg.Data, v.out.Data) || err != nil) && !v.err {
-			t.Errorf("expected:\n(%T) %+v\ngot:\n(%T) %+v with error (%v)\n", v.out.Data, v.out.Data, msg.Data, msg.Data, err)
+		if (!reflect.DeepEqual(msg, v.out) || err != nil) && !v.err {
+			t.Errorf("expected:\n(%T) %+v\ngot:\n(%T) %+v with error (%v)\n", v.out, v.out, msg, msg, err)
 		}
 	}
 }
