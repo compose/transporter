@@ -1,1 +1,1 @@
-module.exports = function(doc) { doc["data"] = _.pick(doc, ["_id", "download_count"]); return doc }
+module.exports = function(doc) { doc["data"] = _.pick(doc.data, ["_id", "download_count"]); return doc }
