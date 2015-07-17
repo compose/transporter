@@ -49,6 +49,10 @@ func NewTransformer(pipe *pipe.Pipe, path string, extra Config) (StopStartListen
 
 	t.fn = string(ba)
 
+	if err = t.initEnvironment(); err != nil {
+		return t, err
+	}
+
 	return t, nil
 }
 
@@ -56,10 +60,6 @@ func NewTransformer(pipe *pipe.Pipe, path string, extra Config) (StopStartListen
 // transformers it into mejson, and then uses the supplied javascript module.exports function
 // to transform the document.  The document is then emited to this adaptor's children
 func (t *Transformer) Listen() (err error) {
-	if err = t.initEnvironment(); err != nil {
-		return err
-	}
-
 	return t.pipe.Listen(t.transformOne)
 }
 
