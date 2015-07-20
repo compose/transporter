@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -29,8 +30,8 @@ type Mongodb struct {
 	debug bool
 
 	// save time by setting these once
-	collection string
-	database   string
+	collectionMatch *regexp.Regexp
+	database        string
 
 	oplogTime bson.MongoTimestamp
 
@@ -44,13 +45,19 @@ type Mongodb struct {
 
 	// a buffer to hold documents
 	buffLock         sync.Mutex
-	opsBuffer        []interface{}
+	opsBufferCount   int
+	opsBuffer        map[string][]interface{}
 	opsBufferSize    int
-	bulkWriteChannel chan interface{}
+	bulkWriteChannel chan *SyncDoc
 	bulkQuitChannel  chan chan bool
 	bulk             bool
 
 	restartable bool // this refers to being able to refresh the iterator, not to the restart based on session op
+}
+
+type SyncDoc struct {
+	Doc        map[string]interface{}
+	Collection string
 }
 
 // NewMongodb creates a new Mongodb adaptor
@@ -79,13 +86,14 @@ func NewMongodb(p *pipe.Pipe, path string, extra Config) (StopStartListener, err
 		tail:             conf.Tail,
 		debug:            conf.Debug,
 		path:             path,
-		opsBuffer:        make([]interface{}, 0, MONGO_BUFFER_LEN),
-		bulkWriteChannel: make(chan interface{}),
+		opsBuffer:        make(map[string][]interface{}),
+		bulkWriteChannel: make(chan *SyncDoc),
 		bulkQuitChannel:  make(chan chan bool),
 		bulk:             conf.Bulk,
 	}
+	// opsBuffer:        make([]*SyncDoc, 0, MONGO_BUFFER_LEN),
 
-	m.database, m.collection, err = m.splitNamespace(conf.Namespace)
+	m.database, m.collectionMatch, err = extra.compileNamespace()
 	if err != nil {
 		return m, err
 	}
@@ -175,7 +183,7 @@ func (m *Mongodb) Listen() (err error) {
 	if m.bulk {
 		go m.bulkWriter()
 	}
-	return m.pipe.Listen(m.writeMessage)
+	return m.pipe.Listen(m.collectionMatch, m.writeMessage)
 }
 
 // Stop the adaptor
@@ -196,25 +204,35 @@ func (m *Mongodb) Stop() error {
 // TODO this can be cleaned up.  I'm not sure whether this should pipe the error, or whether the
 //   caller should pipe the error
 func (m *Mongodb) writeMessage(msg *message.Msg) (*message.Msg, error) {
-	collection := m.mongoSession.DB(m.database).C(m.collection)
+	_, msgColl, err := msg.SplitNamespace()
+	if err != nil {
+		m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("mongodb error (msg namespace improperly formatted, must be database.collection, got %s)", msg.Namespace), msg.Data)
+		return msg, nil
+	}
+
+	collection := m.mongoSession.DB(m.database).C(msgColl)
 
 	if !msg.IsMap() {
 		m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("mongodb error (document must be a bson document, got %T instead)", msg.Data), msg.Data)
 		return msg, nil
 	}
 
-	doc := msg.Map()
+	doc := &SyncDoc{
+		Doc:        msg.Map(),
+		Collection: msgColl,
+	}
+
 	if m.bulk {
 		m.bulkWriteChannel <- doc
 	} else if msg.Op == message.Delete {
-		err := collection.Remove(doc)
+		err := collection.Remove(doc.Doc)
 		if err != nil {
 			m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("mongodb error removing (%s)", err.Error()), msg.Data)
 		}
 	} else {
-		err := collection.Insert(doc)
+		err := collection.Insert(doc.Doc)
 		if mgo.IsDup(err) {
-			err = collection.Update(bson.M{"_id": doc["_id"]}, doc)
+			err = collection.Update(bson.M{"_id": doc.Doc["_id"]}, doc.Doc)
 		}
 		if err != nil {
 			m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("mongodb error (%s)", err.Error()), msg.Data)
@@ -229,18 +247,19 @@ func (m *Mongodb) bulkWriter() {
 	for {
 		select {
 		case doc := <-m.bulkWriteChannel:
-			sz, err := docSize(doc)
+			sz, err := docSize(doc.Doc)
 			if err != nil {
 				m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("mongodb error (%s)", err.Error()), doc)
 				break
 			}
 
-			if ((sz + m.opsBufferSize) > MONGO_BUFFER_SIZE) || (len(m.opsBuffer) == MONGO_BUFFER_LEN) {
+			if ((sz + m.opsBufferSize) > MONGO_BUFFER_SIZE) || (m.opsBufferCount == MONGO_BUFFER_LEN) {
 				m.writeBuffer() // send it off to be inserted
 			}
 
 			m.buffLock.Lock()
-			m.opsBuffer = append(m.opsBuffer, doc)
+			m.opsBufferCount += 1
+			m.opsBuffer[doc.Collection] = append(m.opsBuffer[doc.Collection], doc.Doc)
 			m.opsBufferSize += sz
 			m.buffLock.Unlock()
 		case <-time.After(2 * time.Second):
@@ -255,77 +274,90 @@ func (m *Mongodb) bulkWriter() {
 func (m *Mongodb) writeBuffer() {
 	m.buffLock.Lock()
 	defer m.buffLock.Unlock()
-	collection := m.mongoSession.DB(m.database).C(m.collection)
-	if len(m.opsBuffer) == 0 {
-		return
-	}
+	for coll, docs := range m.opsBuffer {
 
-	err := collection.Insert(m.opsBuffer...)
-
-	if err != nil {
-		if mgo.IsDup(err) {
-			err = nil
-			for _, op := range m.opsBuffer {
-				e := collection.Insert(op)
-				if mgo.IsDup(e) {
-					doc, ok := op.(map[string]interface{})
-					if !ok {
-						m.pipe.Err <- NewError(ERROR, m.path, "mongodb error (Cannot cast document to bson)", op)
-					}
-
-					e = collection.Update(bson.M{"_id": doc["_id"]}, doc)
-				}
-				if e != nil {
-					m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("mongodb error (%s)", e.Error()), op)
-				}
-			}
-		} else {
-			m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("mongodb error (%s)", err.Error()), m.opsBuffer[0])
+		collection := m.mongoSession.DB(m.database).C(coll)
+		if len(docs) == 0 {
+			continue
 		}
+
+		err := collection.Insert(docs...)
+
+		if err != nil {
+			if mgo.IsDup(err) {
+				err = nil
+				for _, op := range docs {
+					e := collection.Insert(op)
+					if mgo.IsDup(e) {
+						doc, ok := op.(map[string]interface{})
+						if !ok {
+							m.pipe.Err <- NewError(ERROR, m.path, "mongodb error (Cannot cast document to bson)", op)
+						}
+
+						e = collection.Update(bson.M{"_id": doc["_id"]}, doc)
+					}
+					if e != nil {
+						m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("mongodb error (%s)", e.Error()), op)
+					}
+				}
+			} else {
+				m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("mongodb error (%s)", err.Error()), docs[0])
+			}
+		}
+
 	}
 
-	m.opsBuffer = make([]interface{}, 0, MONGO_BUFFER_LEN)
+	m.opsBufferCount = 0
+	m.opsBuffer = make(map[string][]interface{})
 	m.opsBufferSize = 0
 }
 
-// catdata pulls down the original collection
+// catdata pulls down the original collections
 func (m *Mongodb) catData() (err error) {
-	var (
-		collection = m.mongoSession.DB(m.database).C(m.collection)
-		query      = bson.M{}
-		result     bson.M // hold the document
-	)
+	collections, _ := m.mongoSession.DB(m.database).CollectionNames()
+	for _, collection := range collections {
+		if strings.HasPrefix(collection, "system.") {
+			continue
+		} else if match := m.collectionMatch.MatchString(collection); !match {
+			continue
+		}
 
-	iter := collection.Find(query).Sort("_id").Iter()
+		var (
+			query  = bson.M{}
+			result bson.M // hold the document
+		)
 
-	for {
-		for iter.Next(&result) {
+		iter := m.mongoSession.DB(m.database).C(collection).Find(query).Sort("_id").Iter()
+
+		for {
+			for iter.Next(&result) {
+				if stop := m.pipe.Stopped; stop {
+					return
+				}
+
+				// set up the message
+				msg := message.NewMsg(message.Insert, result, m.computeNamespace(collection))
+
+				m.pipe.Send(msg)
+				result = bson.M{}
+			}
+
+			// we've exited the mongo read loop, lets figure out why
+			// check here again if we've been asked to quit
 			if stop := m.pipe.Stopped; stop {
 				return
 			}
 
-			// set up the message
-			msg := message.NewMsg(message.Insert, result)
-
-			m.pipe.Send(msg)
-			result = bson.M{}
+			if iter.Err() != nil && m.restartable {
+				fmt.Printf("got err reading collection. reissuing query %v\n", iter.Err())
+				time.Sleep(1 * time.Second)
+				iter = m.mongoSession.DB(m.database).C(collection).Find(query).Sort("_id").Iter()
+				continue
+			}
+			break
 		}
-
-		// we've exited the mongo read loop, lets figure out why
-		// check here again if we've been asked to quit
-		if stop := m.pipe.Stopped; stop {
-			return
-		}
-
-		if iter.Err() != nil && m.restartable {
-			fmt.Printf("got err reading collection. reissuing query %v\n", iter.Err())
-			time.Sleep(1 * time.Second)
-			iter = collection.Find(query).Sort("_id").Iter()
-			continue
-		}
-
-		return
 	}
+	return
 }
 
 /*
@@ -338,7 +370,6 @@ func (m *Mongodb) tailData() (err error) {
 		result     oplogDoc // hold the document
 		query      = bson.M{
 			"ts": bson.M{"$gte": m.oplogTime},
-			"ns": m.getNamespace(),
 		}
 
 		iter = collection.Find(query).LogReplay().Sort("$natural").Tail(m.oplogTimeout)
@@ -350,6 +381,13 @@ func (m *Mongodb) tailData() (err error) {
 				return
 			}
 			if result.validOp() {
+				_, coll, _ := m.splitNamespace(result.Ns)
+
+				if strings.HasPrefix(coll, "system.") {
+					continue
+				} else if match := m.collectionMatch.MatchString(coll); !match {
+					continue
+				}
 
 				var doc bson.M
 				switch result.Op {
@@ -358,7 +396,7 @@ func (m *Mongodb) tailData() (err error) {
 				case "d":
 					doc = result.O
 				case "u":
-					doc, err = m.getOriginalDoc(result.O2)
+					doc, err = m.getOriginalDoc(result.O2, coll)
 					if err != nil { // errors aren't fatal here, but we need to send it down the pipe
 						m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("Mongodb error (%s)", err.Error()), nil)
 						continue
@@ -368,7 +406,7 @@ func (m *Mongodb) tailData() (err error) {
 					continue
 				}
 
-				msg := message.NewMsg(message.OpTypeFromString(result.Op), doc)
+				msg := message.NewMsg(message.OpTypeFromString(result.Op), doc, m.computeNamespace(coll))
 				msg.Timestamp = int64(result.Ts) >> 32
 
 				m.oplogTime = result.Ts
@@ -392,7 +430,6 @@ func (m *Mongodb) tailData() (err error) {
 		// query will change,
 		query = bson.M{
 			"ts": bson.M{"$gte": m.oplogTime},
-			"ns": m.getNamespace(),
 		}
 		iter = collection.Find(query).LogReplay().Tail(m.oplogTimeout)
 	}
@@ -400,21 +437,21 @@ func (m *Mongodb) tailData() (err error) {
 
 // getOriginalDoc retrieves the original document from the database.  transport has no knowledge of update operations, all updates
 // work as wholesale document replaces
-func (m *Mongodb) getOriginalDoc(doc bson.M) (result bson.M, err error) {
+func (m *Mongodb) getOriginalDoc(doc bson.M, collection string) (result bson.M, err error) {
 	id, exists := doc["_id"]
 	if !exists {
 		return result, fmt.Errorf("can't get _id from document")
 	}
 
-	err = m.mongoSession.DB(m.database).C(m.collection).FindId(id).One(&result)
+	err = m.mongoSession.DB(m.database).C(collection).FindId(id).One(&result)
 	if err != nil {
-		err = fmt.Errorf("%s %v %v", m.getNamespace(), id, err)
+		err = fmt.Errorf("%s.%s %v %v", m.database, collection, id, err)
 	}
 	return
 }
 
-func (m *Mongodb) getNamespace() string {
-	return strings.Join([]string{m.database, m.collection}, ".")
+func (m *Mongodb) computeNamespace(collection string) string {
+	return strings.Join([]string{m.database, collection}, ".")
 }
 
 // splitNamespace split's a mongo namespace by the first '.' into a database and a collection

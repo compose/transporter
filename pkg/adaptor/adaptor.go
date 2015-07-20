@@ -2,9 +2,9 @@ package adaptor
 
 import (
 	"encoding/json"
-	// "errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/compose/transporter/pkg/pipe"
@@ -106,6 +106,18 @@ func (c *Config) splitNamespace() (string, string, error) {
 		return "", "", fmt.Errorf("malformed namespace, expected a '.' deliminated string")
 	}
 	return fields[0], fields[1], nil
+}
+
+// compileNamespace split's on the first '.' and then compiles the second portion to use as the msg filter
+func (c *Config) compileNamespace() (string, *regexp.Regexp, error) {
+	field0, field1, err := c.splitNamespace()
+
+	if err != nil {
+		return "", nil, err
+	}
+
+	compiledNs, err := regexp.Compile(strings.Trim(field1, "/"))
+	return field0, compiledNs, err
 }
 
 // dbConfig is a standard typed config struct to use for as general purpose config for most databases.

@@ -3,6 +3,7 @@ package adaptor
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/compose/transporter/pkg/message"
@@ -16,8 +17,8 @@ type Elasticsearch struct {
 	// pull these in from the node
 	uri *url.URL
 
-	_type string
-	index string
+	index     string
+	typeMatch *regexp.Regexp
 
 	pipe *pipe.Pipe
 	path string
@@ -47,9 +48,9 @@ func NewElasticsearch(p *pipe.Pipe, path string, extra Config) (StopStartListene
 		pipe: p,
 	}
 
-	e.index, e._type, err = extra.splitNamespace()
+	e.index, e.typeMatch, err = extra.compileNamespace()
 	if err != nil {
-		return e, NewError(CRITICAL, path, fmt.Sprintf("can't split namespace into _index._type (%s)", err.Error()), nil)
+		return e, NewError(CRITICAL, path, fmt.Sprintf("can't split namespace into _index and typeMatch (%s)", err.Error()), nil)
 	}
 
 	return e, nil
@@ -80,7 +81,7 @@ func (e *Elasticsearch) Listen() error {
 		}
 	}()
 
-	return e.pipe.Listen(e.applyOp)
+	return e.pipe.Listen(e.typeMatch, e.applyOp)
 }
 
 // Stop the adaptor
@@ -109,12 +110,17 @@ func (e *Elasticsearch) applyOp(msg *message.Msg) (*message.Msg, error) {
 		id = ""
 	}
 
+	_, _type, err := msg.SplitNamespace()
+	if err != nil {
+		e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("unable to determine type from msg.Namespace (%s)", msg.Namespace), msg)
+		return msg, nil
+	}
 	switch msg.Op {
 	case message.Delete:
-		e.indexer.Delete(e.index, e._type, id, false)
+		e.indexer.Delete(e.index, _type, id, false)
 		err = nil
 	default:
-		err = e.indexer.Index(e.index, e._type, id, "", nil, msg.Data, false)
+		err = e.indexer.Index(e.index, _type, id, "", nil, msg.Data, false)
 	}
 	if err != nil {
 		e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("elasticsearch error (%s)", err), msg.Data)
@@ -154,8 +160,4 @@ func (e *Elasticsearch) runCommand(msg *message.Msg) error {
 		e.indexer.Flush()
 	}
 	return nil
-}
-
-func (e *Elasticsearch) getNamespace() string {
-	return strings.Join([]string{e.index, e._type}, ".")
 }

@@ -3,6 +3,7 @@ package adaptor
 import (
 	"fmt"
 	"io/ioutil"
+	"regexp"
 	"time"
 
 	"github.com/compose/mejson"
@@ -20,6 +21,7 @@ type Transformer struct {
 
 	pipe *pipe.Pipe
 	path string
+	ns   *regexp.Regexp
 
 	debug  bool
 	script *otto.Script
@@ -40,6 +42,11 @@ func NewTransformer(pipe *pipe.Pipe, path string, extra Config) (StopStartListen
 
 	if conf.Filename == "" {
 		return t, fmt.Errorf("no filename specified")
+	}
+
+	_, t.ns, err = extra.compileNamespace()
+	if err != nil {
+		return t, NewError(CRITICAL, path, fmt.Sprintf("can't split transformer namespace (%s)", err.Error()), nil)
 	}
 
 	ba, err := ioutil.ReadFile(conf.Filename)
@@ -216,7 +223,8 @@ func (t *Transformer) transformerError(lvl ErrorLevel, err error, msg *message.M
 type TransformerConfig struct {
 	// file containing transformer javascript
 	// must define a module.exports = function(doc) { .....; return doc }
-	Filename string `json:"filename" doc:"the filename containing the javascript transform fn"`
+	Filename  string `json:"filename" doc:"the filename containing the javascript transform fn"`
+	Namespace string `json:"namespace" doc:"namespace to transform"`
 
 	// verbose output
 	Debug bool `json:"debug" doc:"display debug information"` // debug mode
