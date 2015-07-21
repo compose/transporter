@@ -67,7 +67,7 @@ func NewTransformer(pipe *pipe.Pipe, path string, extra Config) (StopStartListen
 // transformers it into mejson, and then uses the supplied javascript module.exports function
 // to transform the document.  The document is then emited to this adaptor's children
 func (t *Transformer) Listen() (err error) {
-	return t.pipe.Listen(t.transformOne)
+	return t.pipe.Listen(t.ns, t.transformOne)
 }
 
 // initEvironment prepares the javascript vm and compiles the transformer script
@@ -123,6 +123,7 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 		"data": msg.Data,
 		"ts":   msg.Timestamp,
 		"op":   msg.Op.String(),
+		"ns":   msg.Namespace,
 	}
 	if msg.IsMap() {
 		if doc, err = mejson.Marshal(msg.Data); err != nil {
@@ -171,6 +172,7 @@ func (t *Transformer) toMsg(incoming interface{}, msg *message.Msg) error {
 	case map[string]interface{}: // we're a proper message.Msg, so copy the data over
 		msg.Op = message.OpTypeFromString(newMsg["op"].(string))
 		msg.Timestamp = newMsg["ts"].(int64)
+		msg.Namespace = newMsg["ns"].(string)
 
 		switch data := newMsg["data"].(type) {
 		case otto.Value:
