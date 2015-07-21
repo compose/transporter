@@ -16,7 +16,6 @@ import (
 // source / sink for file's on disk, as well as a sink to stdout.
 type File struct {
 	uri        string
-	namespace  string
 	pipe       *pipe.Pipe
 	path       string
 	filehandle *os.File
@@ -64,7 +63,7 @@ func (d *File) Listen() (err error) {
 		}
 	}
 
-	return d.pipe.Listen(regexp.MustCompile(`.*/`), d.dumpMessage)
+	return d.pipe.Listen(regexp.MustCompile(`.*`), d.dumpMessage)
 }
 
 // Stop the adaptor
@@ -91,7 +90,7 @@ func (d *File) readFile() (err error) {
 			d.pipe.Err <- NewError(ERROR, d.path, fmt.Sprintf("Can't marshal document (%s)", err.Error()), nil)
 			return err
 		}
-		d.pipe.Send(message.NewMsg(message.Insert, doc, ""))
+		d.pipe.Send(message.NewMsg(message.Insert, doc, fmt.Sprint("file.%s", filename)))
 	}
 	return nil
 }
