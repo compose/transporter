@@ -14,6 +14,7 @@ const (
 	Update
 	Delete
 	Command
+	Noop
 	Unknown
 )
 
@@ -29,6 +30,8 @@ func (o OpType) String() string {
 		return "delete"
 	case Command:
 		return "command"
+	case Noop:
+		return "noop"
 	default:
 		return "unknown"
 	}
@@ -46,6 +49,8 @@ func OpTypeFromString(s string) OpType {
 		return Delete
 	case 'c':
 		return Command
+	case 'n':
+		return Noop
 	default:
 		return Unknown
 	}
