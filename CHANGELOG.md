@@ -1,4 +1,18 @@
-## v0.0.4 [unreleased]
+## v0.1.0 [unreleased]
+
+This release contains several breaking changes but is a first step towards a stable API/DSL.
+
+### Features
+- [#95](https://github.com/compose/transporter/pull/95): add a Noop message type, and the ability to skip messages, fixes [#93](https://github.com/compose/transporter/issues/93)
+- [#100](https://github.com/compose/transporter/pull/100): replace environment variables, fixes [#88](https://github.com/compose/transporter/issues/88)
+
+### Bugfixes
+- [#94](https://github.com/compose/transporter/pull/94): jsonlog, fixes [#92](Comment doesnt reflect jsonlog output)
+- [#98](https://github.com/compose/transporter/pull/98): Fixes influx_test.js, thanks @ExNexu!
+- [#97](https://github.com/compose/transporter/pull/97): throw transformer initialization errors early, fixes [#96](https://github.com/compose/transporter/issues/96)
+
+
+## v0.0.4 [2015-07-13]
 
 This release contains several breaking changes:
 - Transporter now uses [godep](https://github.com/tools/godep) for vendoring depedencies.
