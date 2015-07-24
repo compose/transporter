@@ -69,7 +69,7 @@ Complete beginners guide (OS X)
 - setup the directory structure in $GOPATH
     - `cd $GOPATH; mkdir src pkg bin`
     - create the github.com path and compose `mkdir -p src/github.com/compose; cd src/github.com/compose`
-    - clone transporter `git clone https://github.com/compose/transporter.git; cd transporter`
+    - clone transporter `git clone https://github.com/compose/transporter; cd transporter`
     - run go get to get all the dependencies `go get -a ./cmd/...`
     - now you can build `go build -a ./cmd/...`
 
