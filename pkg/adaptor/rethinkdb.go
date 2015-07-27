@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/compose/transporter/pkg/message"
@@ -21,8 +22,8 @@ type Rethinkdb struct {
 	uri *url.URL
 
 	// save time by setting these once
-	database string
-	table    string
+	database   string
+	tableMatch *regexp.Regexp
 
 	debug bool
 	tail  bool
@@ -38,10 +39,9 @@ type Rethinkdb struct {
 // rethinkDbConfig provides custom configuration options for the RethinkDB adapter
 type rethinkDbConfig struct {
 	URI       string `json:"uri" doc:"the uri to connect to, in the form rethink://user:password@host.example:28015/database"`
-	Namespace string `json:"namespace" doc:"rethink namespace to read/write, in the form database.table"`
+	Namespace string `json:"namespace" doc:"rethink namespace to read/write"`
 	Debug     bool   `json:"debug" doc:"if true, verbose debugging information is displayed"`
 	Tail      bool   `json:"tail" doc:"if true, the RethinkDB table will be monitored for changes after copying the namespace"`
-	Timeout   int    `json:"timeout" doc:"timeout, in seconds, for connect, read, and write operations to the RethinkDB server; default is 10"`
 }
 
 type rethinkDbChangeNotification struct {
@@ -78,7 +78,7 @@ func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, e
 	}
 
 	if conf.Debug {
-		fmt.Printf("rethinkDbConfig: %#v\n", conf)
+		fmt.Printf("RethinkDB Config %+v\n", conf)
 	}
 
 	r := &Rethinkdb{
@@ -88,22 +88,30 @@ func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, e
 		tail: conf.Tail,
 	}
 
-	r.database, r.table, err = extra.splitNamespace()
+	r.database, r.tableMatch, err = extra.compileNamespace()
 	if err != nil {
 		return r, err
 	}
 	r.debug = conf.Debug
+	if r.debug {
+		fmt.Printf("tableMatch: %+v\n", r.tableMatch)
+	}
 
-	opts := gorethink.ConnectOpts{
+	// test the connection with a timeout
+	testConn, err := gorethink.Connect(gorethink.ConnectOpts{
+		Address: r.uri.Host,
+		Timeout: time.Second * 10,
+	})
+	if err != nil {
+		return r, err
+	}
+	testConn.Close()
+
+	// we don't want a timeout here because we want to keep connections open
+	r.client, err = gorethink.Connect(gorethink.ConnectOpts{
 		Address: r.uri.Host,
 		MaxIdle: 10,
-		Timeout: time.Second * 10,
-	}
-	if conf.Timeout > 0 {
-		opts.Timeout = time.Duration(conf.Timeout) * time.Second
-	}
-
-	r.client, err = gorethink.Connect(opts)
+	})
 	if err != nil {
 		return r, err
 	}
@@ -162,41 +170,73 @@ func (r *Rethinkdb) assertServerVersion(constraint version.Constraints) error {
 
 // Start the adaptor as a source
 func (r *Rethinkdb) Start() error {
-	if r.debug {
-		fmt.Printf("getting a changes cursor\n")
-	}
-
-	// Grab a changes cursor before sending all rows. The server will buffer
-	// changes while we reindex the entire table.
-	var ccursor *gorethink.Cursor
-	ccursor, err := gorethink.Table(r.table).Changes().Run(r.client)
+	tables, err := gorethink.DB(r.database).TableList().Run(r.client)
 	if err != nil {
-		r.pipe.Err <- err
 		return err
 	}
-	defer ccursor.Close()
+	defer tables.Close()
 
-	if err := r.sendAllDocuments(); err != nil {
-		r.pipe.Err <- err
-		return err
-	}
-
-	if r.tail {
-		if err := r.sendChanges(ccursor); err != nil {
-			r.pipe.Err <- err
-			return err
+	var (
+		wg     sync.WaitGroup
+		outerr error
+		table  string
+	)
+	for tables.Next(&table) {
+		if match := r.tableMatch.MatchString(table); !match {
+			if r.debug {
+				fmt.Printf("table, %s, didn't match\n", table)
+			}
+			continue
 		}
+		wg.Add(1)
+		start := make(chan bool)
+		if r.tail {
+			go r.startupChangesForTable(table, start, &wg)
+		}
+		go func(table string) {
+			defer wg.Done()
+
+			if err := r.sendAllDocuments(table); err != nil {
+				r.pipe.Err <- err
+				outerr = err
+			} else if r.tail {
+				start <- true
+			}
+			close(start)
+
+		}(table)
 	}
+	wg.Wait()
 
 	return nil
 }
 
-func (r *Rethinkdb) sendAllDocuments() error {
+func (r *Rethinkdb) startupChangesForTable(table string, start <-chan bool, wg *sync.WaitGroup) error {
+	wg.Add(1)
+	defer wg.Done()
 	if r.debug {
-		fmt.Printf("sending all documents\n")
+		fmt.Printf("getting a changes cursor for %s\n", table)
+	}
+	ccursor, err := gorethink.Table(table).Changes().Run(r.client)
+	if err != nil {
+		r.pipe.Err <- err
+		return err
+	}
+	// wait until time to start sending changes
+	<-start
+	if err := r.sendChanges(table, ccursor); err != nil {
+		r.pipe.Err <- err
+		return err
+	}
+	return nil
+}
+
+func (r *Rethinkdb) sendAllDocuments(table string) error {
+	if r.debug {
+		fmt.Printf("sending all documents for %s\n", table)
 	}
 
-	cursor, err := gorethink.Table(r.table).Run(r.client)
+	cursor, err := gorethink.Table(table).Run(r.client)
 	if err != nil {
 		return err
 	}
@@ -208,7 +248,7 @@ func (r *Rethinkdb) sendAllDocuments() error {
 			return nil
 		}
 
-		msg := message.NewMsg(message.Insert, r.prepareDocument(doc))
+		msg := message.NewMsg(message.Insert, r.prepareDocument(doc), r.computeNamespace(table))
 		r.pipe.Send(msg)
 	}
 
@@ -219,11 +259,11 @@ func (r *Rethinkdb) sendAllDocuments() error {
 	return nil
 }
 
-func (r *Rethinkdb) sendChanges(ccursor *gorethink.Cursor) error {
+func (r *Rethinkdb) sendChanges(table string, ccursor *gorethink.Cursor) error {
+	defer ccursor.Close()
 	if r.debug {
-		fmt.Printf("sending changes\n")
+		fmt.Printf("sending changes for %s\n", table)
 	}
-
 	var change rethinkDbChangeNotification
 	for ccursor.Next(&change) {
 		if stop := r.pipe.Stopped; stop {
@@ -238,16 +278,18 @@ func (r *Rethinkdb) sendChanges(ccursor *gorethink.Cursor) error {
 		if change.Error != "" {
 			return errors.New(change.Error)
 		} else if change.OldVal != nil && change.NewVal != nil {
-			msg = message.NewMsg(message.Update, r.prepareDocument(change.NewVal))
+			msg = message.NewMsg(message.Update, r.prepareDocument(change.NewVal), r.computeNamespace(table))
 		} else if change.NewVal != nil {
-			msg = message.NewMsg(message.Insert, r.prepareDocument(change.NewVal))
+			msg = message.NewMsg(message.Insert, r.prepareDocument(change.NewVal), r.computeNamespace(table))
 		} else if change.OldVal != nil {
-			msg = message.NewMsg(message.Delete, r.prepareDocument(change.OldVal))
+			msg = message.NewMsg(message.Delete, r.prepareDocument(change.OldVal), r.computeNamespace(table))
 		}
 
 		if msg != nil {
-			fmt.Printf("msg: %#v\n", msg)
 			r.pipe.Send(msg)
+			if r.debug {
+				fmt.Printf("msg: %#v\n", msg)
+			}
 		}
 	}
 
@@ -256,6 +298,10 @@ func (r *Rethinkdb) sendChanges(ccursor *gorethink.Cursor) error {
 	}
 
 	return nil
+}
+
+func (r *Rethinkdb) computeNamespace(table string) string {
+	return strings.Join([]string{r.database, table}, ".")
 }
 
 // prepareDocument moves the `id` field to the `_id` field, which is more
@@ -271,8 +317,7 @@ func (r *Rethinkdb) prepareDocument(doc map[string]interface{}) map[string]inter
 
 // Listen start's the adaptor's listener
 func (r *Rethinkdb) Listen() (err error) {
-	r.recreateTable()
-	return r.pipe.Listen(r.applyOp)
+	return r.pipe.Listen(r.applyOp, r.tableMatch)
 }
 
 // Stop the adaptor
@@ -288,6 +333,11 @@ func (r *Rethinkdb) applyOp(msg *message.Msg) (*message.Msg, error) {
 		err  error
 	)
 
+	_, msgTable, err := msg.SplitNamespace()
+	if err != nil {
+		r.pipe.Err <- NewError(ERROR, r.path, fmt.Sprintf("rethinkdb error (msg namespace improperly formatted, must be database.table, got %s)", msg.Namespace), msg.Data)
+		return msg, nil
+	}
 	if !msg.IsMap() {
 		r.pipe.Err <- NewError(ERROR, r.path, "rethinkdb error (document must be a json document)", msg.Data)
 		return msg, nil
@@ -301,11 +351,11 @@ func (r *Rethinkdb) applyOp(msg *message.Msg) (*message.Msg, error) {
 			r.pipe.Err <- NewError(ERROR, r.path, "rethinkdb error (cannot delete an object with a nil id)", msg.Data)
 			return msg, nil
 		}
-		resp, err = gorethink.Table(r.table).Get(id).Delete().RunWrite(r.client)
+		resp, err = gorethink.Table(msgTable).Get(id).Delete().RunWrite(r.client)
 	case message.Insert:
-		resp, err = gorethink.Table(r.table).Insert(doc).RunWrite(r.client)
+		resp, err = gorethink.Table(msgTable).Insert(doc).RunWrite(r.client)
 	case message.Update:
-		resp, err = gorethink.Table(r.table).Insert(doc, gorethink.InsertOpts{Conflict: "replace"}).RunWrite(r.client)
+		resp, err = gorethink.Table(msgTable).Insert(doc, gorethink.InsertOpts{Conflict: "replace"}).RunWrite(r.client)
 	}
 	if err != nil {
 		r.pipe.Err <- NewError(ERROR, r.path, "rethinkdb error (%s)", err)
@@ -318,14 +368,6 @@ func (r *Rethinkdb) applyOp(msg *message.Msg) (*message.Msg, error) {
 	}
 
 	return msg, nil
-}
-
-func (r *Rethinkdb) recreateTable() {
-	if r.debug {
-		fmt.Printf("dropping and creating table '%s' on database '%s'\n", r.table, r.database)
-	}
-	gorethink.DB(r.database).TableDrop(r.table).RunWrite(r.client)
-	gorethink.DB(r.database).TableCreate(r.table).RunWrite(r.client)
 }
 
 // handleresponse takes the rethink response and turn it into something we can consume elsewhere

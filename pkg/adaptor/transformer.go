@@ -3,6 +3,7 @@ package adaptor
 import (
 	"fmt"
 	"io/ioutil"
+	"regexp"
 	"time"
 
 	"github.com/compose/mejson"
@@ -20,6 +21,7 @@ type Transformer struct {
 
 	pipe *pipe.Pipe
 	path string
+	ns   *regexp.Regexp
 
 	debug  bool
 	script *otto.Script
@@ -42,6 +44,11 @@ func NewTransformer(pipe *pipe.Pipe, path string, extra Config) (StopStartListen
 		return t, fmt.Errorf("no filename specified")
 	}
 
+	_, t.ns, err = extra.compileNamespace()
+	if err != nil {
+		return t, NewError(CRITICAL, path, fmt.Sprintf("can't split transformer namespace (%s)", err.Error()), nil)
+	}
+
 	ba, err := ioutil.ReadFile(conf.Filename)
 	if err != nil {
 		return t, err
@@ -60,7 +67,7 @@ func NewTransformer(pipe *pipe.Pipe, path string, extra Config) (StopStartListen
 // transformers it into mejson, and then uses the supplied javascript module.exports function
 // to transform the document.  The document is then emited to this adaptor's children
 func (t *Transformer) Listen() (err error) {
-	return t.pipe.Listen(t.transformOne)
+	return t.pipe.Listen(t.transformOne, t.ns)
 }
 
 // initEvironment prepares the javascript vm and compiles the transformer script
@@ -116,6 +123,7 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 		"data": msg.Data,
 		"ts":   msg.Timestamp,
 		"op":   msg.Op.String(),
+		"ns":   msg.Namespace,
 	}
 	if msg.IsMap() {
 		if doc, err = mejson.Marshal(msg.Data); err != nil {
@@ -164,6 +172,7 @@ func (t *Transformer) toMsg(incoming interface{}, msg *message.Msg) error {
 	case map[string]interface{}: // we're a proper message.Msg, so copy the data over
 		msg.Op = message.OpTypeFromString(newMsg["op"].(string))
 		msg.Timestamp = newMsg["ts"].(int64)
+		msg.Namespace = newMsg["ns"].(string)
 
 		switch data := newMsg["data"].(type) {
 		case otto.Value:
@@ -216,7 +225,8 @@ func (t *Transformer) transformerError(lvl ErrorLevel, err error, msg *message.M
 type TransformerConfig struct {
 	// file containing transformer javascript
 	// must define a module.exports = function(doc) { .....; return doc }
-	Filename string `json:"filename" doc:"the filename containing the javascript transform fn"`
+	Filename  string `json:"filename" doc:"the filename containing the javascript transform fn"`
+	Namespace string `json:"namespace" doc:"namespace to transform"`
 
 	// verbose output
 	Debug bool `json:"debug" doc:"display debug information"` // debug mode

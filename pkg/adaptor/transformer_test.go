@@ -28,57 +28,64 @@ func TestTransformOne(t *testing.T) {
 		{
 			// just pass through
 			"module.exports=function(doc) { return doc }",
-			message.NewMsg(message.Insert, map[string]interface{}{"id": "id1", "name": "nick"}),
-			message.NewMsg(message.Insert, map[string]interface{}{"id": "id1", "name": "nick"}),
+			message.NewMsg(message.Insert, map[string]interface{}{"id": "id1", "name": "nick"}, "database.collection"),
+			message.NewMsg(message.Insert, map[string]interface{}{"id": "id1", "name": "nick"}, "database.collection"),
 			false,
 		},
 		{
 			// delete the 'name' property
 			"module.exports=function(doc) { doc['data'] = _.omit(doc['data'], ['name']); return doc }",
-			message.NewMsg(message.Insert, map[string]interface{}{"id": "id2", "name": "nick"}),
-			message.NewMsg(message.Insert, map[string]interface{}{"id": "id2"}),
+			message.NewMsg(message.Insert, map[string]interface{}{"id": "id2", "name": "nick"}, "database.collection"),
+			message.NewMsg(message.Insert, map[string]interface{}{"id": "id2"}, "database.collection"),
 			false,
 		},
 		{
 			// delete's should be processed the same
 			"module.exports=function(doc) { doc['data'] =  _.omit(doc['data'], ['name']); return doc }",
-			message.NewMsg(message.Delete, map[string]interface{}{"id": "id2", "name": "nick"}),
-			message.NewMsg(message.Delete, map[string]interface{}{"id": "id2"}),
+			message.NewMsg(message.Delete, map[string]interface{}{"id": "id2", "name": "nick"}, "database.collection"),
+			message.NewMsg(message.Delete, map[string]interface{}{"id": "id2"}, "database.collection"),
 			false,
 		},
 		{
 			// delete's and commands should pass through, and the transformer fn shouldn't run
 			"module.exports=function(doc) { return _.omit(doc['data'], ['name']) }",
-			message.NewMsg(message.Command, map[string]interface{}{"id": "id2", "name": "nick"}),
-			message.NewMsg(message.Command, map[string]interface{}{"id": "id2", "name": "nick"}),
+			message.NewMsg(message.Command, map[string]interface{}{"id": "id2", "name": "nick"}, "database.collection"),
+			message.NewMsg(message.Command, map[string]interface{}{"id": "id2", "name": "nick"}, "database.collection"),
 			false,
 		},
 		{
 			// bson should marshal and unmarshal properly
 			"module.exports=function(doc) { return doc }",
-			message.NewMsg(message.Insert, map[string]interface{}{"id": bsonID1, "name": "nick"}),
-			message.NewMsg(message.Insert, map[string]interface{}{"id": bsonID1, "name": "nick"}),
+			message.NewMsg(message.Insert, map[string]interface{}{"id": bsonID1, "name": "nick"}, "database.collection"),
+			message.NewMsg(message.Insert, map[string]interface{}{"id": bsonID1, "name": "nick"}, "database.collection"),
 			false,
 		},
 		{
 			// we should be able to change the bson
 			"module.exports=function(doc) { doc['data']['id']['$oid'] = '54a4420502a14b9641000001'; return doc }",
-			message.NewMsg(message.Insert, map[string]interface{}{"id": bsonID1, "name": "nick"}),
-			message.NewMsg(message.Insert, map[string]interface{}{"id": bsonID2, "name": "nick"}),
+			message.NewMsg(message.Insert, map[string]interface{}{"id": bsonID1, "name": "nick"}, "database.collection"),
+			message.NewMsg(message.Insert, map[string]interface{}{"id": bsonID2, "name": "nick"}, "database.collection"),
 			false,
 		}, {
 			// we should be able to skip a nil message
 			"module.exports=function(doc) { return false }",
-			message.NewMsg(message.Insert, map[string]interface{}{"id": bsonID1, "name": "nick"}),
-			message.NewMsg(message.Noop, map[string]interface{}{"id": bsonID1, "name": "nick"}),
+			message.NewMsg(message.Insert, map[string]interface{}{"id": bsonID1, "name": "nick"}, "database.collection"),
+			message.NewMsg(message.Noop, map[string]interface{}{"id": bsonID1, "name": "nick"}, "database.collection"),
 			false,
 		},
 		{
 			// this throws an error
 			"module.exports=function(doc) { return doc['data']['name'] }",
-			message.NewMsg(message.Insert, map[string]interface{}{"id": bsonID1, "name": "nick"}),
-			message.NewMsg(message.Insert, "nick"),
+			message.NewMsg(message.Insert, map[string]interface{}{"id": bsonID1, "name": "nick"}, "database.collection"),
+			message.NewMsg(message.Insert, "nick", "database.collection"),
 			true,
+		},
+		{
+			// we should be able to change the namespace
+			"module.exports=function(doc) { doc['ns'] = 'database.table'; return doc }",
+			message.NewMsg(message.Insert, map[string]interface{}{"id": bsonID1, "name": "nick"}, "database.collection"),
+			message.NewMsg(message.Insert, map[string]interface{}{"id": bsonID1, "name": "nick"}, "database.table"),
+			false,
 		},
 	}
 	for _, v := range data {
@@ -112,7 +119,7 @@ func BenchmarkTransformOne(b *testing.B) {
 		panic(err)
 	}
 
-	msg := message.NewMsg(message.Insert, map[string]interface{}{"id": bson.NewObjectId(), "name": "nick"})
+	msg := message.NewMsg(message.Insert, map[string]interface{}{"id": bson.NewObjectId(), "name": "nick"}, "database.collection")
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
