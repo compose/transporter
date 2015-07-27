@@ -2,12 +2,25 @@
 	"ImportPath": "github.com/compose/transporter",
 	"GoVersion": "go1.4.2",
 	"Packages": [
-		"github.com/influxdb/influxdb/client"
+		"./..."
 	],
 	"Deps": [
 		{
+			"ImportPath": "github.com/Sirupsen/logrus",
+			"Comment": "v0.8.2-20-gab7e46e",
+			"Rev": "ab7e46ea22bd379e660230844f96d20f1dabc21a"
+		},
+		{
+			"ImportPath": "github.com/araddon/gou",
+			"Rev": "515d4d643d789843ea2920427bd7f2b24b45f5af"
+		},
+		{
 			"ImportPath": "github.com/armon/go-metrics",
 			"Rev": "b2d95e5291cdbc26997d1301a5e467ecbb240e25"
+		},
+		{
+			"ImportPath": "github.com/bitly/go-hostpool",
+			"Rev": "d0e59c22a56e8dadfed24f74f452cea5a52722d2"
 		},
 		{
 			"ImportPath": "github.com/boltdb/bolt",
@@ -15,12 +28,43 @@
 			"Rev": "980670afcebfd86727505b3061d8667195234816"
 		},
 		{
+			"ImportPath": "github.com/cenkalti/backoff",
+			"Rev": "6c45d6bc1e78d94431dff8fc28a99f20bafa355a"
+		},
+		{
+			"ImportPath": "github.com/compose/mejson",
+			"Rev": "a53014fefceabf69c0fe2d3219d5d39ea9fbe9da"
+		},
+		{
+			"ImportPath": "github.com/dancannon/gorethink/encoding",
+			"Comment": "v1.x.x",
+			"Rev": "8aca6ba2cc6e873299617d730fac0d7f6593113a"
+		},
+		{
+			"ImportPath": "github.com/dancannon/gorethink/ql2",
+			"Comment": "v1.x.x",
+			"Rev": "8aca6ba2cc6e873299617d730fac0d7f6593113a"
+		},
+		{
+			"ImportPath": "github.com/dancannon/gorethink/types",
+			"Comment": "v1.x.x",
+			"Rev": "8aca6ba2cc6e873299617d730fac0d7f6593113a"
+		},
+		{
 			"ImportPath": "github.com/gogo/protobuf/proto",
 			"Rev": "5ba1012ef3868db1b9ff374280a558c1bfff39c3"
 		},
 		{
+			"ImportPath": "github.com/golang/protobuf/proto",
+			"Rev": "67cbcadfc96f21404e1d5ef40e7f3b35b0a073c5"
+		},
+		{
 			"ImportPath": "github.com/hashicorp/go-msgpack/codec",
 			"Rev": "fa3f63826f7c23912c15263591e65d54d080b458"
+		},
+		{
+			"ImportPath": "github.com/hashicorp/go-version",
+			"Rev": "999359b6b7a041ce16e695d51e92145b83f01087"
 		},
 		{
 			"ImportPath": "github.com/hashicorp/raft",
@@ -31,12 +75,73 @@
 			"Rev": "d1e82c1ec3f15ee991f7cc7ffd5b67ff6f5bbaee"
 		},
 		{
+			"ImportPath": "github.com/influxdb/influxdb/client",
+			"Comment": "v0.9.1-rc1-307-gb7bbebd",
+			"Rev": "b7bbebdfc004e603abb1b3dccace3756c8b0bbc1"
+		},
+		{
+			"ImportPath": "github.com/influxdb/influxdb/influxql",
+			"Comment": "v0.9.1-rc1-307-gb7bbebd",
+			"Rev": "b7bbebdfc004e603abb1b3dccace3756c8b0bbc1"
+		},
+		{
+			"ImportPath": "github.com/influxdb/influxdb/meta",
+			"Comment": "v0.9.1-rc1-307-gb7bbebd",
+			"Rev": "b7bbebdfc004e603abb1b3dccace3756c8b0bbc1"
+		},
+		{
+			"ImportPath": "github.com/influxdb/influxdb/snapshot",
+			"Comment": "v0.9.1-rc1-307-gb7bbebd",
+			"Rev": "b7bbebdfc004e603abb1b3dccace3756c8b0bbc1"
+		},
+		{
+			"ImportPath": "github.com/influxdb/influxdb/toml",
+			"Comment": "v0.9.1-rc1-307-gb7bbebd",
+			"Rev": "b7bbebdfc004e603abb1b3dccace3756c8b0bbc1"
+		},
+		{
+			"ImportPath": "github.com/influxdb/influxdb/tsdb",
+			"Comment": "v0.9.1-rc1-307-gb7bbebd",
+			"Rev": "b7bbebdfc004e603abb1b3dccace3756c8b0bbc1"
+		},
+		{
+			"ImportPath": "github.com/mattbaird/elastigo/lib",
+			"Comment": "v1.0-181-g449623d",
+			"Rev": "449623d52ce077d827406081faa0c84563e330b7"
+		},
+		{
+			"ImportPath": "github.com/mitchellh/cli",
+			"Rev": "e3c2e3d39391e9beb9660ccd6b4bd9a2f38dd8a0"
+		},
+		{
+			"ImportPath": "github.com/nu7hatch/gouuid",
+			"Rev": "179d4d0c4d8d407a32af483c2354df1d2c91e6c3"
+		},
+		{
+			"ImportPath": "github.com/robertkrimen/otto",
+			"Rev": "dea31a3d392779af358ec41f77a07fcc7e9d04ba"
+		},
+		{
 			"ImportPath": "golang.org/x/crypto/bcrypt",
 			"Rev": "7d5b0be716b9d6d4269afdaae10032bb296d3cdf"
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/blowfish",
 			"Rev": "7d5b0be716b9d6d4269afdaae10032bb296d3cdf"
+		},
+		{
+			"ImportPath": "gopkg.in/dancannon/gorethink.v1",
+			"Comment": "v1.x.x",
+			"Rev": "8aca6ba2cc6e873299617d730fac0d7f6593113a"
+		},
+		{
+			"ImportPath": "gopkg.in/mgo.v2",
+			"Comment": "r2015.06.03-3-g3569c88",
+			"Rev": "3569c88678d88179dcbd68d02ab081cbca3cd4d0"
+		},
+		{
+			"ImportPath": "gopkg.in/yaml.v2",
+			"Rev": "eca94c41d994ae2215d455ce578ae6e2dc6ee516"
 		}
 	]
 }
