@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"regexp"
 	"sync"
 	"time"
 
@@ -25,6 +26,7 @@ type Influxdb struct {
 
 	// save time by setting these once
 	database        string
+	nsMatch         *regexp.Regexp
 	retentionPolicy string
 	tags            map[string]string
 
@@ -63,7 +65,6 @@ func NewInfluxdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, er
 
 	i := &Influxdb{
 		uri:              u,
-		database:         conf.Namespace,
 		retentionPolicy:  conf.RetentionPolicy,
 		tags:             conf.Tags,
 		pipe:             p,
@@ -71,6 +72,11 @@ func NewInfluxdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, er
 		opsBuffer:        make([]client.Point, 0, INFLUX_BUFFER_LEN),
 		bulkWriteChannel: make(chan client.Point),
 		bulkQuitChannel:  make(chan chan bool),
+	}
+
+	i.database, i.nsMatch, err = extra.compileNamespace()
+	if err != nil {
+		return i, err
 	}
 
 	if i.retentionPolicy == "" {
@@ -102,7 +108,7 @@ func (i *Influxdb) Listen() (err error) {
 	}()
 
 	go i.bulkWriter()
-	return i.pipe.Listen(i.applyOp)
+	return i.pipe.Listen(i.applyOp, i.nsMatch)
 }
 
 // Stop the adaptor
@@ -222,7 +228,7 @@ func (i *Influxdb) setupClient() (influxClient *client.Client, err error) {
 // the notable difference between this and dbConfig is the presence of the Tags and RetentionPolicy option
 type InfluxdbConfig struct {
 	URI             string            `json:"uri" doc:"the uri to connect to, in the form https://user:password@host.com:27017/database"`
-	Namespace       string            `json:"namespace" doc:"influxdb namespace to read/write (a.k.a. database)"`
+	Namespace       string            `json:"namespace" doc:"influxdb namespace to read/write, separate with '.', first part is database, second part is used to filter from sources"`
 	Debug           bool              `json:"debug" doc:"display debug information"`
 	Tags            map[string]string `json:"tags" doc:"default tags to include for each measurement"`
 	RetentionPolicy string            `json:"retention_policy" doc:"specify a custom retention policy for the database"`
