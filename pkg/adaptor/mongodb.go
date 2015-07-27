@@ -143,6 +143,12 @@ func NewMongodb(p *pipe.Pipe, path string, extra Config) (StopStartListener, err
 	m.mongoSession.SetBatch(1000)
 	m.mongoSession.SetPrefetch(0.5)
 
+	if m.tail {
+		if iter := m.mongoSession.DB("local").C("oplog.rs").Find(bson.M{}).Limit(1).Iter(); iter.Err() != nil {
+			return m, iter.Err()
+		}
+	}
+
 	return m, nil
 }
 
