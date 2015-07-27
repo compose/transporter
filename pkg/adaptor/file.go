@@ -63,7 +63,7 @@ func (d *File) Listen() (err error) {
 		}
 	}
 
-	return d.pipe.Listen(regexp.MustCompile(`.*`), d.dumpMessage)
+	return d.pipe.Listen(d.dumpMessage, regexp.MustCompile(`.*`))
 }
 
 // Stop the adaptor

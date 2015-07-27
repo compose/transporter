@@ -317,7 +317,7 @@ func (r *Rethinkdb) prepareDocument(doc map[string]interface{}) map[string]inter
 
 // Listen start's the adaptor's listener
 func (r *Rethinkdb) Listen() (err error) {
-	return r.pipe.Listen(r.tableMatch, r.applyOp)
+	return r.pipe.Listen(r.applyOp, r.tableMatch)
 }
 
 // Stop the adaptor

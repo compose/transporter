@@ -81,7 +81,7 @@ func (e *Elasticsearch) Listen() error {
 		}
 	}()
 
-	return e.pipe.Listen(e.typeMatch, e.applyOp)
+	return e.pipe.Listen(e.applyOp, e.typeMatch)
 }
 
 // Stop the adaptor

@@ -183,7 +183,7 @@ func (m *Mongodb) Listen() (err error) {
 	if m.bulk {
 		go m.bulkWriter()
 	}
-	return m.pipe.Listen(m.collectionMatch, m.writeMessage)
+	return m.pipe.Listen(m.writeMessage, m.collectionMatch)
 }
 
 // Stop the adaptor

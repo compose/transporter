@@ -66,7 +66,7 @@ func NewPipe(pipe *Pipe, path string) *Pipe {
 // Listen starts a listening loop that pulls messages from the In chan, applies fn(msg), a `func(message.Msg) error`, and emits them on the Out channel.
 // Errors will be emited to the Pipe's Err chan, and will terminate the loop.
 // The listening loop can be interupted by calls to Stop().
-func (m *Pipe) Listen(nsFilter *regexp.Regexp, fn func(*message.Msg) (*message.Msg, error)) error {
+func (m *Pipe) Listen(fn func(*message.Msg) (*message.Msg, error), nsFilter *regexp.Regexp) error {
 	if m.In == nil {
 		return nil
 	}

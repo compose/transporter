@@ -67,7 +67,7 @@ func NewTransformer(pipe *pipe.Pipe, path string, extra Config) (StopStartListen
 // transformers it into mejson, and then uses the supplied javascript module.exports function
 // to transform the document.  The document is then emited to this adaptor's children
 func (t *Transformer) Listen() (err error) {
-	return t.pipe.Listen(t.ns, t.transformOne)
+	return t.pipe.Listen(t.transformOne, t.ns)
 }
 
 // initEvironment prepares the javascript vm and compiles the transformer script
