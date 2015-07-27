@@ -34,7 +34,7 @@ func setupFiles(in, out string) {
 func setupMongo() {
 	// setup mongo
 	mongoSess, _ := mgo.Dial(mongoUri)
-	collection := mongoSess.DB("test").C("outColl")
+	collection := mongoSess.DB("testOut").C("coll")
 	collection.DropCollection()
 
 	for i := 0; i <= 5; i += 1 {
@@ -43,7 +43,7 @@ func setupMongo() {
 
 	mongoSess.Close()
 	mongoSess, _ = mgo.Dial(mongoUri)
-	collection = mongoSess.DB("test").C("inColl")
+	collection = mongoSess.DB("testIn").C("coll")
 	collection.DropCollection()
 	mongoSess.Close()
 }
@@ -99,8 +99,8 @@ func TestMongoToMongo(t *testing.T) {
 	setupMongo()
 
 	var (
-		inNs  = "test.inColl"
-		outNs = "test.outColl"
+		inNs  = "testIn.coll"
+		outNs = "testOut.coll"
 	)
 
 	// create the source node and attach our sink
@@ -128,8 +128,8 @@ func TestMongoToMongo(t *testing.T) {
 	}
 	defer mongoSess.Close()
 
-	collOut := mongoSess.DB("test").C("outColl")
-	collIn := mongoSess.DB("test").C("inColl")
+	collOut := mongoSess.DB("testOut").C("coll")
+	collIn := mongoSess.DB("testIn").C("coll")
 
 	// are the counts the same?
 	outCount, _ := collOut.Count()
@@ -155,7 +155,7 @@ func TestMongoToMongo(t *testing.T) {
 	}
 
 	// clean up
-	mongoSess.DB("test").C("outColl").DropCollection()
-	mongoSess.DB("test").C("inColl").DropCollection()
+	mongoSess.DB("testOut").C("coll").DropCollection()
+	mongoSess.DB("testIn").C("coll").DropCollection()
 
 }

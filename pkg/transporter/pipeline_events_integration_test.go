@@ -71,7 +71,10 @@ func TestEventsBroadcast(t *testing.T) {
 		t.FailNow()
 	}
 
-	p.Run()
+	err = p.Run()
+	if err != nil {
+		t.FailNow()
+	}
 
 	time.Sleep(time.Duration(5) * time.Second)
 

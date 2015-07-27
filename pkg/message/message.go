@@ -8,6 +8,8 @@ package message
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
 
 	"gopkg.in/mgo.v2/bson"
@@ -20,18 +22,38 @@ type Msg struct {
 	Timestamp int64
 	Op        OpType
 	Data      interface{}
+	Namespace string
 }
 
 // NewMsg returns a new Msg with the ID extracted
 // from the original document
-func NewMsg(op OpType, data interface{}) *Msg {
+func NewMsg(op OpType, data interface{}, namespace string) *Msg {
 	m := &Msg{
 		Timestamp: time.Now().Unix(),
 		Op:        op,
 		Data:      data,
+		Namespace: namespace,
 	}
 
 	return m
+}
+
+func (m *Msg) MatchNamespace(nsFilter *regexp.Regexp) (bool, error) {
+	_, ns, err := m.SplitNamespace()
+	if err != nil {
+		return false, err
+	}
+
+	return nsFilter.MatchString(ns), nil
+}
+
+func (m *Msg) SplitNamespace() (string, string, error) {
+	fields := strings.SplitN(m.Namespace, ".", 2)
+
+	if len(fields) != 2 {
+		return "", "", fmt.Errorf("malformed msg namespace")
+	}
+	return fields[0], fields[1], nil
 }
 
 // IsMap returns a bool indicating whether or not the msg.Data is maplike, i.e. a map[string]interface

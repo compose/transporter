@@ -5,6 +5,7 @@ This release contains several breaking changes but is a first step towards a sta
 ### Features
 - [#95](https://github.com/compose/transporter/pull/95): add a Noop message type, and the ability to skip messages, fixes [#93](https://github.com/compose/transporter/issues/93)
 - [#100](https://github.com/compose/transporter/pull/100): replace environment variables, fixes [#88](https://github.com/compose/transporter/issues/88)
+- [#101](https://github.com/compose/transporter/pull/101): (Phase 1) Multi namespace support, addresses [#78](https://github.com/compose/transporter/issues/78) and [#23](https://github.com/compose/transporter/issues/23)
 
 ### Bugfixes
 - [#94](https://github.com/compose/transporter/pull/94): jsonlog, fixes [#92](Comment doesnt reflect jsonlog output)
