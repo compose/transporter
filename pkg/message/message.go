@@ -81,8 +81,8 @@ func (m *Msg) Map() map[string]interface{} {
 
 // IDString returns the original id as a string value
 func (m *Msg) IDString(key string) (string, error) {
-	doc, ok := m.Data.(map[string]interface{})
-	if !ok {
+	doc := m.Map()
+	if doc == nil {
 		return "", fmt.Errorf("data is not a map")
 	}
 	id, ok := doc[key]
