@@ -1,3 +1,5 @@
+[![Circle CI](https://circleci.com/gh/compose/transporter.svg?style=svg)](https://circleci.com/gh/compose/transporter)
+
 Transporter
 ===========
 
