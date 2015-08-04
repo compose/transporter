@@ -1,5 +1,7 @@
 [![Circle CI](https://circleci.com/gh/compose/transporter.svg?style=svg)](https://circleci.com/gh/compose/transporter)
 
+Compose helps with database transformations from one store to another.  It can also can sync from one to another or several stores.
+
 Transporter
 ===========
 
@@ -61,8 +63,11 @@ Run
 - eval `transporter eval --config ./test/config.yaml 'Source({name:"localmongo", namespace: "boom.foo"}).save({name:"tofile"})' `
 - test `transporter test --config ./test/config.yaml test/application.js `
 
-Complete beginners guide (OS X)
+Complete beginners guide
 ---
+
+### OS X
+
 - ensure you have mercurial installed as it is required for a dependency
     - using the homebrew package manager `brew install hg` [Homebrew Guide/Install](http://brew.sh/)
 - install the Mac OS X binary build from https://golang.org/dl/
@@ -76,6 +81,15 @@ Complete beginners guide (OS X)
     - now you can build `go build -a ./cmd/...`
 
 At this point you should be able to run transporter via `$GOPATH/bin/transporter`,  you may need to add $GOPATH to your PATH environment variable. Something along the lines of `export PATH="$GOPATH/bin:$PATH"` should work.
+
+### Windows
+
+See [READMEWINDOWS.md](https://github.com/compose/transporter/blob/master/READMEWINDOWS.md)
+
+Transporter in the Media
+===
+
+* [Compose's articles](https://www.compose.io/articles/search/?s=transporter)
 
 Contributing to Transporter
 ======================
