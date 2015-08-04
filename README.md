@@ -1,6 +1,6 @@
 [![Circle CI](https://circleci.com/gh/compose/transporter.svg?style=svg)](https://circleci.com/gh/compose/transporter)
 
-Copmopse helps with database transportation and transformations from one store to another.
+Compose helps with database transformations from one store to another.  It can also can sync from one to another or several stores.
 
 Transporter
 ===========
