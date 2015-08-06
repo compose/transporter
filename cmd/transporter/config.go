@@ -25,7 +25,7 @@ type Config struct {
 		URI             string `json:"uri" yaml:"uri"`           // Uri of session store
 		SessionInterval string `json:"interval" yaml:"interval"` // how often to persist the sesion states
 		Type            string `json:"type" yaml:"type"`         // the type of SessionStore to use
-	}
+	} `json:"sessions" yaml:"sessions"`
 	Nodes map[string]map[string]interface{}
 }
 
