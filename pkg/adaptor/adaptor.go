@@ -2,18 +2,22 @@ package adaptor
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/compose/transporter/pkg/pipe"
 )
 
-var (
-	// ErrMissingNode is returned when the requested node type was not found in the map
-	ErrMissingNode = errors.New("adaptor not found in registry")
-)
+// ErrAdaptor gives the details of the failed adaptor
+type ErrAdaptor struct {
+	name string
+}
+
+func (a ErrAdaptor) Error() string {
+	return fmt.Sprintf("adaptor '%s' not found in registry", a.name)
+}
 
 // StopStartListener defines the interface that all database connectors and nodes must follow.
 // Start() consumes data from the interface,
@@ -38,7 +42,7 @@ func Createadaptor(kind, path string, extra Config, p *pipe.Pipe) (adaptor StopS
 
 	regentry, ok := Adaptors[kind]
 	if !ok {
-		return nil, ErrMissingNode
+		return nil, ErrAdaptor{kind}
 	}
 
 	args := []reflect.Value{
@@ -53,7 +57,7 @@ func Createadaptor(kind, path string, extra Config, p *pipe.Pipe) (adaptor StopS
 	inter := result[1].Interface()
 
 	if inter != nil {
-		return nil, inter.(error)
+		return nil, fmt.Errorf("cannot create %s adaptor (%s). %v", kind, path, inter.(error))
 	}
 
 	return val.Interface().(StopStartListener), err
@@ -102,6 +106,18 @@ func (c *Config) splitNamespace() (string, string, error) {
 		return "", "", fmt.Errorf("malformed namespace, expected a '.' deliminated string")
 	}
 	return fields[0], fields[1], nil
+}
+
+// compileNamespace split's on the first '.' and then compiles the second portion to use as the msg filter
+func (c *Config) compileNamespace() (string, *regexp.Regexp, error) {
+	field0, field1, err := c.splitNamespace()
+
+	if err != nil {
+		return "", nil, err
+	}
+
+	compiledNs, err := regexp.Compile(strings.Trim(field1, "/"))
+	return field0, compiledNs, err
 }
 
 // dbConfig is a standard typed config struct to use for as general purpose config for most databases.

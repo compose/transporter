@@ -3,6 +3,7 @@ package adaptor
 import (
 	"fmt"
 	"io/ioutil"
+	"regexp"
 	"time"
 
 	"github.com/compose/mejson"
@@ -20,6 +21,7 @@ type Transformer struct {
 
 	pipe *pipe.Pipe
 	path string
+	ns   *regexp.Regexp
 
 	debug  bool
 	script *otto.Script
@@ -39,7 +41,12 @@ func NewTransformer(pipe *pipe.Pipe, path string, extra Config) (StopStartListen
 	t := &Transformer{pipe: pipe, path: path}
 
 	if conf.Filename == "" {
-		return t, fmt.Errorf("No filename specified")
+		return t, fmt.Errorf("no filename specified")
+	}
+
+	_, t.ns, err = extra.compileNamespace()
+	if err != nil {
+		return t, NewError(CRITICAL, path, fmt.Sprintf("can't split transformer namespace (%s)", err.Error()), nil)
 	}
 
 	ba, err := ioutil.ReadFile(conf.Filename)
@@ -49,6 +56,10 @@ func NewTransformer(pipe *pipe.Pipe, path string, extra Config) (StopStartListen
 
 	t.fn = string(ba)
 
+	if err = t.initEnvironment(); err != nil {
+		return t, err
+	}
+
 	return t, nil
 }
 
@@ -56,11 +67,7 @@ func NewTransformer(pipe *pipe.Pipe, path string, extra Config) (StopStartListen
 // transformers it into mejson, and then uses the supplied javascript module.exports function
 // to transform the document.  The document is then emited to this adaptor's children
 func (t *Transformer) Listen() (err error) {
-	if err = t.initEnvironment(); err != nil {
-		return err
-	}
-
-	return t.pipe.Listen(t.transformOne)
+	return t.pipe.Listen(t.transformOne, t.ns)
 }
 
 // initEvironment prepares the javascript vm and compiles the transformer script
@@ -87,7 +94,7 @@ func (t *Transformer) initEnvironment() (err error) {
 
 // Start the adaptor as a source (not implemented for this adaptor)
 func (t *Transformer) Start() error {
-	return fmt.Errorf("Transformers can't be used as a source")
+	return fmt.Errorf("transformers can't be used as a source")
 }
 
 // Stop the adaptor
@@ -107,21 +114,26 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 	)
 
 	// short circuit for deletes and commands
-	if msg.Op == message.Delete || msg.Op == message.Command {
+	if msg.Op == message.Command {
 		return msg, nil
 	}
 
 	now := time.Now().Nanosecond()
+	currMsg := map[string]interface{}{
+		"data": msg.Data,
+		"ts":   msg.Timestamp,
+		"op":   msg.Op.String(),
+		"ns":   msg.Namespace,
+	}
 	if msg.IsMap() {
 		if doc, err = mejson.Marshal(msg.Data); err != nil {
 			t.pipe.Err <- t.transformerError(ERROR, err, msg)
 			return msg, nil
 		}
-	} else {
-		doc = msg.Data
+		currMsg["data"] = doc
 	}
 
-	if value, err = t.vm.ToValue(doc); err != nil {
+	if value, err = t.vm.ToValue(currMsg); err != nil {
 		t.pipe.Err <- t.transformerError(ERROR, err, msg)
 		return msg, nil
 	}
@@ -141,16 +153,9 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 
 	afterVM := time.Now().Nanosecond()
 
-	switch r := result.(type) {
-	case map[string]interface{}:
-		doc, err := mejson.Unmarshal(r)
-		if err != nil {
-			t.pipe.Err <- t.transformerError(ERROR, err, msg)
-			return msg, nil
-		}
-		msg.Data = map[string]interface{}(doc)
-	default:
-		msg.Data = r
+	if err = t.toMsg(result, msg); err != nil {
+		t.pipe.Err <- t.transformerError(ERROR, err, msg)
+		return msg, err
 	}
 
 	if t.debug {
@@ -161,6 +166,49 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 	return msg, nil
 }
 
+func (t *Transformer) toMsg(incoming interface{}, msg *message.Msg) error {
+
+	switch newMsg := incoming.(type) {
+	case map[string]interface{}: // we're a proper message.Msg, so copy the data over
+		msg.Op = message.OpTypeFromString(newMsg["op"].(string))
+		msg.Timestamp = newMsg["ts"].(int64)
+		msg.Namespace = newMsg["ns"].(string)
+
+		switch data := newMsg["data"].(type) {
+		case otto.Value:
+			exported, err := data.Export()
+			if err != nil {
+				t.pipe.Err <- t.transformerError(ERROR, err, msg)
+				return nil
+			}
+			d, err := mejson.Unmarshal(exported.(map[string]interface{}))
+			if err != nil {
+				t.pipe.Err <- t.transformerError(ERROR, err, msg)
+				return nil
+			}
+			msg.Data = map[string]interface{}(d)
+		case map[string]interface{}:
+			d, err := mejson.Unmarshal(data)
+			if err != nil {
+				t.pipe.Err <- t.transformerError(ERROR, err, msg)
+				return nil
+			}
+			msg.Data = map[string]interface{}(d)
+		default:
+			msg.Data = data
+		}
+	case bool: // skip this doc if we're a bool and we're false
+		if !newMsg {
+			msg.Op = message.Noop
+			return nil
+		}
+	default: // something went wrong
+		return fmt.Errorf("returned doc was not a map[string]interface{}")
+	}
+
+	return nil
+}
+
 func (t *Transformer) transformerError(lvl ErrorLevel, err error, msg *message.Msg) error {
 	var data interface{}
 	if msg != nil {
@@ -168,16 +216,17 @@ func (t *Transformer) transformerError(lvl ErrorLevel, err error, msg *message.M
 	}
 
 	if e, ok := err.(*otto.Error); ok {
-		return NewError(lvl, t.path, fmt.Sprintf("Transformer error (%s)", e.String()), data)
+		return NewError(lvl, t.path, fmt.Sprintf("transformer error (%s)", e.String()), data)
 	}
-	return NewError(lvl, t.path, fmt.Sprintf("Transformer error (%s)", err.Error()), data)
+	return NewError(lvl, t.path, fmt.Sprintf("transformer error (%s)", err.Error()), data)
 }
 
 // TransformerConfig holds config options for a transformer adaptor
 type TransformerConfig struct {
 	// file containing transformer javascript
 	// must define a module.exports = function(doc) { .....; return doc }
-	Filename string `json:"filename" doc:"the filename containing the javascript transform fn"`
+	Filename  string `json:"filename" doc:"the filename containing the javascript transform fn"`
+	Namespace string `json:"namespace" doc:"namespace to transform"`
 
 	// verbose output
 	Debug bool `json:"debug" doc:"display debug information"` // debug mode

@@ -7,6 +7,7 @@
 package pipe
 
 import (
+	"regexp"
 	"time"
 
 	"github.com/compose/transporter/pkg/events"
@@ -67,7 +68,7 @@ func NewPipe(pipe *Pipe, path string) *Pipe {
 // Listen starts a listening loop that pulls messages from the In chan, applies fn(msg), a `func(message.Msg) error`, and emits them on the Out channel.
 // Errors will be emited to the Pipe's Err chan, and will terminate the loop.
 // The listening loop can be interupted by calls to Stop().
-func (m *Pipe) Listen(fn func(*message.Msg) (*message.Msg, error)) error {
+func (m *Pipe) Listen(fn func(*message.Msg) (*message.Msg, error), nsFilter *regexp.Regexp) error {
 	if m.In == nil {
 		return nil
 	}
@@ -86,16 +87,26 @@ func (m *Pipe) Listen(fn func(*message.Msg) (*message.Msg, error)) error {
 
 		select {
 		case msg := <-m.In:
+			if match, err := msg.MatchNamespace(nsFilter); !match || err != nil {
+				if err != nil {
+					m.Err <- err
+					return err
+				}
 
-			outmsg, err := fn(msg)
-			if err != nil {
-				m.Err <- err
-				return err
-			}
-			if len(m.Out) > 0 {
-				m.Send(outmsg)
 			} else {
-				m.MessageCount++ // update the count anyway
+				outmsg, err := fn(msg)
+				if err != nil {
+					m.Err <- err
+					return err
+				}
+				if skipMsg(outmsg) {
+					break
+				}
+				if len(m.Out) > 0 {
+					m.Send(outmsg)
+				} else {
+					m.MessageCount++ // update the count anyway
+				}
 			}
 			m.LastMsg = msg
 		case <-time.After(100 * time.Millisecond):
@@ -138,4 +149,9 @@ func (m *Pipe) Send(msg *message.Msg) {
 			}
 		}
 	}
+}
+
+// skipMsg returns true if the message should be skipped and not send on to any listening nodes
+func skipMsg(msg *message.Msg) bool {
+	return msg == nil || msg.Op == message.Noop
 }

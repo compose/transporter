@@ -3,6 +3,7 @@ package adaptor
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/compose/transporter/pkg/message"
@@ -16,8 +17,8 @@ type Elasticsearch struct {
 	// pull these in from the node
 	uri *url.URL
 
-	_type string
-	index string
+	index     string
+	typeMatch *regexp.Regexp
 
 	pipe *pipe.Pipe
 	path string
@@ -34,7 +35,7 @@ func NewElasticsearch(p *pipe.Pipe, path string, extra Config) (StopStartListene
 		err  error
 	)
 	if err = extra.Construct(&conf); err != nil {
-		return nil, NewError(CRITICAL, path, fmt.Sprintf("Can't create constructor (%s)", err.Error()), nil)
+		return nil, NewError(CRITICAL, path, fmt.Sprintf("bad config (%s)", err.Error()), nil)
 	}
 
 	u, err := url.Parse(conf.URI)
@@ -47,9 +48,9 @@ func NewElasticsearch(p *pipe.Pipe, path string, extra Config) (StopStartListene
 		pipe: p,
 	}
 
-	e.index, e._type, err = extra.splitNamespace()
+	e.index, e.typeMatch, err = extra.compileNamespace()
 	if err != nil {
-		return e, NewError(CRITICAL, path, fmt.Sprintf("Can't split namespace into _index._type (%s)", err.Error()), nil)
+		return e, NewError(CRITICAL, path, fmt.Sprintf("can't split namespace into _index and typeMatch (%s)", err.Error()), nil)
 	}
 
 	return e, nil
@@ -57,7 +58,7 @@ func NewElasticsearch(p *pipe.Pipe, path string, extra Config) (StopStartListene
 
 // Start the adaptor as a source (not implemented)
 func (e *Elasticsearch) Start() error {
-	return fmt.Errorf("Elasticsearch can't function as a source")
+	return fmt.Errorf("elasticsearch can't function as a source")
 }
 
 // Listen starts the listener
@@ -68,7 +69,7 @@ func (e *Elasticsearch) Listen() error {
 
 	go func(cherr chan *elastigo.ErrorBuffer) {
 		for err := range e.indexer.ErrorChannel {
-			e.pipe.Err <- NewError(CRITICAL, e.path, fmt.Sprintf("Elasticsearch error (%s)", err.Err), nil)
+			e.pipe.Err <- NewError(CRITICAL, e.path, fmt.Sprintf("elasticsearch error (%s)", err.Err), nil)
 		}
 	}(e.indexer.ErrorChannel)
 
@@ -80,7 +81,7 @@ func (e *Elasticsearch) Listen() error {
 		}
 	}()
 
-	return e.pipe.Listen(e.applyOp)
+	return e.pipe.Listen(e.applyOp, e.typeMatch)
 }
 
 // Stop the adaptor
@@ -97,19 +98,32 @@ func (e *Elasticsearch) applyOp(msg *message.Msg) (*message.Msg, error) {
 	if msg.Op == message.Command {
 		err := e.runCommand(msg)
 		if err != nil {
-			e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("Elasticsearch error (%s)", err), msg.Data)
+			e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("elasticsearch error (%s)", err), msg.Data)
 		}
 		return msg, nil
 	}
+
 	// TODO there might be some inconsistency here.  elasticsearch uses the _id field for an primary index,
 	//  and we're just mapping it to a string here.
 	id, err := msg.IDString("_id")
 	if err != nil {
 		id = ""
 	}
-	err = e.indexer.Index(e.index, e._type, id, "", nil, msg.Data, false)
+
+	_, _type, err := msg.SplitNamespace()
 	if err != nil {
-		e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("Elasticsearch error (%s)", err), msg.Data)
+		e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("unable to determine type from msg.Namespace (%s)", msg.Namespace), msg)
+		return msg, nil
+	}
+	switch msg.Op {
+	case message.Delete:
+		e.indexer.Delete(e.index, _type, id, false)
+		err = nil
+	default:
+		err = e.indexer.Index(e.index, _type, id, "", nil, msg.Data, false)
+	}
+	if err != nil {
+		e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("elasticsearch error (%s)", err), msg.Data)
 	}
 	return msg, nil
 }
@@ -146,8 +160,4 @@ func (e *Elasticsearch) runCommand(msg *message.Msg) error {
 		e.indexer.Flush()
 	}
 	return nil
-}
-
-func (e *Elasticsearch) getNamespace() string {
-	return strings.Join([]string{e.index, e._type}, ".")
 }

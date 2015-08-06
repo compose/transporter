@@ -46,10 +46,10 @@ func TestIdString(t *testing.T) {
 	}
 
 	for _, v := range data {
-		msg := NewMsg(OpTypeFromString("insert"), v.in)
+		msg := NewMsg(OpTypeFromString("insert"), v.in, "database.collection")
 		id, err := msg.IDString(v.key)
 		if (err != nil) != v.err {
-			t.Error("expected error: %t, but got error: %v", v.err, err)
+			t.Errorf("expected error: %t, but got error: %v", v.err, err)
 		}
 		if id != v.want {
 			t.Errorf("IdString failed.  expected %+v, got %+v", v.want, id)

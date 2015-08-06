@@ -1,12 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"time"
-
-	"gopkg.in/yaml.v2"
 )
 
 // A Config stores meta information about the transporter.  This contains a
@@ -44,6 +45,9 @@ func LoadConfig(filename string) (config Config, err error) {
 		return
 	}
 
+	// configs can have environment variables, replace these before continuing
+	ba = setConfigEnvironment(ba)
+
 	err = yaml.Unmarshal(ba, &config)
 
 	for k, v := range config.Nodes {
@@ -60,4 +64,22 @@ func LoadConfig(filename string) (config Config, err error) {
 	}
 
 	return
+}
+
+// setConfigEnvironment replaces environment variables marked in the form ${FOO} with the
+// value stored in the environment variable `FOO`
+func setConfigEnvironment(ba []byte) []byte {
+	re := regexp.MustCompile(`\$\{([a-zA-Z0-9]+)\}`)
+
+	matches := re.FindAllSubmatch(ba, -1)
+	if matches == nil {
+		return ba
+	}
+
+	for _, m := range matches {
+		v := os.Getenv(string(m[1]))
+		ba = bytes.Replace(ba, m[0], []byte(v), -1)
+	}
+
+	return ba
 }

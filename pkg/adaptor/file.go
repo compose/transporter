@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/compose/transporter/pkg/message"
@@ -62,7 +63,7 @@ func (d *File) Listen() (err error) {
 		}
 	}
 
-	return d.pipe.Listen(d.dumpMessage)
+	return d.pipe.Listen(d.dumpMessage, regexp.MustCompile(`.*`))
 }
 
 // Stop the adaptor
@@ -89,7 +90,7 @@ func (d *File) readFile() (err error) {
 			d.pipe.Err <- NewError(ERROR, d.path, fmt.Sprintf("Can't marshal document (%s)", err.Error()), nil)
 			return err
 		}
-		d.pipe.Send(message.NewMsg(message.Insert, doc))
+		d.pipe.Send(message.NewMsg(message.Insert, doc, fmt.Sprint("file.%s", filename)))
 	}
 	return nil
 }
