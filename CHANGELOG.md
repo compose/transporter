@@ -1,4 +1,4 @@
-## v0.1.0 [unreleased]
+## v0.1.0 [2015-08-06]
 
 This release contains several breaking changes but is a first step towards a stable API/DSL.
 
