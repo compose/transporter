@@ -19,13 +19,13 @@ func TestFilestore(t *testing.T) {
 	}{
 		{
 			"somepath",
-			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 1}),
-			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 1}),
+			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 1}, "db.coll"),
+			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 1}, "db.coll"),
 		},
 		{
 			"somepath/morepath",
-			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 1}),
-			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 1}),
+			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 1}, "db.coll"),
+			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 1}, "db.coll"),
 		},
 	}
 
@@ -60,13 +60,13 @@ func TestFilestoreUpdates(t *testing.T) {
 	}{
 		{
 			"somepath",
-			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 1}),
-			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 1}),
+			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 1}, "db.coll"),
+			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 1}, "db.coll"),
 		},
 		{
 			"somepath",
-			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 2}),
-			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 2}),
+			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 2}, "db.coll"),
+			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 2}, "db.coll"),
 		},
 	}
 
