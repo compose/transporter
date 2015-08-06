@@ -266,6 +266,8 @@ func (js *JavascriptBuilder) Build() error {
 		switch js.config.Sessions.Type {
 		case "filestore":
 			sessionStore = state.NewFilestore(js.config.API.Pid, js.config.Sessions.URI)
+		default:
+			return fmt.Errorf("provided session_store (%s) is not supported", js.config.Sessions.Type)
 		}
 	}
 
