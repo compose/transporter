@@ -90,7 +90,7 @@ func (d *File) readFile() (err error) {
 			d.pipe.Err <- NewError(ERROR, d.path, fmt.Sprintf("Can't marshal document (%s)", err.Error()), nil)
 			return err
 		}
-		d.pipe.Send(message.NewMsg(message.Insert, doc, fmt.Sprint("file.%s", filename)))
+		d.pipe.Send(message.NewMsg(message.Insert, doc, fmt.Sprintf("file.%s", filename)))
 	}
 	return nil
 }
