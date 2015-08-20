@@ -45,6 +45,12 @@ nodes:
   rethink1:
     type: rethinkdb
     uri: rethink://localhost:28015/
+  postgres-dest:
+    type: postgres
+    uri: "host=localhost sslmode=disable dbname=boomdest user=focker"
+  postgres:
+    type: postgres
+    uri: "host=localhost sslmode=disable dbname=fizz user=focker"
   loosefile:
     type: file
   logtransformer:
