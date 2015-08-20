@@ -64,7 +64,7 @@ func LoadConfig(filename string) (config Config, err error) {
 // setConfigEnvironment replaces environment variables marked in the form ${FOO} with the
 // value stored in the environment variable `FOO`
 func setConfigEnvironment(ba []byte) []byte {
-	re := regexp.MustCompile(`\$\{([a-zA-Z0-9]+)\}`)
+	re := regexp.MustCompile(`\$\{([a-zA-Z0-9_]+)\}`)
 
 	matches := re.FindAllSubmatch(ba, -1)
 	if matches == nil {
