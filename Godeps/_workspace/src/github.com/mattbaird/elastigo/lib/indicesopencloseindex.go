@@ -11,54 +11,41 @@
 
 package elastigo
 
-
 import (
 	"encoding/json"
 	"fmt"
 )
 
-func (c *Conn) OpenIndex(index string) (BaseResponse, error) {
-
-	var url string
-	var retval BaseResponse
-
-	if len(index) > 0 {
-		url = fmt.Sprintf("/%s/_open", index)
-	} else {
-		url = fmt.Sprintf("/_open")
-	}
-
-	body, errDo := c.DoCommand("POST", url, nil, nil)
-	if errDo != nil {
-		return retval, errDo
-	}
-
-	jsonErr := json.Unmarshal(body, &retval)
-	if jsonErr != nil {
-		return retval, jsonErr
-	}
-
-	return retval, errDo
+func (c *Conn) OpenIndices() (BaseResponse, error) {
+	return c.openCloseOperation("_all", "_open")
 }
 
+func (c *Conn) CloseIndices() (BaseResponse, error) {
+	return c.openCloseOperation("_all", "_close")
+}
 
+func (c *Conn) OpenIndex(index string) (BaseResponse, error) {
+	return c.openCloseOperation(index, "_open")
+}
 
 func (c *Conn) CloseIndex(index string) (BaseResponse, error) {
+	return c.openCloseOperation(index, "_close")
+}
 
+func (c *Conn) openCloseOperation(index, mode string) (BaseResponse, error) {
 	var url string
 	var retval BaseResponse
 
 	if len(index) > 0 {
-		url = fmt.Sprintf("/%s/_close", index)
+		url = fmt.Sprintf("/%s/%s", index, mode)
 	} else {
-		url = fmt.Sprintf("/_close")
+		url = fmt.Sprintf("/%s", mode)
 	}
 
 	body, errDo := c.DoCommand("POST", url, nil, nil)
 	if errDo != nil {
 		return retval, errDo
 	}
-
 	jsonErr := json.Unmarshal(body, &retval)
 	if jsonErr != nil {
 		return retval, jsonErr

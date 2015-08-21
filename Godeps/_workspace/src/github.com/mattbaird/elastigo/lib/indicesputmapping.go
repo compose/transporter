@@ -105,6 +105,12 @@ func (c *Conn) PutMapping(index string, typeName string, instance interface{}, o
 	return nil
 }
 
+//Same as PutMapping, but takes a []byte for mapping and provides no check of structure
+func (c *Conn) PutMappingFromJSON(index string, typeName string, mapping []byte) error {
+	_, err := c.DoCommand("PUT", fmt.Sprintf("/%s/%s/_mapping", index, typeName), nil, string(mapping))
+	return err
+}
+
 func getProperties(t reflect.Type, prop map[string]interface{}) {
 	n := t.NumField()
 	for i := 0; i < n; i++ {

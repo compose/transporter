@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	. "github.com/araddon/gou/goutest"
+	"github.com/bmizerany/assert"
 	"log"
 	"os"
 	"strings"
@@ -27,6 +28,8 @@ func init() {
 		"int":1,
 		"intstr":"1",
 		"int64":1234567890,
+		"float64":123.456,
+		"float64str":"123.456",
 		"MaxSize" : 1048576,
 		"strings":["string1"],
 		"stringscsv":"string1,string2",
@@ -94,12 +97,29 @@ func TestJsonHelper(t *testing.T) {
 	Assert(ok, t, "int64safe ok")
 	Assert(i64 == 1234567890, t, "int64safe value")
 
+	u64, ok := jh.Uint64Safe("int64")
+	Assert(ok, t, "uint64safe ok")
+	Assert(u64 == 1234567890, t, "int64safe value")
+	_, ok = jh.Uint64Safe("notexistent")
+	assert.Tf(t, !ok, "should not be ok")
+	_, ok = jh.Uint64Safe("name")
+	assert.Tf(t, !ok, "should not be ok")
+
 	i, ok := jh.IntSafe("int")
 	Assert(ok, t, "intsafe ok")
 	Assert(i == 1, t, "intsafe value")
 
 	l := jh.List("nested2")
 	Assert(len(l) == 1, t, "get list")
+
+	fv, ok := jh.Float64Safe("name")
+	assert.Tf(t, !ok, "floatsafe not ok")
+	fv, ok = jh.Float64Safe("float64")
+	assert.Tf(t, ok, "floatsafe ok")
+	assert.Tf(t, CloseEnuf(fv, 123.456), "floatsafe value %v", fv)
+	fv, ok = jh.Float64Safe("float64str")
+	assert.Tf(t, ok, "floatsafe ok")
+	assert.Tf(t, CloseEnuf(fv, 123.456), "floatsafe value %v", fv)
 
 	jhm := jh.Helpers("nested2")
 	Assert(len(jhm) == 1, t, "get list of helpers")

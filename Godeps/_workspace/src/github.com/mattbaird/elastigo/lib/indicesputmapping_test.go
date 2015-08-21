@@ -176,6 +176,117 @@ func TestPutMapping(t *testing.T) {
 	}
 }
 
+func TestPutMappingFromJSON(t *testing.T) {
+	c := setup(t)
+	defer teardown()
+	/*
+		options := MappingOptions{
+			Timestamp: TimestampOptions{Enabled: true},
+			Id:        IdOptions{Index: "analyzed", Path: "id"},
+			Parent:    &ParentOptions{Type: "testParent"},
+			Properties: map[string]interface{}{
+				// special properties that can't be expressed as tags
+				"multi_analyze": map[string]interface{}{
+					"type": "multi_field",
+					"fields": map[string]map[string]string{
+						"ma_analyzed":    {"type": "string", "index": "analyzed"},
+						"ma_notanalyzed": {"type": "string", "index": "not_analyzed"},
+					},
+				},
+			},
+		}
+	*/
+
+	options := `{
+					"myType": {
+						"_id": {
+							"index": "analyzed",
+							"path": "id"
+						},
+						"_timestamp": {
+							"enabled": true
+						},
+						"_parent": {
+							"type": "testParent"
+						},
+						"properties": {
+							"analyzed_string": {
+								"type": "string",
+								"index": "analyzed"
+							},
+							"multi_analyze": {
+								"type": "multi_field",
+								"fields": {
+									"ma_analyzed":    {
+										"type": "string",
+										"index": "analyzed"
+									},
+									"ma_notanalyzed": {
+										"type": "string",
+										"index": "not_analyzed"
+									}
+								}
+							}
+						}
+					}
+				}`
+
+	expValue := map[string]interface{}{
+		"myType": map[string]interface{}{
+			"_timestamp": map[string]interface{}{
+				"enabled": true,
+			},
+			"_id": map[string]interface{}{
+				"index": "analyzed",
+				"path":  "id",
+			},
+			"_parent": map[string]interface{}{
+				"type": "testParent",
+			},
+			"properties": map[string]interface{}{
+				"analyzed_string": map[string]string{
+					"type":  "string",
+					"index": "analyzed",
+				},
+				"multi_analyze": map[string]interface{}{
+					"type": "multi_field",
+					"fields": map[string]map[string]string{
+						"ma_analyzed":    {"type": "string", "index": "analyzed"},
+						"ma_notanalyzed": {"type": "string", "index": "not_analyzed"},
+					},
+				},
+			},
+		},
+	}
+
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		var value map[string]interface{}
+		bd, err := ioutil.ReadAll(r.Body)
+		err = json.Unmarshal(bd, &value)
+		if err != nil {
+			t.Errorf("Got error: %v", err)
+		}
+		expValJson, err := json.MarshalIndent(expValue, "", "  ")
+		if err != nil {
+			t.Errorf("Got error: %v", err)
+		}
+
+		valJson, err := json.MarshalIndent(value, "", "  ")
+		if err != nil {
+			t.Errorf("Got error: %v", err)
+		}
+
+		if sorted(string(expValJson)) != sorted(string(valJson)) {
+			t.Errorf("Expected %s but got %s", string(expValJson), string(valJson))
+		}
+	})
+
+	err := c.PutMappingFromJSON("myIndex", "myType", []byte(options))
+	if err != nil {
+		t.Errorf("Error: %v", err)
+	}
+}
+
 type StructWithEmptyElasticTag struct {
 	Field string `json:"field" elastic:""`
 }

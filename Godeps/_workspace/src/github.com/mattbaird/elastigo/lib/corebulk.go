@@ -63,12 +63,8 @@ type BulkIndexer struct {
 
 	// shutdown channel
 	shutdownChan chan chan struct{}
-	// Channel to shutdown http send go-routines
-	httpDoneChan chan bool
 	// channel to shutdown timer
-	timerDoneChan chan bool
-	// channel to shutdown doc go-routines
-	docDoneChan chan bool
+	timerDoneChan chan struct{}
 
 	// Channel to send a complete byte.Buffer to the http sendor
 	sendBuf chan *bytes.Buffer
@@ -108,9 +104,7 @@ func (c *Conn) NewBulkIndexer(maxConns int) *BulkIndexer {
 	b.BufferDelayMax = time.Duration(BulkDelaySeconds) * time.Second
 	b.bulkChannel = make(chan []byte, 100)
 	b.sendWg = new(sync.WaitGroup)
-	b.docDoneChan = make(chan bool)
-	b.timerDoneChan = make(chan bool)
-	b.httpDoneChan = make(chan bool)
+	b.timerDoneChan = make(chan struct{})
 	return &b
 }
 
@@ -145,7 +139,6 @@ func (b *BulkIndexer) Start() {
 		b.Flush()
 		b.shutdown()
 		ch <- struct{}{}
-		close(ch)
 	}()
 }
 
@@ -153,8 +146,12 @@ func (b *BulkIndexer) Start() {
 func (b *BulkIndexer) Stop() {
 	ch := make(chan struct{})
 	b.shutdownChan <- ch
-	<-ch
-	close(b.shutdownChan)
+	select {
+	case <-ch:
+		// done
+	case <-time.After(time.Second * time.Duration(MAX_SHUTDOWN_SECS)):
+		// timeout!
+	}
 }
 
 // Make a channel that will close when the given WaitGroup is done.
@@ -178,16 +175,6 @@ func (b *BulkIndexer) Flush() {
 		b.send(b.buf)
 	}
 	b.mu.Unlock()
-	for {
-		select {
-		case <-wgChan(b.sendWg):
-			// done
-			return
-		case <-time.After(time.Second * time.Duration(MAX_SHUTDOWN_SECS)):
-			// timeout!
-			return
-		}
-	}
 }
 
 func (b *BulkIndexer) startHttpSender() {
@@ -198,38 +185,31 @@ func (b *BulkIndexer) startHttpSender() {
 	// we have consumed all maxConns
 	for i := 0; i < b.maxConns; i++ {
 		go func() {
-			for {
-				select {
-				case buf := <-b.sendBuf:
-					b.sendWg.Add(1)
-					// Copy for the potential re-send.
-					bufCopy := bytes.NewBuffer(buf.Bytes())
-					err := b.Sender(buf)
+			for buf := range b.sendBuf {
+				b.sendWg.Add(1)
+				// Copy for the potential re-send.
+				bufCopy := bytes.NewBuffer(buf.Bytes())
+				err := b.Sender(buf)
 
-					// Perhaps a b.FailureStrategy(err)  ??  with different types of strategies
-					//  1.  Retry, then panic
-					//  2.  Retry then return error and let runner decide
-					//  3.  Retry, then log to disk?   retry later?
-					if err != nil {
-						if b.RetryForSeconds > 0 {
-							time.Sleep(time.Second * time.Duration(b.RetryForSeconds))
-							err = b.Sender(bufCopy)
-							if err == nil {
-								// Successfully re-sent with no error
-								b.sendWg.Done()
-								continue
-							}
-						}
-						if b.ErrorChannel != nil {
-							b.ErrorChannel <- &ErrorBuffer{err, buf}
+				// Perhaps a b.FailureStrategy(err)  ??  with different types of strategies
+				//  1.  Retry, then panic
+				//  2.  Retry then return error and let runner decide
+				//  3.  Retry, then log to disk?   retry later?
+				if err != nil {
+					if b.RetryForSeconds > 0 {
+						time.Sleep(time.Second * time.Duration(b.RetryForSeconds))
+						err = b.Sender(bufCopy)
+						if err == nil {
+							// Successfully re-sent with no error
+							b.sendWg.Done()
+							continue
 						}
 					}
-					b.sendWg.Done()
-				case <-b.httpDoneChan:
-					// shutdown this go routine
-					return
+					if b.ErrorChannel != nil {
+						b.ErrorChannel <- &ErrorBuffer{err, buf}
+					}
 				}
-
+				b.sendWg.Done()
 			}
 		}()
 	}
@@ -267,22 +247,16 @@ func (b *BulkIndexer) startDocChannel() {
 	// This goroutine accepts incoming byte arrays from the IndexBulk function and
 	// writes to buffer
 	go func() {
-		for {
-			select {
-			case docBytes := <-b.bulkChannel:
-				b.mu.Lock()
-				b.docCt += 1
-				b.buf.Write(docBytes)
-				if b.buf.Len() >= b.BulkMaxBuffer || b.docCt >= b.BulkMaxDocs {
-					b.needsTimeBasedFlush = false
-					//log.Printf("Send due to size:  docs=%d  bufsize=%d", b.docCt, b.buf.Len())
-					b.send(b.buf)
-				}
-				b.mu.Unlock()
-			case <-b.docDoneChan:
-				// shutdown this go routine
-				return
+		for docBytes := range b.bulkChannel {
+			b.mu.Lock()
+			b.docCt += 1
+			b.buf.Write(docBytes)
+			if b.buf.Len() >= b.BulkMaxBuffer || b.docCt >= b.BulkMaxDocs {
+				b.needsTimeBasedFlush = false
+				//log.Printf("Send due to size:  docs=%d  bufsize=%d", b.docCt, b.buf.Len())
+				b.send(b.buf)
 			}
+			b.mu.Unlock()
 		}
 	}()
 }
@@ -296,12 +270,11 @@ func (b *BulkIndexer) send(buf *bytes.Buffer) {
 }
 
 func (b *BulkIndexer) shutdown() {
-	// This must be called After flush
-	b.docDoneChan <- true
-	b.timerDoneChan <- true
-	for i := 0; i < b.maxConns; i++ {
-		b.httpDoneChan <- true
-	}
+	// This must be called after Flush()
+	close(b.timerDoneChan)
+	close(b.sendBuf)
+	close(b.bulkChannel)
+	<-wgChan(b.sendWg)
 }
 
 // The index bulk API adds or updates a typed JSON document to a specific index, making it searchable.
@@ -331,6 +304,13 @@ func (b *BulkIndexer) Delete(index, _type, id string, refresh bool) {
 	queryLine := fmt.Sprintf("{\"delete\":{\"_index\":%q,\"_type\":%q,\"_id\":%q,\"refresh\":%t}}\n", index, _type, id, refresh)
 	b.bulkChannel <- []byte(queryLine)
 	return
+}
+
+func (b *BulkIndexer) UpdateWithWithScript(index string, _type string, id, ttl string, date *time.Time, script string, refresh bool) error {
+
+	var data map[string]interface{} = make(map[string]interface{})
+	data["script"] = script
+	return b.Update(index, _type, id, ttl, date, data, refresh)
 }
 
 func (b *BulkIndexer) UpdateWithPartialDoc(index string, _type string, id, ttl string, date *time.Time, partialDoc interface{}, upsert bool, refresh bool) error {

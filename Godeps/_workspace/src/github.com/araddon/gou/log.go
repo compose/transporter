@@ -6,6 +6,8 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"sync"
+	"time"
 )
 
 const (
@@ -57,6 +59,8 @@ var (
 	}
 	postFix                      = "" //\033[0m
 	LogLevelWords map[string]int = map[string]int{"fatal": 0, "error": 1, "warn": 2, "info": 3, "debug": 4, "none": -1}
+	logThrottles                 = make(map[string]*Throttler)
+	throttleMu    sync.Mutex
 )
 
 // Setup default logging to Stderr, equivalent to:
@@ -189,6 +193,15 @@ func Errorf(format string, v ...interface{}) {
 	}
 }
 
+// Log this error, and return error object
+func LogErrorf(format string, v ...interface{}) error {
+	err := fmt.Errorf(format, v...)
+	if LogLevel >= 1 {
+		DoLog(3, ERROR, err.Error())
+	}
+	return err
+}
+
 // Log to logger if setup
 //    Log(ERROR, "message")
 func Log(logLvl int, v ...interface{}) {
@@ -212,6 +225,50 @@ func LogTracef(logLvl int, format string, v ...interface{}) {
 			v = append(v, strings.Join(parts[3:len(parts)], "\n"))
 		}
 		DoLog(4, logLvl, fmt.Sprintf(format+"\n%v", v...))
+	}
+}
+
+// Throttle logging based on key, such that key would never occur more than
+//   @limit times per hour
+//
+//    LogThrottleKey(u.ERROR, 1,"error_that_happens_a_lot" "message %s", varx)
+//
+func LogThrottleKey(logLvl, limit int, key, format string, v ...interface{}) {
+	if LogLevel >= logLvl {
+		throttleMu.Lock()
+		th, ok := logThrottles[key]
+		if !ok {
+			th = NewThrottler(limit, 3600*time.Second)
+			logThrottles[key] = th
+		}
+		if th.Throttle() {
+			throttleMu.Unlock()
+			return
+		}
+		throttleMu.Unlock()
+		DoLog(4, logLvl, fmt.Sprintf(format, v...))
+	}
+}
+
+// Throttle logging based on @format as a key, such that key would never occur more than
+//   @limit times per hour
+//
+//    LogThrottle(u.ERROR, 1, "message %s", varx)
+//
+func LogThrottle(logLvl, limit int, format string, v ...interface{}) {
+	if LogLevel >= logLvl {
+		throttleMu.Lock()
+		th, ok := logThrottles[format]
+		if !ok {
+			th = NewThrottler(limit, 3600*time.Second)
+			logThrottles[format] = th
+		}
+		if th.Throttle() {
+			throttleMu.Unlock()
+			return
+		}
+		throttleMu.Unlock()
+		DoLog(4, logLvl, fmt.Sprintf(format, v...))
 	}
 }
 

@@ -61,9 +61,11 @@ type QueryDsl struct {
 
 // The core Query Syntax can be embedded as a child of a variety of different parents
 type QueryEmbed struct {
-	MatchAll *MatchAll         `json:"match_all,omitempty"`
-	Terms    map[string]string `json:"term,omitempty"`
-	Qs       *QueryString      `json:"query_string,omitempty"`
+	MatchAll      *MatchAll              `json:"match_all,omitempty"`
+	Terms         map[string]string      `json:"term,omitempty"`
+	Qs            *QueryString           `json:"query_string,omitempty"`
+	MultiMatch    *MultiMatch            `json:"multi_match,omitempty"`
+	FunctionScore map[string]interface{} `json:"function_score,omitempty"`
 	//Exist    string            `json:"_exists_,omitempty"`
 }
 
@@ -72,7 +74,7 @@ type QueryEmbed struct {
 func (qd *QueryDsl) MarshalJSON() ([]byte, error) {
 	q := qd.QueryEmbed
 	hasQuery := false
-	if q.Qs != nil || len(q.Terms) > 0 || q.MatchAll != nil {
+	if q.Qs != nil || len(q.Terms) > 0 || q.MatchAll != nil || q.MultiMatch != nil {
 		hasQuery = true
 	}
 	// If a query has a
@@ -117,6 +119,16 @@ func (q *QueryDsl) Term(name, value string) *QueryDsl {
 	return q
 }
 
+// FunctionScore sets functions to use to score the documents.
+// http://www.elastic.co/guide/en/elasticsearch/reference/1.x/query-dsl-function-score-query.html
+func (q *QueryDsl) FunctionScore(mode string, functions ...map[string]interface{}) *QueryDsl {
+	q.QueryEmbed.FunctionScore = map[string]interface{}{
+		"functions":  functions,
+		"score_mode": mode,
+	}
+	return q
+}
+
 // The raw search strings (lucene valid)
 func (q *QueryDsl) Search(searchFor string) *QueryDsl {
 	//I don't think this is right, it is not a filter.query, it should be q query?
@@ -157,6 +169,17 @@ func (q *QueryDsl) Fields(fields, search, exists, missing string) *QueryDsl {
 func (q *QueryDsl) Filter(f *FilterOp) *QueryDsl {
 	q.FilterVal = f
 	return q
+}
+
+// MultiMatch allows searching against multiple fields.
+func (q *QueryDsl) MultiMatch(s string, fields []string) *QueryDsl {
+	q.QueryEmbed.MultiMatch = &MultiMatch{Query: s, Fields: fields}
+	return q
+}
+
+type MultiMatch struct {
+	Query  string   `json:"query"`
+	Fields []string `json:"fields"`
 }
 
 type MatchAll struct {
