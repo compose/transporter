@@ -1,3 +1,14 @@
+## v0.1.1 [2015-08-27]
+
+This release contains the first step to getting savable state into adaptors for the ability to resume.
+
+### Features
+- [#116](https://github.com/compose/transporter/pull/116): Adaptor state phase 1, begins to address [#33](https://github.com/compose/transporter/issues/33)
+
+### Bugfixes
+- [#124](https://github.com/compose/transporter/issues/124): Update elasticsearch adaptor
+
+
 ## v0.1.0 [2015-08-06]
 
 This release contains several breaking changes but is a first step towards a stable API/DSL.
