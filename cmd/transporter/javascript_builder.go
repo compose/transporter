@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/compose/transporter/pkg/events"
+	"github.com/compose/transporter/pkg/state"
 	"github.com/compose/transporter/pkg/transporter"
 	"github.com/nu7hatch/gouuid"
 	"github.com/robertkrimen/otto"
@@ -254,10 +255,26 @@ func (js *JavascriptBuilder) Build() error {
 		}
 	}
 
+	var sessionStore state.SessionStore
+	sessionInterval := time.Duration(10 * time.Second)
+	fmt.Printf("js sessions config -> %v\n", js.config.Sessions)
+	if js.config.Sessions.SessionInterval != "" {
+		sessionInterval, err = time.ParseDuration(js.config.Sessions.SessionInterval)
+		if err != nil {
+			return fmt.Errorf("can't parse session interval (%s)", err.Error())
+		}
+		switch js.config.Sessions.Type {
+		case "filestore":
+			sessionStore = state.NewFilestore(js.config.API.Pid, js.config.Sessions.URI)
+		default:
+			return fmt.Errorf("provided session_store (%s) is not supported", js.config.Sessions.Type)
+		}
+	}
+
 	// build each pipeline
 	for _, node := range js.nodes {
 		n := node.CreateTransporterNode()
-		pipeline, err := transporter.NewPipeline(n, js.emitter(), interval)
+		pipeline, err := transporter.NewPipeline(n, js.emitter(), interval, sessionStore, sessionInterval)
 		if err != nil {
 			return err
 		}

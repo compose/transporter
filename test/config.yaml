@@ -3,11 +3,20 @@
 #   uri: "http://requestb.in/13gerls1"
 #   key: "48593282-b38d-4bf5-af58-f7327271e73d"
 #   pid: "something-static"
+# sessions:
+#   uri: file:///tmp/transporter.state
+#   interval: 2s
+#   type: "filestore"
 nodes:
   localmongo:
     type: mongo
     uri: mongodb://localhost/boom
     namespace: boom.foo
+    debug: true
+  localmongo2:
+    type: mongo
+    uri: mongodb://localhost/boom
+    namespace: boom.baz
     debug: true
   es:
     type: elasticsearch

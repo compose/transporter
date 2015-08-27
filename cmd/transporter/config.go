@@ -21,6 +21,11 @@ type Config struct {
 		Key             string `json:"key" yaml:"key"`           // http basic auth password to send with each event
 		Pid             string `json:"pid" yaml:"pid"`           // http basic auth username to send with each event
 	} `json:"api" yaml:"api"`
+	Sessions struct {
+		URI             string `json:"uri" yaml:"uri"`           // Uri of session store
+		SessionInterval string `json:"interval" yaml:"interval"` // how often to persist the sesion states
+		Type            string `json:"type" yaml:"type"`         // the type of SessionStore to use
+	} `json:"sessions" yaml:"sessions"`
 	Nodes map[string]map[string]interface{}
 }
 

@@ -33,6 +33,8 @@ type Pipe struct {
 	Stopped bool // has the pipe been stopped?
 
 	MessageCount int
+	LastMsg      *message.Msg
+	ExtraState   map[string]interface{}
 
 	path      string // the path of this pipe (for events and errors)
 	chStop    chan chan bool
@@ -106,6 +108,7 @@ func (m *Pipe) Listen(fn func(*message.Msg) (*message.Msg, error), nsFilter *reg
 					m.MessageCount++ // update the count anyway
 				}
 			}
+			m.LastMsg = msg
 		case <-time.After(100 * time.Millisecond):
 			// NOP, just breath
 		}
@@ -136,6 +139,7 @@ func (m *Pipe) Send(msg *message.Msg) {
 			select {
 			case ch <- msg:
 				m.MessageCount++
+				m.LastMsg = msg
 				break A
 			case <-time.After(100 * time.Millisecond):
 				if m.Stopped {
