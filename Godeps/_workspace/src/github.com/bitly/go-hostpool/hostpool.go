@@ -45,6 +45,9 @@ type HostPool interface {
 
 	ResetAll()
 	Hosts() []string
+
+	// Close the hostpool and release all resources.
+	Close()
 }
 
 type standardHostPool struct {
@@ -155,6 +158,12 @@ func (p *standardHostPool) doResetAll() {
 	}
 }
 
+func (p *standardHostPool) Close() {
+	for _, h := range p.hosts {
+		h.dead = true
+	}
+}
+
 func (p *standardHostPool) markSuccess(hostR HostPoolResponse) {
 	host := hostR.Host()
 	p.Lock()
@@ -184,7 +193,7 @@ func (p *standardHostPool) markFailed(hostR HostPoolResponse) {
 
 }
 func (p *standardHostPool) Hosts() []string {
-	hosts := make([]string, len(p.hosts))
+	hosts := make([]string, 0, len(p.hosts))
 	for host := range p.hosts {
 		hosts = append(hosts, host)
 	}

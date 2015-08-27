@@ -118,9 +118,14 @@ type ExtendedStatus struct {
 	ShardsStatus Status     `json:"_shards"`
 }
 
+type MatchRes struct {
+	Index string `json:"_index"`
+	Id    string `json:"_id"`
+}
+
 type Match struct {
 	OK          bool         `json:"ok"`
-	Matches     []string     `json:"matches"`
+	Matches     []MatchRes   `json:"matches"`
 	Explanation *Explanation `json:"explanation,omitempty"`
 }
 

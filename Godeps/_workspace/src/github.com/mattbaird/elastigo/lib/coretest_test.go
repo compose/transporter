@@ -179,7 +179,7 @@ func LoadTestData() {
 				log.Println("HM, already exists? ", ge.Url)
 			}
 			docsm[id] = true
-			indexer.Index(testIndex, ge.Type, id, "", &ge.Created, line, true)
+			indexer.Index(testIndex, ge.Type, id, "", "", &ge.Created, line, true)
 			docCt++
 		} else {
 			log.Println("ERROR? ", string(line))

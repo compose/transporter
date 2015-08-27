@@ -49,6 +49,7 @@ type SearchDsl struct {
 	SortBody      []*SortDsl               `json:"sort,omitempty"`
 	FilterVal     *FilterWrap              `json:"filter,omitempty"`
 	AggregatesVal map[string]*AggregateDsl `json:"aggregations,omitempty"`
+	HighlightVal  *HighlightDsl            `json:"highlight,omitempty"`
 }
 
 func (s *SearchDsl) Bytes(conn *Conn) ([]byte, error) {
@@ -197,5 +198,10 @@ func (s *SearchDsl) Scroll(duration string) *SearchDsl {
 
 func (s *SearchDsl) SearchType(searchType string) *SearchDsl {
 	s.args["search_type"] = searchType
+	return s
+}
+
+func (s *SearchDsl) Highlight(highlight *HighlightDsl) *SearchDsl {
+	s.HighlightVal = highlight
 	return s
 }
