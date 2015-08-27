@@ -8,6 +8,7 @@ Transporter
 Build
 -----
 make sure godep is installed, `go get github.com/tools/godep` and then build with
+`godep restore`
 `godep go build -a ./cmd/...`
 
 
