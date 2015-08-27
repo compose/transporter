@@ -16,7 +16,7 @@ type AggregateDsl struct {
 
 type FieldAggregate struct {
 	Field string `json:"field"`
-	Size  int    `json:"size,omitempty"`
+	Size  *int   `json:"size,omitempty"`
 }
 
 /**
@@ -152,7 +152,7 @@ func (d *AggregateDsl) Terms(field string) *AggregateDsl {
 }
 
 func (d *AggregateDsl) TermsWithSize(field string, size int) *AggregateDsl {
-	d.Type = FieldAggregate{Field: field, Size: size}
+	d.Type = FieldAggregate{Field: field, Size: &size}
 	d.TypeName = "terms"
 	return d
 }

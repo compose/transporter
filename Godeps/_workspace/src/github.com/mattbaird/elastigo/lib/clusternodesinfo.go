@@ -79,8 +79,9 @@ type Cluster struct {
 }
 
 type OS struct {
-	RefreshInterval     int `json:"refresh_interval,omitempty"`
-	AvailableProcessors int `json:"available_processors,omitempty"`
+	RefreshInterval     int  `json:"refresh_interval,omitempty"`
+	AvailableProcessors int  `json:"available_processors,omitempty"`
+	CPU                 *CPU `json:"cpu,omitempty"`
 }
 
 type CPU struct {

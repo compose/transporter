@@ -46,9 +46,9 @@ func (c *Conn) CreateIndexWithSettings(index string, settings interface{}) (Base
 	var url string
 	var retval BaseResponse
 
-	settingsType := reflect.TypeOf(settings)
-	if settingsType.Kind() != reflect.Struct {
-		return retval, fmt.Errorf("Settings kind was not struct")
+	settingsType := reflect.TypeOf(settings).Kind()
+	if settingsType != reflect.Struct && settingsType != reflect.Map {
+		return retval, fmt.Errorf("Settings kind was not struct or map")
 	}
 
 	requestBody, err := json.Marshal(settings)

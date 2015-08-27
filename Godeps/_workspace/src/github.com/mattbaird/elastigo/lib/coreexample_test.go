@@ -14,8 +14,9 @@ package elastigo_test
 import (
 	"bytes"
 	"fmt"
-	elastigo "github.com/mattbaird/elastigo/lib"
 	"strconv"
+
+	elastigo "github.com/mattbaird/elastigo/lib"
 )
 
 // The simplest usage of background bulk indexing
@@ -24,7 +25,7 @@ func ExampleBulkIndexer_simple() {
 
 	indexer := c.NewBulkIndexerErrors(10, 60)
 	indexer.Start()
-	indexer.Index("twitter", "user", "1", "", nil, `{"name":"bob"}`, true)
+	indexer.Index("twitter", "user", "1", "", "", nil, `{"name":"bob"}`, true)
 	indexer.Stop()
 }
 
@@ -45,7 +46,7 @@ func ExampleBulkIndexer_responses() {
 	}
 	indexer.Start()
 	for i := 0; i < 20; i++ {
-		indexer.Index("twitter", "user", strconv.Itoa(i), "", nil, `{"name":"bob"}`, true)
+		indexer.Index("twitter", "user", strconv.Itoa(i), "", "", nil, `{"name":"bob"}`, true)
 	}
 	indexer.Stop()
 }

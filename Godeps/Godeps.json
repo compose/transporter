@@ -16,7 +16,7 @@
 		},
 		{
 			"ImportPath": "github.com/bitly/go-hostpool",
-			"Rev": "2e89d10a8bbfeada4b32882ffb4a2cb8b31d9bc0"
+			"Rev": "d0e59c22a56e8dadfed24f74f452cea5a52722d2"
 		},
 		{
 			"ImportPath": "github.com/cenkalti/backoff",
@@ -51,8 +51,8 @@
 		},
 		{
 			"ImportPath": "github.com/mattbaird/elastigo/lib",
-			"Comment": "v1.0-139-gba038c1",
-			"Rev": "ba038c10f634af5e7f3bd27b81bd8c37af844edf"
+			"Comment": "v1.0-215-g8f8c8e8",
+			"Rev": "8f8c8e8cd26082435601a46b826c09e28f50d5ae"
 		},
 		{
 			"ImportPath": "github.com/mitchellh/cli",

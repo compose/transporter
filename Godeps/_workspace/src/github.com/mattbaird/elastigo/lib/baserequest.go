@@ -12,9 +12,11 @@
 package elastigo
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"time"
 )
@@ -47,10 +49,20 @@ func (c *Conn) DoCommand(method string, url string, args map[string]interface{},
 				return body, err
 			}
 		}
-
 	}
-	httpStatusCode, body, err = req.Do(&response)
 
+	// Copy request body for tracer
+	if c.RequestTracer != nil {
+		requestBody, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+			return body, err
+		}
+
+		req.SetBody(bytes.NewReader(requestBody))
+		c.RequestTracer(req.Method, req.URL.String(), string(requestBody))
+	}
+
+	httpStatusCode, body, err = req.Do(&response)
 	if err != nil {
 		return body, err
 	}
