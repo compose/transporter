@@ -222,6 +222,7 @@ func TestSimpleTail(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error inserting seed data: %v", err)
 	}
+	time.Sleep(1 * time.Second) // give time for Postgres to create logical decoding records
 	msgSlice, err := postgres.pluckFromLogicalDecoding()
 	if err != nil {
 		t.Fatalf("Error plucking latest changes: %v", err)
@@ -243,6 +244,7 @@ func TestSimpleTail(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error inserting seed data: %v", err)
 	}
+	time.Sleep(1 * time.Second) // give time for Postgres to create logical decoding records
 	msgSlice, err = postgres.pluckFromLogicalDecoding()
 	if err != nil {
 		t.Fatalf("Error plucking latest changes: %v", err)
@@ -264,6 +266,7 @@ func TestSimpleTail(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error inserting seed data: %v", err)
 	}
+	time.Sleep(1 * time.Second) // give time for Postgres to create logical decoding records
 	msgSlice, err = postgres.pluckFromLogicalDecoding()
 	if err != nil {
 		t.Fatalf("Error plucking latest changes: %v", err)
@@ -300,6 +303,7 @@ func TestComplexTail(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error inserting seed data: %v", err)
 	}
+	time.Sleep(1 * time.Second) // give time for Postgres to create logical decoding records
 	msgSlice, err := postgres.pluckFromLogicalDecoding()
 	if err != nil {
 		t.Fatalf("Error plucking latest changes: %v", err)
