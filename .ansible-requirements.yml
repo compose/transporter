@@ -1,0 +1,11 @@
+---
+
+- src: https://github.com/gotansible/mongodb
+  name: gotansible.mongodb
+
+- src: https://github.com/gotansible/elasticsearch
+  name: gotansible.elasticsearch
+
+- src: https://github.com/gotansible/gobuild
+  name: gotansible.gobuild
+
