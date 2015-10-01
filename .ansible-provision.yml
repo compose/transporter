@@ -42,10 +42,17 @@
   tasks:
     - name: copy simple test files
       copy:
-        src=./simple/
+        src=./test/simple/
         dest=/home/vagrant
         owner=vagrant
         group=vagrant
 
+    - name: make run-test executable
+      file:
+        state=file
+        path=/home/vagrant/run-test
+        owner=vagrant
+        group=vagrant
+        mode=0775
 
 
