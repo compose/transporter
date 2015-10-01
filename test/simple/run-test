@@ -1,0 +1,15 @@
+#!/bin/bash
+
+mongo --eval 'use foo; db.bar.save({"firstName": "Robert", "lastName": "Baratheon"});'
+mongo --eval 'use foo; db.bar.save({"firstName": "John", "lastName": "Snow"});'
+
+echo "mongo --eval 'use foo; db.bar.find().pretty();'"
+mongo --eval 'use foo; db.bar.find().pretty();'
+
+echo "transporter run --config ./config.yaml ./application.js"
+transporter run --config ./config.yaml ./application.js
+
+echo "curl -XGET localhost:9200/foo/bar/_search?pretty=true"
+curl -XGET localhost:9200/foo/bar/_search?pretty=true
+
+
