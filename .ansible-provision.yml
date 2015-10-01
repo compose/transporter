@@ -47,16 +47,5 @@
         owner=vagrant
         group=vagrant
 
-    - name: some test data
-      shell: "{{ item }}"
-      with_items:
-        - mongo --eval 'use foo; db.bar.save({"firstName": "Robert", "lastName": "Baratheon"});'
-        - mongo --eval 'use foo; db.bar.save({"firstName": "John", "lastName": "Snow"});'
-
-
-     #db.bar.find().pretty();
-     #transporter run --config ./config.yaml ./application.js
-     #curl -XGET localhost:9200/foo/bar/_search?pretty=true
-
 
 
