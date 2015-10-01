@@ -83,6 +83,22 @@ Complete beginners guide
 
 At this point you should be able to run transporter via `$GOPATH/bin/transporter`,  you may need to add $GOPATH to your PATH environment variable. Something along the lines of `export PATH="$GOPATH/bin:$PATH"` should work.
 
+### Vagrant
+
+* ensure [vagrant](https://www.vagrantup.com/) is installed
+* ensure [ansible](http://www.ansible.com/) is installed
+* ensure either [virtual box](https://www.virtualbox.org/wiki/Downloads) or [VMWare fusion](http://www.vmware.com/products/fusion) or [VMWare Workstation](http://www.vmware.com/products/workstation) is installed
+
+```bash
+> cd transporter
+> vagrant up
+...
+> vagrant ssh
+...
+vagrant> ./run-test
+
+```
+
 ### Windows
 
 See [READMEWINDOWS.md](https://github.com/compose/transporter/blob/master/READMEWINDOWS.md)
