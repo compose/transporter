@@ -1,0 +1,58 @@
+---
+- hosts: all
+  sudo: true
+
+  pre_tasks:
+    - name: dependecies
+      apt: name={{ item }}
+      sudo: true
+      with_items:
+        - rsync
+
+  roles:
+    - role: gotansible.mongodb
+
+    - role: gotansible.elasticsearch
+      elasticsearch_node_name: "{{ inventory_hostname }}"
+      elasticsearch_cluster_name: test-solo
+
+      elasticsearch_node_data: true
+      elasticsearch_node_master: true
+      elasticsearch_http_enabled: true
+
+      elasticsearch_discovery_zen_minimum_master_nodes: 1
+      elasticsearch_discovery_zen_ping_multicast_enabled: false
+      elasticsearch_discovery_zen_ping_unicast_hosts:
+        - "{{ ansible_default_ipv4['address'] }}"
+
+      elasticsearch_index_number_of_shards: 2
+      elasticsearch_index_number_of_replicas: 1
+
+    - role: gotansible.gobuild
+      gobuild_project_path: github.com/compose/transporter
+      gobuild_repo_version: master
+      gobuild_dir: /home/vagrant/go
+      gobuild_commands:
+        - go get github.com/tools/godep
+        - godep restore
+        - godep go build -a ./cmd/...
+        - mv ./transporter /home/vagrant
+        - chown -R vagrant:vagrant /home/vagrant/
+
+  tasks:
+    - name: copy simple test files
+      copy:
+        src=./test/simple/
+        dest=/home/vagrant
+        owner=vagrant
+        group=vagrant
+
+    - name: make run-test executable
+      file:
+        state=file
+        path=/home/vagrant/run-test
+        owner=vagrant
+        group=vagrant
+        mode=0775
+
+
