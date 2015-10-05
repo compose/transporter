@@ -1,4 +1,4 @@
-[![Circle CI](https://circleci.com/gh/compose/transporter.svg?style=svg)](https://circleci.com/gh/compose/transporter)
+[![Circle CI](https://circleci.com/gh/compose/transporter.svg?style=svg)](https://circleci.com/gh/compose/transporter) #compose on irc.freenode.net
 
 Compose helps with database transformations from one store to another.  It can also sync from one to another or several stores.
 
@@ -113,6 +113,10 @@ Contributing to Transporter
 
 Want to help out with Transporter? Great! There are instructions to get you
 started [here](CONTRIBUTING.md).
+
+IRC
+=========
+Want to talk about Transporter? Join us in #compose on irc.freenode.net!
 
 Licensing
 =========
