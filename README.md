@@ -1,4 +1,4 @@
-[![Circle CI](https://circleci.com/gh/compose/transporter.svg?style=svg)](https://circleci.com/gh/compose/transporter) #compose on irc.freenode.net
+[![Circle CI](https://circleci.com/gh/compose/transporter.svg?style=svg)](https://circleci.com/gh/compose/transporter)
 
 Compose helps with database transformations from one store to another.  It can also sync from one to another or several stores.
 
