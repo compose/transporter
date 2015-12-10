@@ -387,11 +387,13 @@ func (m *Mongodb) tailData() (err error) {
 				return
 			}
 			if result.validOp() {
-				_, coll, _ := m.splitNamespace(result.Ns)
+				database, coll, _ := m.splitNamespace(result.Ns)
 
 				if strings.HasPrefix(coll, "system.") {
 					continue
 				} else if match := m.collectionMatch.MatchString(coll); !match {
+					continue
+				} else if database != m.database {
 					continue
 				}
 
