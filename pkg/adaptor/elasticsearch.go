@@ -149,6 +149,7 @@ func (e *Elasticsearch) setupClient() {
 	client.Protocol = e.uri.Scheme
 
 	e.indexer = client.NewBulkIndexerErrors(10, 60)
+	e.indexer.BulkMaxDocs = 15
 }
 
 func (e *Elasticsearch) runCommand(msg *message.Msg) error {
