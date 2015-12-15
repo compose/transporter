@@ -345,6 +345,11 @@ func (m *Mongodb) catData() (err error) {
 				msg := message.NewMsg(message.Insert, result, m.computeNamespace(collection))
 
 				m.pipe.Send(msg)
+
+				// update query to continue from here in case of an error
+				query = bson.M{
+					"_id": bson.M{"$gte": result._id},
+				}
 				result = bson.M{}
 			}
 
@@ -357,11 +362,9 @@ func (m *Mongodb) catData() (err error) {
 			if iter.Err() != nil && m.restartable {
 				fmt.Printf("got err reading collection. reissuing query %v\n", iter.Err())
 				iter.Close()
-				time.Sleep(10 * time.Second)
+				time.Sleep(1 * time.Second)
 
-				oldSession := m.mongoSession
-				m.mongoSession = m.mongoSession.Copy()
-				oldSession.Close()
+				m.refreshSession()
 
 				iter = m.mongoSession.DB(m.database).C(collection).Find(query).Sort("_id").Iter()
 				continue
@@ -369,6 +372,13 @@ func (m *Mongodb) catData() (err error) {
 			break
 		}
 	}
+	return
+}
+
+func (m *Mongodb) refreshSession() (err error) {
+	oldSession := m.mongoSession
+	m.mongoSession = m.mongoSession.Copy()
+	oldSession.Close()
 	return
 }
 
