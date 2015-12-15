@@ -357,8 +357,7 @@ func (m *Mongodb) catData() (err error) {
 			if iter.Err() != nil && m.restartable {
 				fmt.Printf("got err reading collection. reissuing query %v\n", iter.Err())
 				fmt.Printf("iter debug: %v\n", iter)
-				fmt.Printf("result debug: %v\n", result)
-				fmt.Printf("mongosession debug: %v\n", m.mongoSession)
+				fmt.Printf("session ping debug: %v\n", m.mongoSession.Ping())
 				iter.Close()
 				time.Sleep(1 * time.Second)
 				iter = m.mongoSession.DB(m.database).C(collection).Find(query).Sort("_id").Iter()
