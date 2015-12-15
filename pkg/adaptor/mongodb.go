@@ -348,7 +348,7 @@ func (m *Mongodb) catData() (err error) {
 
 				// update query to continue from here in case of an error
 				query = bson.M{
-					"_id": bson.M{"$gte": result._id},
+					"_id": bson.M{"$gte": result["_id"]},
 				}
 				result = bson.M{}
 			}
