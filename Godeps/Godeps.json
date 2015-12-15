@@ -73,8 +73,8 @@
 		},
 		{
 			"ImportPath": "gopkg.in/mgo.v2",
-			"Comment": "r2015.06.03-3-g3569c88",
-			"Rev": "3569c88678d88179dcbd68d02ab081cbca3cd4d0"
+			"Comment": "r2015.10.05",
+			"Rev": "f402e3a216db333ae6b3ba68b9152a34a0bc6984"
 		},
 		{
 			"ImportPath": "gopkg.in/yaml.v2",
