@@ -345,6 +345,13 @@ func (m *Mongodb) catData() (err error) {
 				msg := message.NewMsg(message.Insert, result, m.computeNamespace(collection))
 
 				m.pipe.Send(msg)
+
+				// update query to continue from last success in case of an error
+				query = bson.M{
+					"_id": bson.M{"$gt": result["_id"]},
+				}
+
+				result = bson.M{}
 			}
 
 			// we've exited the mongo read loop, lets figure out why
@@ -359,11 +366,6 @@ func (m *Mongodb) catData() (err error) {
 				time.Sleep(1 * time.Second)
 
 				m.refreshSession()
-
-				// update query to continue from last success in case of an error
-				query = bson.M{
-					"_id": bson.M{"$gt": result["_id"]},
-				}
 
 				iter = m.mongoSession.DB(m.database).C(collection).Find(query).Sort("_id").Iter()
 				continue
