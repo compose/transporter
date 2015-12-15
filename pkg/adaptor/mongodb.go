@@ -356,10 +356,13 @@ func (m *Mongodb) catData() (err error) {
 
 			if iter.Err() != nil && m.restartable {
 				fmt.Printf("got err reading collection. reissuing query %v\n", iter.Err())
-				fmt.Printf("iter debug: %v\n", iter)
-				fmt.Printf("session ping debug: %v\n", m.mongoSession.Ping())
 				iter.Close()
-				time.Sleep(1 * time.Second)
+				time.Sleep(10 * time.Second)
+
+				oldSession := m.mongoSession
+				m.mongoSession = m.mongoSession.Copy()
+				oldSession.Close()
+
 				iter = m.mongoSession.DB(m.database).C(collection).Find(query).Sort("_id").Iter()
 				continue
 			}
