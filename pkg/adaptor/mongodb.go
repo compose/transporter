@@ -449,7 +449,7 @@ func (m *Mongodb) tailData() (err error) {
 			continue
 		}
 		if iter.Err() != nil {
-			return NewError(CRITICAL, m.path, fmt.Sprintf("Mongodb error (error reading collection %s)", iter.Err()), nil)
+			return NewError(CRITICAL, m.path, fmt.Sprintf("Mongodb error (error reading collection %v)", iter.Err()), nil)
 		}
 
 		// query will change,
