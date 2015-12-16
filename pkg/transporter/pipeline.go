@@ -116,7 +116,6 @@ func (pipeline *Pipeline) Run() error {
 
 	// start the source
 	err := pipeline.source.Start()
-	fmt.Printf("TEST ERROR PIPELINE.GO %v\n", err)
 	if err != nil && pipeline.Err == nil {
 		pipeline.Err = err // only set it if it hasn't been set already.
 	}

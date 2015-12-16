@@ -163,8 +163,7 @@ func (m *Mongodb) Start() (err error) {
 		fmt.Printf("setting start timestamp: %d\n", m.oplogTime)
 	}
 
-	// err = m.catData()
-	err = NewError(CRITICAL, m.path, "TEST ERROR", nil)
+	err = m.catData()
 	if err != nil {
 		m.pipe.Err <- err
 		return err
