@@ -351,6 +351,7 @@ func (m *Mongodb) catData() (err error) {
 					"_id": bson.M{"$gt": result["_id"]},
 				}
 
+				// make result point to a fresh object (the current will be used down the pipe)
 				result = bson.M{}
 			}
 
