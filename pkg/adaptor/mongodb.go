@@ -201,7 +201,6 @@ func (m *Mongodb) Stop() error {
 	if m.bulk {
 		q := make(chan bool)
 		m.bulkQuitChannel <- q
-		<-q
 	}
 
 	return nil
