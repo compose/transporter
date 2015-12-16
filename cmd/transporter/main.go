@@ -29,6 +29,7 @@ func main() {
 		log.Println(err)
 	}
 
+	fmt.Printf("TEST ERROR EXIT STATUS %v\n", exitStatus)
 	os.Exit(exitStatus)
 
 }
