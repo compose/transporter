@@ -3,6 +3,7 @@ package transporter
 import (
 	"log"
 	"time"
+	"fmt"
 
 	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/events"

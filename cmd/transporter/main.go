@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"fmt"
 
 	"github.com/compose/transporter/pkg/transporter"
 	"github.com/mitchellh/cli"
