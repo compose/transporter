@@ -6,7 +6,7 @@ First step, download and install Go. Go to [https://golang.org/dl/](https://gola
 
 2) Install Git
 
-Go supports multiple source code control systems and you need to get the tools to handle them. Refer to [https://code.google.com/p/go-wiki/wiki/GoGetTools]( https://code.google.com/p/go-wiki/wiki/GoGetTools)  for the canonical current list. 
+Go supports multiple source code control systems and you need to get the tools to handle them. Refer to [https://github.com/golang/go/wiki/GoGetTools](https://github.com/golang/go/wiki/GoGetTools)  for the canonical current list. 
 
 First and foremost, we need Git...
 
