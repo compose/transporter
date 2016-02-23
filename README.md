@@ -78,8 +78,9 @@ Complete beginners guide
     - `cd $GOPATH; mkdir src pkg bin`
     - create the github.com path and compose `mkdir -p src/github.com/compose; cd src/github.com/compose`
     - clone transporter `git clone https://github.com/compose/transporter; cd transporter`
-    - run go get to get all the dependencies `go get -a ./cmd/...`
-    - now you can build `go build -a ./cmd/...`
+    - make sure godep is installed, `go get github.com/tools/godep`
+    - run `godep restore` to get all the dependencies as specified in `Godeps.json`
+    - now you can build with `godep go build -a ./cmd/...`
 
 At this point you should be able to run transporter via `$GOPATH/bin/transporter`,  you may need to add $GOPATH to your PATH environment variable. Something along the lines of `export PATH="$GOPATH/bin:$PATH"` should work.
 
