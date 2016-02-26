@@ -50,3 +50,10 @@ nodes:
   logtransformer:
     filename: test/transformers/passthrough_and_log.js
     type: transformer
+  twittersource:
+    type: twitter
+    consumerKey: -
+    consumerSecret: -
+    accessToken: -
+    accessSecret: -
+    keywords:
