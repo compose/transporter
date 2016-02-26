@@ -360,6 +360,8 @@ func (m *Mongodb) catData() (err error) {
 				iter = m.mongoSession.DB(m.database).C(collection).Find(query).Sort("_id").Iter()
 				continue
 			}
+			/// This ensures that the last request is finished before exiting
+			time.Sleep(time.Second)
 			break
 		}
 	}
