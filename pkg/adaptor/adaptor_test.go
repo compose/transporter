@@ -13,12 +13,26 @@ type Testadaptor struct {
 	value string
 }
 
-func NewTestadaptor(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
-	val, ok := extra["value"]
-	if !ok {
-		return nil, errors.New("this is an error")
-	}
-	return &Testadaptor{value: val.(string)}, nil
+func init() {
+	Add("testadaptor", func(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
+		val, ok := extra["value"]
+		if !ok {
+			return nil, errors.New("this is an error")
+		}
+		return &Testadaptor{value: val.(string)}, nil
+	})
+}
+
+func (s *Testadaptor) Description() string {
+	return "this is a test adaptor"
+}
+
+func (s *Testadaptor) SampleConfig() string {
+	return ""
+}
+
+func (s *Testadaptor) Connect() error {
+	return nil
 }
 
 func (s *Testadaptor) Start() error {
@@ -34,8 +48,6 @@ func (s *Testadaptor) Listen() error {
 }
 
 func TestCreateadaptor(t *testing.T) {
-	Register("testadaptor", "description", NewTestadaptor, struct{}{})
-
 	data := []struct {
 		kind  string
 		extra Config
@@ -52,7 +64,7 @@ func TestCreateadaptor(t *testing.T) {
 			"testadaptor",
 			Config{"blah": "rockettes"},
 			&Testadaptor{},
-			"cannot create testadaptor adaptor (a/b/c). this is an error",
+			"adaptor 'testadaptor' not found in registry",
 		},
 		{
 			"notasource",

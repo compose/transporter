@@ -3,7 +3,6 @@ package adaptor
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"regexp"
 	"strings"
 
@@ -24,15 +23,21 @@ func (a ErrAdaptor) Error() string {
 // Listen() listens on a pipe, processes data, and then emits it.
 // Stop() shuts down the adaptor
 type StopStartListener interface {
+	SampleConfig() string
+	Description() string
+	Connect() error
 	Start() error
 	Listen() error
 	Stop() error
 }
 
 // Createadaptor instantiates an adaptor given the adaptor type and the Config.
-// Constructors are expected to be in the form
-//   func NewWhatever(p *pipe.Pipe, extra Config) (*Whatever, error) {}
-// and are expected to confirm to the adaptor interface
+// An Adaptor is expected to add themselves to the Adaptors map in the init() func
+//   func init() {
+//     adaptors.Add("TYPE", func(p *pipe.Pipe, path string, extra adaptors.Config) (adaptors.StopStartListener, error) {
+//     })
+//   }
+// and are expected to confirm to the Adaptor interface
 func Createadaptor(kind, path string, extra Config, p *pipe.Pipe) (adaptor StopStartListener, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -40,27 +45,21 @@ func Createadaptor(kind, path string, extra Config, p *pipe.Pipe) (adaptor StopS
 		}
 	}()
 
-	regentry, ok := Adaptors[kind]
+	creator, ok := Adaptors[kind]
 	if !ok {
 		return nil, ErrAdaptor{kind}
 	}
 
-	args := []reflect.Value{
-		reflect.ValueOf(p),
-		reflect.ValueOf(path),
-		reflect.ValueOf(extra),
+	adaptor, err = creator(p, path, extra)
+	if err != nil {
+		return nil, ErrAdaptor{kind}
 	}
 
-	result := reflect.ValueOf(regentry.Constructor).Call(args)
-
-	val := result[0]
-	inter := result[1].Interface()
-
-	if inter != nil {
-		return nil, fmt.Errorf("cannot create %s adaptor (%s). %v", kind, path, inter.(error))
+	if err := adaptor.Connect(); err != nil {
+		return nil, ErrAdaptor{kind}
 	}
 
-	return val.Interface().(StopStartListener), err
+	return adaptor, nil
 }
 
 // Config is an alias to map[string]interface{} and helps us
@@ -108,8 +107,8 @@ func (c *Config) splitNamespace() (string, string, error) {
 	return fields[0], fields[1], nil
 }
 
-// compileNamespace split's on the first '.' and then compiles the second portion to use as the msg filter
-func (c *Config) compileNamespace() (string, *regexp.Regexp, error) {
+// CompileNamespace split's on the first '.' and then compiles the second portion to use as the msg filter
+func (c *Config) CompileNamespace() (string, *regexp.Regexp, error) {
 	field0, field1, err := c.splitNamespace()
 
 	if err != nil {
@@ -120,8 +119,8 @@ func (c *Config) compileNamespace() (string, *regexp.Regexp, error) {
 	return field0, compiledNs, err
 }
 
-// dbConfig is a standard typed config struct to use for as general purpose config for most databases.
-type dbConfig struct {
+// DbConfig is a standard typed config struct to use for as general purpose config for most databases.
+type DbConfig struct {
 	URI       string `json:"uri" doc:"the uri to connect to, in the form mongo://user:password@host.com:8080/database"` // the database uri
 	Namespace string `json:"namespace" doc:"mongo namespace to read/write"`                                             // namespace
 	Debug     bool   `json:"debug" doc:"display debug information"`                                                     // debug mode

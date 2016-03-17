@@ -1,4 +1,1 @@
-transporter
-!cmd/transporter
-!pkg/transporter
-
+/transporter

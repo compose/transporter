@@ -257,7 +257,6 @@ func (js *JavascriptBuilder) Build() error {
 
 	var sessionStore state.SessionStore
 	sessionInterval := time.Duration(10 * time.Second)
-	fmt.Printf("js sessions config -> %v\n", js.config.Sessions)
 	if js.config.Sessions.SessionInterval != "" {
 		sessionInterval, err = time.ParseDuration(js.config.Sessions.SessionInterval)
 		if err != nil {

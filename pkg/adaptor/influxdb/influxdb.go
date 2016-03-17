@@ -1,4 +1,4 @@
-package adaptor
+package influxdb
 
 /*
  * Influx is awesome, but unfortunately the pre-0.9 changes
