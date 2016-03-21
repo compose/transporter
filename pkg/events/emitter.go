@@ -97,6 +97,10 @@ func (e *HTTPPostEmitter) startEventListener() {
 					return
 				}
 				_, err = ioutil.ReadAll(resp.Body)
+				if err != nil {
+					log.Printf("Response read error: %s", err)
+					return
+				}
 				defer resp.Body.Close()
 				if resp.StatusCode != 200 && resp.StatusCode != 201 {
 					log.Printf("EventEmitter Error: http error code, expected 200 or 201, got %d, (%s)", resp.StatusCode, ba)
