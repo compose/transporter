@@ -29,7 +29,7 @@ type Mongodb struct {
 	uri   string
 	tail  bool // run the tail oplog
 	debug bool
-	conf  mongodbConfig
+	conf  Config
 
 	// save time by setting these once
 	collectionMatch *regexp.Regexp
@@ -84,7 +84,7 @@ func (m *Mongodb) SampleConfig() string {
 func init() {
 	adaptor.Add("mongodb", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.StopStartListener, error) {
 		var (
-			conf mongodbConfig
+			conf Config
 			err  error
 		)
 		if err = extra.Construct(&conf); err != nil {
@@ -517,13 +517,13 @@ func (o *oplogDoc) validOp() bool {
 	return o.Op == "i" || o.Op == "d" || o.Op == "u"
 }
 
-// mongodbConfig provides configuration options for a mongodb adaptor
+// Config provides configuration options for a mongodb adaptor
 // the notable difference between this and dbConfig is the presence of the Tail option
-type mongodbConfig struct {
+type Config struct {
 	URI       string     `json:"uri" doc:"the uri to connect to, in the form mongodb://user:password@host.com:27017/auth_database"`
 	Namespace string     `json:"namespace" doc:"mongo namespace to read/write"`
 	Ssl       *sslConfig `json:"ssl,omitempty" doc:"ssl options for connection"`
-	Timeout   string     `json:timeout" doc:"timeout for establishing connection, format must be parsable by time.ParseDuration and defaults to 10s"`
+	Timeout   string     `json:"timeout" doc:"timeout for establishing connection, format must be parsable by time.ParseDuration and defaults to 10s"`
 	Debug     bool       `json:"debug" doc:"display debug information"`
 	Tail      bool       `json:"tail" doc:"if tail is true, then the mongodb source will tail the oplog after copying the namespace"`
 	Wc        int        `json:"wc" doc:"The write concern to use for writes, Int, indicating the minimum number of servers to write to before returning success/failure"`

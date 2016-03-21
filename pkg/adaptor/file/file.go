@@ -41,7 +41,7 @@ func (f *File) SampleConfig() string {
 func init() {
 	adaptor.Add("file", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.StopStartListener, error) {
 		var (
-			conf fileConfig
+			conf Config
 			err  error
 		)
 		if err = extra.Construct(&conf); err != nil {
@@ -147,8 +147,8 @@ func (d *File) dumpMessage(msg *message.Msg) (*message.Msg, error) {
 	return msg, nil
 }
 
-// fileConfig is used to configure the File Adaptor
-type fileConfig struct {
+// Config is used to configure the File Adaptor
+type Config struct {
 	// URI pointing to the resource.  We only recognize file:// and stdout:// currently
 	URI string `json:"uri" doc:"the uri to connect to, ie stdout://, file:///tmp/output"`
 }

@@ -49,7 +49,7 @@ func (t *Transformer) SampleConfig() string {
 func init() {
 	adaptor.Add("transformer", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.StopStartListener, error) {
 		var (
-			conf transformerConfig
+			conf Config
 			err  error
 		)
 		if err = extra.Construct(&conf); err != nil {
@@ -243,8 +243,8 @@ func (t *Transformer) transformerError(lvl adaptor.ErrorLevel, err error, msg *m
 	return adaptor.NewError(lvl, t.path, fmt.Sprintf("transformer error (%s)", err.Error()), data)
 }
 
-// transformerConfig holds config options for a transformer adaptor
-type transformerConfig struct {
+// Config holds config options for a transformer adaptor
+type Config struct {
 	// file containing transformer javascript
 	// must define a module.exports = function(doc) { .....; return doc }
 	Filename  string `json:"filename" doc:"the filename containing the javascript transform fn"`

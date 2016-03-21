@@ -56,7 +56,7 @@ func (r *Rethinkdb) SampleConfig() string {
 func init() {
 	adaptor.Add("rethinkdb", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.StopStartListener, error) {
 		var (
-			conf rethinkDbConfig
+			conf Config
 			err  error
 		)
 		if err = extra.Construct(&conf); err != nil {
@@ -119,8 +119,8 @@ func (r *Rethinkdb) Connect() error {
 	return nil
 }
 
-// rethinkDbConfig provides custom configuration options for the RethinkDB adapter
-type rethinkDbConfig struct {
+// Config provides custom configuration options for the RethinkDB adapter
+type Config struct {
 	URI       string `json:"uri" doc:"the uri to connect to, in the form rethink://user:password@host.example:28015/database"`
 	Namespace string `json:"namespace" doc:"rethink namespace to read/write"`
 	Debug     bool   `json:"debug" doc:"if true, verbose debugging information is displayed"`
