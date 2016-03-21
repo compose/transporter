@@ -19,6 +19,9 @@ func (a ErrAdaptor) Error() string {
 }
 
 // StopStartListener defines the interface that all database connectors and nodes must follow.
+// SampleConfig() returns an example YAML structure to configure the adaptor
+// Description() provides contextual information for what the adaptor is for
+// Connect() allows the adaptor an opportunity to setup connections prior to Start()
 // Start() consumes data from the interface,
 // Listen() listens on a pipe, processes data, and then emits it.
 // Stop() shuts down the adaptor
