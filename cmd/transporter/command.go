@@ -234,7 +234,7 @@ func (c *aboutCommand) Run(args []string) int {
 
 	if len(args) == 0 {
 		for name, creator := range adaptor.Adaptors {
-			dummyAdaptor, err := creator(nil, "", map[string]interface{}{"uri": "test", "namespace": "test.test"})
+			dummyAdaptor, err := creator(nil, "", adaptor.Config{"uri": "test", "namespace": "test.test"})
 			if err != nil {
 				fmt.Printf("unable to create adator '%s', %s\n", name, err.Error())
 				return 1
@@ -249,7 +249,7 @@ func (c *aboutCommand) Run(args []string) int {
 		fmt.Printf("no adaptor named '%s' exists\n", args[0])
 		return 1
 	}
-	dummyAdaptor, err := creator(nil, "", map[string]interface{}{"uri": "test", "namespace": "test.test"})
+	dummyAdaptor, err := creator(nil, "", adaptor.Config{"uri": "test", "namespace": "test.test"})
 	if err != nil {
 		fmt.Printf("unable to create adator, %s\n", err.Error())
 		return 1
