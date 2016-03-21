@@ -142,18 +142,16 @@ func (m *Mongodb) Connect() error {
 
 	if m.conf.Ssl != nil {
 		tlsConfig := &tls.Config{}
-		if len(m.conf.Ssl.CaCerts) > 0 {
-			roots := x509.NewCertPool()
-			for _, caCert := range m.conf.Ssl.CaCerts {
-				ok := roots.AppendCertsFromPEM([]byte(caCert))
-				if !ok {
-					return fmt.Errorf("failed to parse root certificate")
-				}
-			}
-			tlsConfig.RootCAs = roots
-		} else {
+		roots := x509.NewCertPool()
+		if len(m.conf.Ssl.CaCerts) == 0 {
 			tlsConfig.InsecureSkipVerify = true
 		}
+		for _, caCert := range m.conf.Ssl.CaCerts {
+			if ok := roots.AppendCertsFromPEM([]byte(caCert)); !ok {
+				return fmt.Errorf("failed to parse root certificate")
+			}
+		}
+		tlsConfig.RootCAs = roots
 		dialInfo.DialServer = func(addr *mgo.ServerAddr) (net.Conn, error) {
 			conn, err := tls.Dial("tcp", addr.String(), tlsConfig)
 			return conn, err
@@ -398,7 +396,6 @@ func (m *Mongodb) catData() (err error) {
  * tail the oplog
  */
 func (m *Mongodb) tailData() (err error) {
-
 	var (
 		collection = m.mongoSession.DB("local").C("oplog.rs")
 		result     oplogDoc // hold the document
