@@ -15,7 +15,7 @@ import (
 )
 
 // Transformer is an adaptor which consumes data from a source, transforms it using a supplied javascript
-// function and then emits it.  The javascript transformation function is supplied as a seperate file on disk,
+// function and then emits it. The javascript transformation function is supplied as a separate file on disk,
 // and is called by calling the defined module.exports function
 type Transformer struct {
 	fn       string
@@ -87,7 +87,7 @@ func (t *Transformer) Connect() error {
 
 // Listen starts the transformer's listener, reads each message from the incoming channel
 // transformers it into mejson, and then uses the supplied javascript module.exports function
-// to transform the document.  The document is then emited to this adaptor's children
+// to transform the document.  The document is then emitted to this adaptor's children
 func (t *Transformer) Listen() (err error) {
 	return t.pipe.Listen(t.transformOne, t.ns)
 }
