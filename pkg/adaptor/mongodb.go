@@ -200,7 +200,6 @@ func (m *Mongodb) Stop() error {
 	if m.bulk {
 		q := make(chan bool)
 		m.bulkQuitChannel <- q
-		<-q
 	}
 
 	return nil
@@ -345,6 +344,13 @@ func (m *Mongodb) catData() (err error) {
 				msg := message.NewMsg(message.Insert, result, m.computeNamespace(collection))
 
 				m.pipe.Send(msg)
+
+				// update query to continue from last success in case of an error
+				query = bson.M{
+					"_id": bson.M{"$gt": result["_id"]},
+				}
+
+				// make result point to a fresh object (the current will be used down the pipe)
 				result = bson.M{}
 			}
 
@@ -356,13 +362,24 @@ func (m *Mongodb) catData() (err error) {
 
 			if iter.Err() != nil && m.restartable {
 				fmt.Printf("got err reading collection. reissuing query %v\n", iter.Err())
+				iter.Close()
 				time.Sleep(1 * time.Second)
+
+				m.refreshSession()
+
 				iter = m.mongoSession.DB(m.database).C(collection).Find(query).Sort("_id").Iter()
 				continue
 			}
 			break
 		}
 	}
+	return
+}
+
+func (m *Mongodb) refreshSession() (err error) {
+	oldSession := m.mongoSession
+	m.mongoSession = m.mongoSession.Copy()
+	oldSession.Close()
 	return
 }
 
@@ -387,11 +404,13 @@ func (m *Mongodb) tailData() (err error) {
 				return
 			}
 			if result.validOp() {
-				_, coll, _ := m.splitNamespace(result.Ns)
+				database, coll, _ := m.splitNamespace(result.Ns)
 
 				if strings.HasPrefix(coll, "system.") {
 					continue
 				} else if match := m.collectionMatch.MatchString(coll); !match {
+					continue
+				} else if database != m.database {
 					continue
 				}
 
@@ -430,7 +449,7 @@ func (m *Mongodb) tailData() (err error) {
 			continue
 		}
 		if iter.Err() != nil {
-			return NewError(CRITICAL, m.path, fmt.Sprintf("Mongodb error (error reading collection %s)", iter.Err()), nil)
+			return NewError(CRITICAL, m.path, fmt.Sprintf("Mongodb error (error reading collection %v)", iter.Err()), nil)
 		}
 
 		// query will change,
