@@ -1,4 +1,4 @@
-[![Circle CI](https://circleci.com/gh/compose/transporter.svg?style=svg)](https://circleci.com/gh/compose/transporter)
+[![Circle CI](https://circleci.com/gh/compose/transporter.svg?style=svg)](https://circleci.com/gh/compose/transporter) [![Go Report Card](https://goreportcard.com/badge/github.com/compose/transporter)](https://goreportcard.com/report/github.com/compose/transporter)
 
 Compose helps with database transformations from one store to another.  It can also sync from one to another or several stores.
 
