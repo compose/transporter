@@ -12,9 +12,9 @@ import (
 	elastigo "github.com/mattbaird/elastigo/lib"
 )
 
-// ElasticSearch is an adaptor to connect a pipeline to
+// Elasticsearch is an adaptor to connect a pipeline to
 // an elasticsearch cluster.
-type ElasticSearch struct {
+type Elasticsearch struct {
 	// pull these in from the node
 	uri *url.URL
 
@@ -28,8 +28,8 @@ type ElasticSearch struct {
 	running bool
 }
 
-// Description for the ElasticSearch adaptor
-func (e *ElasticSearch) Description() string {
+// Description for the Elasticsearcb adaptor
+func (e *Elasticsearch) Description() string {
 	return "an elasticsearch sink adaptor"
 }
 
@@ -40,7 +40,7 @@ var sampleConfig = `
 `
 
 // SampleConfig for elasticsearch adaptor
-func (e *ElasticSearch) SampleConfig() string {
+func (e *Elasticsearch) SampleConfig() string {
 	return sampleConfig
 }
 
@@ -59,7 +59,7 @@ func init() {
 			return nil, err
 		}
 
-		e := &ElasticSearch{
+		e := &Elasticsearch{
 			uri:  u,
 			pipe: p,
 		}
@@ -74,17 +74,17 @@ func init() {
 }
 
 // Connect is a no-op for Elasticsearch adaptors
-func (e *ElasticSearch) Connect() error {
+func (e *Elasticsearch) Connect() error {
 	return nil
 }
 
 // Start the adaptor as a source (not implemented)
-func (e *ElasticSearch) Start() error {
+func (e *Elasticsearch) Start() error {
 	return fmt.Errorf("elasticsearch can't function as a source")
 }
 
 // Listen starts the listener
-func (e *ElasticSearch) Listen() error {
+func (e *Elasticsearch) Listen() error {
 	e.setupClient()
 	e.indexer.Start()
 	e.running = true
@@ -107,7 +107,7 @@ func (e *ElasticSearch) Listen() error {
 }
 
 // Stop the adaptor
-func (e *ElasticSearch) Stop() error {
+func (e *Elasticsearch) Stop() error {
 	if e.running {
 		e.running = false
 		e.pipe.Stop()
@@ -116,7 +116,7 @@ func (e *ElasticSearch) Stop() error {
 	return nil
 }
 
-func (e *ElasticSearch) applyOp(msg *message.Msg) (*message.Msg, error) {
+func (e *Elasticsearch) applyOp(msg *message.Msg) (*message.Msg, error) {
 	if msg.Op == message.Command {
 		err := e.runCommand(msg)
 		if err != nil {
@@ -150,7 +150,7 @@ func (e *ElasticSearch) applyOp(msg *message.Msg) (*message.Msg, error) {
 	return msg, nil
 }
 
-func (e *ElasticSearch) setupClient() {
+func (e *Elasticsearch) setupClient() {
 	// set up the client, we need host(s), port, username, password, and scheme
 	client := elastigo.NewConn()
 
@@ -173,7 +173,7 @@ func (e *ElasticSearch) setupClient() {
 	e.indexer = client.NewBulkIndexerErrors(10, 60)
 }
 
-func (e *ElasticSearch) runCommand(msg *message.Msg) error {
+func (e *Elasticsearch) runCommand(msg *message.Msg) error {
 	if !msg.IsMap() {
 		return nil
 	}
