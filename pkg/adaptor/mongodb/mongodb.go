@@ -1,4 +1,4 @@
-package adaptor
+package mongodb
 
 import (
 	"crypto/tls"
@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/message"
 	"github.com/compose/transporter/pkg/pipe"
 	"gopkg.in/mgo.v2"
@@ -28,6 +29,7 @@ type Mongodb struct {
 	uri   string
 	tail  bool // run the tail oplog
 	debug bool
+	conf  Config
 
 	// save time by setting these once
 	collectionMatch *regexp.Regexp
@@ -40,8 +42,9 @@ type Mongodb struct {
 	path string
 
 	// mongo connection and options
-	mongoSession *mgo.Session
-	oplogTimeout time.Duration
+	mongoSession   *mgo.Session
+	sessionTimeout time.Duration
+	oplogTimeout   time.Duration
 
 	// a buffer to hold documents
 	buffLock         sync.Mutex
@@ -60,57 +63,91 @@ type SyncDoc struct {
 	Collection string
 }
 
-// NewMongodb creates a new Mongodb adaptor
-func NewMongodb(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
-	var (
-		conf MongodbConfig
-		err  error
-	)
-	if err = extra.Construct(&conf); err != nil {
-		return nil, err
-	}
+// Description for mongodb adaptor
+func (m *Mongodb) Description() string {
+	return "a mongodb adaptor that functions as both a source and a sink"
+}
 
-	if conf.URI == "" || conf.Namespace == "" {
-		return nil, fmt.Errorf("both uri and namespace required, but missing ")
-	}
+var sampleConfig = `
+- localmongo:
+    type: mongo
+    uri: mongodb://127.0.0.1:27017/test
+    namespace: test.data
+    debug: true
+`
 
-	if conf.Debug {
-		fmt.Printf("Mongo Config %+v\n", conf)
-	}
+// SampleConfig for mongodb adaptor
+func (m *Mongodb) SampleConfig() string {
+	return sampleConfig
+}
 
-	m := &Mongodb{
-		restartable:      true,            // assume for that we're able to restart the process
-		oplogTimeout:     5 * time.Second, // timeout the oplog iterator
-		pipe:             p,
-		uri:              conf.URI,
-		tail:             conf.Tail,
-		debug:            conf.Debug,
-		path:             path,
-		opsBuffer:        make(map[string][]interface{}),
-		bulkWriteChannel: make(chan *SyncDoc),
-		bulkQuitChannel:  make(chan chan bool),
-		bulk:             conf.Bulk,
-	}
-	// opsBuffer:        make([]*SyncDoc, 0, MONGO_BUFFER_LEN),
+func init() {
+	adaptor.Add("mongodb", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.StopStartListener, error) {
+		var (
+			conf Config
+			err  error
+		)
+		if err = extra.Construct(&conf); err != nil {
+			return nil, err
+		}
 
-	m.database, m.collectionMatch, err = extra.compileNamespace()
-	if err != nil {
-		return m, err
-	}
+		if conf.URI == "" || conf.Namespace == "" {
+			return nil, fmt.Errorf("both uri and namespace required, but missing ")
+		}
 
+		if conf.Debug {
+			fmt.Printf("Mongo Config %+v\n", conf)
+		}
+
+		m := &Mongodb{
+			restartable:      true,            // assume for that we're able to restart the process
+			oplogTimeout:     5 * time.Second, // timeout the oplog iterator
+			pipe:             p,
+			uri:              conf.URI,
+			tail:             conf.Tail,
+			debug:            conf.Debug,
+			path:             path,
+			opsBuffer:        make(map[string][]interface{}),
+			bulkWriteChannel: make(chan *SyncDoc),
+			bulkQuitChannel:  make(chan chan bool),
+			bulk:             conf.Bulk,
+			conf:             conf,
+		}
+		// opsBuffer:        make([]*SyncDoc, 0, MONGO_BUFFER_LEN),
+
+		m.database, m.collectionMatch, err = extra.CompileNamespace()
+		if err != nil {
+			return m, err
+		}
+
+		if conf.Timeout == "" {
+			m.sessionTimeout = time.Duration(10) * time.Second
+		} else {
+			timeout, err := time.ParseDuration(conf.Timeout)
+			if err != nil {
+				return m, fmt.Errorf("unable to parse timeout (%s), %s\n", conf.Timeout, err.Error())
+			}
+			m.sessionTimeout = timeout
+		}
+
+		return m, nil
+	})
+}
+
+func (m *Mongodb) Connect() error {
 	dialInfo, err := mgo.ParseURL(m.uri)
 	if err != nil {
-		return m, fmt.Errorf("unable to parse uri (%s), %s\n", m.uri, err.Error())
+		return fmt.Errorf("unable to parse uri (%s), %s\n", m.uri, err.Error())
 	}
 
-	if conf.Ssl != nil {
+	if m.conf.Ssl != nil {
 		tlsConfig := &tls.Config{}
-		if len(conf.Ssl.CaCerts) > 0 {
+		if len(m.conf.Ssl.CaCerts) > 0 {
 			roots := x509.NewCertPool()
-			for _, caCert := range conf.Ssl.CaCerts {
+			for _, caCert := range m.conf.Ssl.CaCerts {
 				ok := roots.AppendCertsFromPEM([]byte(caCert))
 				if !ok {
-					return m, fmt.Errorf("failed to parse root certificate")
+					return fmt.Errorf("failed to parse root certificate")
 				}
 			}
 			tlsConfig.RootCAs = roots
@@ -123,33 +160,24 @@ func NewMongodb(p *pipe.Pipe, path string, extra Config) (StopStartListener, err
 		}
 	}
 
-	if conf.Timeout == "" {
-		dialInfo.Timeout = time.Duration(10) * time.Second
-	} else {
-		timeout, err := time.ParseDuration(conf.Timeout)
-		if err != nil {
-			return m, fmt.Errorf("unable to parse timeout (%s), %s\n", conf.Timeout, err.Error())
-		}
-		dialInfo.Timeout = timeout
-	}
+	dialInfo.Timeout = m.sessionTimeout
 
 	m.mongoSession, err = mgo.DialWithInfo(dialInfo)
 	if err != nil {
-		return m, err
+		return err
 	}
 
 	// set some options on the session
-	m.mongoSession.EnsureSafe(&mgo.Safe{W: conf.Wc, FSync: conf.FSync})
+	m.mongoSession.EnsureSafe(&mgo.Safe{W: m.conf.Wc, FSync: m.conf.FSync})
 	m.mongoSession.SetBatch(1000)
 	m.mongoSession.SetPrefetch(0.5)
 
 	if m.tail {
 		if iter := m.mongoSession.DB("local").C("oplog.rs").Find(bson.M{}).Limit(1).Iter(); iter.Err() != nil {
-			return m, iter.Err()
+			return iter.Err()
 		}
 	}
-
-	return m, nil
+	return nil
 }
 
 // Start the adaptor as a source
@@ -212,14 +240,14 @@ func (m *Mongodb) Stop() error {
 func (m *Mongodb) writeMessage(msg *message.Msg) (*message.Msg, error) {
 	_, msgColl, err := msg.SplitNamespace()
 	if err != nil {
-		m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("mongodb error (msg namespace improperly formatted, must be database.collection, got %s)", msg.Namespace), msg.Data)
+		m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error (msg namespace improperly formatted, must be database.collection, got %s)", msg.Namespace), msg.Data)
 		return msg, nil
 	}
 
 	collection := m.mongoSession.DB(m.database).C(msgColl)
 
 	if !msg.IsMap() {
-		m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("mongodb error (document must be a bson document, got %T instead)", msg.Data), msg.Data)
+		m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error (document must be a bson document, got %T instead)", msg.Data), msg.Data)
 		return msg, nil
 	}
 
@@ -233,7 +261,7 @@ func (m *Mongodb) writeMessage(msg *message.Msg) (*message.Msg, error) {
 	} else if msg.Op == message.Delete {
 		err := collection.Remove(doc.Doc)
 		if err != nil {
-			m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("mongodb error removing (%s)", err.Error()), msg.Data)
+			m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error removing (%s)", err.Error()), msg.Data)
 		}
 	} else {
 		err := collection.Insert(doc.Doc)
@@ -241,7 +269,7 @@ func (m *Mongodb) writeMessage(msg *message.Msg) (*message.Msg, error) {
 			err = collection.Update(bson.M{"_id": doc.Doc["_id"]}, doc.Doc)
 		}
 		if err != nil {
-			m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("mongodb error (%s)", err.Error()), msg.Data)
+			m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error (%s)", err.Error()), msg.Data)
 		}
 	}
 
@@ -255,7 +283,7 @@ func (m *Mongodb) bulkWriter() {
 		case doc := <-m.bulkWriteChannel:
 			sz, err := docSize(doc.Doc)
 			if err != nil {
-				m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("mongodb error (%s)", err.Error()), doc)
+				m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error (%s)", err.Error()), doc)
 				break
 			}
 
@@ -297,17 +325,17 @@ func (m *Mongodb) writeBuffer() {
 					if mgo.IsDup(e) {
 						doc, ok := op.(map[string]interface{})
 						if !ok {
-							m.pipe.Err <- NewError(ERROR, m.path, "mongodb error (Cannot cast document to bson)", op)
+							m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, "mongodb error (Cannot cast document to bson)", op)
 						}
 
 						e = collection.Update(bson.M{"_id": doc["_id"]}, doc)
 					}
 					if e != nil {
-						m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("mongodb error (%s)", e.Error()), op)
+						m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error (%s)", e.Error()), op)
 					}
 				}
 			} else {
-				m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("mongodb error (%s)", err.Error()), docs[0])
+				m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error (%s)", err.Error()), docs[0])
 			}
 		}
 
@@ -404,11 +432,11 @@ func (m *Mongodb) tailData() (err error) {
 				case "u":
 					doc, err = m.getOriginalDoc(result.O2, coll)
 					if err != nil { // errors aren't fatal here, but we need to send it down the pipe
-						m.pipe.Err <- NewError(ERROR, m.path, fmt.Sprintf("Mongodb error (%s)", err.Error()), nil)
+						m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("Mongodb error (%s)", err.Error()), nil)
 						continue
 					}
 				default:
-					m.pipe.Err <- NewError(ERROR, m.path, "Mongodb error (unknown op type)", nil)
+					m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, "Mongodb error (unknown op type)", nil)
 					continue
 				}
 
@@ -430,7 +458,7 @@ func (m *Mongodb) tailData() (err error) {
 			continue
 		}
 		if iter.Err() != nil {
-			return NewError(CRITICAL, m.path, fmt.Sprintf("Mongodb error (error reading collection %s)", iter.Err()), nil)
+			return adaptor.NewError(adaptor.CRITICAL, m.path, fmt.Sprintf("Mongodb error (error reading collection %s)", iter.Err()), nil)
 		}
 
 		// query will change,
@@ -489,13 +517,13 @@ func (o *oplogDoc) validOp() bool {
 	return o.Op == "i" || o.Op == "d" || o.Op == "u"
 }
 
-// MongodbConfig provides configuration options for a mongodb adaptor
+// Config provides configuration options for a mongodb adaptor
 // the notable difference between this and dbConfig is the presence of the Tail option
-type MongodbConfig struct {
+type Config struct {
 	URI       string     `json:"uri" doc:"the uri to connect to, in the form mongodb://user:password@host.com:27017/auth_database"`
 	Namespace string     `json:"namespace" doc:"mongo namespace to read/write"`
-	Ssl       *SslConfig `json:"ssl,omitempty" doc:"ssl options for connection"`
-	Timeout   string     `json:timeout" doc:"timeout for establishing connection, format must be parsable by time.ParseDuration and defaults to 10s"`
+	Ssl       *sslConfig `json:"ssl,omitempty" doc:"ssl options for connection"`
+	Timeout   string     `json:"timeout" doc:"timeout for establishing connection, format must be parsable by time.ParseDuration and defaults to 10s"`
 	Debug     bool       `json:"debug" doc:"display debug information"`
 	Tail      bool       `json:"tail" doc:"if tail is true, then the mongodb source will tail the oplog after copying the namespace"`
 	Wc        int        `json:"wc" doc:"The write concern to use for writes, Int, indicating the minimum number of servers to write to before returning success/failure"`
@@ -503,7 +531,7 @@ type MongodbConfig struct {
 	Bulk      bool       `json:"bulk" doc:"use a buffer to bulk insert documents"`
 }
 
-type SslConfig struct {
+type sslConfig struct {
 	CaCerts []string `json:"cacerts,omitempty" doc:"array of root CAs to use in order to verify the server certificates"`
 }
 

@@ -1,4 +1,4 @@
-package adaptor
+package transformer
 
 import (
 	"fmt"
@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/compose/mejson"
+	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/message"
 	"github.com/compose/transporter/pkg/pipe"
 	"github.com/robertkrimen/otto"
@@ -17,7 +18,8 @@ import (
 // function and then emits it.  The javascript transformation function is supplied as a seperate file on disk,
 // and is called by calling the defined module.exports function
 type Transformer struct {
-	fn string
+	fn       string
+	filename string
 
 	pipe *pipe.Pipe
 	path string
@@ -28,39 +30,59 @@ type Transformer struct {
 	vm     *otto.Otto
 }
 
-// NewTransformer creates a new transformer object
-func NewTransformer(pipe *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
-	var (
-		conf TransformerConfig
-		err  error
-	)
-	if err = extra.Construct(&conf); err != nil {
-		return nil, err
+// Description for transformer adaptor
+func (t *Transformer) Description() string {
+	return "an adaptor that transforms documents using a javascript function"
+}
+
+var sampleConfig = `
+- logtransformer:
+    filename: test/transformers/passthrough_and_log.js
+    type: transformer
+`
+
+// SampleConfig for transformer adaptor
+func (t *Transformer) SampleConfig() string {
+	return sampleConfig
+}
+
+func init() {
+	adaptor.Add("transformer", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.StopStartListener, error) {
+		var (
+			conf Config
+			err  error
+		)
+		if err = extra.Construct(&conf); err != nil {
+			return nil, err
+		}
+
+		t := &Transformer{pipe: p, path: path, filename: conf.Filename}
+
+		_, t.ns, err = extra.CompileNamespace()
+		if err != nil {
+			return t, adaptor.NewError(adaptor.CRITICAL, path, fmt.Sprintf("can't split transformer namespace (%s)", err.Error()), nil)
+		}
+
+		return t, nil
+	})
+}
+
+func (t *Transformer) Connect() error {
+	if t.filename == "" {
+		return fmt.Errorf("no filename specified")
 	}
 
-	t := &Transformer{pipe: pipe, path: path}
-
-	if conf.Filename == "" {
-		return t, fmt.Errorf("no filename specified")
-	}
-
-	_, t.ns, err = extra.compileNamespace()
+	ba, err := ioutil.ReadFile(t.filename)
 	if err != nil {
-		return t, NewError(CRITICAL, path, fmt.Sprintf("can't split transformer namespace (%s)", err.Error()), nil)
-	}
-
-	ba, err := ioutil.ReadFile(conf.Filename)
-	if err != nil {
-		return t, err
+		return err
 	}
 
 	t.fn = string(ba)
 
 	if err = t.initEnvironment(); err != nil {
-		return t, err
+		return err
 	}
-
-	return t, nil
+	return nil
 }
 
 // Listen starts the transformer's listener, reads each message from the incoming channel
@@ -76,18 +98,18 @@ func (t *Transformer) initEnvironment() (err error) {
 
 	// set up the vm environment, make `module = {}`
 	if _, err = t.vm.Run(`module = {}`); err != nil {
-		return t.transformerError(CRITICAL, err, nil)
+		return t.transformerError(adaptor.CRITICAL, err, nil)
 	}
 
 	// compile our script
 	if t.script, err = t.vm.Compile("", t.fn); err != nil {
-		return t.transformerError(CRITICAL, err, nil)
+		return t.transformerError(adaptor.CRITICAL, err, nil)
 	}
 
 	// run the script, ignore the output
 	_, err = t.vm.Run(t.script)
 	if err != nil {
-		return t.transformerError(CRITICAL, err, nil)
+		return t.transformerError(adaptor.CRITICAL, err, nil)
 	}
 	return
 }
@@ -127,14 +149,14 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 	}
 	if msg.IsMap() {
 		if doc, err = mejson.Marshal(msg.Data); err != nil {
-			t.pipe.Err <- t.transformerError(ERROR, err, msg)
+			t.pipe.Err <- t.transformerError(adaptor.ERROR, err, msg)
 			return msg, nil
 		}
 		currMsg["data"] = doc
 	}
 
 	if value, err = t.vm.ToValue(currMsg); err != nil {
-		t.pipe.Err <- t.transformerError(ERROR, err, msg)
+		t.pipe.Err <- t.transformerError(adaptor.ERROR, err, msg)
 		return msg, nil
 	}
 
@@ -142,19 +164,19 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 	// lets run our transformer on the document
 	beforeVM := time.Now().Nanosecond()
 	if outDoc, err = t.vm.Call(`module.exports`, nil, value); err != nil {
-		t.pipe.Err <- t.transformerError(ERROR, err, msg)
+		t.pipe.Err <- t.transformerError(adaptor.ERROR, err, msg)
 		return msg, nil
 	}
 
 	if result, err = outDoc.Export(); err != nil {
-		t.pipe.Err <- t.transformerError(ERROR, err, msg)
+		t.pipe.Err <- t.transformerError(adaptor.ERROR, err, msg)
 		return msg, nil
 	}
 
 	afterVM := time.Now().Nanosecond()
 
 	if err = t.toMsg(result, msg); err != nil {
-		t.pipe.Err <- t.transformerError(ERROR, err, msg)
+		t.pipe.Err <- t.transformerError(adaptor.ERROR, err, msg)
 		return msg, err
 	}
 
@@ -178,19 +200,19 @@ func (t *Transformer) toMsg(incoming interface{}, msg *message.Msg) error {
 		case otto.Value:
 			exported, err := data.Export()
 			if err != nil {
-				t.pipe.Err <- t.transformerError(ERROR, err, msg)
+				t.pipe.Err <- t.transformerError(adaptor.ERROR, err, msg)
 				return nil
 			}
 			d, err := mejson.Unmarshal(exported.(map[string]interface{}))
 			if err != nil {
-				t.pipe.Err <- t.transformerError(ERROR, err, msg)
+				t.pipe.Err <- t.transformerError(adaptor.ERROR, err, msg)
 				return nil
 			}
 			msg.Data = map[string]interface{}(d)
 		case map[string]interface{}:
 			d, err := mejson.Unmarshal(data)
 			if err != nil {
-				t.pipe.Err <- t.transformerError(ERROR, err, msg)
+				t.pipe.Err <- t.transformerError(adaptor.ERROR, err, msg)
 				return nil
 			}
 			msg.Data = map[string]interface{}(d)
@@ -209,20 +231,20 @@ func (t *Transformer) toMsg(incoming interface{}, msg *message.Msg) error {
 	return nil
 }
 
-func (t *Transformer) transformerError(lvl ErrorLevel, err error, msg *message.Msg) error {
+func (t *Transformer) transformerError(lvl adaptor.ErrorLevel, err error, msg *message.Msg) error {
 	var data interface{}
 	if msg != nil {
 		data = msg.Data
 	}
 
 	if e, ok := err.(*otto.Error); ok {
-		return NewError(lvl, t.path, fmt.Sprintf("transformer error (%s)", e.String()), data)
+		return adaptor.NewError(lvl, t.path, fmt.Sprintf("transformer error (%s)", e.String()), data)
 	}
-	return NewError(lvl, t.path, fmt.Sprintf("transformer error (%s)", err.Error()), data)
+	return adaptor.NewError(lvl, t.path, fmt.Sprintf("transformer error (%s)", err.Error()), data)
 }
 
-// TransformerConfig holds config options for a transformer adaptor
-type TransformerConfig struct {
+// Config holds config options for a transformer adaptor
+type Config struct {
 	// file containing transformer javascript
 	// must define a module.exports = function(doc) { .....; return doc }
 	Filename  string `json:"filename" doc:"the filename containing the javascript transform fn"`

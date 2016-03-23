@@ -1,4 +1,4 @@
-package adaptor
+package file
 
 import (
 	"encoding/json"
@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/message"
 	"github.com/compose/transporter/pkg/pipe"
 )
@@ -21,21 +22,42 @@ type File struct {
 	filehandle *os.File
 }
 
-// NewFile returns a File Adaptor
-func NewFile(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
-	var (
-		conf FileConfig
-		err  error
-	)
-	if err = extra.Construct(&conf); err != nil {
-		return nil, NewError(CRITICAL, path, fmt.Sprintf("Can't configure adaptor (%s)", err.Error()), nil)
-	}
+// Description for file adaptor
+func (f *File) Description() string {
+	return "an adaptor that reads / writes files"
+}
 
-	return &File{
-		uri:  conf.URI,
-		pipe: p,
-		path: path,
-	}, nil
+var sampleConfig = `
+- stdout:
+    type: file
+    uri: stdout://
+`
+
+// SampleConfig for file adaptor
+func (f *File) SampleConfig() string {
+	return sampleConfig
+}
+
+func init() {
+	adaptor.Add("file", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.StopStartListener, error) {
+		var (
+			conf Config
+			err  error
+		)
+		if err = extra.Construct(&conf); err != nil {
+			return nil, adaptor.NewError(adaptor.CRITICAL, path, fmt.Sprintf("Can't configure adaptor (%s)", err.Error()), nil)
+		}
+
+		return &File{
+			uri:  conf.URI,
+			pipe: p,
+			path: path,
+		}, nil
+	})
+}
+
+func (f *File) Connect() error {
+	return nil
 }
 
 // Start the file adaptor
@@ -58,7 +80,7 @@ func (d *File) Listen() (err error) {
 		filename := strings.Replace(d.uri, "file://", "", 1)
 		d.filehandle, err = os.Create(filename)
 		if err != nil {
-			d.pipe.Err <- NewError(CRITICAL, d.path, fmt.Sprintf("Can't open output file (%s)", err.Error()), nil)
+			d.pipe.Err <- adaptor.NewError(adaptor.CRITICAL, d.path, fmt.Sprintf("Can't open output file (%s)", err.Error()), nil)
 			return err
 		}
 	}
@@ -77,7 +99,7 @@ func (d *File) readFile() (err error) {
 	filename := strings.Replace(d.uri, "file://", "", 1)
 	d.filehandle, err = os.Open(filename)
 	if err != nil {
-		d.pipe.Err <- NewError(CRITICAL, d.path, fmt.Sprintf("Can't open input file (%s)", err.Error()), nil)
+		d.pipe.Err <- adaptor.NewError(adaptor.CRITICAL, d.path, fmt.Sprintf("Can't open input file (%s)", err.Error()), nil)
 		return err
 	}
 
@@ -87,7 +109,7 @@ func (d *File) readFile() (err error) {
 		if err := decoder.Decode(&doc); err == io.EOF {
 			break
 		} else if err != nil {
-			d.pipe.Err <- NewError(ERROR, d.path, fmt.Sprintf("Can't marshal document (%s)", err.Error()), nil)
+			d.pipe.Err <- adaptor.NewError(adaptor.ERROR, d.path, fmt.Sprintf("Can't marshal document (%s)", err.Error()), nil)
 			return err
 		}
 		d.pipe.Send(message.NewMsg(message.Insert, doc, fmt.Sprintf("file.%s", filename)))
@@ -104,7 +126,7 @@ func (d *File) dumpMessage(msg *message.Msg) (*message.Msg, error) {
 	if msg.IsMap() {
 		ba, err := json.Marshal(msg.Map())
 		if err != nil {
-			d.pipe.Err <- NewError(ERROR, d.path, fmt.Sprintf("Can't unmarshal document (%s)", err.Error()), msg.Data)
+			d.pipe.Err <- adaptor.NewError(adaptor.ERROR, d.path, fmt.Sprintf("Can't unmarshal document (%s)", err.Error()), msg.Data)
 			return msg, nil
 		}
 		line = string(ba)
@@ -117,7 +139,7 @@ func (d *File) dumpMessage(msg *message.Msg) (*message.Msg, error) {
 	} else {
 		_, err := fmt.Fprintln(d.filehandle, line)
 		if err != nil {
-			d.pipe.Err <- NewError(ERROR, d.path, fmt.Sprintf("Error writing to file (%s)", err.Error()), msg.Data)
+			d.pipe.Err <- adaptor.NewError(adaptor.ERROR, d.path, fmt.Sprintf("Error writing to file (%s)", err.Error()), msg.Data)
 			return msg, nil
 		}
 	}
@@ -125,8 +147,8 @@ func (d *File) dumpMessage(msg *message.Msg) (*message.Msg, error) {
 	return msg, nil
 }
 
-// FileConfig is used to configure the File Adaptor,
-type FileConfig struct {
+// Config is used to configure the File Adaptor
+type Config struct {
 	// URI pointing to the resource.  We only recognize file:// and stdout:// currently
 	URI string `json:"uri" doc:"the uri to connect to, ie stdout://, file:///tmp/output"`
 }
