@@ -358,13 +358,13 @@ func (r *Rethinkdb) applyOp(msg *message.Msg) (*message.Msg, error) {
 		resp, err = gorethink.Table(msgTable).Insert(doc, gorethink.InsertOpts{Conflict: "replace"}).RunWrite(r.client)
 	}
 	if err != nil {
-		r.pipe.Err <- NewError(ERROR, r.path, "rethinkdb error (%s)", err)
+		r.pipe.Err <- NewError(ERROR, r.path, fmt.Sprintf("rethinkdb error (%s)", err), err)
 		return msg, nil
 	}
 
 	err = r.handleResponse(&resp)
 	if err != nil {
-		r.pipe.Err <- NewError(ERROR, r.path, "rethinkdb error (%s)", err)
+		r.pipe.Err <- NewError(ERROR, r.path, fmt.Sprintf("rethinkdb error (%s)", err), err)
 	}
 
 	return msg, nil

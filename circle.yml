@@ -5,6 +5,9 @@ machine:
 
 dependencies:
   override:
+    - psql -U postgres -c "ALTER SYSTEM SET max_replication_slots TO 5;"
+    - psql -U postgres -c "ALTER SYSTEM SET wal_level TO 'logical';"
+    - sudo sudo -u postgres /usr/lib/postgresql/9.4/bin/pg_ctl restart -w -D /etc/postgresql/9.4/main
     - go get github.com/tools/godep
     - test -d /home/ubuntu/.go_workspace/src/github.com/compose/ || mkdir -p /home/ubuntu/.go_workspace/src/github.com/compose/
     - test -e /home/ubuntu/.go_workspace/src/github.com/compose/transporter || ln -s /home/ubuntu/transporter/ /home/ubuntu/.go_workspace/src/github.com/compose/

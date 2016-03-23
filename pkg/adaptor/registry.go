@@ -19,6 +19,7 @@ func init() {
 	// Register("influx", "an InfluxDB sink adaptor", NewInfluxdb, dbConfig{})
 	Register("transformer", "an adaptor that transforms documents using a javascript function", NewTransformer, TransformerConfig{})
 	Register("rethinkdb", "a rethinkdb sink adaptor", NewRethinkdb, rethinkDbConfig{})
+	Register("postgres", "a Postgres read / write adaptor", NewPostgres, PostgresConfig{})
 }
 
 // Register registers an adaptor (database adaptor) for use with Transporter

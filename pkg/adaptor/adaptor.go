@@ -105,6 +105,7 @@ func (c *Config) splitNamespace() (string, string, error) {
 	if len(fields) != 2 {
 		return "", "", fmt.Errorf("malformed namespace, expected a '.' deliminated string")
 	}
+
 	return fields[0], fields[1], nil
 }
 
