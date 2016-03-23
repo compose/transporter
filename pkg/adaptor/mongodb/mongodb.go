@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	MONGO_BUFFER_SIZE int = 1e6
-	MONGO_BUFFER_LEN  int = 5e5
+	bufferSize int = 1e6
+	bufferLen  int = 5e5
 )
 
 // Mongodb is an adaptor to read / write to mongodb.
@@ -285,12 +285,12 @@ func (m *Mongodb) bulkWriter() {
 				break
 			}
 
-			if ((sz + m.opsBufferSize) > MONGO_BUFFER_SIZE) || (m.opsBufferCount == MONGO_BUFFER_LEN) {
+			if ((sz + m.opsBufferSize) > bufferSize) || (m.opsBufferCount == bufferLen) {
 				m.writeBuffer() // send it off to be inserted
 			}
 
 			m.buffLock.Lock()
-			m.opsBufferCount += 1
+			m.opsBufferCount++
 			m.opsBuffer[doc.Collection] = append(m.opsBuffer[doc.Collection], doc.Doc)
 			m.opsBufferSize += sz
 			m.buffLock.Unlock()

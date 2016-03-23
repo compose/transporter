@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/compose/transporter/pkg/adaptor"
@@ -74,16 +73,14 @@ func (n *Node) Find(childUUID string) (node *Node, err error) {
 	for _, child := range n.Children {
 		if child.UUID == childUUID {
 			return child, nil
-		} else {
-			found, err := child.Find(childUUID)
-			if err != nil {
-				continue
-			} else {
-				return found, nil
-			}
 		}
+		found, err := child.Find(childUUID)
+		if err != nil {
+			continue
+		}
+		return found, nil
 	}
-	return nil, errors.New(fmt.Sprintf("child %s not found under %s", childUUID, n.UUID))
+	return nil, fmt.Errorf("child %s not found under %s", childUUID, n.UUID)
 }
 
 // CreateTransporterNode will turn this node into a transporter.Node.
