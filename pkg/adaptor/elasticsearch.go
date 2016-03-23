@@ -110,6 +110,13 @@ func (e *Elasticsearch) applyOp(msg *message.Msg) (*message.Msg, error) {
 		id = ""
 	}
 
+        // Possible fix for #151 issue: code added to make it working with elastic 2 and mongo (now it's possible to use _id)
+        if len(id) > 0 {
+                var message = msg.Map()
+                delete(message, "_id")
+                msg.Data = message
+        }
+
 	_, _type, err := msg.SplitNamespace()
 	if err != nil {
 		e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("unable to determine type from msg.Namespace (%s)", msg.Namespace), msg)
