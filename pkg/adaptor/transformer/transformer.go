@@ -67,6 +67,7 @@ func init() {
 	})
 }
 
+// Connect loads the transformer file and initializes the transformer environment
 func (t *Transformer) Connect() error {
 	if t.filename == "" {
 		return fmt.Errorf("no filename specified")

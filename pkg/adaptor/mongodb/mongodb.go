@@ -51,14 +51,14 @@ type Mongodb struct {
 	opsBufferCount   int
 	opsBuffer        map[string][]interface{}
 	opsBufferSize    int
-	bulkWriteChannel chan *SyncDoc
+	bulkWriteChannel chan *syncDoc
 	bulkQuitChannel  chan chan bool
 	bulk             bool
 
 	restartable bool // this refers to being able to refresh the iterator, not to the restart based on session op
 }
 
-type SyncDoc struct {
+type syncDoc struct {
 	Doc        map[string]interface{}
 	Collection string
 }
@@ -108,7 +108,7 @@ func init() {
 			debug:            conf.Debug,
 			path:             path,
 			opsBuffer:        make(map[string][]interface{}),
-			bulkWriteChannel: make(chan *SyncDoc),
+			bulkWriteChannel: make(chan *syncDoc),
 			bulkQuitChannel:  make(chan chan bool),
 			bulk:             conf.Bulk,
 			conf:             conf,
@@ -134,6 +134,7 @@ func init() {
 	})
 }
 
+// Connect tests the mongodb connection and initializes the mongo session
 func (m *Mongodb) Connect() error {
 	dialInfo, err := mgo.ParseURL(m.uri)
 	if err != nil {
@@ -249,7 +250,7 @@ func (m *Mongodb) writeMessage(msg *message.Msg) (*message.Msg, error) {
 		return msg, nil
 	}
 
-	doc := &SyncDoc{
+	doc := &syncDoc{
 		Doc:        msg.Map(),
 		Collection: msgColl,
 	}
