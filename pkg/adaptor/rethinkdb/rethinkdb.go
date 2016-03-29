@@ -91,6 +91,7 @@ func init() {
 	})
 }
 
+// Connect tests the connection and if successful, connects to the database
 func (r *Rethinkdb) Connect() error {
 	// test the connection with a timeout
 	testConn, err := gorethink.Connect(gorethink.ConnectOpts{
@@ -197,9 +198,8 @@ func (r *Rethinkdb) Start() error {
 	defer tables.Close()
 
 	var (
-		wg     sync.WaitGroup
-		outerr error
-		table  string
+		wg    sync.WaitGroup
+		table string
 	)
 	for tables.Next(&table) {
 		if match := r.tableMatch.MatchString(table); !match {
@@ -218,7 +218,6 @@ func (r *Rethinkdb) Start() error {
 
 			if err := r.sendAllDocuments(table); err != nil {
 				r.pipe.Err <- err
-				outerr = err
 			} else if r.tail {
 				start <- true
 			}
@@ -348,11 +347,6 @@ func (r *Rethinkdb) Stop() error {
 
 // applyOp applies one operation to the database
 func (r *Rethinkdb) applyOp(msg *message.Msg) (*message.Msg, error) {
-	var (
-		resp gorethink.WriteResponse
-		err  error
-	)
-
 	_, msgTable, err := msg.SplitNamespace()
 	if err != nil {
 		r.pipe.Err <- adaptor.NewError(adaptor.ERROR, r.path, fmt.Sprintf("rethinkdb error (msg namespace improperly formatted, must be database.table, got %s)", msg.Namespace), msg.Data)
@@ -364,9 +358,11 @@ func (r *Rethinkdb) applyOp(msg *message.Msg) (*message.Msg, error) {
 	}
 	doc := msg.Map()
 
+	var resp gorethink.WriteResponse
 	switch msg.Op {
 	case message.Delete:
-		id, err := msg.IDString("id")
+		var id string
+		id, err = msg.IDString("id")
 		if err != nil {
 			r.pipe.Err <- adaptor.NewError(adaptor.ERROR, r.path, "rethinkdb error (cannot delete an object with a nil id)", msg.Data)
 			return msg, nil

@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	MONGO_BUFFER_SIZE int = 1e6
-	MONGO_BUFFER_LEN  int = 5e5
+	bufferSize int = 1e6
+	bufferLen  int = 5e5
 )
 
 // Mongodb is an adaptor to read / write to mongodb.
@@ -51,14 +51,14 @@ type Mongodb struct {
 	opsBufferCount   int
 	opsBuffer        map[string][]interface{}
 	opsBufferSize    int
-	bulkWriteChannel chan *SyncDoc
+	bulkWriteChannel chan *syncDoc
 	bulkQuitChannel  chan chan bool
 	bulk             bool
 
 	restartable bool // this refers to being able to refresh the iterator, not to the restart based on session op
 }
 
-type SyncDoc struct {
+type syncDoc struct {
 	Doc        map[string]interface{}
 	Collection string
 }
@@ -108,7 +108,7 @@ func init() {
 			debug:            conf.Debug,
 			path:             path,
 			opsBuffer:        make(map[string][]interface{}),
-			bulkWriteChannel: make(chan *SyncDoc),
+			bulkWriteChannel: make(chan *syncDoc),
 			bulkQuitChannel:  make(chan chan bool),
 			bulk:             conf.Bulk,
 			conf:             conf,
@@ -134,6 +134,7 @@ func init() {
 	})
 }
 
+// Connect tests the mongodb connection and initializes the mongo session
 func (m *Mongodb) Connect() error {
 	dialInfo, err := mgo.ParseURL(m.uri)
 	if err != nil {
@@ -142,18 +143,16 @@ func (m *Mongodb) Connect() error {
 
 	if m.conf.Ssl != nil {
 		tlsConfig := &tls.Config{}
-		if len(m.conf.Ssl.CaCerts) > 0 {
-			roots := x509.NewCertPool()
-			for _, caCert := range m.conf.Ssl.CaCerts {
-				ok := roots.AppendCertsFromPEM([]byte(caCert))
-				if !ok {
-					return fmt.Errorf("failed to parse root certificate")
-				}
-			}
-			tlsConfig.RootCAs = roots
-		} else {
+		roots := x509.NewCertPool()
+		if len(m.conf.Ssl.CaCerts) == 0 {
 			tlsConfig.InsecureSkipVerify = true
 		}
+		for _, caCert := range m.conf.Ssl.CaCerts {
+			if ok := roots.AppendCertsFromPEM([]byte(caCert)); !ok {
+				return fmt.Errorf("failed to parse root certificate")
+			}
+		}
+		tlsConfig.RootCAs = roots
 		dialInfo.DialServer = func(addr *mgo.ServerAddr) (net.Conn, error) {
 			conn, err := tls.Dial("tcp", addr.String(), tlsConfig)
 			return conn, err
@@ -251,7 +250,7 @@ func (m *Mongodb) writeMessage(msg *message.Msg) (*message.Msg, error) {
 		return msg, nil
 	}
 
-	doc := &SyncDoc{
+	doc := &syncDoc{
 		Doc:        msg.Map(),
 		Collection: msgColl,
 	}
@@ -287,12 +286,12 @@ func (m *Mongodb) bulkWriter() {
 				break
 			}
 
-			if ((sz + m.opsBufferSize) > MONGO_BUFFER_SIZE) || (m.opsBufferCount == MONGO_BUFFER_LEN) {
+			if ((sz + m.opsBufferSize) > bufferSize) || (m.opsBufferCount == bufferLen) {
 				m.writeBuffer() // send it off to be inserted
 			}
 
 			m.buffLock.Lock()
-			m.opsBufferCount += 1
+			m.opsBufferCount++
 			m.opsBuffer[doc.Collection] = append(m.opsBuffer[doc.Collection], doc.Doc)
 			m.opsBufferSize += sz
 			m.buffLock.Unlock()
@@ -398,7 +397,6 @@ func (m *Mongodb) catData() (err error) {
  * tail the oplog
  */
 func (m *Mongodb) tailData() (err error) {
-
 	var (
 		collection = m.mongoSession.DB("local").C("oplog.rs")
 		result     oplogDoc // hold the document

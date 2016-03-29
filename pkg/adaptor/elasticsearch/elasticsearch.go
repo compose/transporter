@@ -28,7 +28,7 @@ type Elasticsearch struct {
 	running bool
 }
 
-// Description for elasticsearch adaptor
+// Description for the Elasticsearcb adaptor
 func (e *Elasticsearch) Description() string {
 	return "an elasticsearch sink adaptor"
 }
@@ -73,6 +73,7 @@ func init() {
 	})
 }
 
+// Connect is a no-op for Elasticsearch adaptors
 func (e *Elasticsearch) Connect() error {
 	return nil
 }

@@ -56,63 +56,65 @@ func init() {
 	})
 }
 
+// Connect is a no-op for File adaptors
 func (f *File) Connect() error {
 	return nil
 }
 
 // Start the file adaptor
 // TODO: we only know how to listen on stdout for now
-func (d *File) Start() (err error) {
+func (f *File) Start() (err error) {
 	defer func() {
-		d.Stop()
+		f.Stop()
 	}()
 
-	return d.readFile()
+	return f.readFile()
 }
 
 // Listen starts the listen loop
-func (d *File) Listen() (err error) {
+func (f *File) Listen() (err error) {
 	defer func() {
-		d.Stop()
+		f.Stop()
 	}()
 
-	if strings.HasPrefix(d.uri, "file://") {
-		filename := strings.Replace(d.uri, "file://", "", 1)
-		d.filehandle, err = os.Create(filename)
+	if strings.HasPrefix(f.uri, "file://") {
+		filename := strings.Replace(f.uri, "file://", "", 1)
+		f.filehandle, err = os.Create(filename)
 		if err != nil {
-			d.pipe.Err <- adaptor.NewError(adaptor.CRITICAL, d.path, fmt.Sprintf("Can't open output file (%s)", err.Error()), nil)
+			f.pipe.Err <- adaptor.NewError(adaptor.CRITICAL, f.path, fmt.Sprintf("Can't open output file (%s)", err.Error()), nil)
 			return err
 		}
 	}
 
-	return d.pipe.Listen(d.dumpMessage, regexp.MustCompile(`.*`))
+	return f.pipe.Listen(f.dumpMessage, regexp.MustCompile(`.*`))
 }
 
 // Stop the adaptor
-func (d *File) Stop() error {
-	d.pipe.Stop()
+func (f *File) Stop() error {
+	f.pipe.Stop()
 	return nil
 }
 
 // read each message from the file
-func (d *File) readFile() (err error) {
-	filename := strings.Replace(d.uri, "file://", "", 1)
-	d.filehandle, err = os.Open(filename)
+func (f *File) readFile() (err error) {
+	filename := strings.Replace(f.uri, "file://", "", 1)
+	f.filehandle, err = os.Open(filename)
 	if err != nil {
-		d.pipe.Err <- adaptor.NewError(adaptor.CRITICAL, d.path, fmt.Sprintf("Can't open input file (%s)", err.Error()), nil)
+		f.pipe.Err <- adaptor.NewError(adaptor.CRITICAL, f.path, fmt.Sprintf("Can't open input file (%s)", err.Error()), nil)
 		return err
 	}
 
-	decoder := json.NewDecoder(d.filehandle)
+	decoder := json.NewDecoder(f.filehandle)
 	for {
 		var doc map[string]interface{}
 		if err := decoder.Decode(&doc); err == io.EOF {
 			break
-		} else if err != nil {
-			d.pipe.Err <- adaptor.NewError(adaptor.ERROR, d.path, fmt.Sprintf("Can't marshal document (%s)", err.Error()), nil)
+		}
+		if err != nil {
+			f.pipe.Err <- adaptor.NewError(adaptor.ERROR, f.path, fmt.Sprintf("Can't marshal document (%s)", err.Error()), nil)
 			return err
 		}
-		d.pipe.Send(message.NewMsg(message.Insert, doc, fmt.Sprintf("file.%s", filename)))
+		f.pipe.Send(message.NewMsg(message.Insert, doc, fmt.Sprintf("file.%s", filename)))
 	}
 	return nil
 }
@@ -120,13 +122,13 @@ func (d *File) readFile() (err error) {
 /*
  * dump each message to the file
  */
-func (d *File) dumpMessage(msg *message.Msg) (*message.Msg, error) {
+func (f *File) dumpMessage(msg *message.Msg) (*message.Msg, error) {
 	var line string
 
 	if msg.IsMap() {
 		ba, err := json.Marshal(msg.Map())
 		if err != nil {
-			d.pipe.Err <- adaptor.NewError(adaptor.ERROR, d.path, fmt.Sprintf("Can't unmarshal document (%s)", err.Error()), msg.Data)
+			f.pipe.Err <- adaptor.NewError(adaptor.ERROR, f.path, fmt.Sprintf("Can't unmarshal document (%s)", err.Error()), msg.Data)
 			return msg, nil
 		}
 		line = string(ba)
@@ -134,12 +136,12 @@ func (d *File) dumpMessage(msg *message.Msg) (*message.Msg, error) {
 		line = fmt.Sprintf("%v", msg.Data)
 	}
 
-	if strings.HasPrefix(d.uri, "stdout://") {
+	if strings.HasPrefix(f.uri, "stdout://") {
 		fmt.Println(line)
 	} else {
-		_, err := fmt.Fprintln(d.filehandle, line)
+		_, err := fmt.Fprintln(f.filehandle, line)
 		if err != nil {
-			d.pipe.Err <- adaptor.NewError(adaptor.ERROR, d.path, fmt.Sprintf("Error writing to file (%s)", err.Error()), msg.Data)
+			f.pipe.Err <- adaptor.NewError(adaptor.ERROR, f.path, fmt.Sprintf("Error writing to file (%s)", err.Error()), msg.Data)
 			return msg, nil
 		}
 	}

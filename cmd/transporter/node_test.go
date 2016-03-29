@@ -3,8 +3,9 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/compose/transporter/pkg/adaptor"
 	"testing"
+
+	"github.com/compose/transporter/pkg/adaptor"
 )
 
 func TestFind(t *testing.T) {
@@ -61,7 +62,7 @@ func TestFind(t *testing.T) {
 			c2.UUID,
 			c2,
 			false,
-			errors.New(fmt.Sprintf("child %s not found under %s", c2.UUID, c1.UUID)),
+			fmt.Errorf("child %s not found under %s", c2.UUID, c1.UUID),
 		},
 		{
 			"find c1c1 from root",
@@ -85,7 +86,7 @@ func TestFind(t *testing.T) {
 			c1c1.UUID,
 			c1c1,
 			false,
-			errors.New(fmt.Sprintf("child %s not found under %s", c1c1.UUID, c2.UUID)),
+			fmt.Errorf("child %s not found under %s", c1c1.UUID, c2.UUID),
 		},
 	}
 
