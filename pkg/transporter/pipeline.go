@@ -92,8 +92,7 @@ func NewPipeline(source *Node, emitter events.Emitter, interval time.Duration, s
 }
 
 func (pipeline *Pipeline) String() string {
-	out := pipeline.source.String()
-	return out
+	return pipeline.source.String()
 }
 
 // Stop sends a stop signal to the emitter and all the nodes, whether they are running or not.

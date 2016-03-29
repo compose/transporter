@@ -16,9 +16,9 @@ import (
 	gorethink "gopkg.in/dancannon/gorethink.v1"
 )
 
-// Rethinkdb is an adaptor that writes metrics to rethinkdb (http://rethinkdb.com/)
+// RethinkDB is an adaptor that writes metrics to rethinkdb (http://rethinkdb.com/)
 // An open-source distributed database
-type Rethinkdb struct {
+type RethinkDB struct {
 	// pull these in from the config
 	uri *url.URL
 
@@ -38,23 +38,23 @@ type Rethinkdb struct {
 }
 
 // Description for rethinkdb adaptor
-func (r *Rethinkdb) Description() string {
+func (r *RethinkDB) Description() string {
 	return "a rethinkdb adaptor that functions as both a source and a sink"
 }
 
-var sampleConfig = `
+const sampleConfig = `
 - rethink:
     type: rethinkdb
     uri: rethink://127.0.0.1:28015/
 `
 
 // SampleConfig for rethinkdb adaptor
-func (r *Rethinkdb) SampleConfig() string {
+func (r *RethinkDB) SampleConfig() string {
 	return sampleConfig
 }
 
 func init() {
-	adaptor.Add("rethinkdb", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.StopStartListener, error) {
+	adaptor.Add("rethinkdb", adaptor.Creator(func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.Adaptor, error) {
 		var (
 			conf Config
 			err  error
@@ -72,7 +72,7 @@ func init() {
 			fmt.Printf("RethinkDB Config %+v\n", conf)
 		}
 
-		r := &Rethinkdb{
+		r := &RethinkDB{
 			uri:  u,
 			pipe: p,
 			path: path,
@@ -88,11 +88,11 @@ func init() {
 			fmt.Printf("tableMatch: %+v\n", r.tableMatch)
 		}
 		return r, nil
-	})
+	}))
 }
 
 // Connect tests the connection and if successful, connects to the database
-func (r *Rethinkdb) Connect() error {
+func (r *RethinkDB) Connect() error {
 	// test the connection with a timeout
 	testConn, err := gorethink.Connect(gorethink.ConnectOpts{
 		Address: r.uri.Host,
@@ -146,7 +146,7 @@ var (
 	rethinkDbVersionMatcher = regexp.MustCompile(`\d+\.\d+(\.\d+)?`)
 )
 
-func (r *Rethinkdb) assertServerVersion(constraint version.Constraints) error {
+func (r *RethinkDB) assertServerVersion(constraint version.Constraints) error {
 	cursor, err := gorethink.DB("rethinkdb").Table("server_status").Run(r.client)
 	if err != nil {
 		return err
@@ -190,7 +190,7 @@ func (r *Rethinkdb) assertServerVersion(constraint version.Constraints) error {
 }
 
 // Start the adaptor as a source
-func (r *Rethinkdb) Start() error {
+func (r *RethinkDB) Start() error {
 	tables, err := gorethink.DB(r.database).TableList().Run(r.client)
 	if err != nil {
 		return err
@@ -230,7 +230,7 @@ func (r *Rethinkdb) Start() error {
 	return nil
 }
 
-func (r *Rethinkdb) startupChangesForTable(table string, start <-chan bool, wg *sync.WaitGroup) error {
+func (r *RethinkDB) startupChangesForTable(table string, start <-chan bool, wg *sync.WaitGroup) error {
 	wg.Add(1)
 	defer wg.Done()
 	if r.debug {
@@ -250,7 +250,7 @@ func (r *Rethinkdb) startupChangesForTable(table string, start <-chan bool, wg *
 	return nil
 }
 
-func (r *Rethinkdb) sendAllDocuments(table string) error {
+func (r *RethinkDB) sendAllDocuments(table string) error {
 	if r.debug {
 		fmt.Printf("sending all documents for %s\n", table)
 	}
@@ -278,7 +278,7 @@ func (r *Rethinkdb) sendAllDocuments(table string) error {
 	return nil
 }
 
-func (r *Rethinkdb) sendChanges(table string, ccursor *gorethink.Cursor) error {
+func (r *RethinkDB) sendChanges(table string, ccursor *gorethink.Cursor) error {
 	defer ccursor.Close()
 	if r.debug {
 		fmt.Printf("sending changes for %s\n", table)
@@ -319,7 +319,7 @@ func (r *Rethinkdb) sendChanges(table string, ccursor *gorethink.Cursor) error {
 	return nil
 }
 
-func (r *Rethinkdb) computeNamespace(table string) string {
+func (r *RethinkDB) computeNamespace(table string) string {
 	return strings.Join([]string{r.database, table}, ".")
 }
 
@@ -327,7 +327,7 @@ func (r *Rethinkdb) computeNamespace(table string) string {
 // commonly used by downstream sinks. A transformer could be used to do the
 // same thing, but because transformers are not run for Delete messages, we
 // must do it here.
-func (r *Rethinkdb) prepareDocument(doc map[string]interface{}) map[string]interface{} {
+func (r *RethinkDB) prepareDocument(doc map[string]interface{}) map[string]interface{} {
 	doc["_id"] = doc["id"]
 	delete(doc, "id")
 
@@ -335,18 +335,18 @@ func (r *Rethinkdb) prepareDocument(doc map[string]interface{}) map[string]inter
 }
 
 // Listen start's the adaptor's listener
-func (r *Rethinkdb) Listen() (err error) {
+func (r *RethinkDB) Listen() (err error) {
 	return r.pipe.Listen(r.applyOp, r.tableMatch)
 }
 
 // Stop the adaptor
-func (r *Rethinkdb) Stop() error {
+func (r *RethinkDB) Stop() error {
 	r.pipe.Stop()
 	return nil
 }
 
 // applyOp applies one operation to the database
-func (r *Rethinkdb) applyOp(msg *message.Msg) (*message.Msg, error) {
+func (r *RethinkDB) applyOp(msg *message.Msg) (*message.Msg, error) {
 	_, msgTable, err := msg.SplitNamespace()
 	if err != nil {
 		r.pipe.Err <- adaptor.NewError(adaptor.ERROR, r.path, fmt.Sprintf("rethinkdb error (msg namespace improperly formatted, must be database.table, got %s)", msg.Namespace), msg.Data)
@@ -387,7 +387,7 @@ func (r *Rethinkdb) applyOp(msg *message.Msg) (*message.Msg, error) {
 }
 
 // handleresponse takes the rethink response and turn it into something we can consume elsewhere
-func (r *Rethinkdb) handleResponse(resp *gorethink.WriteResponse) error {
+func (r *RethinkDB) handleResponse(resp *gorethink.WriteResponse) error {
 	if resp.Errors != 0 {
 		if !strings.Contains(resp.FirstError, "Duplicate primary key") { // we don't care about this error
 			if r.debug {

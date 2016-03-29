@@ -27,7 +27,7 @@ func (f *File) Description() string {
 	return "an adaptor that reads / writes files"
 }
 
-var sampleConfig = `
+const sampleConfig = `
 - stdout:
     type: file
     uri: stdout://
@@ -39,7 +39,7 @@ func (f *File) SampleConfig() string {
 }
 
 func init() {
-	adaptor.Add("file", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.StopStartListener, error) {
+	adaptor.Add("file", adaptor.Creator(func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.Adaptor, error) {
 		var (
 			conf Config
 			err  error
@@ -53,12 +53,7 @@ func init() {
 			pipe: p,
 			path: path,
 		}, nil
-	})
-}
-
-// Connect is a no-op for File adaptors
-func (f *File) Connect() error {
-	return nil
+	}))
 }
 
 // Start the file adaptor
