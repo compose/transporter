@@ -232,13 +232,13 @@ func (js *JavascriptBuilder) findNode(token string, in otto.Value) (n Node, err 
 
 // emitter examines the config file for api information
 // and returns the correct
-func (js *JavascriptBuilder) emitter() events.Emitter {
+func (js *JavascriptBuilder) emitfunc() events.EmitFunc {
 	if js.config.API.URI == "" {
 		// no URI set, return a noop emitter
-		return events.NewNoopEmitter()
+		return events.NoopEmitter()
 	}
 
-	return events.NewHTTPPostEmitter(js.config.API.URI, js.config.API.Key, js.config.API.Pid)
+	return events.HTTPPostEmitter(js.config.API.URI, js.config.API.Key, js.config.API.Pid)
 }
 
 // Build runs the javascript script.
@@ -283,7 +283,7 @@ func (js *JavascriptBuilder) Build() error {
 	// build each pipeline
 	for _, node := range js.nodes {
 		n := node.CreateTransporterNode()
-		pipeline, err := transporter.NewPipeline(n, js.emitter(), interval, sessionStore, sessionInterval)
+		pipeline, err := transporter.NewPipeline(n, js.emitfunc(), interval, sessionStore, sessionInterval)
 		if err != nil {
 			return err
 		}
