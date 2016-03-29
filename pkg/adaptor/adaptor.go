@@ -18,37 +18,47 @@ func (a ErrAdaptor) Error() string {
 	return fmt.Sprintf("adaptor '%s' not found in registry", a.name)
 }
 
-// StopStartListener defines the interface that all database connectors and nodes must follow.
-// SampleConfig() returns an example YAML structure to configure the adaptor
-// Description() provides contextual information for what the adaptor is for
-// Connect() allows the adaptor an opportunity to setup connections prior to Start()
+// Adaptor defines the interface that all database connectors and nodes must follow.
 // Start() consumes data from the interface,
 // Listen() listens on a pipe, processes data, and then emits it.
 // Stop() shuts down the adaptor
-type StopStartListener interface {
-	SampleConfig() string
-	Description() string
-	Connect() error
+type Adaptor interface {
 	Start() error
 	Listen() error
 	Stop() error
 }
 
-// Createadaptor instantiates an adaptor given the adaptor type and the Config.
+// Connectable defines the interface that adapters should follow to have their connections set
+// on load
+// Connect() allows the adaptor an opportunity to setup connections prior to Start()
+type Connectable interface {
+	Connect() error
+}
+
+// Describable defines the interface that all database connectors and nodes must follow in order to support
+// the help functions.
+// SampleConfig() returns an example YAML structure to configure the adaptor
+// Description() provides contextual information for what the adaptor is for
+type Describable interface {
+	SampleConfig() string
+	Description() string
+}
+
+// CreateAdaptor instantiates an adaptor given the adaptor type and the Config.
 // An Adaptor is expected to add themselves to the Adaptors map in the init() func
 //   func init() {
 //     adaptors.Add("TYPE", func(p *pipe.Pipe, path string, extra adaptors.Config) (adaptors.StopStartListener, error) {
 //     })
 //   }
 // and are expected to confirm to the Adaptor interface
-func Createadaptor(kind, path string, extra Config, p *pipe.Pipe) (adaptor StopStartListener, err error) {
+func CreateAdaptor(kind, path string, extra Config, p *pipe.Pipe) (adaptor Adaptor, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("cannot create node: %v", r)
 		}
 	}()
 
-	creator, ok := Adaptors[kind]
+	creator, ok := adaptors[kind]
 	if !ok {
 		return nil, ErrAdaptor{kind}
 	}
@@ -57,9 +67,10 @@ func Createadaptor(kind, path string, extra Config, p *pipe.Pipe) (adaptor StopS
 	if err != nil {
 		return nil, ErrAdaptor{kind}
 	}
-
-	if err := adaptor.Connect(); err != nil {
-		return nil, ErrAdaptor{kind}
+	if c, ok := adaptor.(Connectable); ok {
+		if err := c.Connect(); err != nil {
+			return nil, ErrAdaptor{kind}
+		}
 	}
 
 	return adaptor, nil

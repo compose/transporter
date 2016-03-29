@@ -35,7 +35,7 @@ func (t *Transformer) Description() string {
 	return "an adaptor that transforms documents using a javascript function"
 }
 
-var sampleConfig = `
+const sampleConfig = `
 - logtransformer:
     filename: test/transformers/passthrough_and_log.js
     type: transformer
@@ -47,7 +47,7 @@ func (t *Transformer) SampleConfig() string {
 }
 
 func init() {
-	adaptor.Add("transformer", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.StopStartListener, error) {
+	adaptor.Add("transformer", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.Adaptor, error) {
 		var (
 			conf Config
 			err  error
