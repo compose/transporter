@@ -239,7 +239,9 @@ func (c *aboutCommand) Run(args []string) int {
 				fmt.Printf("unable to create adator '%s', %s\n", name, err.Error())
 				return 1
 			}
-			fmt.Printf("%-20s %s\n", name, dummyAdaptor.Description())
+			if d, ok := dummyAdaptor.(adaptor.Describable); ok {
+				fmt.Printf("%-20s %s\n", name, d.Description())
+			}
 		}
 		return 0
 	}
@@ -254,6 +256,8 @@ func (c *aboutCommand) Run(args []string) int {
 		fmt.Printf("unable to create adator, %s\n", err.Error())
 		return 1
 	}
-	fmt.Println(dummyAdaptor.Description())
+	if d, ok := dummyAdaptor.(adaptor.Describable); ok {
+		fmt.Println(d.Description())
+	}
 	return 0
 }

@@ -58,7 +58,7 @@ func CreateAdaptor(kind, path string, extra Config, p *pipe.Pipe) (adaptor Adapt
 		}
 	}()
 
-	creator, ok := adaptors[kind]
+	creator, ok := Adaptors[kind]
 	if !ok {
 		return nil, ErrAdaptor{kind}
 	}
