@@ -11,8 +11,8 @@ echo "use foo"
 echo "db.bar.find().pretty();"
 echo ""
 
-echo "transporter run --config ./config.yaml ./application.js"
-transporter run --config ./config.yaml ./application.js
+echo "./transporter run --config ./config.yaml ./application.js"
+./transporter run --config ./config.yaml ./application.js
 
 echo ""
 echo "curl -XGET localhost:9200/foo/bar/_search?pretty=true"
