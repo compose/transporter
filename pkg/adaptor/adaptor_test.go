@@ -13,11 +13,13 @@ type TestAdaptor struct {
 	value string
 }
 
+var errTest = errors.New("this is an error")
+
 func init() {
 	Add("testadaptor", func(p *pipe.Pipe, path string, extra Config) (Adaptor, error) {
 		val, ok := extra["value"]
 		if !ok {
-			return nil, errors.New("this is an error")
+			return nil, errTest
 		}
 		return &TestAdaptor{value: val.(string)}, nil
 	})
@@ -64,7 +66,7 @@ func TestCreateAdaptor(t *testing.T) {
 			"testadaptor",
 			Config{"blah": "rockettes"},
 			&TestAdaptor{},
-			"adaptor 'testadaptor' not found in registry",
+			errTest.Error(),
 		},
 		{
 			"notasource",
