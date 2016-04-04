@@ -65,11 +65,11 @@ func CreateAdaptor(kind, path string, extra Config, p *pipe.Pipe) (adaptor Adapt
 
 	adaptor, err = creator(p, path, extra)
 	if err != nil {
-		return nil, ErrAdaptor{kind}
+		return nil, err
 	}
 	if c, ok := adaptor.(Connectable); ok {
 		if err := c.Connect(); err != nil {
-			return nil, ErrAdaptor{kind}
+			return nil, err
 		}
 	}
 
