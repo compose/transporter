@@ -22,7 +22,7 @@ func newMessageChan() messageChan {
 
 // Pipe provides a set of methods to let transporter nodes communicate with each other.
 //
-// Pipes contain In, Out, Err, and Event channels.  Messages are consumed by a node through the 'in' chan, emitted from the node by the 'out' chan.
+// Pipes contain In, Out, Err, and Event channels. Messages are consumed by a node through the 'in' chan, emitted from the node by the 'out' chan.
 // Pipes come in three flavours, a sourcePipe, which only emits messages and has no listening loop, a sinkPipe which has a listening loop, but doesn't emit any messages,
 // and joinPipe which has a li tening loop that also emits messages.
 type Pipe struct {

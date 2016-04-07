@@ -157,28 +157,9 @@ func (pipeline *Pipeline) startMetricsGatherer() {
 
 // emit the metrics
 func (pipeline *Pipeline) emitMetrics() {
-
-	frontier := make([]*Node, 1)
-	frontier[0] = pipeline.source
-
-	for {
-		// pop the first item
-		node := frontier[0]
-		frontier = frontier[1:]
-
-		// do something with the node
+	pipeline.apply(func(node *Node) {
 		pipeline.source.pipe.Event <- events.NewMetricsEvent(time.Now().Unix(), node.Path(), node.pipe.MessageCount)
-
-		// add this nodes children to the frontier
-		for _, child := range node.Children {
-			frontier = append(frontier, child)
-		}
-
-		// if we're empty
-		if len(frontier) == 0 {
-			break
-		}
-	}
+	})
 }
 
 func (pipeline *Pipeline) startStateSaver() {
@@ -188,57 +169,32 @@ func (pipeline *Pipeline) startStateSaver() {
 }
 
 func (pipeline *Pipeline) setState() {
-	frontier := make([]*Node, 1)
-	frontier[0] = pipeline.source
-
-	for {
-		// pop the first item
-		node := frontier[0]
-		frontier = frontier[1:]
-
-		// do something with the node
+	pipeline.apply(func(node *Node) {
 		if node.Type != "transformer" && node.pipe.LastMsg != nil {
 			pipeline.sessionStore.Set(node.Path(), &state.MsgState{Msg: node.pipe.LastMsg, Extra: node.pipe.ExtraState})
 		}
-
-		// add this nodes children to the frontier
-		for _, child := range node.Children {
-			frontier = append(frontier, child)
-		}
-
-		// if we're empty
-		if len(frontier) == 0 {
-			break
-		}
-	}
+	})
 }
 
 func (pipeline *Pipeline) initState() {
-	frontier := make([]*Node, 1)
-	frontier[0] = pipeline.source
-
-	for {
-		// pop the first item
-		node := frontier[0]
-		frontier = frontier[1:]
-
-		// do something with the node
+	pipeline.apply(func(node *Node) {
 		if node.Type != "transformer" {
-			nodeState, _ := pipeline.sessionStore.Get(node.Path())
-			if nodeState != nil {
-				node.pipe.LastMsg = nodeState.Msg
-				node.pipe.ExtraState = nodeState.Extra
+			state, _ := pipeline.sessionStore.Get(node.Path())
+			if state != nil {
+				node.pipe.LastMsg = state.Msg
+				node.pipe.ExtraState = state.Extra
 			}
 		}
+	})
+}
 
-		// add this nodes children to the frontier
-		for _, child := range node.Children {
-			frontier = append(frontier, child)
-		}
-
-		// if we're empty
-		if len(frontier) == 0 {
-			break
-		}
+// apply maps a function f across all nodes of a pipeline
+func (pipeline *Pipeline) apply(f func(*Node)) {
+	head := pipeline.source
+	nodes := []*Node{head}
+	for len(nodes) > 0 {
+		head, nodes = nodes[0], nodes[1:]
+		f(head)
+		nodes = append(nodes, head.Children...)
 	}
 }

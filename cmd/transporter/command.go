@@ -76,7 +76,7 @@ func newRunCommand() (cli.Command, error) {
 func (c *runCommand) Help() string {
 	return `Usage: transporter run [--config file] <filename>
 
-Run a transporter transporter application by sourcing a file containing the javascript application
+Run a transporter application by sourcing a file containing the javascript application
 and compiling the transporter pipeline`
 }
 
@@ -98,7 +98,7 @@ func (c *runCommand) Run(args []string) int {
 	}
 
 	if len(cmdFlags.Args()) == 0 {
-		fmt.Println("Error: A name of a file to run is required")
+		fmt.Println("err: a name of a file to run is required")
 		return 1
 	}
 
@@ -171,7 +171,7 @@ type evalCommand struct {
 }
 
 func (c *evalCommand) Help() string {
-	return `Usage: transporter eval [--config file]  <javascript>
+	return `Usage: transporter eval [--config file] <javascript>
 
 Compile a transporter application by evaluating the given javascript`
 }
@@ -194,7 +194,7 @@ func (c *evalCommand) Run(args []string) int {
 	}
 
 	if len(cmdFlags.Args()) == 0 {
-		fmt.Println("Error: A string to evaluate is required")
+		fmt.Println("err: a string to evaluate is required")
 		return 1
 	}
 
