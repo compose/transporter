@@ -8,6 +8,7 @@ import (
 
 	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/message"
+	"github.com/compose/transporter/pkg/message/adaptor/elasticsearch"
 	"github.com/compose/transporter/pkg/pipe"
 	elastigo "github.com/mattbaird/elastigo/lib"
 )
@@ -111,38 +112,12 @@ func (e *Elasticsearch) Stop() error {
 	return nil
 }
 
-func (e *Elasticsearch) applyOp(msg *message.Msg) (*message.Msg, error) {
-	if msg.Op == message.Command {
-		err := e.runCommand(msg)
-		if err != nil {
-			e.pipe.Err <- adaptor.NewError(adaptor.ERROR, e.path, fmt.Sprintf("elasticsearch error (%s)", err), msg.Data)
-		}
-		return msg, nil
-	}
-
-	// TODO there might be some inconsistency here.  elasticsearch uses the _id field for an primary index,
-	//  and we're just mapping it to a string here.
-	id, err := msg.IDString("_id")
-	if err != nil {
-		id = ""
-	}
-
-	_, _type, err := msg.SplitNamespace()
-	if err != nil {
-		e.pipe.Err <- adaptor.NewError(adaptor.ERROR, e.path, fmt.Sprintf("unable to determine type from msg.Namespace (%s)", msg.Namespace), msg)
-		return msg, nil
-	}
-	switch msg.Op {
-	case message.Delete:
-		e.indexer.Delete(e.index, _type, id, false)
-		err = nil
-	default:
-		err = e.indexer.Index(e.index, _type, id, "", "", nil, msg.Data, false)
-	}
+func (e *Elasticsearch) applyOp(msg message.Msg) (message.Msg, error) {
+	m, err := message.Exec(message.MustUseAdaptor("elasticsearch").(elasticsearch.Adaptor).UseIndexer(e.indexer).UseIndex(e.index), msg)
 	if err != nil {
 		e.pipe.Err <- adaptor.NewError(adaptor.ERROR, e.path, fmt.Sprintf("elasticsearch error (%s)", err), msg.Data)
 	}
-	return msg, nil
+	return m, err
 }
 
 func (e *Elasticsearch) setupClient() {
@@ -166,15 +141,4 @@ func (e *Elasticsearch) setupClient() {
 	client.Protocol = e.uri.Scheme
 
 	e.indexer = client.NewBulkIndexerErrors(10, 60)
-}
-
-func (e *Elasticsearch) runCommand(msg *message.Msg) error {
-	if !msg.IsMap() {
-		return nil
-	}
-
-	if _, hasKey := msg.Map()["flush"]; hasKey {
-		e.indexer.Flush()
-	}
-	return nil
 }

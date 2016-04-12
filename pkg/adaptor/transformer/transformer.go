@@ -9,6 +9,8 @@ import (
 	"github.com/compose/mejson"
 	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/message"
+	"github.com/compose/transporter/pkg/message/data"
+	"github.com/compose/transporter/pkg/message/ops"
 	"github.com/compose/transporter/pkg/pipe"
 	"github.com/robertkrimen/otto"
 	_ "github.com/robertkrimen/otto/underscore" // enable underscore
@@ -126,10 +128,9 @@ func (t *Transformer) Stop() error {
 	return nil
 }
 
-func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
+func (t *Transformer) transformOne(msg message.Msg) (message.Msg, error) {
 
 	var (
-		doc    interface{}
 		value  otto.Value
 		outDoc otto.Value
 		result interface{}
@@ -137,24 +138,25 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 	)
 
 	// short circuit for deletes and commands
-	if msg.Op == message.Command {
+	if msg.OP() == ops.Command {
 		return msg, nil
 	}
 
 	now := time.Now().Nanosecond()
 	currMsg := map[string]interface{}{
-		"data": msg.Data,
-		"ts":   msg.Timestamp,
-		"op":   msg.Op.String(),
-		"ns":   msg.Namespace,
+		"data": msg.Data(),
+		"ts":   msg.Timestamp(),
+		"op":   msg.OP().String(),
+		"ns":   msg.Namespace(),
 	}
-	if msg.IsMap() {
-		if doc, err = mejson.Marshal(msg.Data); err != nil {
-			t.pipe.Err <- t.transformerError(adaptor.ERROR, err, msg)
-			return msg, nil
-		}
-		currMsg["data"] = doc
-	}
+	// check why this is necessary
+	// if msg.IsMap() {
+	// 	if doc, err = mejson.Marshal(msg.Data); err != nil {
+	// 		t.pipe.Err <- t.transformerError(adaptor.ERROR, err, msg)
+	// 		return msg, nil
+	// 	}
+	// 	currMsg["data"] = doc
+	// }
 
 	if value, err = t.vm.ToValue(currMsg); err != nil {
 		t.pipe.Err <- t.transformerError(adaptor.ERROR, err, msg)
@@ -189,17 +191,21 @@ func (t *Transformer) transformOne(msg *message.Msg) (*message.Msg, error) {
 	return msg, nil
 }
 
-func (t *Transformer) toMsg(incoming interface{}, msg *message.Msg) error {
-
+func (t *Transformer) toMsg(incoming interface{}, msg message.Msg) error {
+	var (
+		op ops.Op
+		// ts      int64
+		ns      string
+		mapData data.MapData
+	)
 	switch newMsg := incoming.(type) {
 	case map[string]interface{}: // we're a proper message.Msg, so copy the data over
-		msg.Op = message.OpTypeFromString(newMsg["op"].(string))
-		msg.Timestamp = newMsg["ts"].(int64)
-		msg.Namespace = newMsg["ns"].(string)
-
-		switch data := newMsg["data"].(type) {
+		op = ops.OpTypeFromString(newMsg["op"].(string))
+		// ts = newMsg["ts"].(int64)
+		ns = newMsg["ns"].(string)
+		switch newData := newMsg["data"].(type) {
 		case otto.Value:
-			exported, err := data.Export()
+			exported, err := newData.Export()
 			if err != nil {
 				t.pipe.Err <- t.transformerError(adaptor.ERROR, err, msg)
 				return nil
@@ -209,30 +215,31 @@ func (t *Transformer) toMsg(incoming interface{}, msg *message.Msg) error {
 				t.pipe.Err <- t.transformerError(adaptor.ERROR, err, msg)
 				return nil
 			}
-			msg.Data = map[string]interface{}(d)
+			mapData = data.MapData(d)
 		case map[string]interface{}:
-			d, err := mejson.Unmarshal(data)
+			d, err := mejson.Unmarshal(newData)
 			if err != nil {
 				t.pipe.Err <- t.transformerError(adaptor.ERROR, err, msg)
 				return nil
 			}
-			msg.Data = map[string]interface{}(d)
+			mapData = data.MapData(d)
 		default:
-			msg.Data = data
+			// this was setting the data directly instead of erroring before, recheck
+			t.pipe.Err <- t.transformerError(adaptor.ERROR, fmt.Errorf("bad type for data: %T", newData), msg)
+			return nil
 		}
 	case bool: // skip this doc if we're a bool and we're false
 		if !newMsg {
-			msg.Op = message.Noop
-			return nil
+			op = ops.Noop
 		}
 	default: // something went wrong
 		return fmt.Errorf("returned doc was not a map[string]interface{}")
 	}
-
+	msg = message.MustUseAdaptor("transformer").From(op, ns, mapData)
 	return nil
 }
 
-func (t *Transformer) transformerError(lvl adaptor.ErrorLevel, err error, msg *message.Msg) error {
+func (t *Transformer) transformerError(lvl adaptor.ErrorLevel, err error, msg message.Msg) error {
 	var data interface{}
 	if msg != nil {
 		data = msg.Data

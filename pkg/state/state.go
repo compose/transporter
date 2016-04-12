@@ -7,7 +7,7 @@ import (
 // MsgState encapsulates a message state to be stored in the SessionStore for
 // graceful recovery
 type MsgState struct {
-	Msg   *message.Msg
+	Msg   message.Msg
 	Extra map[string]interface{}
 }
 
