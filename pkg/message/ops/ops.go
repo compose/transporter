@@ -2,15 +2,15 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package message
+package ops
 
-// OpType represents the many different Operations being
+// Op represents the many different Operations being
 // performed against a document (i.e. Insert, Update, etc.)
-type OpType int
+type Op int
 
 // messages refer to specific types database operations which are enumerated here.
 const (
-	Insert OpType = iota
+	Insert Op = iota
 	Update
 	Delete
 	Command
@@ -20,7 +20,7 @@ const (
 
 // String returns the constant of the
 // string representation of the OpType object.
-func (o OpType) String() string {
+func (o Op) String() string {
 	switch o {
 	case Insert:
 		return "insert"
@@ -39,7 +39,7 @@ func (o OpType) String() string {
 
 // OpTypeFromString returns the constant
 // representing the passed in string
-func OpTypeFromString(s string) OpType {
+func OpTypeFromString(s string) Op {
 	switch s[0] {
 	case 'i':
 		return Insert

@@ -190,6 +190,9 @@ func (pipeline *Pipeline) initState() {
 
 // apply maps a function f across all nodes of a pipeline
 func (pipeline *Pipeline) apply(f func(*Node)) {
+	if pipeline.source == nil {
+		return
+	}
 	head := pipeline.source
 	nodes := []*Node{head}
 	for len(nodes) > 0 {

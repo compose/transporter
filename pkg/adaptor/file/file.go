@@ -10,6 +10,7 @@ import (
 
 	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/message"
+	"github.com/compose/transporter/pkg/message/ops"
 	"github.com/compose/transporter/pkg/pipe"
 )
 
@@ -109,7 +110,7 @@ func (f *File) readFile() (err error) {
 			f.pipe.Err <- adaptor.NewError(adaptor.ERROR, f.path, fmt.Sprintf("Can't marshal document (%s)", err.Error()), nil)
 			return err
 		}
-		f.pipe.Send(message.NewMsg(message.Insert, doc, fmt.Sprintf("file.%s", filename)))
+		f.pipe.Send(message.MustUseAdaptor("file").From(ops.Insert, fmt.Sprintf("file.%s", filename), doc))
 	}
 	return nil
 }
@@ -117,24 +118,16 @@ func (f *File) readFile() (err error) {
 /*
  * dump each message to the file
  */
-func (f *File) dumpMessage(msg *message.Msg) (*message.Msg, error) {
-	var line string
-
-	if msg.IsMap() {
-		ba, err := json.Marshal(msg.Map())
-		if err != nil {
-			f.pipe.Err <- adaptor.NewError(adaptor.ERROR, f.path, fmt.Sprintf("Can't unmarshal document (%s)", err.Error()), msg.Data)
-			return msg, nil
-		}
-		line = string(ba)
-	} else {
-		line = fmt.Sprintf("%v", msg.Data)
+func (f *File) dumpMessage(msg message.Msg) (message.Msg, error) {
+	b, err := message.MarshalData(msg)
+	if err != nil {
+		f.pipe.Err <- adaptor.NewError(adaptor.ERROR, f.path, fmt.Sprintf("Can't unmarshal document (%s)", err.Error()), msg.Data)
+		return msg, nil
 	}
-
 	if strings.HasPrefix(f.uri, "stdout://") {
-		fmt.Println(line)
+		fmt.Println(string(b))
 	} else {
-		_, err := fmt.Fprintln(f.filehandle, line)
+		_, err := fmt.Fprintln(f.filehandle, string(b))
 		if err != nil {
 			f.pipe.Err <- adaptor.NewError(adaptor.ERROR, f.path, fmt.Sprintf("Error writing to file (%s)", err.Error()), msg.Data)
 			return msg, nil
