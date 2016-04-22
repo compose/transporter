@@ -38,6 +38,8 @@ func (r Adaptor) From(op ops.Op, namespace string, d interface{}) message.Msg {
 		m.MapData = data.MapData(d.(map[string]interface{}))
 	case bson.M:
 		m.MapData = data.MapData(d.(bson.M))
+	case data.MapData:
+		m.MapData = d.(data.MapData)
 	}
 	return m
 }
