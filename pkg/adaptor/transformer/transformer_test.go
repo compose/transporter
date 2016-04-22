@@ -50,68 +50,69 @@ func TestTransformOne(t *testing.T) {
 	}(tpipe)
 
 	data := []struct {
-		fn  string
-		in  message.Msg
-		out message.Msg
-		err bool
+		name string
+		fn   string
+		in   message.Msg
+		out  message.Msg
+		err  bool
 	}{
 		{
-			// just pass through
+			"just pass through",
 			"module.exports=function(doc) { return doc }",
 			message.MustUseAdaptor("transformer").From(ops.Insert, "database.collection", map[string]interface{}{"id": "id1", "name": "nick"}),
 			message.MustUseAdaptor("transformer").From(ops.Insert, "database.collection", map[string]interface{}{"id": "id1", "name": "nick"}),
 			false,
 		},
 		{
-			// delete the 'name' property
+			"delete the 'name' property",
 			"module.exports=function(doc) { doc['data'] = _.omit(doc['data'], ['name']); return doc }",
 			message.MustUseAdaptor("transformer").From(ops.Insert, "database.collection", map[string]interface{}{"id": "id2", "name": "nick"}),
 			message.MustUseAdaptor("transformer").From(ops.Insert, "database.collection", map[string]interface{}{"id": "id2"}),
 			false,
 		},
 		{
-			// delete's should be processed the same
+			"delete's should be processed the same",
 			"module.exports=function(doc) { doc['data'] =  _.omit(doc['data'], ['name']); return doc }",
 			message.MustUseAdaptor("transformer").From(ops.Delete, "database.collection", map[string]interface{}{"id": "id2", "name": "nick"}),
 			message.MustUseAdaptor("transformer").From(ops.Delete, "database.collection", map[string]interface{}{"id": "id2"}),
 			false,
 		},
 		{
-			// delete's and commands should pass through, and the transformer fn shouldn't run
+			"delete's and commands should pass through, and the transformer fn shouldn't run",
 			"module.exports=function(doc) { return _.omit(doc['data'], ['name']) }",
 			message.MustUseAdaptor("transformer").From(ops.Command, "database.collection", map[string]interface{}{"id": "id2", "name": "nick"}),
 			message.MustUseAdaptor("transformer").From(ops.Command, "database.collection", map[string]interface{}{"id": "id2", "name": "nick"}),
 			false,
 		},
 		{
-			// bson should marshal and unmarshal properly
+			"bson should marshal and unmarshal properly",
 			"module.exports=function(doc) { return doc }",
 			message.MustUseAdaptor("transformer").From(ops.Insert, "database.collection", map[string]interface{}{"id": bsonID1, "name": "nick"}),
 			message.MustUseAdaptor("transformer").From(ops.Insert, "database.collection", map[string]interface{}{"id": bsonID1, "name": "nick"}),
 			false,
 		},
 		{
-			// we should be able to change the bson
+			"we should be able to change the bson",
 			"module.exports=function(doc) { doc['data']['id']['$oid'] = '54a4420502a14b9641000001'; return doc }",
 			message.MustUseAdaptor("transformer").From(ops.Insert, "database.collection", map[string]interface{}{"id": bsonID1, "name": "nick"}),
 			message.MustUseAdaptor("transformer").From(ops.Insert, "database.collection", map[string]interface{}{"id": bsonID2, "name": "nick"}),
 			false,
 		}, {
-			// we should be able to skip a nil message
+			"we should be able to skip a nil message",
 			"module.exports=function(doc) { return false }",
 			message.MustUseAdaptor("transformer").From(ops.Insert, "database.collection", map[string]interface{}{"id": bsonID1, "name": "nick"}),
 			message.MustUseAdaptor("transformer").From(ops.Noop, "database.collection", map[string]interface{}{"id": bsonID1, "name": "nick"}),
 			false,
 		},
 		{
-			// this throws an error
+			"this throws an error",
 			"module.exports=function(doc) { return doc['data']['name'] }",
 			message.MustUseAdaptor("transformer").From(ops.Insert, "database.collection", map[string]interface{}{"id": bsonID1, "name": "nick"}),
 			message.MustUseAdaptor("transformer").From(ops.Insert, "database.collection", "nick"),
 			true,
 		},
 		{
-			// we should be able to change the namespace
+			"we should be able to change the namespace",
 			"module.exports=function(doc) { doc['ns'] = 'database.table'; return doc }",
 			message.MustUseAdaptor("transformer").From(ops.Insert, "database.collection", map[string]interface{}{"id": bsonID1, "name": "nick"}),
 			message.MustUseAdaptor("transformer").From(ops.Insert, "database.table", map[string]interface{}{"id": bsonID1, "name": "nick"}),
@@ -131,7 +132,7 @@ func TestTransformOne(t *testing.T) {
 			continue
 		}
 		if (!reflect.DeepEqual(msg, v.out) || err != nil) && !v.err {
-			t.Errorf("expected:\n(%T) %+v\ngot:\n(%T) %+v with error (%v)\n", v.out, v.out, msg, msg, err)
+			t.Errorf("[%s] expected:\n(%T) %+v\ngot:\n(%T) %+v with error (%v)\n", v.name, v.out, v.out, msg, msg, err)
 		}
 	}
 }
