@@ -11,6 +11,8 @@ import (
 
 	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/message"
+	"github.com/compose/transporter/pkg/message/data"
+	"github.com/compose/transporter/pkg/message/ops"
 	"github.com/compose/transporter/pkg/pipe"
 	version "github.com/hashicorp/go-version"
 	gorethink "gopkg.in/dancannon/gorethink.v1"
@@ -35,6 +37,8 @@ type RethinkDB struct {
 
 	// rethinkdb connection and options
 	client *gorethink.Session
+
+	version string
 }
 
 // Description for rethinkdb adaptor
@@ -267,7 +271,7 @@ func (r *RethinkDB) sendAllDocuments(table string) error {
 			return nil
 		}
 
-		msg := message.NewMsg(message.Insert, r.prepareDocument(doc), r.computeNamespace(table))
+		msg := message.MustUseAdaptor("rethinkdb").From(ops.Insert, r.computeNamespace(table), r.prepareDocument(doc))
 		r.pipe.Send(msg)
 	}
 
@@ -293,15 +297,15 @@ func (r *RethinkDB) sendChanges(table string, ccursor *gorethink.Cursor) error {
 			fmt.Printf("change: %#v\n", change)
 		}
 
-		var msg *message.Msg
+		var msg message.Msg
 		if change.Error != "" {
 			return errors.New(change.Error)
 		} else if change.OldVal != nil && change.NewVal != nil {
-			msg = message.NewMsg(message.Update, r.prepareDocument(change.NewVal), r.computeNamespace(table))
+			msg = message.MustUseAdaptor("rethinkdb").From(ops.Update, r.computeNamespace(table), r.prepareDocument(change.NewVal))
 		} else if change.NewVal != nil {
-			msg = message.NewMsg(message.Insert, r.prepareDocument(change.NewVal), r.computeNamespace(table))
+			msg = message.MustUseAdaptor("rethinkdb").From(ops.Insert, r.computeNamespace(table), r.prepareDocument(change.NewVal))
 		} else if change.OldVal != nil {
-			msg = message.NewMsg(message.Delete, r.prepareDocument(change.OldVal), r.computeNamespace(table))
+			msg = message.MustUseAdaptor("rethinkdb").From(ops.Delete, r.computeNamespace(table), r.prepareDocument(change.OldVal))
 		}
 
 		if msg != nil {
@@ -346,31 +350,21 @@ func (r *RethinkDB) Stop() error {
 }
 
 // applyOp applies one operation to the database
-func (r *RethinkDB) applyOp(msg *message.Msg) (*message.Msg, error) {
-	_, msgTable, err := msg.SplitNamespace()
+func (r *RethinkDB) applyOp(msg message.Msg) (message.Msg, error) {
+	_, msgTable, err := message.SplitNamespace(msg)
 	if err != nil {
-		r.pipe.Err <- adaptor.NewError(adaptor.ERROR, r.path, fmt.Sprintf("rethinkdb error (msg namespace improperly formatted, must be database.table, got %s)", msg.Namespace), msg.Data)
+		r.pipe.Err <- adaptor.NewError(adaptor.ERROR, r.path, fmt.Sprintf("rethinkdb error (msg namespace improperly formatted, must be database.table, got %s)", msg.Namespace()), msg.Data())
 		return msg, nil
 	}
-	if !msg.IsMap() {
-		r.pipe.Err <- adaptor.NewError(adaptor.ERROR, r.path, "rethinkdb error (document must be a json document)", msg.Data)
-		return msg, nil
-	}
-	doc := msg.Map()
+	doc := msg.Data().(data.MapData)
 
 	var resp gorethink.WriteResponse
-	switch msg.Op {
-	case message.Delete:
-		var id string
-		id, err = msg.IDString("id")
-		if err != nil {
-			r.pipe.Err <- adaptor.NewError(adaptor.ERROR, r.path, "rethinkdb error (cannot delete an object with a nil id)", msg.Data)
-			return msg, nil
-		}
-		resp, err = gorethink.Table(msgTable).Get(id).Delete().RunWrite(r.client)
-	case message.Insert:
+	switch msg.OP() {
+	case ops.Delete:
+		resp, err = gorethink.Table(msgTable).Get(msg.ID()).Delete().RunWrite(r.client)
+	case ops.Insert:
 		resp, err = gorethink.Table(msgTable).Insert(doc).RunWrite(r.client)
-	case message.Update:
+	case ops.Update:
 		resp, err = gorethink.Table(msgTable).Insert(doc, gorethink.InsertOpts{Conflict: "replace"}).RunWrite(r.client)
 	}
 	if err != nil {

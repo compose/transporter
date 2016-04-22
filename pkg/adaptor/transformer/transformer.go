@@ -9,6 +9,7 @@ import (
 	"github.com/compose/mejson"
 	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/message"
+	"github.com/compose/transporter/pkg/message/adaptor/transformer"
 	"github.com/compose/transporter/pkg/message/data"
 	"github.com/compose/transporter/pkg/message/ops"
 	"github.com/compose/transporter/pkg/pipe"
@@ -193,15 +194,15 @@ func (t *Transformer) transformOne(msg message.Msg) (message.Msg, error) {
 
 func (t *Transformer) toMsg(incoming interface{}, msg message.Msg) error {
 	var (
-		op ops.Op
-		// ts      int64
+		op      ops.Op
+		ts      int64
 		ns      string
 		mapData data.MapData
 	)
 	switch newMsg := incoming.(type) {
 	case map[string]interface{}: // we're a proper message.Msg, so copy the data over
 		op = ops.OpTypeFromString(newMsg["op"].(string))
-		// ts = newMsg["ts"].(int64)
+		ts = newMsg["ts"].(int64)
 		ns = newMsg["ns"].(string)
 		switch newData := newMsg["data"].(type) {
 		case otto.Value:
@@ -235,7 +236,9 @@ func (t *Transformer) toMsg(incoming interface{}, msg message.Msg) error {
 	default: // something went wrong
 		return fmt.Errorf("returned doc was not a map[string]interface{}")
 	}
-	msg = message.MustUseAdaptor("transformer").From(op, ns, mapData)
+	newMsg := message.MustUseAdaptor("transformer").From(op, ns, mapData)
+	newMsg.(*transformer.TransformerMessage).TS = ts
+	msg = newMsg
 	return nil
 }
 

@@ -1,8 +1,10 @@
-package file
+package mongodb
 
 import (
+	"fmt"
 	"time"
 
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/compose/transporter/pkg/message"
@@ -10,7 +12,9 @@ import (
 	"github.com/compose/transporter/pkg/message/ops"
 )
 
-type Adaptor struct{}
+type Adaptor struct {
+	sess *mgo.Session
+}
 
 var _ message.Adaptor = Adaptor{}
 var _ message.Insertable = Adaptor{}
@@ -24,18 +28,18 @@ func init() {
 }
 
 func (r Adaptor) Name() string {
-	return "file"
+	return "mongodb"
 }
 
 func (r Adaptor) From(op ops.Op, namespace string, d interface{}) message.Msg {
-	m := &FileMessage{
+	m := &MongoMessage{
 		Operation: op,
 		TS:        time.Now().Unix(),
 		NS:        namespace,
 	}
 	switch d.(type) {
 	case map[string]interface{}, bson.M:
-		m.MapData = data.MapData(d.(map[string]interface{}))
+		m.BSONData = d.(data.BSONData)
 	}
 	return m
 }
@@ -54,4 +58,20 @@ func (r Adaptor) Update(m message.Msg) error {
 
 func (r Adaptor) Command(m message.Msg) error {
 	return nil
+}
+
+func (r Adaptor) MustUseSession(sess interface{}) message.Adaptor {
+	a, err := r.UseSession(sess)
+	if err != nil {
+		panic(err)
+	}
+	return a
+}
+
+func (r Adaptor) UseSession(sess interface{}) (message.Adaptor, error) {
+	if c, ok := sess.(*mgo.Session); ok {
+		r.sess = c
+		return r, nil
+	}
+	return r, fmt.Errorf("session is not valid connection type: %T", sess)
 }
