@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/compose/transporter/pkg/adaptor"
+	_ "github.com/compose/transporter/pkg/message/adaptor/file"
 )
 
 var (

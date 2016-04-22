@@ -38,8 +38,10 @@ func (r Adaptor) From(op ops.Op, namespace string, d interface{}) message.Msg {
 		NS:        namespace,
 	}
 	switch d.(type) {
-	case map[string]interface{}, bson.M:
-		m.BSONData = d.(data.BSONData)
+	case map[string]interface{}:
+		m.BSONData = data.BSONData(d.(map[string]interface{}))
+	case bson.M:
+		m.BSONData = data.BSONData(d.(bson.M))
 	}
 	return m
 }

@@ -8,27 +8,39 @@ import (
 	"time"
 
 	"github.com/compose/transporter/pkg/message"
+	"github.com/compose/transporter/pkg/message/ops"
 )
 
 type testMsg struct {
-	namespace string
-	data      map[string]interface{}
-	ts        int64
+	UniqueID  string
+	Operation ops.Op
+	NS        string
+	D         map[string]interface{}
+	TS        int64
+}
+
+func (t testMsg) ID() string {
+	return t.UniqueID
+}
+
+func (t testMsg) OP() ops.Op {
+	return t.Operation
 }
 
 func (t testMsg) Namespace() string {
-	return t.namespace
+	return t.NS
 }
 
 func (t testMsg) Data() interface{} {
-	return t.data
+	return t.D
 }
 
 func (t testMsg) Timestamp() int64 {
-	return t.ts
+	return t.TS
 }
 
 func TestFilestore(t *testing.T) {
+	gob.Register(testMsg{})
 	fs := NewFilestore("somelongkey", "/tmp/transporter.state")
 
 	data := []struct {
@@ -39,27 +51,27 @@ func TestFilestore(t *testing.T) {
 		{
 			"somepath",
 			testMsg{
-				ts:        time.Now().Unix(),
-				data:      map[string]interface{}{"id": "nick1", "field1": 1},
-				namespace: "db.coll",
+				TS: time.Now().Unix(),
+				D:  map[string]interface{}{"id": "nick1", "field1": 1},
+				NS: "db.coll",
 			},
 			testMsg{
-				ts:        time.Now().Unix(),
-				data:      map[string]interface{}{"id": "nick1", "field1": 1},
-				namespace: "db.coll",
+				TS: time.Now().Unix(),
+				D:  map[string]interface{}{"id": "nick1", "field1": 1},
+				NS: "db.coll",
 			},
 		},
 		{
 			"somepath/morepath",
 			testMsg{
-				ts:        time.Now().Unix(),
-				data:      map[string]interface{}{"id": "nick1", "field1": 1},
-				namespace: "db.coll",
+				TS: time.Now().Unix(),
+				D:  map[string]interface{}{"id": "nick1", "field1": 1},
+				NS: "db.coll",
 			},
 			testMsg{
-				ts:        time.Now().Unix(),
-				data:      map[string]interface{}{"id": "nick1", "field1": 1},
-				namespace: "db.coll",
+				TS: time.Now().Unix(),
+				D:  map[string]interface{}{"id": "nick1", "field1": 1},
+				NS: "db.coll",
 			},
 		},
 	}
@@ -96,27 +108,27 @@ func TestFilestoreUpdates(t *testing.T) {
 		{
 			"somepath",
 			testMsg{
-				ts:        time.Now().Unix(),
-				data:      map[string]interface{}{"id": "nick1", "field1": 1},
-				namespace: "db.coll",
+				TS: time.Now().Unix(),
+				D:  map[string]interface{}{"id": "nick1", "field1": 1},
+				NS: "db.coll",
 			},
 			testMsg{
-				ts:        time.Now().Unix(),
-				data:      map[string]interface{}{"id": "nick1", "field1": 1},
-				namespace: "db.coll",
+				TS: time.Now().Unix(),
+				D:  map[string]interface{}{"id": "nick1", "field1": 1},
+				NS: "db.coll",
 			},
 		},
 		{
 			"somepath",
 			testMsg{
-				ts:        time.Now().Unix(),
-				data:      map[string]interface{}{"id": "nick1", "field1": 2},
-				namespace: "db.coll",
+				TS: time.Now().Unix(),
+				D:  map[string]interface{}{"id": "nick1", "field1": 2},
+				NS: "db.coll",
 			},
 			testMsg{
-				ts:        time.Now().Unix(),
-				data:      map[string]interface{}{"id": "nick1", "field1": 2},
-				namespace: "db.coll",
+				TS: time.Now().Unix(),
+				D:  map[string]interface{}{"id": "nick1", "field1": 2},
+				NS: "db.coll",
 			},
 		},
 	}

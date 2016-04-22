@@ -158,5 +158,4 @@ func TestMongoToMongo(t *testing.T) {
 	// clean up
 	mongoSess.DB("testOut").C("coll").DropCollection()
 	mongoSess.DB("testIn").C("coll").DropCollection()
-
 }

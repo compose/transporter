@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/compose/transporter/pkg/message"
+	_ "github.com/compose/transporter/pkg/message/adaptor/transformer"
 	"github.com/compose/transporter/pkg/message/ops"
 	"github.com/compose/transporter/pkg/pipe"
 	"gopkg.in/mgo.v2/bson"
