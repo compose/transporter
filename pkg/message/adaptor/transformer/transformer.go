@@ -25,7 +25,7 @@ func init() {
 }
 
 func (r Adaptor) Name() string {
-	return "rethinkdb"
+	return "transformer"
 }
 
 func (r Adaptor) From(op ops.Op, namespace string, d interface{}) message.Msg {
@@ -35,8 +35,10 @@ func (r Adaptor) From(op ops.Op, namespace string, d interface{}) message.Msg {
 		NS:        namespace,
 	}
 	switch d.(type) {
-	case map[string]interface{}, bson.M:
+	case map[string]interface{}:
 		m.MapData = data.MapData(d.(map[string]interface{}))
+	case bson.M:
+		m.MapData = data.MapData(d.(bson.M))
 	}
 	return m
 }
