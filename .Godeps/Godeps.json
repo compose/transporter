@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/compose/transporter",
-	"GoVersion": "go1.5",
+	"GoVersion": "go1.4.2",
 	"Packages": [
 		"./..."
 	],
@@ -27,8 +27,18 @@
 			"Rev": "a53014fefceabf69c0fe2d3219d5d39ea9fbe9da"
 		},
 		{
-			"ImportPath": "github.com/dancannon/gorethink",
-			"Comment": "v1.0.0",
+			"ImportPath": "github.com/dancannon/gorethink/encoding",
+			"Comment": "v1.x.x",
+			"Rev": "8aca6ba2cc6e873299617d730fac0d7f6593113a"
+		},
+		{
+			"ImportPath": "github.com/dancannon/gorethink/ql2",
+			"Comment": "v1.x.x",
+			"Rev": "8aca6ba2cc6e873299617d730fac0d7f6593113a"
+		},
+		{
+			"ImportPath": "github.com/dancannon/gorethink/types",
+			"Comment": "v1.x.x",
 			"Rev": "8aca6ba2cc6e873299617d730fac0d7f6593113a"
 		},
 		{
@@ -58,7 +68,7 @@
 		},
 		{
 			"ImportPath": "gopkg.in/dancannon/gorethink.v1",
-			"Comment": "v1.0.0",
+			"Comment": "v1.x.x",
 			"Rev": "8aca6ba2cc6e873299617d730fac0d7f6593113a"
 		},
 		{
