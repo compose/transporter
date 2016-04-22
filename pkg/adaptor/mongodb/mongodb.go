@@ -12,6 +12,9 @@ import (
 
 	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/message"
+	"github.com/compose/transporter/pkg/message/adaptor/mongodb"
+	"github.com/compose/transporter/pkg/message/data"
+	"github.com/compose/transporter/pkg/message/ops"
 	"github.com/compose/transporter/pkg/pipe"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -235,28 +238,23 @@ func (m *MongoDB) Stop() error {
 // writeMessage writes one message to the destination mongo, or sends an error down the pipe
 // TODO this can be cleaned up.  I'm not sure whether this should pipe the error, or whether the
 //   caller should pipe the error
-func (m *MongoDB) writeMessage(msg *message.Msg) (*message.Msg, error) {
-	_, msgColl, err := msg.SplitNamespace()
+func (m *MongoDB) writeMessage(msg message.Msg) (message.Msg, error) {
+	_, msgColl, err := message.SplitNamespace(msg)
 	if err != nil {
-		m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error (msg namespace improperly formatted, must be database.collection, got %s)", msg.Namespace), msg.Data)
+		m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error (msg namespace improperly formatted, must be database.collection, got %s)", msg.Namespace()), msg.Data())
 		return msg, nil
 	}
 
 	collection := m.mongoSession.DB(m.database).C(msgColl)
 
-	if !msg.IsMap() {
-		m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error (document must be a bson document, got %T instead)", msg.Data), msg.Data)
-		return msg, nil
-	}
-
 	doc := &syncDoc{
-		Doc:        msg.Map(),
+		Doc:        msg.Data().(data.BSONData),
 		Collection: msgColl,
 	}
 
 	if m.bulk {
 		m.bulkWriteChannel <- doc
-	} else if msg.Op == message.Delete {
+	} else if msg.OP() == ops.Delete {
 		err := collection.Remove(doc.Doc)
 		if err != nil {
 			m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error removing (%s)", err.Error()), msg.Data)
@@ -368,7 +366,7 @@ func (m *MongoDB) catData() (err error) {
 				}
 
 				// set up the message
-				msg := message.NewMsg(message.Insert, result, m.computeNamespace(collection))
+				msg := message.MustUseAdaptor("mongodb").From(ops.Insert, m.computeNamespace(collection), result)
 
 				m.pipe.Send(msg)
 				result = bson.M{}
@@ -440,8 +438,8 @@ func (m *MongoDB) tailData() (err error) {
 					continue
 				}
 
-				msg := message.NewMsg(message.OpTypeFromString(result.Op), doc, m.computeNamespace(coll))
-				msg.Timestamp = int64(result.Ts) >> 32
+				msg := message.MustUseAdaptor("mongodb").From(ops.OpTypeFromString(result.Op), m.computeNamespace(coll), doc).(*mongodb.MongoMessage)
+				msg.TS = int64(result.Ts) >> 32
 
 				m.oplogTime = result.Ts
 				m.pipe.Send(msg)

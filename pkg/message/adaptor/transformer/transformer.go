@@ -29,13 +29,14 @@ func (r Adaptor) Name() string {
 }
 
 func (r Adaptor) From(op ops.Op, namespace string, d interface{}) message.Msg {
-	m := &transformerMessage{
-		ts:        time.Now().Unix(),
-		namespace: namespace,
+	m := &TransformerMessage{
+		Operation: op,
+		TS:        time.Now().Unix(),
+		NS:        namespace,
 	}
 	switch d.(type) {
 	case map[string]interface{}, bson.M:
-		m.d = data.MapData(d.(map[string]interface{}))
+		m.MapData = data.MapData(d.(map[string]interface{}))
 	}
 	return m
 }

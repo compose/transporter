@@ -46,11 +46,9 @@ func Register(name string, adaptor Adaptor) {
 }
 
 func MustUseAdaptor(name string) Adaptor {
-	adaptorsMu.RLock()
-	defer adaptorsMu.RUnlock()
-	a, dup := adaptors[name]
-	if !dup {
-		panic("no adaptor found for " + name)
+	a, err := UseAdaptor(name)
+	if err != nil {
+		panic(err)
 	}
 	return a
 }
