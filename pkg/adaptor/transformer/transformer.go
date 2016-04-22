@@ -166,8 +166,6 @@ func (t *Transformer) transformOne(msg message.Msg) (message.Msg, error) {
 		return msg, nil
 	}
 
-	log.Printf("Value: %#v", value)
-
 	// now that we have finished casting our map to a bunch of different types,
 	// lets run our transformer on the document
 	beforeVM := time.Now().Nanosecond()
@@ -176,24 +174,16 @@ func (t *Transformer) transformOne(msg message.Msg) (message.Msg, error) {
 		return msg, nil
 	}
 
-	log.Printf("Outdoc: %#v", outDoc)
-
 	if result, err = outDoc.Export(); err != nil {
 		t.pipe.Err <- t.transformerError(adaptor.ERROR, err, msg)
 		return msg, nil
 	}
-
-	log.Printf("Result: %#v", result)
-
 	afterVM := time.Now().Nanosecond()
-	newMsg, err := t.toMsg(result)
+	newMsg, err := t.toMsg(msg, result)
 	if err != nil {
 		t.pipe.Err <- t.transformerError(adaptor.ERROR, err, msg)
 		return msg, err
 	}
-
-	log.Printf("newMsg: %#v", newMsg)
-
 	if t.debug {
 		then := time.Now().Nanosecond()
 		fmt.Printf("document transformed in %dus.  %d to marshal, %d in the vm, %d to unmarshal\n", (then-now)/1000, (beforeVM-now)/1000, (afterVM-beforeVM)/1000, (then-afterVM)/1000)
@@ -202,12 +192,12 @@ func (t *Transformer) transformOne(msg message.Msg) (message.Msg, error) {
 	return newMsg, nil
 }
 
-func (t *Transformer) toMsg(incoming interface{}) (message.Msg, error) {
+func (t *Transformer) toMsg(origMsg message.Msg, incoming interface{}) (message.Msg, error) {
 	var (
 		op      ops.Op
-		ts      int64
-		ns      string
-		mapData data.MapData
+		ts      = origMsg.Timestamp()
+		ns      = origMsg.Namespace()
+		mapData = origMsg.Data()
 	)
 	switch newMsg := incoming.(type) {
 	case map[string]interface{}: // we're a proper message.Msg, so copy the data over
@@ -244,9 +234,10 @@ func (t *Transformer) toMsg(incoming interface{}) (message.Msg, error) {
 	default: // something went wrong
 		return nil, fmt.Errorf("returned doc was not a map[string]interface{}")
 	}
+	log.Printf("OrigData: %#v", origMsg.Data())
+	log.Printf("MapData: %#v", mapData)
 	newMsg := message.MustUseAdaptor("transformer").From(op, ns, mapData)
 	newMsg.(*transformer.TransformerMessage).TS = ts
-	newMsg.(*transformer.TransformerMessage).MapData = mapData
 	return newMsg, nil
 }
 
