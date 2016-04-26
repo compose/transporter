@@ -19,7 +19,6 @@ type Adaptor struct {
 
 var _ message.Adaptor = Adaptor{}
 var _ message.Insertable = Adaptor{}
-var _ message.Commandable = Adaptor{}
 var _ message.Deletable = Adaptor{}
 var _ message.Updatable = Adaptor{}
 
@@ -77,10 +76,6 @@ func (r Adaptor) Update(m message.Msg) error {
 	resp, err := gorethink.Table(msgTable).Insert(m.Data(), gorethink.InsertOpts{Conflict: "replace"}).RunWrite(r.conn)
 	err = handleResponse(&resp)
 	return err
-}
-
-func (r Adaptor) Command(m message.Msg) error {
-	return fmt.Errorf("not implemented")
 }
 
 // handleresponse takes the rethink response and turn it into something we can consume elsewhere
