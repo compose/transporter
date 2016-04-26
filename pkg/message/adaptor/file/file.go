@@ -1,6 +1,9 @@
 package file
 
 import (
+	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"gopkg.in/mgo.v2/bson"
@@ -10,7 +13,10 @@ import (
 	"github.com/compose/transporter/pkg/message/ops"
 )
 
-type Adaptor struct{}
+type Adaptor struct {
+	URI string
+	FH  *os.File
+}
 
 var _ message.Adaptor = Adaptor{}
 var _ message.Insertable = Adaptor{}
@@ -44,18 +50,49 @@ func (r Adaptor) From(op ops.Op, namespace string, d interface{}) message.Msg {
 	return m
 }
 
-func (r Adaptor) Insert(m message.Msg) error {
+func (r Adaptor) print(m message.Msg) error {
+	b, err := message.MarshalData(m)
+	if err != nil {
+		return err
+	}
+	if strings.HasPrefix(r.URI, "stdout://") {
+		fmt.Println(string(b))
+		return nil
+	}
+	// _, err = fmt.Fprintln(f.filehandle, string(b))
 	return nil
+}
+
+func (r Adaptor) Insert(m message.Msg) error {
+	return r.print(m)
 }
 
 func (r Adaptor) Delete(m message.Msg) error {
-	return nil
+	return r.print(m)
 }
 
 func (r Adaptor) Update(m message.Msg) error {
-	return nil
+	return r.print(m)
 }
 
 func (r Adaptor) Command(m message.Msg) error {
-	return nil
+	return r.print(m)
+}
+
+func (r Adaptor) MustUseFile(name string) message.Adaptor {
+	a, err := r.UseFile(name)
+	if err != nil {
+		panic(err)
+	}
+	return a
+}
+
+func (r Adaptor) UseFile(name string) (message.Adaptor, error) {
+	r.URI = name
+	fh, err := os.Open(name)
+	if err != nil {
+		return r, err
+	}
+	r.FH = fh
+	return r, err
 }
