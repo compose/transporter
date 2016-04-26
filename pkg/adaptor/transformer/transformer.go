@@ -3,7 +3,6 @@ package transformer
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"regexp"
 	"time"
 
@@ -137,6 +136,7 @@ func (t *Transformer) transformOne(msg message.Msg) (message.Msg, error) {
 		outDoc otto.Value
 		result interface{}
 		err    error
+		doc    interface{}
 	)
 
 	// short circuit for deletes and commands
@@ -146,20 +146,23 @@ func (t *Transformer) transformOne(msg message.Msg) (message.Msg, error) {
 
 	now := time.Now().Nanosecond()
 	currMsg := map[string]interface{}{
-		"data": msg.Data(),
-		"ts":   msg.Timestamp(),
-		"op":   msg.OP().String(),
-		"ns":   msg.Namespace(),
+		"ts": msg.Timestamp(),
+		"op": msg.OP().String(),
+		"ns": msg.Namespace(),
 	}
 
-	// check why this is necessary
-	// if msg.IsMap() {
-	// 	if doc, err = mejson.Marshal(msg.Data); err != nil {
-	// 		t.pipe.Err <- t.transformerError(adaptor.ERROR, err, msg)
-	// 		return msg, nil
-	// 	}
-	// 	currMsg["data"] = doc
-	// }
+	curData := msg.Data()
+	switch curData.(type) {
+	case map[string]interface{}:
+		doc, err = mejson.Marshal(curData)
+	case data.MapData:
+		doc, err = mejson.Marshal(curData.(data.MapData).AsMap())
+	}
+	if err != nil {
+		t.pipe.Err <- t.transformerError(adaptor.ERROR, err, msg)
+		return msg, nil
+	}
+	currMsg["data"] = doc
 
 	if value, err = t.vm.ToValue(currMsg); err != nil {
 		t.pipe.Err <- t.transformerError(adaptor.ERROR, err, msg)
@@ -234,8 +237,6 @@ func (t *Transformer) toMsg(origMsg message.Msg, incoming interface{}) (message.
 	default: // something went wrong
 		return nil, fmt.Errorf("returned doc was not a map[string]interface{}")
 	}
-	log.Printf("OrigData: %#v", origMsg.Data())
-	log.Printf("MapData: %#v", mapData)
 	newMsg := message.MustUseAdaptor("transformer").From(op, ns, mapData)
 	newMsg.(*transformer.TransformerMessage).TS = ts
 	return newMsg, nil
