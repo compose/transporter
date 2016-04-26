@@ -87,8 +87,9 @@ func (r Adaptor) MustUseFile(name string) message.Adaptor {
 	return a
 }
 
-func (r Adaptor) UseFile(name string) (message.Adaptor, error) {
-	r.URI = name
+func (r Adaptor) UseFile(uri string) (message.Adaptor, error) {
+	r.URI = uri
+	name := strings.Replace(r.URI, "file://", "", 1)
 	fh, err := os.Open(name)
 	if err != nil {
 		return r, err
