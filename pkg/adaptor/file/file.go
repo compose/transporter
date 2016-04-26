@@ -10,6 +10,7 @@ import (
 
 	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/message"
+	"github.com/compose/transporter/pkg/message/adaptor/file"
 	"github.com/compose/transporter/pkg/message/ops"
 	"github.com/compose/transporter/pkg/pipe"
 )
@@ -17,10 +18,9 @@ import (
 // File is an adaptor that can be used as a
 // source / sink for file's on disk, as well as a sink to stdout.
 type File struct {
-	uri        string
-	pipe       *pipe.Pipe
-	path       string
-	filehandle *os.File
+	uri  string
+	pipe *pipe.Pipe
+	path string
 }
 
 // Description for file adaptor
@@ -68,14 +68,14 @@ func (f *File) Start() (err error) {
 }
 
 // Listen starts the listen loop
-func (f *File) Listen() (err error) {
+func (f *File) Listen() error {
 	defer func() {
 		f.Stop()
 	}()
 
 	if strings.HasPrefix(f.uri, "file://") {
-		filename := strings.Replace(f.uri, "file://", "", 1)
-		f.filehandle, err = os.Create(filename)
+		name := strings.Replace(f.uri, "file://", "", 1)
+		_, err := os.Create(name)
 		if err != nil {
 			f.pipe.Err <- adaptor.NewError(adaptor.CRITICAL, f.path, fmt.Sprintf("Can't open output file (%s)", err.Error()), nil)
 			return err
@@ -92,15 +92,15 @@ func (f *File) Stop() error {
 }
 
 // read each message from the file
-func (f *File) readFile() (err error) {
-	filename := strings.Replace(f.uri, "file://", "", 1)
-	f.filehandle, err = os.Open(filename)
+func (f *File) readFile() error {
+	name := strings.Replace(f.uri, "file://", "", 1)
+	fh, err := os.Open(name)
 	if err != nil {
 		f.pipe.Err <- adaptor.NewError(adaptor.CRITICAL, f.path, fmt.Sprintf("Can't open input file (%s)", err.Error()), nil)
 		return err
 	}
 
-	decoder := json.NewDecoder(f.filehandle)
+	decoder := json.NewDecoder(fh)
 	for {
 		var doc map[string]interface{}
 		if err := decoder.Decode(&doc); err == io.EOF {
@@ -110,7 +110,7 @@ func (f *File) readFile() (err error) {
 			f.pipe.Err <- adaptor.NewError(adaptor.ERROR, f.path, fmt.Sprintf("Can't marshal document (%s)", err.Error()), nil)
 			return err
 		}
-		f.pipe.Send(message.MustUseAdaptor("file").From(ops.Insert, fmt.Sprintf("file.%s", filename), doc))
+		f.pipe.Send(message.MustUseAdaptor("file").From(ops.Insert, fmt.Sprintf("file.%s", name), doc))
 	}
 	return nil
 }
@@ -119,22 +119,7 @@ func (f *File) readFile() (err error) {
  * dump each message to the file
  */
 func (f *File) dumpMessage(msg message.Msg) (message.Msg, error) {
-	b, err := message.MarshalData(msg)
-	if err != nil {
-		f.pipe.Err <- adaptor.NewError(adaptor.ERROR, f.path, fmt.Sprintf("Can't unmarshal document (%s)", err.Error()), msg.Data)
-		return msg, nil
-	}
-	if strings.HasPrefix(f.uri, "stdout://") {
-		fmt.Println(string(b))
-	} else {
-		_, err := fmt.Fprintln(f.filehandle, string(b))
-		if err != nil {
-			f.pipe.Err <- adaptor.NewError(adaptor.ERROR, f.path, fmt.Sprintf("Error writing to file (%s)", err.Error()), msg.Data)
-			return msg, nil
-		}
-	}
-
-	return msg, nil
+	return message.Exec(message.MustUseAdaptor("file").(file.Adaptor).MustUseFile(f.uri), msg)
 }
 
 // Config is used to configure the File Adaptor
