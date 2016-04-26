@@ -11,7 +11,6 @@ import (
 
 	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/message"
-	"github.com/compose/transporter/pkg/message/data"
 	"github.com/compose/transporter/pkg/message/ops"
 	"github.com/compose/transporter/pkg/pipe"
 	version "github.com/hashicorp/go-version"
@@ -351,44 +350,6 @@ func (r *RethinkDB) Stop() error {
 
 // applyOp applies one operation to the database
 func (r *RethinkDB) applyOp(msg message.Msg) (message.Msg, error) {
-	_, msgTable, err := message.SplitNamespace(msg)
-	if err != nil {
-		r.pipe.Err <- adaptor.NewError(adaptor.ERROR, r.path, fmt.Sprintf("rethinkdb error (msg namespace improperly formatted, must be database.table, got %s)", msg.Namespace()), msg.Data())
-		return msg, nil
-	}
-	doc := msg.Data().(data.MapData)
-
-	var resp gorethink.WriteResponse
-	switch msg.OP() {
-	case ops.Delete:
-		resp, err = gorethink.Table(msgTable).Get(msg.ID()).Delete().RunWrite(r.client)
-	case ops.Insert:
-		resp, err = gorethink.Table(msgTable).Insert(doc).RunWrite(r.client)
-	case ops.Update:
-		resp, err = gorethink.Table(msgTable).Insert(doc, gorethink.InsertOpts{Conflict: "replace"}).RunWrite(r.client)
-	}
-	if err != nil {
-		r.pipe.Err <- adaptor.NewError(adaptor.ERROR, r.path, "rethinkdb error (%s)", err)
-		return msg, nil
-	}
-
-	err = r.handleResponse(&resp)
-	if err != nil {
-		r.pipe.Err <- adaptor.NewError(adaptor.ERROR, r.path, "rethinkdb error (%s)", err)
-	}
-
-	return msg, nil
-}
-
-// handleresponse takes the rethink response and turn it into something we can consume elsewhere
-func (r *RethinkDB) handleResponse(resp *gorethink.WriteResponse) error {
-	if resp.Errors != 0 {
-		if !strings.Contains(resp.FirstError, "Duplicate primary key") { // we don't care about this error
-			if r.debug {
-				fmt.Printf("Reported %d errors\n", resp.Errors)
-			}
-			return fmt.Errorf("%s\n%s", "problem inserting docs", resp.FirstError)
-		}
-	}
-	return nil
+	m, err := message.Exec(message.MustUseAdaptor("rethinkdb"), msg)
+	return m, err
 }

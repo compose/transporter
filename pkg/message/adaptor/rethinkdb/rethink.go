@@ -2,6 +2,7 @@ package rethinkdb
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"gopkg.in/mgo.v2/bson"
@@ -49,18 +50,46 @@ func (r Adaptor) From(op ops.Op, namespace string, d interface{}) message.Msg {
 }
 
 func (r Adaptor) Insert(m message.Msg) error {
-	return nil
+	_, msgTable, err := message.SplitNamespace(m)
+	if err != nil {
+		return err
+	}
+	resp, err := gorethink.Table(msgTable).Insert(m.Data()).RunWrite(r.conn)
+	err = handleResponse(&resp)
+	return err
 }
 
 func (r Adaptor) Delete(m message.Msg) error {
-	return nil
+	_, msgTable, err := message.SplitNamespace(m)
+	if err != nil {
+		return err
+	}
+	resp, err := gorethink.Table(msgTable).Get(m.ID()).Delete().RunWrite(r.conn)
+	err = handleResponse(&resp)
+	return err
 }
 
 func (r Adaptor) Update(m message.Msg) error {
-	return nil
+	_, msgTable, err := message.SplitNamespace(m)
+	if err != nil {
+		return err
+	}
+	resp, err := gorethink.Table(msgTable).Insert(m.Data(), gorethink.InsertOpts{Conflict: "replace"}).RunWrite(r.conn)
+	err = handleResponse(&resp)
+	return err
 }
 
 func (r Adaptor) Command(m message.Msg) error {
+	return fmt.Errorf("not implemented")
+}
+
+// handleresponse takes the rethink response and turn it into something we can consume elsewhere
+func handleResponse(resp *gorethink.WriteResponse) error {
+	if resp.Errors != 0 {
+		if !strings.Contains(resp.FirstError, "Duplicate primary key") { // we don't care about this error
+			return fmt.Errorf("%s\n%s", "problem inserting docs", resp.FirstError)
+		}
+	}
 	return nil
 }
 
