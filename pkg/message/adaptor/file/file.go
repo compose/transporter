@@ -59,8 +59,8 @@ func (r Adaptor) print(m message.Msg) error {
 		fmt.Println(string(b))
 		return nil
 	}
-	// _, err = fmt.Fprintln(f.filehandle, string(b))
-	return nil
+	_, err = fmt.Fprintln(r.FH, string(b))
+	return err
 }
 
 func (r Adaptor) Insert(m message.Msg) error {
@@ -88,9 +88,15 @@ func (r Adaptor) MustUseFile(name string) message.Adaptor {
 }
 
 func (r Adaptor) UseFile(uri string) (message.Adaptor, error) {
+	if r.FH != nil {
+		err := r.FH.Close()
+		if err != nil {
+			return r, err
+		}
+	}
 	r.URI = uri
 	name := strings.Replace(r.URI, "file://", "", 1)
-	fh, err := os.Open(name)
+	fh, err := os.Create(name)
 	if err != nil {
 		return r, err
 	}

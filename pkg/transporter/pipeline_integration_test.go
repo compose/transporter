@@ -25,9 +25,7 @@ func setupFiles(in, out string) {
 	os.Remove(in)
 
 	fh, _ := os.Create(out)
-	defer func() {
-		fh.Close()
-	}()
+	defer fh.Close()
 	fh.WriteString("{\"_id\":\"546656989330a846dc7ce327\",\"test\":\"hello world\"}\n")
 }
 
