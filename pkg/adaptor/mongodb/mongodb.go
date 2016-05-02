@@ -85,7 +85,7 @@ func (m *MongoDB) SampleConfig() string {
 }
 
 func init() {
-	adaptor.Add("mongodb", adaptor.Creator(func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.Adaptor, error) {
+	adaptor.Add("mongo", adaptor.Creator(func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.Adaptor, error) {
 		var (
 			conf Config
 			err  error
