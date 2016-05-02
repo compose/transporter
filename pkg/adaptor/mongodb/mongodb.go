@@ -366,7 +366,7 @@ func (m *MongoDB) catData() (err error) {
 				}
 
 				// set up the message
-				msg := message.MustUseAdaptor("mongodb").From(ops.Insert, m.computeNamespace(collection), result)
+				msg := message.MustUseAdaptor("mongo").From(ops.Insert, m.computeNamespace(collection), result)
 
 				m.pipe.Send(msg)
 				result = bson.M{}
@@ -437,7 +437,7 @@ func (m *MongoDB) tailData() (err error) {
 					continue
 				}
 
-				msg := message.MustUseAdaptor("mongodb").From(ops.OpTypeFromString(result.Op), m.computeNamespace(coll), doc).(*mongodb.MongoMessage)
+				msg := message.MustUseAdaptor("mongo").From(ops.OpTypeFromString(result.Op), m.computeNamespace(coll), doc).(*mongodb.MongoMessage)
 				msg.TS = int64(result.Ts) >> 32
 
 				m.oplogTime = result.Ts
