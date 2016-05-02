@@ -6,6 +6,7 @@ import (
 
 	"github.com/compose/transporter/pkg/message"
 	_ "github.com/compose/transporter/pkg/message/adaptor/transformer"
+	"github.com/compose/transporter/pkg/message/data"
 	"github.com/compose/transporter/pkg/message/ops"
 	"github.com/compose/transporter/pkg/pipe"
 	"gopkg.in/mgo.v2/bson"
@@ -117,6 +118,12 @@ func TestTransformOne(t *testing.T) {
 			message.MustUseAdaptor("transformer").From(ops.Insert, "database.collection", map[string]interface{}{"id": bsonID1, "name": "nick"}),
 			message.MustUseAdaptor("transformer").From(ops.Insert, "database.table", map[string]interface{}{"id": bsonID1, "name": "nick"}),
 			false,
+		}, {
+			"we should be able to add an object to the bson",
+			`module.exports=function(doc) { doc['data']['added'] = {"name":"batman","villain":"joker"}; return doc }`,
+			message.MustUseAdaptor("transformer").From(ops.Insert, "database.collection", map[string]interface{}{"name": "nick"}),
+			message.MustUseAdaptor("transformer").From(ops.Insert, "database.collection", map[string]interface{}{"name": "nick", "added": bson.M{"name": "batman", "villain": "joker"}}),
+			false,
 		},
 	}
 	for _, v := range data {
@@ -131,10 +138,59 @@ func TestTransformOne(t *testing.T) {
 			t.Errorf("error expected %t but actually got %v", v.err, err)
 			continue
 		}
-		if (!reflect.DeepEqual(msg, v.out) || err != nil) && !v.err {
+		if (!isEqual(msg, v.out) || err != nil) && !v.err {
 			t.Errorf("[%s] expected:\n(%T) %+v\ngot:\n(%T) %+v with error (%v)\n", v.name, v.out, v.out, msg, msg, err)
 		}
 	}
+}
+
+func isEqual(m1 message.Msg, m2 message.Msg) bool {
+	if m1.ID() != m2.ID() {
+		return false
+	}
+	if m1.Namespace() != m2.Namespace() {
+		return false
+	}
+	if m1.OP() != m2.OP() {
+		return false
+	}
+	if m1.Timestamp() != m2.Timestamp() {
+		return false
+	}
+	if reflect.TypeOf(m1.Data()) != reflect.TypeOf(m2.Data()) {
+		return false
+	}
+	m1Data, ok := m1.Data().(data.MapData)
+	if !ok {
+		return false
+	}
+	m2Data, ok := m2.Data().(data.MapData)
+	if !ok {
+		return false
+	}
+	return isEqualBSON(m1Data, m2Data)
+}
+
+func isEqualBSON(m1 map[string]interface{}, m2 map[string]interface{}) bool {
+	for k, v := range m1 {
+		m2Val := m2[k]
+		if reflect.TypeOf(v) != reflect.TypeOf(m2Val) {
+			return false
+		}
+		switch v.(type) {
+		case map[string]interface{}, bson.M, data.MapData:
+			eq := isEqualBSON(v.(bson.M), m2Val.(bson.M))
+			if !eq {
+				return false
+			}
+		default:
+			eq := reflect.DeepEqual(v, m2Val)
+			if !eq {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func BenchmarkTransformOne(b *testing.B) {

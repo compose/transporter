@@ -219,12 +219,20 @@ func (t *Transformer) toMsg(origMsg message.Msg, incoming interface{}) (message.
 			}
 			mapData = data.MapData(d)
 		case map[string]interface{}:
+			newData, err := resolveValues(newData)
+			if err != nil {
+				return nil, err
+			}
 			d, err := mejson.Unmarshal(newData)
 			if err != nil {
 				return nil, err
 			}
 			mapData = data.MapData(d)
 		case data.MapData:
+			newData, err := resolveValues(newData)
+			if err != nil {
+				return nil, err
+			}
 			mapData = newData
 		default:
 			// this was setting the data directly instead of erroring before, recheck
@@ -240,6 +248,20 @@ func (t *Transformer) toMsg(origMsg message.Msg, incoming interface{}) (message.
 	newMsg := message.MustUseAdaptor("transformer").From(op, ns, mapData)
 	newMsg.(*transformer.Message).TS = ts
 	return newMsg, nil
+}
+
+func resolveValues(m map[string]interface{}) (map[string]interface{}, error) {
+	for k, v := range m {
+		switch v.(type) {
+		case otto.Value:
+			val, err := v.(otto.Value).Export()
+			if err != nil {
+				return nil, err
+			}
+			m[k] = val
+		}
+	}
+	return m, nil
 }
 
 func (t *Transformer) transformerError(lvl adaptor.ErrorLevel, err error, msg message.Msg) error {
