@@ -5,7 +5,7 @@
 #   pid: "something-static"
 nodes:
   localmongo:
-    type: mongodb
+    type: mongo
     uri: mongodb://localhost/foo
   es:
     type: elasticsearch

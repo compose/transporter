@@ -28,7 +28,7 @@ func init() {
 }
 
 func (r Adaptor) Name() string {
-	return "mongodb"
+	return "mongo"
 }
 
 func (r Adaptor) From(op ops.Op, namespace string, d interface{}) message.Msg {

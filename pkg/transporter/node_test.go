@@ -16,7 +16,7 @@ func TestNodeString(t *testing.T) {
 			" - Source:                                                                                                 ",
 		},
 		{
-			NewNode("name", "mongodb", adaptor.Config{"uri": "uri", "namespace": "db.col", "debug": false}),
+			NewNode("name", "mongo", adaptor.Config{"uri": "uri", "namespace": "db.col", "debug": false}),
 			" - Source:         name                                     mongodb         db.col                         uri",
 		},
 	}
