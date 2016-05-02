@@ -31,7 +31,7 @@ func (r Adaptor) Name() string {
 }
 
 func (r Adaptor) From(op ops.Op, namespace string, d interface{}) message.Msg {
-	m := &MongoMessage{
+	m := &Message{
 		Operation: op,
 		TS:        time.Now().Unix(),
 		NS:        namespace,

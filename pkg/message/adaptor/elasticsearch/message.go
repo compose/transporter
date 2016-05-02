@@ -7,30 +7,30 @@ import (
 	"github.com/compose/transporter/pkg/message/ops"
 )
 
-type ElasticsearchMessage struct {
+type Message struct {
 	TS        int64
 	MapData   data.MapData
 	NS        string
 	Operation ops.Op
 }
 
-func (r *ElasticsearchMessage) Timestamp() int64 {
+func (r *Message) Timestamp() int64 {
 	return r.TS
 }
 
-func (r *ElasticsearchMessage) Data() interface{} {
+func (r *Message) Data() interface{} {
 	return r.MapData
 }
 
-func (r *ElasticsearchMessage) Namespace() string {
+func (r *Message) Namespace() string {
 	return r.NS
 }
 
-func (r *ElasticsearchMessage) OP() ops.Op {
+func (r *Message) OP() ops.Op {
 	return r.Operation
 }
 
-func (r *ElasticsearchMessage) ID() string {
+func (r *Message) ID() string {
 	switch r := r.MapData["_id"].(type) {
 	case string:
 		return r
