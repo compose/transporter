@@ -22,9 +22,9 @@ const (
 	bufferLen  int = 5e5
 )
 
-// Mongodb is an adaptor to read / write to mongodb.
+// MongoDB is an adaptor to read / write to mongodb.
 // it works as a source by copying files, and then optionally tailing the oplog
-type Mongodb struct {
+type MongoDB struct {
 	// pull these in from the node
 	uri   string
 	tail  bool // run the tail oplog
@@ -64,11 +64,11 @@ type syncDoc struct {
 }
 
 // Description for mongodb adaptor
-func (m *Mongodb) Description() string {
+func (m *MongoDB) Description() string {
 	return "a mongodb adaptor that functions as both a source and a sink"
 }
 
-var sampleConfig = `
+const sampleConfig = `
 - localmongo:
     type: mongo
     uri: mongodb://127.0.0.1:27017/test
@@ -77,12 +77,12 @@ var sampleConfig = `
 `
 
 // SampleConfig for mongodb adaptor
-func (m *Mongodb) SampleConfig() string {
+func (m *MongoDB) SampleConfig() string {
 	return sampleConfig
 }
 
 func init() {
-	adaptor.Add("mongodb", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.StopStartListener, error) {
+	adaptor.Add("mongodb", adaptor.Creator(func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.Adaptor, error) {
 		var (
 			conf Config
 			err  error
@@ -99,7 +99,7 @@ func init() {
 			fmt.Printf("Mongo Config %+v\n", conf)
 		}
 
-		m := &Mongodb{
+		m := &MongoDB{
 			restartable:      true,            // assume for that we're able to restart the process
 			oplogTimeout:     5 * time.Second, // timeout the oplog iterator
 			pipe:             p,
@@ -131,11 +131,11 @@ func init() {
 		}
 
 		return m, nil
-	})
+	}))
 }
 
 // Connect tests the mongodb connection and initializes the mongo session
-func (m *Mongodb) Connect() error {
+func (m *MongoDB) Connect() error {
 	dialInfo, err := mgo.ParseURL(m.uri)
 	if err != nil {
 		return fmt.Errorf("unable to parse uri (%s), %s\n", m.uri, err.Error())
@@ -154,8 +154,7 @@ func (m *Mongodb) Connect() error {
 		}
 		tlsConfig.RootCAs = roots
 		dialInfo.DialServer = func(addr *mgo.ServerAddr) (net.Conn, error) {
-			conn, err := tls.Dial("tcp", addr.String(), tlsConfig)
-			return conn, err
+			return tls.Dial("tcp", addr.String(), tlsConfig)
 		}
 	}
 
@@ -180,7 +179,7 @@ func (m *Mongodb) Connect() error {
 }
 
 // Start the adaptor as a source
-func (m *Mongodb) Start() (err error) {
+func (m *MongoDB) Start() (err error) {
 	defer func() {
 		m.pipe.Stop()
 	}()
@@ -208,7 +207,7 @@ func (m *Mongodb) Start() (err error) {
 }
 
 // Listen starts the pipe's listener
-func (m *Mongodb) Listen() (err error) {
+func (m *MongoDB) Listen() (err error) {
 	defer func() {
 		m.pipe.Stop()
 	}()
@@ -220,7 +219,7 @@ func (m *Mongodb) Listen() (err error) {
 }
 
 // Stop the adaptor
-func (m *Mongodb) Stop() error {
+func (m *MongoDB) Stop() error {
 	m.pipe.Stop()
 
 	// if we're bulk writing, ask our writer to exit here
@@ -236,7 +235,7 @@ func (m *Mongodb) Stop() error {
 // writeMessage writes one message to the destination mongo, or sends an error down the pipe
 // TODO this can be cleaned up.  I'm not sure whether this should pipe the error, or whether the
 //   caller should pipe the error
-func (m *Mongodb) writeMessage(msg *message.Msg) (*message.Msg, error) {
+func (m *MongoDB) writeMessage(msg *message.Msg) (*message.Msg, error) {
 	_, msgColl, err := msg.SplitNamespace()
 	if err != nil {
 		m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error (msg namespace improperly formatted, must be database.collection, got %s)", msg.Namespace), msg.Data)
@@ -275,7 +274,7 @@ func (m *Mongodb) writeMessage(msg *message.Msg) (*message.Msg, error) {
 	return msg, nil
 }
 
-func (m *Mongodb) bulkWriter() {
+func (m *MongoDB) bulkWriter() {
 
 	for {
 		select {
@@ -304,7 +303,7 @@ func (m *Mongodb) bulkWriter() {
 	}
 }
 
-func (m *Mongodb) writeBuffer() {
+func (m *MongoDB) writeBuffer() {
 	m.buffLock.Lock()
 	defer m.buffLock.Unlock()
 	for coll, docs := range m.opsBuffer {
@@ -346,7 +345,7 @@ func (m *Mongodb) writeBuffer() {
 }
 
 // catdata pulls down the original collections
-func (m *Mongodb) catData() (err error) {
+func (m *MongoDB) catData() (err error) {
 	collections, _ := m.mongoSession.DB(m.database).CollectionNames()
 	for _, collection := range collections {
 		if strings.HasPrefix(collection, "system.") {
@@ -396,7 +395,7 @@ func (m *Mongodb) catData() (err error) {
 /*
  * tail the oplog
  */
-func (m *Mongodb) tailData() (err error) {
+func (m *MongoDB) tailData() (err error) {
 	var (
 		collection = m.mongoSession.DB("local").C("oplog.rs")
 		result     oplogDoc // hold the document
@@ -433,11 +432,11 @@ func (m *Mongodb) tailData() (err error) {
 				case "u":
 					doc, err = m.getOriginalDoc(result.O2, coll)
 					if err != nil { // errors aren't fatal here, but we need to send it down the pipe
-						m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("Mongodb error (%s)", err.Error()), nil)
+						m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("MongoDB error (%s)", err.Error()), nil)
 						continue
 					}
 				default:
-					m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, "Mongodb error (unknown op type)", nil)
+					m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, "MongoDB error (unknown op type)", nil)
 					continue
 				}
 
@@ -459,7 +458,7 @@ func (m *Mongodb) tailData() (err error) {
 			continue
 		}
 		if iter.Err() != nil {
-			return adaptor.NewError(adaptor.CRITICAL, m.path, fmt.Sprintf("Mongodb error (error reading collection %s)", iter.Err()), nil)
+			return adaptor.NewError(adaptor.CRITICAL, m.path, fmt.Sprintf("MongoDB error (error reading collection %s)", iter.Err()), nil)
 		}
 
 		// query will change,
@@ -472,7 +471,7 @@ func (m *Mongodb) tailData() (err error) {
 
 // getOriginalDoc retrieves the original document from the database.  transport has no knowledge of update operations, all updates
 // work as wholesale document replaces
-func (m *Mongodb) getOriginalDoc(doc bson.M, collection string) (result bson.M, err error) {
+func (m *MongoDB) getOriginalDoc(doc bson.M, collection string) (result bson.M, err error) {
 	id, exists := doc["_id"]
 	if !exists {
 		return result, fmt.Errorf("can't get _id from document")
@@ -485,12 +484,12 @@ func (m *Mongodb) getOriginalDoc(doc bson.M, collection string) (result bson.M, 
 	return
 }
 
-func (m *Mongodb) computeNamespace(collection string) string {
+func (m *MongoDB) computeNamespace(collection string) string {
 	return strings.Join([]string{m.database, collection}, ".")
 }
 
 // splitNamespace split's a mongo namespace by the first '.' into a database and a collection
-func (m *Mongodb) splitNamespace(namespace string) (string, string, error) {
+func (m *MongoDB) splitNamespace(namespace string) (string, string, error) {
 	fields := strings.SplitN(namespace, ".", 2)
 
 	if len(fields) != 2 {

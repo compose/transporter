@@ -33,7 +33,7 @@ func (e *Elasticsearch) Description() string {
 	return "an elasticsearch sink adaptor"
 }
 
-var sampleConfig = `
+const sampleConfig = `
 - es:
 		type: elasticsearch
     uri: https://username:password@hostname:port/thisgetsignored
@@ -45,7 +45,7 @@ func (e *Elasticsearch) SampleConfig() string {
 }
 
 func init() {
-	adaptor.Add("elasticsearch", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.StopStartListener, error) {
+	adaptor.Add("elasticsearch", adaptor.Creator(func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.Adaptor, error) {
 		var (
 			conf adaptor.DbConfig
 			err  error
@@ -70,12 +70,7 @@ func init() {
 		}
 
 		return e, nil
-	})
-}
-
-// Connect is a no-op for Elasticsearch adaptors
-func (e *Elasticsearch) Connect() error {
-	return nil
+	}))
 }
 
 // Start the adaptor as a source (not implemented)

@@ -231,29 +231,24 @@ func (c *aboutCommand) Synopsis() string {
 }
 
 func (c *aboutCommand) Run(args []string) int {
-
-	if len(args) == 0 {
-		for name, creator := range adaptor.Adaptors {
-			dummyAdaptor, err := creator(nil, "", adaptor.Config{"uri": "test", "namespace": "test.test"})
-			if err != nil {
-				fmt.Printf("unable to create adator '%s', %s\n", name, err.Error())
-				return 1
-			}
-			fmt.Printf("%-20s %s\n", name, dummyAdaptor.Description())
+	if len(args) > 0 {
+		creator, ok := adaptor.Adaptors[args[0]]
+		if !ok {
+			fmt.Printf("no adaptor named '%s' exists\n", args[0])
+			return 1
 		}
-		return 0
+		adaptor.Adaptors = map[string]adaptor.Creator{args[0]: creator}
 	}
 
-	creator, ok := adaptor.Adaptors[args[0]]
-	if !ok {
-		fmt.Printf("no adaptor named '%s' exists\n", args[0])
-		return 1
+	for name, creator := range adaptor.Adaptors {
+		dummyAdaptor, err := creator(nil, "", adaptor.Config{"uri": "test", "namespace": "test.test"})
+		if err != nil {
+			fmt.Printf("unable to create adaptor '%s', %s\n", name, err.Error())
+			return 1
+		}
+		if d, ok := dummyAdaptor.(adaptor.Describable); ok {
+			fmt.Println(d.Description())
+		}
 	}
-	dummyAdaptor, err := creator(nil, "", adaptor.Config{"uri": "test", "namespace": "test.test"})
-	if err != nil {
-		fmt.Printf("unable to create adator, %s\n", err.Error())
-		return 1
-	}
-	fmt.Println(dummyAdaptor.Description())
 	return 0
 }

@@ -42,8 +42,7 @@ type Pipeline struct {
 //   }
 // pipeline.Run()
 func NewDefaultPipeline(source *Node, uri, key, pid string, interval time.Duration) (*Pipeline, error) {
-	emitter := events.NewHTTPPostEmitter(uri, key, pid)
-	return NewPipeline(source, emitter, interval, nil, 10*time.Second)
+	return NewPipeline(source, events.HTTPPostEmitter(uri, key, pid), interval, nil, 10*time.Second)
 }
 
 // NewPipeline creates a new Transporter Pipeline using the given tree of nodes, and Event Emitter
@@ -57,10 +56,10 @@ func NewDefaultPipeline(source *Node, uri, key, pid string, interval time.Durati
 // 	  os.Exit(1)
 //   }
 // pipeline.Run()
-func NewPipeline(source *Node, emitter events.Emitter, interval time.Duration, sessionStore state.SessionStore, sessionInterval time.Duration) (*Pipeline, error) {
+func NewPipeline(source *Node, emit events.EmitFunc, interval time.Duration, sessionStore state.SessionStore, sessionInterval time.Duration) (*Pipeline, error) {
+
 	pipeline := &Pipeline{
 		source:        source,
-		emitter:       emitter,
 		metricsTicker: time.NewTicker(interval),
 	}
 
@@ -76,7 +75,7 @@ func NewPipeline(source *Node, emitter events.Emitter, interval time.Duration, s
 	}
 
 	// init the emitter with the right chan
-	pipeline.emitter.Init(source.pipe.Event)
+	pipeline.emitter = events.NewEmitter(source.pipe.Event, emit)
 
 	// start the emitters
 	go pipeline.startErrorListener(source.pipe.Err)
@@ -92,8 +91,7 @@ func NewPipeline(source *Node, emitter events.Emitter, interval time.Duration, s
 }
 
 func (pipeline *Pipeline) String() string {
-	out := pipeline.source.String()
-	return out
+	return pipeline.source.String()
 }
 
 // Stop sends a stop signal to the emitter and all the nodes, whether they are running or not.
