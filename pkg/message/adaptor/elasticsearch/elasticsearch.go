@@ -32,7 +32,7 @@ func (r Adaptor) Name() string {
 }
 
 func (r Adaptor) From(op ops.Op, namespace string, d interface{}) message.Msg {
-	m := &ElasticsearchMessage{
+	m := &Message{
 		Operation: op,
 		TS:        time.Now().Unix(),
 		NS:        namespace,
@@ -49,6 +49,7 @@ func (r Adaptor) From(op ops.Op, namespace string, d interface{}) message.Msg {
 }
 
 func (r Adaptor) Insert(m message.Msg) error {
+	delete(m.(*Message).MapData, "_id")
 	return r.Update(m)
 }
 

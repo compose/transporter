@@ -238,7 +238,7 @@ func (t *Transformer) toMsg(origMsg message.Msg, incoming interface{}) (message.
 		return nil, fmt.Errorf("returned doc was not a map[string]interface{}")
 	}
 	newMsg := message.MustUseAdaptor("transformer").From(op, ns, mapData)
-	newMsg.(*transformer.TransformerMessage).TS = ts
+	newMsg.(*transformer.Message).TS = ts
 	return newMsg, nil
 }
 

@@ -7,30 +7,30 @@ import (
 	"github.com/compose/transporter/pkg/message/ops"
 )
 
-type RethinkMessage struct {
+type Message struct {
 	TS        int64
 	MapData   data.MapData
 	NS        string
 	Operation ops.Op
 }
 
-func (r *RethinkMessage) Timestamp() int64 {
+func (r *Message) Timestamp() int64 {
 	return r.TS
 }
 
-func (r *RethinkMessage) Data() interface{} {
+func (r *Message) Data() interface{} {
 	return r.MapData
 }
 
-func (r *RethinkMessage) Namespace() string {
+func (r *Message) Namespace() string {
 	return r.NS
 }
 
-func (r *RethinkMessage) OP() ops.Op {
+func (r *Message) OP() ops.Op {
 	return r.Operation
 }
 
-func (r *RethinkMessage) ID() string {
+func (r *Message) ID() string {
 	switch r := r.MapData["id"].(type) {
 	case string:
 		return r

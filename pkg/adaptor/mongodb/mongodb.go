@@ -433,7 +433,7 @@ func (m *MongoDB) tailData() (err error) {
 					continue
 				}
 
-				msg := message.MustUseAdaptor("mongo").From(ops.OpTypeFromString(result.Op), m.computeNamespace(coll), doc).(*mongodb.MongoMessage)
+				msg := message.MustUseAdaptor("mongo").From(ops.OpTypeFromString(result.Op), m.computeNamespace(coll), doc).(*mongodb.Message)
 				msg.TS = int64(result.Ts) >> 32
 
 				m.oplogTime = result.Ts

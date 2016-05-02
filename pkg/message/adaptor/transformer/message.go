@@ -5,29 +5,29 @@ import (
 	"github.com/compose/transporter/pkg/message/ops"
 )
 
-type TransformerMessage struct {
+type Message struct {
 	TS        int64
 	MapData   data.MapData
 	NS        string
 	Operation ops.Op
 }
 
-func (r *TransformerMessage) Timestamp() int64 {
+func (r *Message) Timestamp() int64 {
 	return r.TS
 }
 
-func (r *TransformerMessage) Data() interface{} {
+func (r *Message) Data() interface{} {
 	return r.MapData
 }
 
-func (r *TransformerMessage) Namespace() string {
+func (r *Message) Namespace() string {
 	return r.NS
 }
 
-func (r *TransformerMessage) OP() ops.Op {
+func (r *Message) OP() ops.Op {
 	return r.Operation
 }
 
-func (r *TransformerMessage) ID() string {
+func (r *Message) ID() string {
 	return ""
 }
