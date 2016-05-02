@@ -411,7 +411,6 @@ func (m *MongoDB) tailData() (err error) {
 			}
 			if result.validOp() {
 				db, coll, _ := m.splitNamespace(result.Ns)
-				
 				if db != m.database {
 					continue
 				}
