@@ -262,9 +262,9 @@ func (m *MongoDB) writeMessage(msg message.Msg) (message.Msg, error) {
 		}
 		return newMsg, dErr
 	}
-	msg, err = message.Exec(a, a.From(ops.Insert, msgColl, doc.Doc))
+	msg, err = message.Exec(a, a.From(ops.Insert, m.computeNamespace(msgColl), doc.Doc))
 	if mgo.IsDup(err) {
-		msg, err = message.Exec(a, a.From(ops.Update, msgColl, doc.Doc))
+		msg, err = message.Exec(a, a.From(ops.Update, m.computeNamespace(msgColl), doc.Doc))
 	}
 	if err != nil {
 		m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error (%s)", err.Error()), msg.Data)
