@@ -9,12 +9,12 @@
 #   type: "filestore"
 nodes:
   localmongo:
-    type: mongodb
+    type: mongo
     uri: mongodb://localhost/boom
     namespace: boom.foo
     debug: true
   localmongo2:
-    type: mongodb
+    type: mongo
     uri: mongodb://localhost/boom
     namespace: boom.baz
     debug: true
