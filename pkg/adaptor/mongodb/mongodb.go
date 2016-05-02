@@ -52,7 +52,7 @@ type MongoDB struct {
 	// a buffer to hold documents
 	buffLock         sync.Mutex
 	opsBufferCount   int
-	opsBuffer        map[string][]interface{}
+	opsBuffer        map[string][]message.Msg
 	opsBufferSize    int
 	bulkWriteChannel chan *syncDoc
 	bulkQuitChannel  chan chan bool
@@ -110,7 +110,7 @@ func init() {
 			tail:             conf.Tail,
 			debug:            conf.Debug,
 			path:             path,
-			opsBuffer:        make(map[string][]interface{}),
+			opsBuffer:        make(map[string][]message.Msg),
 			bulkWriteChannel: make(chan *syncDoc),
 			bulkQuitChannel:  make(chan chan bool),
 			bulk:             conf.Bulk,
@@ -245,8 +245,6 @@ func (m *MongoDB) writeMessage(msg message.Msg) (message.Msg, error) {
 		return msg, nil
 	}
 
-	collection := m.mongoSession.DB(m.database).C(msgColl)
-
 	doc := &syncDoc{
 		Doc:        msg.Data().(data.BSONData),
 		Collection: msgColl,
@@ -254,26 +252,27 @@ func (m *MongoDB) writeMessage(msg message.Msg) (message.Msg, error) {
 
 	if m.bulk {
 		m.bulkWriteChannel <- doc
-	} else if msg.OP() == ops.Delete {
-		err := collection.Remove(doc.Doc)
-		if err != nil {
+		return msg, nil
+	}
+	a := message.MustUseAdaptor("mongo").(mongodb.Adaptor).MustUseSession(m.mongoSession)
+	if msg.OP() == ops.Delete {
+		newMsg, dErr := message.Exec(a, a.From(ops.Delete, msgColl, doc.Doc))
+		if dErr != nil {
 			m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error removing (%s)", err.Error()), msg.Data)
 		}
-	} else {
-		err := collection.Insert(doc.Doc)
-		if mgo.IsDup(err) {
-			err = collection.Update(bson.M{"_id": doc.Doc["_id"]}, doc.Doc)
-		}
-		if err != nil {
-			m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error (%s)", err.Error()), msg.Data)
-		}
+		return newMsg, dErr
 	}
-
-	return msg, nil
+	msg, err = message.Exec(a, a.From(ops.Insert, msgColl, doc.Doc))
+	if mgo.IsDup(err) {
+		msg, err = message.Exec(a, a.From(ops.Update, msgColl, doc.Doc))
+	}
+	if err != nil {
+		m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error (%s)", err.Error()), msg.Data)
+	}
+	return msg, err
 }
 
 func (m *MongoDB) bulkWriter() {
-
 	for {
 		select {
 		case doc := <-m.bulkWriteChannel:
@@ -289,7 +288,7 @@ func (m *MongoDB) bulkWriter() {
 
 			m.buffLock.Lock()
 			m.opsBufferCount++
-			m.opsBuffer[doc.Collection] = append(m.opsBuffer[doc.Collection], doc.Doc)
+			m.opsBuffer[doc.Collection] = append(m.opsBuffer[doc.Collection], message.MustUseAdaptor("mongo").From(ops.Insert, m.computeNamespace(doc.Collection), doc.Doc))
 			m.opsBufferSize += sz
 			m.buffLock.Unlock()
 		case <-time.After(2 * time.Second):
@@ -305,40 +304,37 @@ func (m *MongoDB) writeBuffer() {
 	m.buffLock.Lock()
 	defer m.buffLock.Unlock()
 	for coll, docs := range m.opsBuffer {
-
-		collection := m.mongoSession.DB(m.database).C(coll)
 		if len(docs) == 0 {
 			continue
 		}
-
-		err := collection.Insert(docs...)
+		a := message.MustUseAdaptor("mongo").(mongodb.Adaptor).MustUseSession(m.mongoSession)
+		err := a.BulkInsert(m.database, coll, docs...)
 
 		if err != nil {
 			if mgo.IsDup(err) {
 				err = nil
 				for _, op := range docs {
-					e := collection.Insert(op)
+					_, e := message.Exec(a, a.From(ops.Insert, m.computeNamespace(coll), op))
 					if mgo.IsDup(e) {
-						doc, ok := op.(map[string]interface{})
+						doc, ok := op.Data().(data.BSONData)
 						if !ok {
 							m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, "mongodb error (Cannot cast document to bson)", op)
 						}
-
-						e = collection.Update(bson.M{"_id": doc["_id"]}, doc)
+						_, e = message.Exec(a, a.From(ops.Update, m.computeNamespace(coll), doc))
 					}
 					if e != nil {
 						m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error (%s)", e.Error()), op)
 					}
 				}
 			} else {
-				m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error (%s)", err.Error()), docs[0])
+				m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error (%#v)", err.Error()), docs[0])
 			}
 		}
 
 	}
 
 	m.opsBufferCount = 0
-	m.opsBuffer = make(map[string][]interface{})
+	m.opsBuffer = make(map[string][]message.Msg)
 	m.opsBufferSize = 0
 }
 

@@ -18,7 +18,6 @@ type Adaptor struct {
 
 var _ message.Adaptor = Adaptor{}
 var _ message.Insertable = Adaptor{}
-var _ message.Commandable = Adaptor{}
 var _ message.Deletable = Adaptor{}
 var _ message.Updatable = Adaptor{}
 
@@ -47,22 +46,41 @@ func (r Adaptor) From(op ops.Op, namespace string, d interface{}) message.Msg {
 }
 
 func (r Adaptor) Insert(m message.Msg) error {
-	return nil
+	db, coll, err := message.SplitNamespace(m)
+	if err != nil {
+		return err
+	}
+	return r.sess.DB(db).C(coll).Insert(m.Data())
+}
+
+func (r Adaptor) BulkInsert(db string, coll string, m ...message.Msg) error {
+	if len(m) == 0 {
+		return nil
+	}
+	ins := make([]interface{}, len(m), len(m))
+	for i := range m {
+		ins[i] = m[i].Data()
+	}
+	return r.sess.DB(db).C(coll).Insert(ins...)
 }
 
 func (r Adaptor) Delete(m message.Msg) error {
-	return nil
+	db, coll, err := message.SplitNamespace(m)
+	if err != nil {
+		return err
+	}
+	return r.sess.DB(db).C(coll).Remove(m.Data())
 }
 
 func (r Adaptor) Update(m message.Msg) error {
-	return nil
+	db, coll, err := message.SplitNamespace(m)
+	if err != nil {
+		return err
+	}
+	return r.sess.DB(db).C(coll).Update(bson.M{"_id": m.Data().(data.BSONData).AsMap()["_id"]}, m.Data())
 }
 
-func (r Adaptor) Command(m message.Msg) error {
-	return nil
-}
-
-func (r Adaptor) MustUseSession(sess interface{}) message.Adaptor {
+func (r Adaptor) MustUseSession(sess interface{}) Adaptor {
 	a, err := r.UseSession(sess)
 	if err != nil {
 		panic(err)
@@ -70,7 +88,7 @@ func (r Adaptor) MustUseSession(sess interface{}) message.Adaptor {
 	return a
 }
 
-func (r Adaptor) UseSession(sess interface{}) (message.Adaptor, error) {
+func (r Adaptor) UseSession(sess interface{}) (Adaptor, error) {
 	if c, ok := sess.(*mgo.Session); ok {
 		r.sess = c
 		return r, nil
