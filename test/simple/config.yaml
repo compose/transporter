@@ -10,9 +10,6 @@ nodes:
   es:
     type: elasticsearch
     uri: http://localhost:9200/
-  timeseries:
-    type: influx
-    uri: influxdb://root:root@localhost:8086/compose
   debug:
     type: file
     uri: stdout://
