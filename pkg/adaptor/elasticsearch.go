@@ -1,4 +1,4 @@
-package elasticsearch
+package adaptor
 
 import (
 	"fmt"
@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/message"
 	"github.com/compose/transporter/pkg/pipe"
 	elastigo "github.com/mattbaird/elastigo/lib"
@@ -28,54 +27,33 @@ type Elasticsearch struct {
 	running bool
 }
 
-// Description for the Elasticsearcb adaptor
-func (e *Elasticsearch) Description() string {
-	return "an elasticsearch sink adaptor"
-}
+// NewElasticsearch creates a new Elasticsearch adaptor.
+// Elasticsearch adaptors cannot be used as a source,
+func NewElasticsearch(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
+	var (
+		conf dbConfig
+		err  error
+	)
+	if err = extra.Construct(&conf); err != nil {
+		return nil, NewError(CRITICAL, path, fmt.Sprintf("bad config (%s)", err.Error()), nil)
+	}
 
-var sampleConfig = `
-- es:
-		type: elasticsearch
-    uri: https://username:password@hostname:port/thisgetsignored
-`
+	u, err := url.Parse(conf.URI)
+	if err != nil {
+		return nil, err
+	}
 
-// SampleConfig for elasticsearch adaptor
-func (e *Elasticsearch) SampleConfig() string {
-	return sampleConfig
-}
+	e := &Elasticsearch{
+		uri:  u,
+		pipe: p,
+	}
 
-func init() {
-	adaptor.Add("elasticsearch", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.StopStartListener, error) {
-		var (
-			conf adaptor.DbConfig
-			err  error
-		)
-		if err = extra.Construct(&conf); err != nil {
-			return nil, adaptor.NewError(adaptor.CRITICAL, path, fmt.Sprintf("bad config (%s)", err.Error()), nil)
-		}
+	e.index, e.typeMatch, err = extra.compileNamespace()
+	if err != nil {
+		return e, NewError(CRITICAL, path, fmt.Sprintf("can't split namespace into _index and typeMatch (%s)", err.Error()), nil)
+	}
 
-		u, err := url.Parse(conf.URI)
-		if err != nil {
-			return nil, err
-		}
-
-		e := &Elasticsearch{
-			uri:  u,
-			pipe: p,
-		}
-
-		e.index, e.typeMatch, err = extra.CompileNamespace()
-		if err != nil {
-			return e, adaptor.NewError(adaptor.CRITICAL, path, fmt.Sprintf("can't split namespace into _index and typeMatch (%s)", err.Error()), nil)
-		}
-
-		return e, nil
-	})
-}
-
-// Connect is a no-op for Elasticsearch adaptors
-func (e *Elasticsearch) Connect() error {
-	return nil
+	return e, nil
 }
 
 // Start the adaptor as a source (not implemented)
@@ -91,7 +69,7 @@ func (e *Elasticsearch) Listen() error {
 
 	go func(cherr chan *elastigo.ErrorBuffer) {
 		for err := range e.indexer.ErrorChannel {
-			e.pipe.Err <- adaptor.NewError(adaptor.CRITICAL, e.path, fmt.Sprintf("elasticsearch error (%s)", err.Err), nil)
+			e.pipe.Err <- NewError(CRITICAL, e.path, fmt.Sprintf("elasticsearch error (%s)", err.Err), nil)
 		}
 	}(e.indexer.ErrorChannel)
 
@@ -120,7 +98,7 @@ func (e *Elasticsearch) applyOp(msg *message.Msg) (*message.Msg, error) {
 	if msg.Op == message.Command {
 		err := e.runCommand(msg)
 		if err != nil {
-			e.pipe.Err <- adaptor.NewError(adaptor.ERROR, e.path, fmt.Sprintf("elasticsearch error (%s)", err), msg.Data)
+			e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("elasticsearch error (%s)", err), msg.Data)
 		}
 		return msg, nil
 	}
@@ -134,7 +112,7 @@ func (e *Elasticsearch) applyOp(msg *message.Msg) (*message.Msg, error) {
 
 	_, _type, err := msg.SplitNamespace()
 	if err != nil {
-		e.pipe.Err <- adaptor.NewError(adaptor.ERROR, e.path, fmt.Sprintf("unable to determine type from msg.Namespace (%s)", msg.Namespace), msg)
+		e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("unable to determine type from msg.Namespace (%s)", msg.Namespace), msg)
 		return msg, nil
 	}
 	switch msg.Op {
@@ -145,7 +123,7 @@ func (e *Elasticsearch) applyOp(msg *message.Msg) (*message.Msg, error) {
 		err = e.indexer.Index(e.index, _type, id, "", "", nil, msg.Data, false)
 	}
 	if err != nil {
-		e.pipe.Err <- adaptor.NewError(adaptor.ERROR, e.path, fmt.Sprintf("elasticsearch error (%s)", err), msg.Data)
+		e.pipe.Err <- NewError(ERROR, e.path, fmt.Sprintf("elasticsearch error (%s)", err), msg.Data)
 	}
 	return msg, nil
 }

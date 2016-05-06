@@ -88,14 +88,14 @@ func (e *MetricsEvent) String() string {
 	return msg
 }
 
-// ErrorEvent is an event that indicates an error occurred
+// ErrorEvent is an event that indicates an error occured
 // during the processing of a pipeline
 type ErrorEvent struct {
 	Ts   int64  `json:"ts"`
 	Kind string `json:"name"`
 	Path string `json:"path"`
 
-	// Record is the document (if any) that was in progress when the error occurred
+	// Record is the document (if any) that was in progress when the error occured
 	Record interface{} `json:"record,omitempty"`
 
 	// Message is the error message as a string

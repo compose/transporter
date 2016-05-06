@@ -40,7 +40,7 @@ func levelToString(lvl ErrorLevel) string {
 
 // Error is an error that happened during an adaptor's operation.
 // Error's include both an indication of the severity, Level, as well as
-// a reference to the Record that was in process when the error occurred
+// a reference to the Record that was in process when the error occured
 type Error struct {
 	Lvl    ErrorLevel
 	Str    string

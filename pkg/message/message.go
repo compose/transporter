@@ -38,7 +38,6 @@ func NewMsg(op OpType, data interface{}, namespace string) *Msg {
 	return m
 }
 
-// MatchNamespace tests the message's namespace against the provided Regexp
 func (m *Msg) MatchNamespace(nsFilter *regexp.Regexp) (bool, error) {
 	_, ns, err := m.SplitNamespace()
 	if err != nil {
@@ -48,7 +47,6 @@ func (m *Msg) MatchNamespace(nsFilter *regexp.Regexp) (bool, error) {
 	return nsFilter.MatchString(ns), nil
 }
 
-// SplitNamespace splits the nessage namespace into its constituent fields
 func (m *Msg) SplitNamespace() (string, string, error) {
 	fields := strings.SplitN(m.Namespace, ".", 2)
 

@@ -63,7 +63,7 @@ type CommandType int
 // Transporter understands the following different command types
 const (
 
-	// Flush is interpreted by the receiving sink adaptors to attempt to flush all buffered
+	// Flush is interpreted by the recieving sink adaptors to attempt to flush all buffered
 	// operations to the database.  This can be useful when switching from a copy to a tail operation
 	Flush CommandType = iota
 )

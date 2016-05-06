@@ -183,7 +183,7 @@ func (n *Node) Validate() bool {
 }
 
 // Endpoints recurses down the node tree and accumulates a map associating node name with node type
-// this is primarily used with the boot event
+// this is primarly used with the boot event
 func (n *Node) Endpoints() map[string]string {
 	m := map[string]string{n.Name: n.Type}
 	for _, child := range n.Children {

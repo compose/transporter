@@ -44,7 +44,7 @@ func TestFilestore(t *testing.T) {
 			t.FailNow()
 		}
 		if !reflect.DeepEqual(out.Msg, d.out) {
-			t.Errorf("wanted: %#v, got: %#v", d.out, out.Msg)
+			t.Errorf("wanted: %s, got: %s", d.out, out.Msg)
 		}
 	}
 
@@ -93,7 +93,7 @@ func TestFilestoreUpdates(t *testing.T) {
 	}
 	out := states["somelongkey-somepath"]
 	if !reflect.DeepEqual(out.Msg, d.out) {
-		t.Errorf("wanted: %#v, got: %#v", d.out, out.Msg)
+		t.Errorf("wanted: %s, got: %s", d.out, out.Msg)
 	}
 
 }

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/compose/transporter/pkg/adaptor"
-	_ "github.com/compose/transporter/pkg/adaptor/file"
 	"github.com/compose/transporter/pkg/pipe"
 )
 
@@ -20,26 +19,12 @@ type Testadaptor struct {
 	value string
 }
 
-func init() {
-	adaptor.Add("source", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.StopStartListener, error) {
-		val, ok := extra["value"]
-		if !ok {
-			return nil, errors.New("this is an error")
-		}
-		return &Testadaptor{value: val.(string)}, nil
-	})
-}
-
-func (s *Testadaptor) Description() string {
-	return "description"
-}
-
-func (s *Testadaptor) SampleConfig() string {
-	return ""
-}
-
-func (s *Testadaptor) Connect() error {
-	return nil
+func NewTestadaptor(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.StopStartListener, error) {
+	val, ok := extra["value"]
+	if !ok {
+		return nil, errors.New("this is an error")
+	}
+	return &Testadaptor{value: val.(string)}, nil
 }
 
 func (s *Testadaptor) Stop() error {
@@ -55,6 +40,8 @@ func (s *Testadaptor) Listen() error {
 }
 
 func TestPipelineString(t *testing.T) {
+	adaptor.Register("source", "description", NewTestadaptor, struct{}{})
+
 	data := []struct {
 		in           *Node
 		terminalNode *Node

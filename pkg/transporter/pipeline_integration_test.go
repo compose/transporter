@@ -9,13 +9,12 @@ import (
 	"time"
 
 	"github.com/compose/transporter/pkg/adaptor"
-	_ "github.com/compose/transporter/pkg/adaptor/all"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
 var (
-	mongoUri = "mongodb://127.0.0.1:27017/test"
+	mongoUri = "mongodb://localhost/test"
 )
 
 // set up some local files
@@ -105,8 +104,8 @@ func TestMongoToMongo(t *testing.T) {
 	)
 
 	// create the source node and attach our sink
-	outNode := NewNode("localOutmongo", "mongodb", adaptor.Config{"uri": mongoUri, "namespace": outNs}).
-		Add(NewNode("localInmongo", "mongodb", adaptor.Config{"uri": mongoUri, "namespace": inNs}))
+	outNode := NewNode("localOutmongo", "mongo", adaptor.Config{"uri": mongoUri, "namespace": outNs}).
+		Add(NewNode("localInmongo", "mongo", adaptor.Config{"uri": mongoUri, "namespace": inNs}))
 
 	// create the pipeline
 	p, err := NewDefaultPipeline(outNode, "", "", "", 100*time.Millisecond)

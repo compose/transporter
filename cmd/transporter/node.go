@@ -13,13 +13,12 @@ import (
 // Node is a struct modelled after the transporter.Node struct, but
 // more easily able to serialize to json for to use within the application.js
 type Node struct {
-	UUID       string
-	Name       string         `json:"name"`
-	Type       string         `json:"type"`
-	Extra      adaptor.Config `json:"extra"`
-	Children   []*Node        `json:"children"`
-	RootUUID   string
-	ParentUUID string
+	UUID     string
+	Name     string         `json:"name"`
+	Type     string         `json:"type"`
+	Extra    adaptor.Config `json:"extra"`
+	Children []*Node        `json:"children"`
+	RootUUID string
 }
 
 // NewNode creates a node
@@ -29,7 +28,7 @@ func NewNode(name, kind string, extra adaptor.Config) (node Node, err error) {
 		return node, err
 	}
 
-	return Node{UUID: uuid.String(), Name: name, Type: kind, Extra: extra, RootUUID: uuid.String(), Children: make([]*Node, 0), ParentUUID: uuid.String()}, nil
+	return Node{UUID: uuid.String(), Name: name, Type: kind, Extra: extra, RootUUID: uuid.String(), Children: make([]*Node, 0)}, nil
 }
 
 // CreateNode creates a node by marshalling an interface to json,
@@ -61,26 +60,7 @@ func (n *Node) Object() (*otto.Object, error) {
 // Add will add a node as a child of the current node
 func (n *Node) Add(node *Node) {
 	node.RootUUID = n.RootUUID
-	node.ParentUUID = n.UUID
 	n.Children = append(n.Children, node)
-}
-
-// Find a child node, depth first search
-func (n *Node) Find(childUUID string) (node *Node, err error) {
-	if n.UUID == childUUID {
-		return n, nil
-	}
-	for _, child := range n.Children {
-		if child.UUID == childUUID {
-			return child, nil
-		}
-		found, err := child.Find(childUUID)
-		if err != nil {
-			continue
-		}
-		return found, nil
-	}
-	return nil, fmt.Errorf("child %s not found under %s", childUUID, n.UUID)
 }
 
 // CreateTransporterNode will turn this node into a transporter.Node.

@@ -21,4 +21,5 @@
 //   pipeline.Run()
 //
 // the event emitter's are defined in transporter/pkg/events, and are used to deliver error/metrics/etc about the running process
+
 package transporter

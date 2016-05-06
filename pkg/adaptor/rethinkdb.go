@@ -1,4 +1,4 @@
-package rethinkdb
+package adaptor
 
 import (
 	"errors"
@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/message"
 	"github.com/compose/transporter/pkg/pipe"
 	version "github.com/hashicorp/go-version"
@@ -37,91 +36,8 @@ type Rethinkdb struct {
 	client *gorethink.Session
 }
 
-// Description for rethinkdb adaptor
-func (r *Rethinkdb) Description() string {
-	return "a rethinkdb adaptor that functions as both a source and a sink"
-}
-
-var sampleConfig = `
-- rethink:
-    type: rethinkdb
-    uri: rethink://127.0.0.1:28015/
-`
-
-// SampleConfig for rethinkdb adaptor
-func (r *Rethinkdb) SampleConfig() string {
-	return sampleConfig
-}
-
-func init() {
-	adaptor.Add("rethinkdb", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.StopStartListener, error) {
-		var (
-			conf Config
-			err  error
-		)
-		if err = extra.Construct(&conf); err != nil {
-			return nil, err
-		}
-
-		u, err := url.Parse(conf.URI)
-		if err != nil {
-			return nil, err
-		}
-
-		if conf.Debug {
-			fmt.Printf("RethinkDB Config %+v\n", conf)
-		}
-
-		r := &Rethinkdb{
-			uri:  u,
-			pipe: p,
-			path: path,
-			tail: conf.Tail,
-		}
-
-		r.database, r.tableMatch, err = extra.CompileNamespace()
-		if err != nil {
-			return r, err
-		}
-		r.debug = conf.Debug
-		if r.debug {
-			fmt.Printf("tableMatch: %+v\n", r.tableMatch)
-		}
-		return r, nil
-	})
-}
-
-// Connect tests the connection and if successful, connects to the database
-func (r *Rethinkdb) Connect() error {
-	// test the connection with a timeout
-	testConn, err := gorethink.Connect(gorethink.ConnectOpts{
-		Address: r.uri.Host,
-		Timeout: time.Second * 10,
-	})
-	if err != nil {
-		return err
-	}
-	testConn.Close()
-
-	// we don't want a timeout here because we want to keep connections open
-	r.client, err = gorethink.Connect(gorethink.ConnectOpts{
-		Address: r.uri.Host,
-		MaxIdle: 10,
-	})
-	if err != nil {
-		return err
-	}
-	r.client.Use(r.database)
-
-	constraint, _ := version.NewConstraint(">= 2.0")
-	if err := r.assertServerVersion(constraint); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Config provides custom configuration options for the RethinkDB adapter
-type Config struct {
+// rethinkDbConfig provides custom configuration options for the RethinkDB adapter
+type rethinkDbConfig struct {
 	URI       string `json:"uri" doc:"the uri to connect to, in the form rethink://user:password@host.example:28015/database"`
 	Namespace string `json:"namespace" doc:"rethink namespace to read/write"`
 	Debug     bool   `json:"debug" doc:"if true, verbose debugging information is displayed"`
@@ -145,6 +61,69 @@ type rethinkDbServerStatus struct {
 var (
 	rethinkDbVersionMatcher = regexp.MustCompile(`\d+\.\d+(\.\d+)?`)
 )
+
+// NewRethinkdb creates a new Rethinkdb database adaptor
+func NewRethinkdb(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
+	var (
+		conf rethinkDbConfig
+		err  error
+	)
+	if err = extra.Construct(&conf); err != nil {
+		return nil, err
+	}
+
+	u, err := url.Parse(conf.URI)
+	if err != nil {
+		return nil, err
+	}
+
+	if conf.Debug {
+		fmt.Printf("RethinkDB Config %+v\n", conf)
+	}
+
+	r := &Rethinkdb{
+		uri:  u,
+		pipe: p,
+		path: path,
+		tail: conf.Tail,
+	}
+
+	r.database, r.tableMatch, err = extra.compileNamespace()
+	if err != nil {
+		return r, err
+	}
+	r.debug = conf.Debug
+	if r.debug {
+		fmt.Printf("tableMatch: %+v\n", r.tableMatch)
+	}
+
+	// test the connection with a timeout
+	testConn, err := gorethink.Connect(gorethink.ConnectOpts{
+		Address: r.uri.Host,
+		Timeout: time.Second * 10,
+	})
+	if err != nil {
+		return r, err
+	}
+	testConn.Close()
+
+	// we don't want a timeout here because we want to keep connections open
+	r.client, err = gorethink.Connect(gorethink.ConnectOpts{
+		Address: r.uri.Host,
+		MaxIdle: 10,
+	})
+	if err != nil {
+		return r, err
+	}
+	r.client.Use(r.database)
+
+	constraint, _ := version.NewConstraint(">= 2.0")
+	if err := r.assertServerVersion(constraint); err != nil {
+		return r, err
+	}
+
+	return r, nil
+}
 
 func (r *Rethinkdb) assertServerVersion(constraint version.Constraints) error {
 	cursor, err := gorethink.DB("rethinkdb").Table("server_status").Run(r.client)
@@ -198,8 +177,9 @@ func (r *Rethinkdb) Start() error {
 	defer tables.Close()
 
 	var (
-		wg    sync.WaitGroup
-		table string
+		wg     sync.WaitGroup
+		outerr error
+		table  string
 	)
 	for tables.Next(&table) {
 		if match := r.tableMatch.MatchString(table); !match {
@@ -218,6 +198,7 @@ func (r *Rethinkdb) Start() error {
 
 			if err := r.sendAllDocuments(table); err != nil {
 				r.pipe.Err <- err
+				outerr = err
 			} else if r.tail {
 				start <- true
 			}
@@ -347,24 +328,27 @@ func (r *Rethinkdb) Stop() error {
 
 // applyOp applies one operation to the database
 func (r *Rethinkdb) applyOp(msg *message.Msg) (*message.Msg, error) {
+	var (
+		resp gorethink.WriteResponse
+		err  error
+	)
+
 	_, msgTable, err := msg.SplitNamespace()
 	if err != nil {
-		r.pipe.Err <- adaptor.NewError(adaptor.ERROR, r.path, fmt.Sprintf("rethinkdb error (msg namespace improperly formatted, must be database.table, got %s)", msg.Namespace), msg.Data)
+		r.pipe.Err <- NewError(ERROR, r.path, fmt.Sprintf("rethinkdb error (msg namespace improperly formatted, must be database.table, got %s)", msg.Namespace), msg.Data)
 		return msg, nil
 	}
 	if !msg.IsMap() {
-		r.pipe.Err <- adaptor.NewError(adaptor.ERROR, r.path, "rethinkdb error (document must be a json document)", msg.Data)
+		r.pipe.Err <- NewError(ERROR, r.path, "rethinkdb error (document must be a json document)", msg.Data)
 		return msg, nil
 	}
 	doc := msg.Map()
 
-	var resp gorethink.WriteResponse
 	switch msg.Op {
 	case message.Delete:
-		var id string
-		id, err = msg.IDString("id")
+		id, err := msg.IDString("id")
 		if err != nil {
-			r.pipe.Err <- adaptor.NewError(adaptor.ERROR, r.path, "rethinkdb error (cannot delete an object with a nil id)", msg.Data)
+			r.pipe.Err <- NewError(ERROR, r.path, "rethinkdb error (cannot delete an object with a nil id)", msg.Data)
 			return msg, nil
 		}
 		resp, err = gorethink.Table(msgTable).Get(id).Delete().RunWrite(r.client)
@@ -374,13 +358,13 @@ func (r *Rethinkdb) applyOp(msg *message.Msg) (*message.Msg, error) {
 		resp, err = gorethink.Table(msgTable).Insert(doc, gorethink.InsertOpts{Conflict: "replace"}).RunWrite(r.client)
 	}
 	if err != nil {
-		r.pipe.Err <- adaptor.NewError(adaptor.ERROR, r.path, "rethinkdb error (%s)", err)
+		r.pipe.Err <- NewError(ERROR, r.path, "rethinkdb error (%s)", err)
 		return msg, nil
 	}
 
 	err = r.handleResponse(&resp)
 	if err != nil {
-		r.pipe.Err <- adaptor.NewError(adaptor.ERROR, r.path, "rethinkdb error (%s)", err)
+		r.pipe.Err <- NewError(ERROR, r.path, "rethinkdb error (%s)", err)
 	}
 
 	return msg, nil

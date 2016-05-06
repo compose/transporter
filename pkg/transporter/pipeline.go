@@ -152,7 +152,7 @@ func (pipeline *Pipeline) startErrorListener(cherr chan error) {
 }
 
 func (pipeline *Pipeline) startMetricsGatherer() {
-	for range pipeline.metricsTicker.C {
+	for _ = range pipeline.metricsTicker.C {
 		pipeline.emitMetrics()
 	}
 }
@@ -184,7 +184,7 @@ func (pipeline *Pipeline) emitMetrics() {
 }
 
 func (pipeline *Pipeline) startStateSaver() {
-	for range pipeline.sessionTicker.C {
+	for _ = range pipeline.sessionTicker.C {
 		pipeline.setState()
 	}
 }

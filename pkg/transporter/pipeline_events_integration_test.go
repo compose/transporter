@@ -91,15 +91,16 @@ func TestEventsBroadcast(t *testing.T) {
 }
 
 func (events EventHolder) lookupMetricEvent(metric, path string) error {
-	evt := struct {
-		Name string `json:"name"`
-		Path string `json:"path"`
-	}{}
+	var evt map[string]interface{}
 	for _, val := range events.rawEvents {
 		if err := json.Unmarshal(val, &evt); err != nil {
 			return err
 		}
-		if evt.Name == metric && (path == "" || path == evt.Path) {
+		if evt["name"].(string) == metric {
+			// check for path if provided
+			if path != "" && evt["path"].(string) == path {
+				return nil
+			}
 			return nil
 		}
 	}

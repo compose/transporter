@@ -23,7 +23,6 @@ type filestore struct {
 	states   map[string]*MsgState
 }
 
-// NewFilestore initializes a new SessionStore backed by a file
 func NewFilestore(key, filename string) SessionStore {
 	filestore := &filestore{
 		key:    key,

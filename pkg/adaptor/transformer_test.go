@@ -1,4 +1,4 @@
-package transformer
+package adaptor
 
 import (
 	"reflect"
