@@ -7,10 +7,8 @@ dependencies:
   override:
     - test -d /home/ubuntu/.go_workspace/src/github.com/compose/ || mkdir -p /home/ubuntu/.go_workspace/src/github.com/compose/
     - test -e /home/ubuntu/.go_workspace/src/github.com/compose/transporter || ln -s /home/ubuntu/transporter/ /home/ubuntu/.go_workspace/src/github.com/compose/
-    - test -d $HOME/boto || pip install -t $HOME/boto boto
 
   cache_directories:
-  - "/home/ubuntu/boto"
   - "/home/ubuntu/bin"
 
 test:
