@@ -7,19 +7,18 @@ dependencies:
   override:
     - test -d /home/ubuntu/.go_workspace/src/github.com/compose/ || mkdir -p /home/ubuntu/.go_workspace/src/github.com/compose/
     - test -e /home/ubuntu/.go_workspace/src/github.com/compose/transporter || ln -s /home/ubuntu/transporter/ /home/ubuntu/.go_workspace/src/github.com/compose/
-
   cache_directories:
   - "/home/ubuntu/bin"
 
 test:
   override:
-    - go test ./... -tags=integration -v
+    - cd /home/ubuntu/.go_workspace/src/github.com/compose/transporter && go test $(go list ./... | grep -v '/vendor/') -tags=integration -v
 
 deployment:
   experimental:
     branch: [experimental]
     commands:
-      -
+      - echo "todo"
   default:
     branch: [master, stage, dev]
     commands:
