@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/compose/transporter",
-	"GoVersion": "go1.5",
+	"GoVersion": "go1.6",
 	"Packages": [
 		"./..."
 	],
