@@ -1,6 +1,7 @@
 package elasticsearch
 
 import (
+	"fmt"
 	"time"
 
 	"gopkg.in/mgo.v2/bson"
@@ -49,7 +50,16 @@ func (r Adaptor) From(op ops.Op, namespace string, d interface{}) message.Msg {
 }
 
 func (r Adaptor) Insert(m message.Msg) error {
-	delete(m.(*Message).MapData, "_id")
+	switch d := m.Data().(type) {
+	case data.MapData:
+		delete(d, "_id")
+	case data.BSONData:
+		delete(d, "_id")
+	case map[string]interface{}:
+		delete(d, "_id")
+	default:
+		fmt.Errorf("invalid data type: %T", d)
+	}
 	return r.Update(m)
 }
 
