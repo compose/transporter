@@ -92,16 +92,17 @@ func (js *JavascriptBuilder) save(token string, node Node, call otto.FunctionCal
 	if err != nil {
 		return node, fmt.Errorf("save error, %s", err.Error())
 	}
-	root := js.nodes[node.RootUUID]
 
-	if node.UUID == root.UUID { // save is being called on a root node
-		root.Add(&thisNode)
-	} else {
-		node.Add(&thisNode) // add the generated not to the `this`
-		root.Add(&node)     // add the result to the root
+	root := js.nodes[node.RootUUID]
+	parent, err := root.Find(node.UUID)
+	if err != nil {
+		return node, fmt.Errorf("save error, %s", err.Error())
 	}
 
+	parent.Add(&thisNode)
+
 	js.nodes[root.UUID] = root
+
 	return root, nil
 }
 
@@ -122,7 +123,16 @@ func (js *JavascriptBuilder) transform(token string, node Node, call otto.Functi
 		transformer.Extra["filename"] = filepath.Join(js.path, filename)
 	}
 
-	node.Add(&transformer)
+	root := js.nodes[node.RootUUID]
+	parent, err := root.Find(node.UUID)
+	if err != nil {
+		return node, fmt.Errorf("transformer error, %s", err.Error())
+	}
+
+	parent.Add(&transformer)
+
+	js.nodes[root.UUID] = root
+
 	return transformer, nil
 }
 
@@ -257,7 +267,6 @@ func (js *JavascriptBuilder) Build() error {
 
 	var sessionStore state.SessionStore
 	sessionInterval := time.Duration(10 * time.Second)
-	fmt.Printf("js sessions config -> %v\n", js.config.Sessions)
 	if js.config.Sessions.SessionInterval != "" {
 		sessionInterval, err = time.ParseDuration(js.config.Sessions.SessionInterval)
 		if err != nil {

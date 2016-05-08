@@ -97,6 +97,10 @@ func (e *HTTPPostEmitter) startEventListener() {
 					return
 				}
 				_, err = ioutil.ReadAll(resp.Body)
+				if err != nil {
+					log.Printf("Response read error: %s", err)
+					return
+				}
 				defer resp.Body.Close()
 				if resp.StatusCode != 200 && resp.StatusCode != 201 {
 					log.Printf("EventEmitter Error: http error code, expected 200 or 201, got %d, (%s)", resp.StatusCode, ba)
@@ -207,41 +211,41 @@ func (e *LogEmitter) startEventListener() {
 	}
 }
 
-// NewJsonLogEmitter creates a new LogEmitter
-func NewJsonLogEmitter() *JsonLogEmitter {
-	return &JsonLogEmitter{
+// NewJSONLogEmitter creates a new LogEmitter
+func NewJSONLogEmitter() *JSONLogEmitter {
+	return &JSONLogEmitter{
 		chstop: make(chan chan bool),
 	}
 }
 
-// JsonLogEmitter constructs a LogEmitter to use with a transporter pipeline.
+// JSONLogEmitter constructs a LogEmitter to use with a transporter pipeline.
 // A JsonLogEmitter listens on the event channel and uses go's log package to emit the event,
 // eg.
 // 2015/07/14 11:52:01 {"ts":1436889121,"name":"metrics","path":"source-development.jobs/dest-x.jobs","records":121}
 // 2015/07/14 11:52:01 {"ts":1436889121,"name":"exit","version":"0.0.4","endpoints":{"dest-x.jobs":"mongo","source-development.jobs":"mongo"}}
-type JsonLogEmitter struct {
+type JSONLogEmitter struct {
 	chstop chan chan bool
 	ch     chan Event
 }
 
 // Start the emitter
-func (e *JsonLogEmitter) Start() {
+func (e *JSONLogEmitter) Start() {
 	go e.startEventListener()
 }
 
 // Init sets the event channel
-func (e *JsonLogEmitter) Init(ch chan Event) {
+func (e *JSONLogEmitter) Init(ch chan Event) {
 	e.ch = ch
 }
 
 // Stop the emitter
-func (e *JsonLogEmitter) Stop() {
+func (e *JSONLogEmitter) Stop() {
 	s := make(chan bool)
 	e.chstop <- s
 	<-s
 }
 
-func (e *JsonLogEmitter) startEventListener() {
+func (e *JSONLogEmitter) startEventListener() {
 	for {
 		select {
 		case s := <-e.chstop:

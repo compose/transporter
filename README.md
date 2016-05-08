@@ -1,4 +1,4 @@
-[![Circle CI](https://circleci.com/gh/rishiloyola/transporter.svg?style=svg)](https://circleci.com/gh/rishiloyola/transporter) 
+[![Circle CI](https://circleci.com/gh/compose/transporter.svg?style=svg)](https://circleci.com/gh/compose/transporter) [![Go Report Card](https://goreportcard.com/badge/github.com/compose/transporter)](https://goreportcard.com/report/github.com/compose/transporter)
 
 Compose helps with database transformations from one store to another.  It can also sync from one to another or several stores.
 
@@ -7,14 +7,10 @@ Transporter
 
 Build
 -----
-`go get github.com/compose/transporter`  
-`cd $GOPATH/src/github.com/compose/transporter`  
-`git remote add fork https://github.com/rishiloyola/transporter`  
-`git pull fork master`
-
-make sure godep is installed, `go get github.com/tools/godep` and then build with  
-`godep restore`  
+make sure godep is installed, `go get github.com/tools/godep` and then build with
+`godep restore`
 `godep go build -a ./cmd/...`
+
 
 Configure
 ---------
@@ -39,13 +35,6 @@ nodes:
   stdout:
     type: file
     uri: stdout://
-  kinesisstream:
-    type: kinesis
-    awsaccesskey: XXXX
-    awssecretkey: XXXX
-    awsregionname: us-east-1
-    streamname: appbase_test
-    sharditeratortype: TRIM_HORIZON
 ```
 
 There is also a sample 'application.js' in test/application.js.  The application is responsible for building transporter pipelines.
