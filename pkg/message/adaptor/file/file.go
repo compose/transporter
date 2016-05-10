@@ -95,6 +95,9 @@ func (r Adaptor) UseFile(uri string) (message.Adaptor, error) {
 		}
 	}
 	r.URI = uri
+	if strings.HasPrefix(uri, "stdout://") { // don't create file handle for stdout
+		return r, nil
+	}
 	name := strings.Replace(r.URI, "file://", "", 1)
 	fh, err := os.Create(name)
 	if err != nil {
