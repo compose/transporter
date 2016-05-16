@@ -9,7 +9,7 @@ import (
 
 type Message struct {
 	TS        int64
-	MapData   data.MapData
+	MapData   data.Data
 	NS        string
 	Operation ops.Op
 }
@@ -18,7 +18,7 @@ func (r *Message) Timestamp() int64 {
 	return r.TS
 }
 
-func (r *Message) Data() interface{} {
+func (r *Message) Data() data.Data {
 	return r.MapData
 }
 

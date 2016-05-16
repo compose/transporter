@@ -1,23 +1,28 @@
 package data
 
-import "gopkg.in/mgo.v2/bson"
+type Data map[string]interface{}
 
-type SQLData map[string]interface{}
-
-func (s SQLData) AsMap() map[string]interface{} {
-	return map[string]interface{}(s)
+func (d Data) Get(key string) interface{} {
+	return d[key]
 }
 
-type BSONData bson.M
-
-func (b BSONData) AsMap() map[string]interface{} {
-	return map[string]interface{}(b)
+func (d Data) Set(key string, value interface{}) {
+	d[key] = value
 }
 
-type MapData map[string]interface{}
-
-func (m MapData) AsMap() map[string]interface{} {
-	return map[string]interface{}(m)
+func (d Data) Has(key string) (interface{}, bool) {
+	val, ok := d[key]
+	return val, ok
 }
 
-type CommandData string
+func (d Data) Delete(key string) {
+	delete(d, key)
+}
+
+func (d Data) AsMap() map[string]interface{} {
+	m := make(map[string]interface{})
+	for key := range d {
+		m[key] = d[key]
+	}
+	return m
+}

@@ -22,17 +22,12 @@ type Msg interface {
 	ID() string
 	OP() ops.Op
 	Timestamp() int64
-	Data() interface{}
+	Data() data.Data
 	Namespace() string
 }
 
 func MarshalData(m Msg) ([]byte, error) {
-	d := m.Data()
-	switch d.(type) {
-	case data.SQLData, data.MapData, data.BSONData, data.CommandData:
-		return json.Marshal(d)
-	}
-	return nil, fmt.Errorf("invalid data type for marshal: %T", d)
+	return json.Marshal(m.Data())
 }
 
 // SplitNamespace splits the nessage namespace into its constituent fields

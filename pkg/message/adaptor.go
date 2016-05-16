@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/compose/transporter/pkg/message/data"
 	"github.com/compose/transporter/pkg/message/ops"
 )
 
 type Adaptor interface {
 	Name() string
-	From(op ops.Op, namespace string, data interface{}) Msg
+	From(op ops.Op, namespace string, data data.Data) Msg
 }
 
 type Insertable interface {

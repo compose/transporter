@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/compose/transporter/pkg/message"
+	"github.com/compose/transporter/pkg/message/data"
 	"github.com/compose/transporter/pkg/message/ops"
 )
 
@@ -15,7 +16,7 @@ type testMsg struct {
 	UniqueID  string
 	Operation ops.Op
 	NS        string
-	D         map[string]interface{}
+	D         data.Data
 	TS        int64
 }
 
@@ -31,7 +32,7 @@ func (t testMsg) Namespace() string {
 	return t.NS
 }
 
-func (t testMsg) Data() interface{} {
+func (t testMsg) Data() data.Data {
 	return t.D
 }
 

@@ -246,7 +246,7 @@ func (m *MongoDB) writeMessage(msg message.Msg) (message.Msg, error) {
 	}
 
 	doc := &syncDoc{
-		Doc:        msg.Data().(data.BSONData),
+		Doc:        msg.Data(),
 		Collection: msgColl,
 	}
 
@@ -314,13 +314,9 @@ func (m *MongoDB) writeBuffer() {
 			if mgo.IsDup(err) {
 				err = nil
 				for _, op := range docs {
-					_, e := message.Exec(a, a.From(ops.Insert, m.computeNamespace(coll), op))
+					_, e := message.Exec(a, a.From(ops.Insert, m.computeNamespace(coll), op.Data()))
 					if mgo.IsDup(e) {
-						doc, ok := op.Data().(data.BSONData)
-						if !ok {
-							m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, "mongodb error (Cannot cast document to bson)", op)
-						}
-						_, e = message.Exec(a, a.From(ops.Update, m.computeNamespace(coll), doc))
+						_, e = message.Exec(a, a.From(ops.Update, m.computeNamespace(coll), op.Data()))
 					}
 					if e != nil {
 						m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error (%s)", e.Error()), op)
@@ -362,7 +358,7 @@ func (m *MongoDB) catData() (err error) {
 				}
 
 				// set up the message
-				msg := message.MustUseAdaptor("mongo").From(ops.Insert, m.computeNamespace(collection), result)
+				msg := message.MustUseAdaptor("mongo").From(ops.Insert, m.computeNamespace(collection), data.Data(result))
 
 				m.pipe.Send(msg)
 				result = bson.M{}
@@ -433,7 +429,7 @@ func (m *MongoDB) tailData() (err error) {
 					continue
 				}
 
-				msg := message.MustUseAdaptor("mongo").From(ops.OpTypeFromString(result.Op), m.computeNamespace(coll), doc).(*mongodb.Message)
+				msg := message.MustUseAdaptor("mongo").From(ops.OpTypeFromString(result.Op), m.computeNamespace(coll), data.Data(doc)).(*mongodb.Message)
 				msg.TS = int64(result.Ts) >> 32
 
 				m.oplogTime = result.Ts
