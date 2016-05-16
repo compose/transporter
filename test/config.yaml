@@ -50,3 +50,9 @@ nodes:
   logtransformer:
     filename: test/transformers/passthrough_and_log.js
     type: transformer
+  postgres-dest:
+    type: postgres
+    uri: "host=localhost sslmode=disable dbname=boomdest user=focker"
+  postgres:
+    type: postgres
+    uri: "host=localhost sslmode=disable dbname=fizz user=focker"

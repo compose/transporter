@@ -247,7 +247,7 @@ func (c *aboutCommand) Run(args []string) int {
 			return 1
 		}
 		if d, ok := dummyAdaptor.(adaptor.Describable); ok {
-			fmt.Println(d.Description())
+			fmt.Printf("%s - %s\n", name, d.Description())
 		}
 	}
 	return 0
