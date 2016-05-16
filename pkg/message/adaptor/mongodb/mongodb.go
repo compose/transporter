@@ -30,19 +30,13 @@ func (r Adaptor) Name() string {
 	return "mongo"
 }
 
-func (r Adaptor) From(op ops.Op, namespace string, d interface{}) message.Msg {
-	m := &Message{
+func (r Adaptor) From(op ops.Op, namespace string, d data.Data) message.Msg {
+	return &Message{
 		Operation: op,
 		TS:        time.Now().Unix(),
 		NS:        namespace,
+		BSONData:  d,
 	}
-	switch d.(type) {
-	case map[string]interface{}:
-		m.BSONData = data.BSONData(d.(map[string]interface{}))
-	case bson.M:
-		m.BSONData = data.BSONData(d.(bson.M))
-	}
-	return m
 }
 
 func (r Adaptor) Insert(m message.Msg) error {
@@ -77,7 +71,7 @@ func (r Adaptor) Update(m message.Msg) error {
 	if err != nil {
 		return err
 	}
-	return r.sess.DB(db).C(coll).Update(bson.M{"_id": m.Data().(data.BSONData).AsMap()["_id"]}, m.Data())
+	return r.sess.DB(db).C(coll).Update(bson.M{"_id": m.Data().Get("_id")}, m.Data())
 }
 
 func (r Adaptor) MustUseSession(sess interface{}) Adaptor {

@@ -11,7 +11,7 @@ import (
 
 type Message struct {
 	TS        int64
-	BSONData  data.BSONData
+	BSONData  data.Data
 	NS        string
 	Operation ops.Op
 }
@@ -20,7 +20,7 @@ func (r *Message) Timestamp() int64 {
 	return r.TS
 }
 
-func (r *Message) Data() interface{} {
+func (r *Message) Data() data.Data {
 	return r.BSONData
 }
 
@@ -33,7 +33,7 @@ func (r *Message) OP() ops.Op {
 }
 
 func (r *Message) ID() string {
-	switch r := r.BSONData["_id"].(type) {
+	switch r := r.BSONData.Get("_id").(type) {
 	case string:
 		return r
 	case bson.ObjectId:

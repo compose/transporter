@@ -145,19 +145,14 @@ func (t *Transformer) transformOne(msg message.Msg) (message.Msg, error) {
 	}
 
 	now := time.Now().Nanosecond()
-	currMsg := map[string]interface{}{
+	currMsg := data.Data{
 		"ts": msg.Timestamp(),
 		"op": msg.OP().String(),
 		"ns": msg.Namespace(),
 	}
 
 	curData := msg.Data()
-	switch curData.(type) {
-	case map[string]interface{}:
-		doc, err = mejson.Marshal(curData)
-	case data.MapData:
-		doc, err = mejson.Marshal(curData.(data.MapData).AsMap())
-	}
+	doc, err = mejson.Marshal(curData.AsMap())
 	if err != nil {
 		t.pipe.Err <- t.transformerError(adaptor.ERROR, err, msg)
 		return msg, nil
@@ -217,7 +212,7 @@ func (t *Transformer) toMsg(origMsg message.Msg, incoming interface{}) (message.
 			if err != nil {
 				return nil, err
 			}
-			mapData = data.MapData(d)
+			mapData = data.Data(d)
 		case map[string]interface{}:
 			newData, err := resolveValues(newData)
 			if err != nil {
@@ -227,8 +222,8 @@ func (t *Transformer) toMsg(origMsg message.Msg, incoming interface{}) (message.
 			if err != nil {
 				return nil, err
 			}
-			mapData = data.MapData(d)
-		case data.MapData:
+			mapData = data.Data(d)
+		case data.Data:
 			newData, err := resolveValues(newData)
 			if err != nil {
 				return nil, err
@@ -250,7 +245,7 @@ func (t *Transformer) toMsg(origMsg message.Msg, incoming interface{}) (message.
 	return newMsg, nil
 }
 
-func resolveValues(m map[string]interface{}) (map[string]interface{}, error) {
+func resolveValues(m data.Data) (data.Data, error) {
 	for k, v := range m {
 		switch v.(type) {
 		case otto.Value:

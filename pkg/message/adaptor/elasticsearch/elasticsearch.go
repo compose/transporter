@@ -1,10 +1,7 @@
 package elasticsearch
 
 import (
-	"fmt"
 	"time"
-
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/compose/transporter/pkg/message"
 	"github.com/compose/transporter/pkg/message/data"
@@ -32,34 +29,17 @@ func (r Adaptor) Name() string {
 	return "elasticsearch"
 }
 
-func (r Adaptor) From(op ops.Op, namespace string, d interface{}) message.Msg {
-	m := &Message{
+func (r Adaptor) From(op ops.Op, namespace string, d data.Data) message.Msg {
+	return &Message{
 		Operation: op,
 		TS:        time.Now().Unix(),
 		NS:        namespace,
+		MapData:   d,
 	}
-	switch d.(type) {
-	case map[string]interface{}:
-		m.MapData = data.MapData(d.(map[string]interface{}))
-	case bson.M:
-		m.MapData = data.MapData(d.(bson.M))
-	case data.MapData:
-		m.MapData = d.(data.MapData)
-	}
-	return m
 }
 
 func (r Adaptor) Insert(m message.Msg) error {
-	switch d := m.Data().(type) {
-	case data.MapData:
-		delete(d, "_id")
-	case data.BSONData:
-		delete(d, "_id")
-	case map[string]interface{}:
-		delete(d, "_id")
-	default:
-		fmt.Errorf("invalid data type: %T", d)
-	}
+	m.Data().Delete("_id")
 	return r.Update(m)
 }
 
@@ -81,7 +61,7 @@ func (r Adaptor) Update(m message.Msg) error {
 }
 
 func (r Adaptor) Command(m message.Msg) error {
-	if _, hasKey := m.Data().(data.MapData)["flush"]; hasKey {
+	if _, hasKey := m.Data().Has("flush"); hasKey {
 		r.indexer.Flush()
 	}
 	return nil
