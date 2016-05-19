@@ -198,11 +198,12 @@ func (t *Transformer) toMsg(origMsg message.Msg, incoming interface{}) (message.
 		mapData = origMsg.Data()
 	)
 	switch newMsg := incoming.(type) {
-	case map[string]interface{}: // we're a proper message.Msg, so copy the data over
-		op = ops.OpTypeFromString(newMsg["op"].(string))
-		ts = newMsg["ts"].(int64)
-		ns = newMsg["ns"].(string)
-		switch newData := newMsg["data"].(type) {
+	case map[string]interface{}, data.Data: // we're a proper message.Msg, so copy the data over
+		m := newMsg.(data.Data)
+		op = ops.OpTypeFromString(m.Get("op").(string))
+		ts = m.Get("ts").(int64)
+		ns = m.Get("ns").(string)
+		switch newData := m.Get("data").(type) {
 		case otto.Value:
 			exported, err := newData.Export()
 			if err != nil {
@@ -238,7 +239,7 @@ func (t *Transformer) toMsg(origMsg message.Msg, incoming interface{}) (message.
 			op = ops.Noop
 		}
 	default: // something went wrong
-		return nil, fmt.Errorf("returned doc was not a map[string]interface{}")
+		return nil, fmt.Errorf("returned doc was not a map[string]interface{}: was %T", newMsg)
 	}
 	newMsg := message.MustUseAdaptor("transformer").From(op, ns, mapData)
 	newMsg.(*transformer.Message).TS = ts
