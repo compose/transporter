@@ -128,7 +128,7 @@ func TestTransformOne(t *testing.T) {
 		msg, err := transformer.transformOne(v.in)
 
 		if (err != nil) != v.err {
-			t.Errorf("error expected %t but actually got %v", v.err, err)
+			t.Errorf("[%s] error expected %t but actually got %v", v.name, v.err, err)
 			continue
 		}
 		if (!isEqual(msg, v.out) || err != nil) && !v.err {
@@ -156,7 +156,7 @@ func isEqual(m1 message.Msg, m2 message.Msg) bool {
 	return isEqualBSON(m1.Data(), m2.Data())
 }
 
-func isEqualBSON(m1 data.Data, m2 data.Data) bool {
+func isEqualBSON(m1 map[string]interface{}, m2 map[string]interface{}) bool {
 	for k, v := range m1 {
 		m2Val := m2[k]
 		if reflect.TypeOf(v) != reflect.TypeOf(m2Val) {
@@ -164,7 +164,7 @@ func isEqualBSON(m1 data.Data, m2 data.Data) bool {
 		}
 		switch v.(type) {
 		case map[string]interface{}, bson.M, data.Data:
-			eq := isEqualBSON(v.(map[string]interface{}), m2Val.(map[string]interface{}))
+			eq := isEqualBSON(v.(bson.M), m2Val.(bson.M))
 			if !eq {
 				return false
 			}
