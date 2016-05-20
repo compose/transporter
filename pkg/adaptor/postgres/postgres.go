@@ -98,7 +98,7 @@ func init() {
 	}))
 }
 
-// Description for mongodb adaptor
+// Description for postgres adaptor
 func (p *Postgres) Description() string {
 	return "a postgres adaptor that functions as both a source and a sink"
 }
@@ -172,7 +172,7 @@ func (p *Postgres) Stop() error {
 func (p *Postgres) writeMessage(msg message.Msg) (message.Msg, error) {
 	m, err := message.Exec(message.MustUseAdaptor("postgres").(postgres.Adaptor).UseSession(p.session), msg)
 	if err != nil {
-		p.pipe.Err <- adaptor.NewError(adaptor.ERROR, p.path, fmt.Sprintf("postgres error (%s)", err), msg.Data)
+		p.pipe.Err <- adaptor.NewError(adaptor.ERROR, p.path, fmt.Sprintf("postgres error (%v)", err), msg.Data())
 	}
 
 	return m, err
