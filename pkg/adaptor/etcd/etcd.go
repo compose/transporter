@@ -86,7 +86,7 @@ func (e *Etcd) Description() string {
 
 const sampleConfig = `
 - localetcd:
-    type: postgres
+    type: etcd
     uri: 127.0.0.1:5432,127.0.0.1:2345
 `
 
