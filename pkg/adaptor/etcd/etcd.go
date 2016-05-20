@@ -2,7 +2,9 @@ package etcd
 
 import (
 	"fmt"
+	"log"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/compose/transporter/pkg/adaptor"
@@ -16,8 +18,8 @@ import (
 // it works as a source by copying files, and then optionally watching all keys
 type Etcd struct {
 	// pull these in from the node
-	endpoints []string
-	tail      bool // run the tail oplog
+	uri  string
+	tail bool // run the tail oplog
 
 	// save time by setting these once
 	tableMatch *regexp.Regexp
@@ -35,10 +37,10 @@ type Etcd struct {
 // Config provides configuration options for a postgres adaptor
 // the notable difference between this and dbConfig is the presence of the Tail option
 type Config struct {
-	Endpoints []string `json:"uri" doc:"the uri to connect to, in the form TODO"`
-	Namespace string   `json:"namespace" doc:"mongo namespace to read/write"`
-	Timeout   string   `json:"timeout" doc:"timeout for establishing connection, format must be parsable by time.ParseDuration and defaults to 10s"`
-	Tail      bool     `json:"tail" doc:"if tail is true, then the etcd source will track changes after copying the namespace"`
+	URI       string `json:"uri" doc:"the uri to connect to, in the form TODO"`
+	Namespace string `json:"namespace" doc:"mongo namespace to read/write"`
+	Timeout   string `json:"timeout" doc:"timeout for establishing connection, format must be parsable by time.ParseDuration and defaults to 10s"`
+	Tail      bool   `json:"tail" doc:"if tail is true, then the etcd source will track changes after copying the namespace"`
 }
 
 func init() {
@@ -51,24 +53,27 @@ func init() {
 			return nil, err
 		}
 
-		if len(conf.Endpoints) == 0 || conf.Namespace == "" {
+		if conf.URI == "" || conf.Namespace == "" {
 			return nil, fmt.Errorf("both endpoints and namespace required, but missing ")
 		}
-		t, err := time.ParseDuration(conf.Timeout)
-		if err != nil {
-			return nil, err
-		}
 		e := &Etcd{
-			sessionTimeout: t, // timeout the oplog iterator
+			sessionTimeout: time.Second * 10,
 			pipe:           ppipe,
-			endpoints:      conf.Endpoints,
+			uri:            conf.URI,
 			tail:           conf.Tail,
 			path:           path,
 		}
-
 		e.database, e.tableMatch, err = extra.CompileNamespace()
 		if err != nil {
 			return e, err
+		}
+		if conf.Timeout != "" {
+			t, err := time.ParseDuration(conf.Timeout)
+			if err != nil {
+				log.Printf("error parsing timeout, defaulting to 10s, %v", err)
+			} else {
+				e.sessionTimeout = t
+			}
 		}
 		return e, nil
 	}))
@@ -82,7 +87,7 @@ func (e *Etcd) Description() string {
 const sampleConfig = `
 - localetcd:
     type: postgres
-    endpoints: [ 127.0.0.1:5432 , 127.0.0.1:2345 ]
+    uri: 127.0.0.1:5432,127.0.0.1:2345
 `
 
 // SampleConfig for postgres adaptor
@@ -92,7 +97,7 @@ func (e *Etcd) SampleConfig() string {
 
 func (e *Etcd) Connect() error {
 	cfg := client.Config{
-		Endpoints: e.endpoints,
+		Endpoints: strings.Split(e.uri, ","),
 		Transport: client.DefaultTransport,
 		// set timeout per request to fail fast when the target endpoint is unavailable
 		HeaderTimeoutPerRequest: time.Second * 5,
@@ -100,7 +105,7 @@ func (e *Etcd) Connect() error {
 	var err error
 	e.session, err = client.New(cfg)
 	if err != nil {
-		return fmt.Errorf("unable to make etcd session (%v), %v\n", e.endpoints, err)
+		return fmt.Errorf("unable to make etcd session (%v), %v\n", e.uri, err)
 	}
 	return nil
 }
