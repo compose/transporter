@@ -7,9 +7,13 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/net/context"
+
 	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/message"
 	"github.com/compose/transporter/pkg/message/adaptor/etcd"
+	"github.com/compose/transporter/pkg/message/data"
+	"github.com/compose/transporter/pkg/message/ops"
 	"github.com/compose/transporter/pkg/pipe"
 	"github.com/coreos/etcd/client"
 )
@@ -28,6 +32,9 @@ type Etcd struct {
 	//
 	pipe *pipe.Pipe
 	path string
+
+	//
+	stopped bool
 
 	// etcd connection and options
 	session        client.Client
@@ -119,7 +126,7 @@ func (e *Etcd) Start() (err error) {
 	err = e.catData()
 	if err != nil {
 		e.pipe.Err <- err
-		return fmt.Errorf("Error connecting to Postgres: %v", err)
+		return fmt.Errorf("Error connecting to etcd: %v", err)
 	}
 	if e.tail {
 		err = e.tailData()
@@ -143,6 +150,7 @@ func (e *Etcd) Listen() (err error) {
 // Stop the adaptor
 func (e *Etcd) Stop() error {
 	e.pipe.Stop()
+	e.stopped = true
 	return nil
 }
 
@@ -160,10 +168,41 @@ func (e *Etcd) writeMessage(msg message.Msg) (message.Msg, error) {
 
 // catdata pulls down the original tables
 func (e *Etcd) catData() error {
-	return nil
+	kc := client.NewKeysAPI(e.session)
+	resp, err := kc.Get(context.Background(), "/", &client.GetOptions{Recursive: true})
+	if err != nil {
+		return err
+	}
+	err = e.copyNode(resp.Node)
+	return err
+}
+
+func (e *Etcd) copyNode(n *client.Node) error {
+	_, err := e.writeMessage(message.MustUseAdaptor("etcd").From(ops.Insert, fmt.Sprintf("%s.%s", n.Key, n.String()), data.Data{n.Key: n.String()}))
+	for _, node := range n.Nodes {
+		err = e.copyNode(node)
+		if err != nil {
+			return err
+		}
+	}
+	return err
 }
 
 // tail the logical data
 func (e *Etcd) tailData() error {
-	return nil
+	kc := client.NewKeysAPI(e.session)
+	watcher := kc.Watcher("/", &client.WatcherOptions{Recursive: true})
+	for {
+		if e.stopped {
+			return nil
+		}
+		resp, err := watcher.Next(context.Background())
+		if err != nil {
+			return err
+		}
+		err = e.copyNode(resp.Node)
+		if err != nil {
+			return err
+		}
+	}
 }
