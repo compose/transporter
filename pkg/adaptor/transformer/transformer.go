@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/compose/mejson"
-	"github.com/compose/transporter/pkg/adaptor"
-	"github.com/compose/transporter/pkg/message"
-	"github.com/compose/transporter/pkg/message/adaptor/transformer"
-	"github.com/compose/transporter/pkg/message/data"
-	"github.com/compose/transporter/pkg/message/ops"
-	"github.com/compose/transporter/pkg/pipe"
+	"git.compose.io/compose/transporter/pkg/adaptor"
+	"git.compose.io/compose/transporter/pkg/message"
+	"git.compose.io/compose/transporter/pkg/message/adaptor/transformer"
+	"git.compose.io/compose/transporter/pkg/message/data"
+	"git.compose.io/compose/transporter/pkg/message/ops"
+	"git.compose.io/compose/transporter/pkg/pipe"
 	"github.com/robertkrimen/otto"
 	_ "github.com/robertkrimen/otto/underscore" // enable underscore
 )

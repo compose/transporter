@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/compose/transporter/pkg/pipe"
+	"git.compose.io/compose/transporter/pkg/pipe"
 )
 
 // ErrAdaptor gives the details of the failed adaptor

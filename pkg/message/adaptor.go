@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/compose/transporter/pkg/message/data"
-	"github.com/compose/transporter/pkg/message/ops"
+	"git.compose.io/compose/transporter/pkg/message/data"
+	"git.compose.io/compose/transporter/pkg/message/ops"
 )
 
 type Adaptor interface {

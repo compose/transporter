@@ -8,11 +8,11 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/compose/transporter/pkg/adaptor"
-	"github.com/compose/transporter/pkg/message"
-	"github.com/compose/transporter/pkg/message/adaptor/file"
-	"github.com/compose/transporter/pkg/message/ops"
-	"github.com/compose/transporter/pkg/pipe"
+	"git.compose.io/compose/transporter/pkg/adaptor"
+	"git.compose.io/compose/transporter/pkg/message"
+	"git.compose.io/compose/transporter/pkg/message/adaptor/file"
+	"git.compose.io/compose/transporter/pkg/message/ops"
+	"git.compose.io/compose/transporter/pkg/pipe"
 )
 
 // File is an adaptor that can be used as a

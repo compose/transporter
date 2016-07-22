@@ -1,7 +1,7 @@
 package message
 
 import (
-	"github.com/compose/transporter/pkg/message/ops"
+	"git.compose.io/compose/transporter/pkg/message/ops"
 
 	"gopkg.in/mgo.v2/bson"
 )

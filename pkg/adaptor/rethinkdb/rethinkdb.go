@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/compose/transporter/pkg/adaptor"
-	"github.com/compose/transporter/pkg/message"
-	"github.com/compose/transporter/pkg/message/ops"
-	"github.com/compose/transporter/pkg/pipe"
+	"git.compose.io/compose/transporter/pkg/adaptor"
+	"git.compose.io/compose/transporter/pkg/message"
+	"git.compose.io/compose/transporter/pkg/message/ops"
+	"git.compose.io/compose/transporter/pkg/pipe"
 	version "github.com/hashicorp/go-version"
 	gorethink "gopkg.in/dancannon/gorethink.v1"
 )
