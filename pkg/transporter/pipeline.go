@@ -112,7 +112,7 @@ func (pipeline *Pipeline) Stop() {
 func (pipeline *Pipeline) Run() error {
 	endpoints := pipeline.source.Endpoints()
 	// send a boot event
-	pipeline.source.pipe.Event <- events.NewBootEvent(time.Now().Unix(), VERSION, endpoints)
+	pipeline.source.pipe.Event <- events.NewBootEvent(time.Now().UnixNano(), VERSION, endpoints)
 
 	// start the source
 	err := pipeline.source.Start()
@@ -125,7 +125,7 @@ func (pipeline *Pipeline) Run() error {
 	if pipeline.sessionStore != nil {
 		pipeline.setState()
 	}
-	pipeline.source.pipe.Event <- events.NewExitEvent(time.Now().Unix(), VERSION, endpoints)
+	pipeline.source.pipe.Event <- events.NewExitEvent(time.Now().UnixNano(), VERSION, endpoints)
 
 	// the source has exited, stop all the other nodes
 	pipeline.Stop()
@@ -138,7 +138,7 @@ func (pipeline *Pipeline) Run() error {
 func (pipeline *Pipeline) startErrorListener(cherr chan error) {
 	for err := range cherr {
 		if aerr, ok := err.(adaptor.Error); ok {
-			pipeline.source.pipe.Event <- events.NewErrorEvent(time.Now().Unix(), aerr.Path, aerr.Record, aerr.Error())
+			pipeline.source.pipe.Event <- events.NewErrorEvent(time.Now().UnixNano(), aerr.Path, aerr.Record, aerr.Error())
 			if aerr.Lvl == adaptor.ERROR || aerr.Lvl == adaptor.CRITICAL {
 				log.Println(aerr)
 			}
@@ -169,7 +169,7 @@ func (pipeline *Pipeline) emitMetrics() {
 		frontier = frontier[1:]
 
 		// do something with the node
-		pipeline.source.pipe.Event <- events.NewMetricsEvent(time.Now().Unix(), node.Path(), node.pipe.MessageCount)
+		pipeline.source.pipe.Event <- events.NewMetricsEvent(time.Now().UnixNano(), node.Path(), node.pipe.MessageCount)
 
 		// add this nodes children to the frontier
 		for _, child := range node.Children {
