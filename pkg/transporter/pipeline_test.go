@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/compose/transporter/pkg/adaptor"
-	_ "github.com/compose/transporter/pkg/adaptor/file"
-	"github.com/compose/transporter/pkg/pipe"
+	"git.compose.io/compose/transporter/pkg/adaptor"
+	_ "git.compose.io/compose/transporter/pkg/adaptor/file"
+	"git.compose.io/compose/transporter/pkg/pipe"
 )
 
 var (

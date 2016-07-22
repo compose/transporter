@@ -1,7 +1,7 @@
 package state
 
 import (
-	"github.com/compose/transporter/pkg/message"
+	"git.compose.io/compose/transporter/pkg/message"
 )
 
 // MsgState encapsulates a message state to be stored in the SessionStore for
