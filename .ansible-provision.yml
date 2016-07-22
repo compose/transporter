@@ -3,7 +3,7 @@
   sudo: true
 
   pre_tasks:
-    - name: dependecies
+    - name: dependencies
       apt: name={{ item }}
       sudo: true
       with_items:
@@ -54,5 +54,3 @@
         owner=vagrant
         group=vagrant
         mode=0775
-
-

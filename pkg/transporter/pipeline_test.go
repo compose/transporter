@@ -21,7 +21,7 @@ type Testadaptor struct {
 }
 
 func init() {
-	adaptor.Add("source", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.StopStartListener, error) {
+	adaptor.Add("source", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.Adaptor, error) {
 		val, ok := extra["value"]
 		if !ok {
 			return nil, errors.New("this is an error")

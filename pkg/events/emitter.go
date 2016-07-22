@@ -13,101 +13,65 @@ import (
 // Emitter types are used by the transporter pipeline to consume events from a pipeline's event channel
 // and process them.
 // Start() will start the emitter and being consuming events
-// Init() serves to set the Emitter's listening channel
 // Stop() stops the event loop and releases any resources.  Stop is expected to shut down the process cleanly,
 // the pipeline process will block until Stop() returns
 type Emitter interface {
 	Start()
-	Init(chan Event)
 	Stop()
 }
 
-// HTTPPostEmitter listens on the event channel and posts the events to an http server
-// Events are serialized into json, and sent via a POST request to the given Uri
-// http errors are logged as warnings to the console, and won't stop the Emitter
-type HTTPPostEmitter struct {
-	uri string
-	key string
-	pid string
-
-	inflight *sync.WaitGroup
-	ch       chan Event
-	chstop   chan chan bool
+// emitter is the implementation of Emitter
+type emitter struct {
+	listenChan chan Event
+	emit       EmitFunc
+	stop       chan struct{}
+	wg         *sync.WaitGroup
+	started    bool
 }
 
-// NewHTTPPostEmitter creates a new HTTPPostEmitter
-func NewHTTPPostEmitter(uri, key, pid string) *HTTPPostEmitter {
-	return &HTTPPostEmitter{
-		uri:      uri,
-		key:      key,
-		pid:      pid,
-		chstop:   make(chan chan bool),
-		inflight: &sync.WaitGroup{},
+// EmitFunc is a function that takes an Event as input and emits it
+type EmitFunc func(Event) error
+
+// NewEmitter creates a new emitter that will listen on the listen channel and use the emit EmitFunc
+// to process events
+func NewEmitter(listen chan Event, emit EmitFunc) Emitter {
+	return &emitter{
+		listenChan: listen,
+		emit:       emit,
+		stop:       make(chan struct{}),
+		wg:         &sync.WaitGroup{},
+		started:    false,
 	}
 }
 
 // Start the emitter
-func (e *HTTPPostEmitter) Start() {
-	go e.startEventListener()
-}
-
-// Init sets the event channel
-func (e *HTTPPostEmitter) Init(ch chan Event) {
-	e.ch = ch
+func (e *emitter) Start() {
+	if !e.started {
+		e.started = true
+		go e.startEventListener()
+	}
 }
 
 // Stop sends a stop signal and waits for the inflight posts to complete before exiting
-func (e *HTTPPostEmitter) Stop() {
-	s := make(chan bool)
-	e.chstop <- s
-	<-s
-	e.inflight.Wait()
+func (e *emitter) Stop() {
+	e.stop <- struct{}{}
+	e.wg.Wait()
+	e.started = false
 }
 
-func (e *HTTPPostEmitter) startEventListener() {
+func (e *emitter) startEventListener() {
 	for {
 		select {
-		case s := <-e.chstop:
-			s <- true
+		case <-e.stop:
 			return
-		case event := <-e.ch:
-			e.inflight.Add(1)
+		case event := <-e.listenChan:
+			e.wg.Add(1)
 			go func(event Event) {
-				defer e.inflight.Done()
-
-				ba, err := event.Emit()
-				if err != err {
-					log.Printf("EventEmitter Error: %s", err)
-					return
-				}
-
-				req, err := http.NewRequest("POST", e.uri, bytes.NewBuffer(ba))
+				defer e.wg.Done()
+				err := e.emit(event)
 				if err != nil {
-					log.Printf("EventEmitter Error: %s", err)
-					return
+					log.Print(err)
 				}
-				req.Header.Set("Content-Type", "application/json")
-				if len(e.pid) > 0 && len(e.key) > 0 {
-					req.SetBasicAuth(e.pid, e.key)
-				}
-				cli := &http.Client{}
-				resp, err := cli.Do(req)
-
-				if err != nil {
-					log.Printf("EventEmitter Error: %s", err)
-					return
-				}
-				_, err = ioutil.ReadAll(resp.Body)
-				if err != nil {
-					log.Printf("Response read error: %s", err)
-					return
-				}
-				defer resp.Body.Close()
-				if resp.StatusCode != 200 && resp.StatusCode != 201 {
-					log.Printf("EventEmitter Error: http error code, expected 200 or 201, got %d, (%s)", resp.StatusCode, ba)
-					return
-				}
-				// fmt.Printf("EventEmitter, got http statuscode:%d for event: %s", resp.StatusCode, event)
 			}(event)
 		case <-time.After(100 * time.Millisecond):
 			continue
@@ -116,56 +80,47 @@ func (e *HTTPPostEmitter) startEventListener() {
 	}
 }
 
-// NewNoopEmitter constructs a NoopEmitter to use with a transporter pipeline.
-// a NoopEmitter consumes the events from the listening channel and does nothing with them
-// this is useful for cli utilities that dump output to stdout in any case, and don't want
-// to clutter the program's output with metrics
-func NewNoopEmitter() *NoopEmitter {
-	return &NoopEmitter{chstop: make(chan chan bool)}
+// HTTPPostEmitter listens on the event channel and posts the events to an http server
+// Events are serialized into json, and sent via a POST request to the given Uri
+// http errors are logged as warnings to the console, and won't stop the Emitter
+func HTTPPostEmitter(uri, key, pid string) EmitFunc {
+	return EmitFunc(func(event Event) error {
+		ba, err := event.Emit()
+		if err != err {
+			return err
+		}
+
+		req, err := http.NewRequest("POST", uri, bytes.NewBuffer(ba))
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		if len(pid) > 0 && len(key) > 0 {
+			req.SetBasicAuth(pid, key)
+		}
+		cli := &http.Client{}
+		resp, err := cli.Do(req)
+
+		if err != nil {
+			return err
+		}
+		_, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != 200 && resp.StatusCode != 201 {
+			return fmt.Errorf("http error code, expected 200 or 201, got %d, (%s)", resp.StatusCode, ba)
+		}
+		return nil
+	})
 }
 
 // NoopEmitter consumes the events from the listening channel and does nothing with them
 // this is useful for cli utilities that dump output to stdout in any case, and don't want
 // to clutter the program's output with metrics
-type NoopEmitter struct {
-	chstop chan chan bool
-	ch     chan Event
-}
-
-// Start the event consumer
-func (e *NoopEmitter) Start() {
-	go func() {
-		for {
-			select {
-			case s := <-e.chstop:
-				s <- true
-				return
-			case <-e.ch:
-				continue
-			case <-time.After(100 * time.Millisecond):
-				continue
-			}
-		}
-	}()
-}
-
-// Init sets the event channel
-func (e *NoopEmitter) Init(ch chan Event) {
-	e.ch = ch
-}
-
-// Stop the event consumer
-func (e *NoopEmitter) Stop() {
-	s := make(chan bool)
-	e.chstop <- s
-	<-s
-}
-
-// NewLogEmitter creates a new LogEmitter
-func NewLogEmitter() *LogEmitter {
-	return &LogEmitter{
-		chstop: make(chan chan bool),
-	}
+func NoopEmitter() EmitFunc {
+	return EmitFunc(func(event Event) error { return nil })
 }
 
 // LogEmitter constructs a LogEmitter to use with a transporter pipeline.
@@ -175,48 +130,11 @@ func NewLogEmitter() *LogEmitter {
 //   2014/11/28 16:56:58 metrics source recordsIn: 0, recordsOut: 203
 //   2014/11/28 16:56:58 exit
 //   2014/11/28 16:56:58 metrics source/out recordsIn: 203, recordsOut: 0
-type LogEmitter struct {
-	chstop chan chan bool
-	ch     chan Event
-}
-
-// Start the emitter
-func (e *LogEmitter) Start() {
-	go e.startEventListener()
-}
-
-// Init sets the event channel
-func (e *LogEmitter) Init(ch chan Event) {
-	e.ch = ch
-}
-
-// Stop the emitter
-func (e *LogEmitter) Stop() {
-	s := make(chan bool)
-	e.chstop <- s
-	<-s
-}
-
-func (e *LogEmitter) startEventListener() {
-	for {
-		select {
-		case s := <-e.chstop:
-			s <- true
-			return
-		case event := <-e.ch:
-			log.Println(event.String())
-		case <-time.After(100 * time.Millisecond):
-			continue
-			// noop
-		}
-	}
-}
-
-// NewJSONLogEmitter creates a new LogEmitter
-func NewJSONLogEmitter() *JSONLogEmitter {
-	return &JSONLogEmitter{
-		chstop: make(chan chan bool),
-	}
+func LogEmitter() EmitFunc {
+	return EmitFunc(func(event Event) error {
+		log.Println(event.String())
+		return nil
+	})
 }
 
 // JSONLogEmitter constructs a LogEmitter to use with a transporter pipeline.
@@ -224,43 +142,13 @@ func NewJSONLogEmitter() *JSONLogEmitter {
 // eg.
 // {"ts":1436889121,"name":"metrics","path":"source-development.jobs/dest-x.jobs","records":121}
 // {"ts":1436889121,"name":"exit","version":"0.0.4","endpoints":{"dest-x.jobs":"mongo","source-development.jobs":"mongo"}}
-type JSONLogEmitter struct {
-	chstop chan chan bool
-	ch     chan Event
-}
-
-// Start the emitter
-func (e *JSONLogEmitter) Start() {
-	go e.startEventListener()
-}
-
-// Init sets the event channel
-func (e *JSONLogEmitter) Init(ch chan Event) {
-	e.ch = ch
-}
-
-// Stop the emitter
-func (e *JSONLogEmitter) Stop() {
-	s := make(chan bool)
-	e.chstop <- s
-	<-s
-}
-
-func (e *JSONLogEmitter) startEventListener() {
-	for {
-		select {
-		case s := <-e.chstop:
-			s <- true
-			return
-		case event := <-e.ch:
-			j, err := event.Emit()
-			if err != nil {
-				continue
-			}
-			fmt.Println(string(j))
-		case <-time.After(100 * time.Millisecond):
-			continue
-			// noop
+func JSONLogEmitter() EmitFunc {
+	return EmitFunc(func(event Event) error {
+		j, err := event.Emit()
+		if err != nil {
+			return err
 		}
-	}
+		fmt.Println(string(j))
+		return nil
+	})
 }

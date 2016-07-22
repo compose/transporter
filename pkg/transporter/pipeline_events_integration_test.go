@@ -12,6 +12,10 @@ import (
 	"time"
 
 	"git.compose.io/compose/transporter/pkg/adaptor"
+<<<<<<< HEAD
+=======
+	_ "git.compose.io/compose/transporter/pkg/message/adaptor/file"
+>>>>>>> refs/heads/experimental
 )
 
 var (

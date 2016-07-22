@@ -31,7 +31,7 @@ type Node struct {
 	Children []*Node        `json:"children"` // the nodes are set up as a tree, this is an array of this nodes children
 	Parent   *Node          `json:"parent"`   // this node's parent node, if this is nil, this is a 'source' node
 
-	adaptor adaptor.StopStartListener
+	adaptor adaptor.Adaptor
 	pipe    *pipe.Pipe
 }
 
@@ -120,7 +120,7 @@ func (n *Node) Init(interval time.Duration) (err error) {
 		n.pipe = pipe.NewPipe(n.Parent.pipe, path)
 	}
 
-	n.adaptor, err = adaptor.Createadaptor(n.Type, path, n.Extra, n.pipe)
+	n.adaptor, err = adaptor.CreateAdaptor(n.Type, path, n.Extra, n.pipe)
 	if err != nil {
 		return err
 	}

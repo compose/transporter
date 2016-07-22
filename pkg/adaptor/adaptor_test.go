@@ -8,63 +8,65 @@ import (
 	"git.compose.io/compose/transporter/pkg/pipe"
 )
 
-// a random type that adaptorements the adaptor interface
-type Testadaptor struct {
+// a random type that adaptor implements the adaptor interface
+type TestAdaptor struct {
 	value string
 }
 
+var errTest = errors.New("this is an error")
+
 func init() {
-	Add("testadaptor", func(p *pipe.Pipe, path string, extra Config) (StopStartListener, error) {
+	Add("testadaptor", func(p *pipe.Pipe, path string, extra Config) (Adaptor, error) {
 		val, ok := extra["value"]
 		if !ok {
-			return nil, errors.New("this is an error")
+			return nil, errTest
 		}
-		return &Testadaptor{value: val.(string)}, nil
+		return &TestAdaptor{value: val.(string)}, nil
 	})
 }
 
-func (s *Testadaptor) Description() string {
+func (s *TestAdaptor) Description() string {
 	return "this is a test adaptor"
 }
 
-func (s *Testadaptor) SampleConfig() string {
+func (s *TestAdaptor) SampleConfig() string {
 	return ""
 }
 
-func (s *Testadaptor) Connect() error {
+func (s *TestAdaptor) Connect() error {
 	return nil
 }
 
-func (s *Testadaptor) Start() error {
+func (s *TestAdaptor) Start() error {
 	return nil
 }
 
-func (s *Testadaptor) Stop() error {
+func (s *TestAdaptor) Stop() error {
 	return nil
 }
 
-func (s *Testadaptor) Listen() error {
+func (s *TestAdaptor) Listen() error {
 	return nil
 }
 
-func TestCreateadaptor(t *testing.T) {
+func TestCreateAdaptor(t *testing.T) {
 	data := []struct {
 		kind  string
 		extra Config
-		out   *Testadaptor
+		out   *TestAdaptor
 		err   string
 	}{
 		{
 			"testadaptor",
 			Config{"value": "rockettes"},
-			&Testadaptor{value: "rockettes"},
+			&TestAdaptor{value: "rockettes"},
 			"",
 		},
 		{
 			"testadaptor",
 			Config{"blah": "rockettes"},
-			&Testadaptor{},
-			"adaptor 'testadaptor' not found in registry",
+			&TestAdaptor{},
+			errTest.Error(),
 		},
 		{
 			"notasource",
@@ -74,7 +76,7 @@ func TestCreateadaptor(t *testing.T) {
 		},
 	}
 	for _, v := range data {
-		adaptor, err := Createadaptor(v.kind, "a/b/c", v.extra, pipe.NewPipe(nil, "some name"))
+		adaptor, err := CreateAdaptor(v.kind, "a/b/c", v.extra, pipe.NewPipe(nil, "some name"))
 
 		if err != nil && err.Error() != v.err {
 			t.Errorf("\nexpected error: `%v`\ngot error: `%v`\n", v.err, err.Error())

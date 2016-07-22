@@ -11,7 +11,7 @@ import (
 
 // VERSION the library
 const (
-	VERSION = "0.1.1"
+	VERSION = "0.1.2beta"
 )
 
 // A Pipeline is a the end to end description of a transporter data flow.
@@ -42,8 +42,7 @@ type Pipeline struct {
 //   }
 // pipeline.Run()
 func NewDefaultPipeline(source *Node, uri, key, pid string, interval time.Duration) (*Pipeline, error) {
-	emitter := events.NewHTTPPostEmitter(uri, key, pid)
-	return NewPipeline(source, emitter, interval, nil, 10*time.Second)
+	return NewPipeline(source, events.HTTPPostEmitter(uri, key, pid), interval, nil, 10*time.Second)
 }
 
 // NewPipeline creates a new Transporter Pipeline using the given tree of nodes, and Event Emitter
@@ -57,10 +56,10 @@ func NewDefaultPipeline(source *Node, uri, key, pid string, interval time.Durati
 // 	  os.Exit(1)
 //   }
 // pipeline.Run()
-func NewPipeline(source *Node, emitter events.Emitter, interval time.Duration, sessionStore state.SessionStore, sessionInterval time.Duration) (*Pipeline, error) {
+func NewPipeline(source *Node, emit events.EmitFunc, interval time.Duration, sessionStore state.SessionStore, sessionInterval time.Duration) (*Pipeline, error) {
+
 	pipeline := &Pipeline{
 		source:        source,
-		emitter:       emitter,
 		metricsTicker: time.NewTicker(interval),
 	}
 
@@ -76,7 +75,7 @@ func NewPipeline(source *Node, emitter events.Emitter, interval time.Duration, s
 	}
 
 	// init the emitter with the right chan
-	pipeline.emitter.Init(source.pipe.Event)
+	pipeline.emitter = events.NewEmitter(source.pipe.Event, emit)
 
 	// start the emitters
 	go pipeline.startErrorListener(source.pipe.Err)
@@ -92,8 +91,7 @@ func NewPipeline(source *Node, emitter events.Emitter, interval time.Duration, s
 }
 
 func (pipeline *Pipeline) String() string {
-	out := pipeline.source.String()
-	return out
+	return pipeline.source.String()
 }
 
 // Stop sends a stop signal to the emitter and all the nodes, whether they are running or not.
@@ -159,28 +157,9 @@ func (pipeline *Pipeline) startMetricsGatherer() {
 
 // emit the metrics
 func (pipeline *Pipeline) emitMetrics() {
-
-	frontier := make([]*Node, 1)
-	frontier[0] = pipeline.source
-
-	for {
-		// pop the first item
-		node := frontier[0]
-		frontier = frontier[1:]
-
-		// do something with the node
+	pipeline.apply(func(node *Node) {
 		pipeline.source.pipe.Event <- events.NewMetricsEvent(time.Now().UnixNano(), node.Path(), node.pipe.MessageCount)
-
-		// add this nodes children to the frontier
-		for _, child := range node.Children {
-			frontier = append(frontier, child)
-		}
-
-		// if we're empty
-		if len(frontier) == 0 {
-			break
-		}
-	}
+	})
 }
 
 func (pipeline *Pipeline) startStateSaver() {
@@ -190,57 +169,35 @@ func (pipeline *Pipeline) startStateSaver() {
 }
 
 func (pipeline *Pipeline) setState() {
-	frontier := make([]*Node, 1)
-	frontier[0] = pipeline.source
-
-	for {
-		// pop the first item
-		node := frontier[0]
-		frontier = frontier[1:]
-
-		// do something with the node
+	pipeline.apply(func(node *Node) {
 		if node.Type != "transformer" && node.pipe.LastMsg != nil {
 			pipeline.sessionStore.Set(node.Path(), &state.MsgState{Msg: node.pipe.LastMsg, Extra: node.pipe.ExtraState})
 		}
-
-		// add this nodes children to the frontier
-		for _, child := range node.Children {
-			frontier = append(frontier, child)
-		}
-
-		// if we're empty
-		if len(frontier) == 0 {
-			break
-		}
-	}
+	})
 }
 
 func (pipeline *Pipeline) initState() {
-	frontier := make([]*Node, 1)
-	frontier[0] = pipeline.source
-
-	for {
-		// pop the first item
-		node := frontier[0]
-		frontier = frontier[1:]
-
-		// do something with the node
+	pipeline.apply(func(node *Node) {
 		if node.Type != "transformer" {
-			nodeState, _ := pipeline.sessionStore.Get(node.Path())
-			if nodeState != nil {
-				node.pipe.LastMsg = nodeState.Msg
-				node.pipe.ExtraState = nodeState.Extra
+			state, _ := pipeline.sessionStore.Get(node.Path())
+			if state != nil {
+				node.pipe.LastMsg = state.Msg
+				node.pipe.ExtraState = state.Extra
 			}
 		}
+	})
+}
 
-		// add this nodes children to the frontier
-		for _, child := range node.Children {
-			frontier = append(frontier, child)
-		}
-
-		// if we're empty
-		if len(frontier) == 0 {
-			break
-		}
+// apply maps a function f across all nodes of a pipeline
+func (pipeline *Pipeline) apply(f func(*Node)) {
+	if pipeline.source == nil {
+		return
+	}
+	head := pipeline.source
+	nodes := []*Node{head}
+	for len(nodes) > 0 {
+		head, nodes = nodes[0], nodes[1:]
+		f(head)
+		nodes = append(nodes, head.Children...)
 	}
 }

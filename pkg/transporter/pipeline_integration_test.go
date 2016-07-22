@@ -25,9 +25,7 @@ func setupFiles(in, out string) {
 	os.Remove(in)
 
 	fh, _ := os.Create(out)
-	defer func() {
-		fh.Close()
-	}()
+	defer fh.Close()
 	fh.WriteString("{\"_id\":\"546656989330a846dc7ce327\",\"test\":\"hello world\"}\n")
 }
 
@@ -105,8 +103,8 @@ func TestMongoToMongo(t *testing.T) {
 	)
 
 	// create the source node and attach our sink
-	outNode := NewNode("localOutmongo", "mongodb", adaptor.Config{"uri": mongoUri, "namespace": outNs}).
-		Add(NewNode("localInmongo", "mongodb", adaptor.Config{"uri": mongoUri, "namespace": inNs}))
+	outNode := NewNode("localOutmongo", "mongo", adaptor.Config{"uri": mongoUri, "namespace": outNs}).
+		Add(NewNode("localInmongo", "mongo", adaptor.Config{"uri": mongoUri, "namespace": inNs}))
 
 	// create the pipeline
 	p, err := NewDefaultPipeline(outNode, "", "", "", 100*time.Millisecond)
@@ -158,5 +156,4 @@ func TestMongoToMongo(t *testing.T) {
 	// clean up
 	mongoSess.DB("testOut").C("coll").DropCollection()
 	mongoSess.DB("testIn").C("coll").DropCollection()
-
 }

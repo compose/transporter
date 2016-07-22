@@ -5,27 +5,75 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"time"
 
 	"git.compose.io/compose/transporter/pkg/message"
+	"git.compose.io/compose/transporter/pkg/message/data"
+	"git.compose.io/compose/transporter/pkg/message/ops"
 )
 
+type testMsg struct {
+	UniqueID  string
+	Operation ops.Op
+	NS        string
+	D         data.Data
+	TS        int64
+}
+
+func (t testMsg) ID() string {
+	return t.UniqueID
+}
+
+func (t testMsg) OP() ops.Op {
+	return t.Operation
+}
+
+func (t testMsg) Namespace() string {
+	return t.NS
+}
+
+func (t testMsg) Data() data.Data {
+	return t.D
+}
+
+func (t testMsg) Timestamp() int64 {
+	return t.TS
+}
+
 func TestFilestore(t *testing.T) {
+	gob.Register(testMsg{})
 	fs := NewFilestore("somelongkey", "/tmp/transporter.state")
 
 	data := []struct {
 		path string
-		in   *message.Msg
-		out  *message.Msg
+		in   message.Msg
+		out  message.Msg
 	}{
 		{
 			"somepath",
-			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 1}, "db.coll"),
-			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 1}, "db.coll"),
+			testMsg{
+				TS: time.Now().Unix(),
+				D:  map[string]interface{}{"id": "nick1", "field1": 1},
+				NS: "db.coll",
+			},
+			testMsg{
+				TS: time.Now().Unix(),
+				D:  map[string]interface{}{"id": "nick1", "field1": 1},
+				NS: "db.coll",
+			},
 		},
 		{
 			"somepath/morepath",
-			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 1}, "db.coll"),
-			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 1}, "db.coll"),
+			testMsg{
+				TS: time.Now().Unix(),
+				D:  map[string]interface{}{"id": "nick1", "field1": 1},
+				NS: "db.coll",
+			},
+			testMsg{
+				TS: time.Now().Unix(),
+				D:  map[string]interface{}{"id": "nick1", "field1": 1},
+				NS: "db.coll",
+			},
 		},
 	}
 
@@ -55,18 +103,34 @@ func TestFilestoreUpdates(t *testing.T) {
 
 	data := []struct {
 		path string
-		in   *message.Msg
-		out  *message.Msg
+		in   message.Msg
+		out  message.Msg
 	}{
 		{
 			"somepath",
-			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 1}, "db.coll"),
-			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 1}, "db.coll"),
+			testMsg{
+				TS: time.Now().Unix(),
+				D:  map[string]interface{}{"id": "nick1", "field1": 1},
+				NS: "db.coll",
+			},
+			testMsg{
+				TS: time.Now().Unix(),
+				D:  map[string]interface{}{"id": "nick1", "field1": 1},
+				NS: "db.coll",
+			},
 		},
 		{
 			"somepath",
-			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 2}, "db.coll"),
-			message.NewMsg(message.Insert, map[string]interface{}{"id": "nick1", "field1": 2}, "db.coll"),
+			testMsg{
+				TS: time.Now().Unix(),
+				D:  map[string]interface{}{"id": "nick1", "field1": 2},
+				NS: "db.coll",
+			},
+			testMsg{
+				TS: time.Now().Unix(),
+				D:  map[string]interface{}{"id": "nick1", "field1": 2},
+				NS: "db.coll",
+			},
 		},
 	}
 
