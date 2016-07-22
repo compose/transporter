@@ -2,6 +2,7 @@ package events
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -219,10 +220,10 @@ func NewJSONLogEmitter() *JSONLogEmitter {
 }
 
 // JSONLogEmitter constructs a LogEmitter to use with a transporter pipeline.
-// A JsonLogEmitter listens on the event channel and uses go's log package to emit the event,
+// A JsonLogEmitter listens on the event channel and uses go's fmt package to emit the event,
 // eg.
-// 2015/07/14 11:52:01 {"ts":1436889121,"name":"metrics","path":"source-development.jobs/dest-x.jobs","records":121}
-// 2015/07/14 11:52:01 {"ts":1436889121,"name":"exit","version":"0.0.4","endpoints":{"dest-x.jobs":"mongo","source-development.jobs":"mongo"}}
+// {"ts":1436889121,"name":"metrics","path":"source-development.jobs/dest-x.jobs","records":121}
+// {"ts":1436889121,"name":"exit","version":"0.0.4","endpoints":{"dest-x.jobs":"mongo","source-development.jobs":"mongo"}}
 type JSONLogEmitter struct {
 	chstop chan chan bool
 	ch     chan Event
@@ -256,7 +257,7 @@ func (e *JSONLogEmitter) startEventListener() {
 			if err != nil {
 				continue
 			}
-			log.Println(string(j))
+			fmt.Println(string(j))
 		case <-time.After(100 * time.Millisecond):
 			continue
 			// noop
