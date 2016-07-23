@@ -27,11 +27,16 @@ type ColoredUi struct {
 	OutputColor UiColor
 	InfoColor   UiColor
 	ErrorColor  UiColor
+	WarnColor   UiColor
 	Ui          Ui
 }
 
 func (u *ColoredUi) Ask(query string) (string, error) {
 	return u.Ui.Ask(u.colorize(query, u.OutputColor))
+}
+
+func (u *ColoredUi) AskSecret(query string) (string, error) {
+	return u.Ui.AskSecret(u.colorize(query, u.OutputColor))
 }
 
 func (u *ColoredUi) Output(message string) {
@@ -44,6 +49,10 @@ func (u *ColoredUi) Info(message string) {
 
 func (u *ColoredUi) Error(message string) {
 	u.Ui.Error(u.colorize(message, u.ErrorColor))
+}
+
+func (u *ColoredUi) Warn(message string) {
+	u.Ui.Warn(u.colorize(message, u.WarnColor))
 }
 
 func (u *ColoredUi) colorize(message string, color UiColor) string {

@@ -1,7 +1,7 @@
 package gorethink
 
 import (
-	p "github.com/dancannon/gorethink/ql2"
+	p "gopkg.in/dancannon/gorethink.v1/ql2"
 )
 
 // Config can be used to read and/or update the configurations for individual
@@ -18,10 +18,12 @@ func (t Term) Rebalance() Term {
 
 // ReconfigureOpts contains the optional arguments for the Reconfigure term.
 type ReconfigureOpts struct {
-	Shards     interface{} `gorethink:"shards,omitempty"`
-	Replicas   interface{} `gorethink:"replicas,omitempty"`
-	PrimaryTag interface{} `gorethink:"primary_replicas_tag,omitempty"`
-	DryRun     interface{} `gorethink:"dry_run,omitempty"`
+	Shards               interface{} `gorethink:"shards,omitempty"`
+	Replicas             interface{} `gorethink:"replicas,omitempty"`
+	PrimaryTag           interface{} `gorethink:"primary_replicas_tag,omitempty"`
+	DryRun               interface{} `gorethink:"dry_run,omitempty"`
+	EmergencyRepair      interface{} `gorethink:"emergency_repair,omitempty"`
+	NonVotingReplicaTags interface{} `gorethink:"nonvoting_replica_tags,omitempty"`
 }
 
 func (o *ReconfigureOpts) toMap() map[string]interface{} {

@@ -2,10 +2,11 @@ package gorethink
 
 import (
 	"encoding/base64"
+	"encoding/json"
 
 	"reflect"
 
-	p "github.com/dancannon/gorethink/ql2"
+	p "gopkg.in/dancannon/gorethink.v1/ql2"
 )
 
 // Expr converts any value to an expression and is also used by many other terms
@@ -59,6 +60,41 @@ func Expr(val interface{}) Term {
 		}
 
 		return makeObject(vals)
+	case
+		bool,
+		int,
+		int8,
+		int16,
+		int32,
+		int64,
+		uint,
+		uint8,
+		uint16,
+		uint32,
+		uint64,
+		float32,
+		float64,
+		uintptr,
+		string,
+		*bool,
+		*int,
+		*int8,
+		*int16,
+		*int32,
+		*int64,
+		*uint,
+		*uint8,
+		*uint16,
+		*uint32,
+		*uint64,
+		*float32,
+		*float64,
+		*uintptr,
+		*string:
+		return Term{
+			termType: p.Term_DATUM,
+			data:     val,
+		}
 	default:
 		// Use reflection to check for other types
 		valType := reflect.TypeOf(val)
@@ -67,13 +103,14 @@ func Expr(val interface{}) Term {
 		switch valType.Kind() {
 		case reflect.Func:
 			return makeFunc(val)
-		case reflect.Struct, reflect.Ptr:
+		case reflect.Struct, reflect.Map, reflect.Ptr:
 			data, err := encode(val)
 
 			if err != nil || data == nil {
 				return Term{
 					termType: p.Term_DATUM,
 					data:     nil,
+					lastErr:  err,
 				}
 			}
 
@@ -88,6 +125,7 @@ func Expr(val interface{}) Term {
 					return Term{
 						termType: p.Term_DATUM,
 						data:     nil,
+						lastErr:  err,
 					}
 				}
 
@@ -100,17 +138,20 @@ func Expr(val interface{}) Term {
 			}
 
 			return makeArray(vals)
-		case reflect.Map:
-			vals := make(map[string]Term, len(valValue.MapKeys()))
-			for _, k := range valValue.MapKeys() {
-				vals[k.String()] = Expr(valValue.MapIndex(k).Interface())
+		default:
+			data, err := encode(val)
+
+			if err != nil || data == nil {
+				return Term{
+					termType: p.Term_DATUM,
+					data:     nil,
+					lastErr:  err,
+				}
 			}
 
-			return makeObject(vals)
-		default:
 			return Term{
 				termType: p.Term_DATUM,
-				data:     val,
+				data:     data,
 			}
 		}
 	}
@@ -243,6 +284,14 @@ func Branch(args ...interface{}) Term {
 	return constructRootTerm("Branch", p.Term_BRANCH, args, map[string]interface{}{})
 }
 
+// Branch evaluates one of two control paths based on the value of an expression.
+// branch is effectively an if renamed due to language constraints.
+//
+// The type of the result is determined by the type of the branch that gets executed.
+func (t Term) Branch(args ...interface{}) Term {
+	return constructMethodTerm(t, "Branch", p.Term_BRANCH, args, map[string]interface{}{})
+}
+
 // ForEach loops over a sequence, evaluating the given write query for each element.
 //
 // It takes one argument of type `func (r.Term) interface{}`, for
@@ -293,7 +342,30 @@ func (t Term) Info(args ...interface{}) Term {
 	return constructMethodTerm(t, "Info", p.Term_INFO, args, map[string]interface{}{})
 }
 
-// UUID returns a UUID (universally unique identifier), a string that can be used as a unique ID.
+// Return a UUID (universally unique identifier), a string that can be used as a
+// unique ID. If a string is passed to uuid as an argument, the UUID will be
+// deterministic, derived from the string’s SHA-1 hash.
 func UUID(args ...interface{}) Term {
-	return constructRootTerm("UUID", p.Term_UUID, []interface{}{}, map[string]interface{}{})
+	return constructRootTerm("UUID", p.Term_UUID, args, map[string]interface{}{})
+}
+
+// RawQuery creates a new query from a JSON string, this bypasses any encoding
+// done by GoRethink. The query should not contain the query type or any options
+// as this should be handled using the normal driver API.
+//
+// THis query will only work if this is the only term in the query.
+func RawQuery(q []byte) Term {
+	data := json.RawMessage(q)
+	return Term{
+		name:     "RawQuery",
+		rootTerm: true,
+		rawQuery: true,
+		data:     &data,
+		args: []Term{
+			Term{
+				termType: p.Term_DATUM,
+				data:     string(q),
+			},
+		},
+	}
 }

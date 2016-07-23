@@ -14,13 +14,14 @@ package elastigo
 import (
 	"errors"
 	"fmt"
-	hostpool "github.com/bitly/go-hostpool"
 	"net/http"
 	"net/url"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
+
+	hostpool "github.com/bitly/go-hostpool"
 )
 
 const (
@@ -41,6 +42,7 @@ type Conn struct {
 	Username       string
 	Password       string
 	Hosts          []string
+	Gzip           bool
 	RequestTracer  func(method, url, body string)
 	hp             hostpool.HostPool
 	once           sync.Once

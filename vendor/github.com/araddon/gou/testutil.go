@@ -23,7 +23,7 @@ var (
 func WaitFor(check func() bool, timeoutSecs int) {
 	timer := time.NewTicker(100 * time.Millisecond)
 	tryct := 0
-	for _ = range timer.C {
+	for range timer.C {
 		if check() {
 			timer.Stop()
 			break

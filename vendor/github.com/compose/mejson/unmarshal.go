@@ -157,8 +157,17 @@ func (m M) timestamp() (timestamp bson.MongoTimestamp, ok bool) {
 			if !isok {
 				return
 			}
-			tt, isok := t.(int)
-			if !isok {
+			var tt int
+			switch number := t.(type) {
+			case int:
+				tt = number
+			case int64:
+				tt = int(number)
+			case int32:
+				tt = int(number)
+			case float64:
+				tt = int(number)
+			default:
 				return
 			}
 
@@ -166,8 +175,17 @@ func (m M) timestamp() (timestamp bson.MongoTimestamp, ok bool) {
 			if !isok {
 				return
 			}
-			ii, isok := i.(int)
-			if !isok {
+			var ii int
+			switch number := i.(type) {
+			case int:
+				ii = number
+			case int64:
+				ii = int(number)
+			case int32:
+				ii = int(number)
+			case float64:
+				ii = int(number)
+			default:
 				return
 			}
 

@@ -10,6 +10,11 @@ cli is the library that powers the CLI for
 
 * Easy sub-command based CLIs: `cli foo`, `cli bar`, etc.
 
+* Support for nested subcommands such as `cli foo bar`.
+
+* Optional support for default subcommands so `cli` does something
+  other than error.
+
 * Automatic help generation for listing subcommands
 
 * Automatic help flag recognition of `-h`, `--help`, etc.

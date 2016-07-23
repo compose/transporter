@@ -1,10 +1,8 @@
 language: go
 
-gobuild_args: -tags='cluster'
-
 go:
   - 1.4
-  - tip
+  - 1.5
 
 cache: apt
 
@@ -17,3 +15,5 @@ before_script:
   - rethinkdb --port-offset 1 --directory rethinkdb_data1 --join localhost:29016 > /dev/null 2>&1 &
   - rethinkdb --port-offset 2 --directory rethinkdb_data2 --join localhost:29016 > /dev/null 2>&1 &
   - rethinkdb --port-offset 3 --directory rethinkdb_data3 --join localhost:29016 > /dev/null 2>&1 &
+
+script: go test -tags='cluster' -short -race -check.v -v ./...

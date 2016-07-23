@@ -13,21 +13,62 @@ package elastigo
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
-	hostpool "github.com/bitly/go-hostpool"
 	"io"
 	"io/ioutil"
+	"mime"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strconv"
 	"strings"
+
+	hostpool "github.com/bitly/go-hostpool"
 )
 
 type Request struct {
 	*http.Client
 	*http.Request
 	hostResponse hostpool.HostPoolResponse
+}
+
+func (r *Request) SetBodyGzip(data interface{}) error {
+	buf := new(bytes.Buffer)
+	gw := gzip.NewWriter(buf)
+
+	switch v := data.(type) {
+	case string:
+		if _, err := gw.Write([]byte(v)); err != nil {
+			return err
+		}
+	case []byte:
+		if _, err := gw.Write([]byte(v)); err != nil {
+			return err
+		}
+	case io.Reader:
+		if _, err := io.Copy(gw, v); err != nil {
+			return err
+		}
+	default:
+		b, err := json.Marshal(data)
+		if err != nil {
+			return err
+		}
+		if _, err := gw.Write(b); err != nil {
+			return err
+		}
+	}
+
+	if err := gw.Close(); err != nil {
+		return err
+	}
+	r.SetBody(bytes.NewReader(buf.Bytes()))
+	r.ContentLength = int64(len(buf.Bytes()))
+	r.Header.Add("Accept-Charset", "utf-8")
+	r.Header.Set("Content-Encoding", "gzip")
+	return nil
 }
 
 func (r *Request) SetBodyJson(data interface{}) error {
@@ -54,16 +95,7 @@ func (r *Request) SetBody(body io.Reader) {
 		rc = ioutil.NopCloser(body)
 	}
 	r.Body = rc
-	if body != nil {
-		switch v := body.(type) {
-		case *strings.Reader:
-			r.ContentLength = int64(v.Len())
-		case *bytes.Reader:
-			r.ContentLength = int64(v.Len())
-		case *bytes.Buffer:
-			r.ContentLength = int64(v.Len())
-		}
-	}
+	r.ContentLength = -1
 }
 
 func (r *Request) Do(v interface{}) (int, []byte, error) {
@@ -99,9 +131,20 @@ func (r *Request) DoResponse(v interface{}) (*http.Response, []byte, error) {
 	}
 
 	if res.StatusCode > 304 && v != nil {
+		// Make sure the response is JSON and not some other type.
+		// i.e. 502 or 504 errors from a proxy.
+		mediaType, _, err := mime.ParseMediaType(res.Header.Get("Content-Type"))
+		if err != nil {
+			return nil, bodyBytes, err
+		}
+
+		if mediaType != "application/json" {
+			return nil, bodyBytes, fmt.Errorf(http.StatusText(res.StatusCode))
+		}
+
 		jsonErr := json.Unmarshal(bodyBytes, v)
 		if jsonErr != nil {
-			return nil, nil, jsonErr
+			return nil, nil, fmt.Errorf("Json response unmarshal error: [%s], response content: [%s]", jsonErr.Error(), string(bodyBytes))
 		}
 	}
 	return res, bodyBytes, err
@@ -116,9 +159,11 @@ func Escape(args map[string]interface{}) (s string, err error) {
 		case bool:
 			vals.Add(key, strconv.FormatBool(v))
 		case int, int32, int64:
-			vals.Add(key, strconv.Itoa(v.(int)))
+			vInt := reflect.ValueOf(v).Int()
+			vals.Add(key, strconv.FormatInt(vInt, 10))
 		case float32, float64:
-			vals.Add(key, strconv.FormatFloat(v.(float64), 'f', -1, 64))
+			vFloat := reflect.ValueOf(v).Float()
+			vals.Add(key, strconv.FormatFloat(vFloat, 'f', -1, 32))
 		case []string:
 			vals.Add(key, strings.Join(v, ","))
 		default:

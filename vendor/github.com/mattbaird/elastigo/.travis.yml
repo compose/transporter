@@ -1,0 +1,13 @@
+services:
+  - elasticsearch
+
+language: go
+
+go:
+  - 1.6
+
+script:
+  - go get -t ./...
+  - go build ./lib/
+  - cd ./lib/ && go test -v -host localhost -loaddata
+  - go install

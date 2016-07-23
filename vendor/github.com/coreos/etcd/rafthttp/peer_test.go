@@ -1,4 +1,4 @@
-// Copyright 2015 CoreOS, Inc.
+// Copyright 2015 The etcd Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ func TestPeerPick(t *testing.T) {
 		{
 			true, true,
 			raftpb.Message{Type: raftpb.MsgApp, Term: 1, LogTerm: 1},
-			streamApp,
+			streamAppV2,
 		},
 		{
 			true, true,
@@ -75,9 +75,9 @@ func TestPeerPick(t *testing.T) {
 	}
 	for i, tt := range tests {
 		peer := &peer{
-			msgAppWriter: &streamWriter{working: tt.msgappWorking},
-			writer:       &streamWriter{working: tt.messageWorking},
-			pipeline:     &pipeline{},
+			msgAppV2Writer: &streamWriter{working: tt.msgappWorking},
+			writer:         &streamWriter{working: tt.messageWorking},
+			pipeline:       &pipeline{},
 		}
 		_, picked := peer.pick(tt.m)
 		if picked != tt.wpicked {

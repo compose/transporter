@@ -1,6 +1,6 @@
 package gorethink
 
-import p "github.com/dancannon/gorethink/ql2"
+import p "gopkg.in/dancannon/gorethink.v1/ql2"
 
 // Map transform each element of the sequence by applying the given mapping
 // function. It takes two arguments, a sequence and a function of type
@@ -149,6 +149,11 @@ func (t Term) OffsetsOf(args ...interface{}) Term {
 // IsEmpty tests if a sequence is empty.
 func (t Term) IsEmpty(args ...interface{}) Term {
 	return constructMethodTerm(t, "IsEmpty", p.Term_IS_EMPTY, args, map[string]interface{}{})
+}
+
+// Union concatenates two sequences.
+func Union(args ...interface{}) Term {
+	return constructRootTerm("Union", p.Term_UNION, args, map[string]interface{}{})
 }
 
 // Union concatenates two sequences.
