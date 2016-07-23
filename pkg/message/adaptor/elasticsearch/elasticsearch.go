@@ -48,7 +48,7 @@ func (r Adaptor) Delete(m message.Msg) error {
 	if err != nil {
 		return err
 	}
-	r.indexer.Delete(r.index, t, m.ID(), false)
+	r.indexer.Delete(r.index, t, m.ID())
 	return nil
 }
 
@@ -57,7 +57,7 @@ func (r Adaptor) Update(m message.Msg) error {
 	if err != nil {
 		return err
 	}
-	return r.indexer.Index(r.index, t, m.ID(), "", "", nil, m.Data(), false)
+	return r.indexer.Index(r.index, t, m.ID(), "", "", nil, m.Data())
 }
 
 func (r Adaptor) Command(m message.Msg) error {
