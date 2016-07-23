@@ -1,5 +1,5 @@
 hash: 0f82abc05bfa2bb9326b6c8590dd2a21c984427ce692789d048a1eb710193fa3
-updated: 2016-07-22T20:37:18.001784618-04:00
+updated: 2016-07-22T20:48:48.279862421-04:00
 imports:
 - name: github.com/araddon/gou
   version: 50a94aa4a3fb69e8fbde05df290fcb49fa685e07
@@ -16,7 +16,7 @@ imports:
 - name: github.com/compose/mejson
   version: afcf51c7c640b1e09c17065d4e5b8de3259d6261
 - name: github.com/coreos/etcd
-  version: 5b288f6cd16817aaa8e77e2600d6ba8590113650
+  version: 116a1b5855a05891386af84ea12ea0f8c5a23d72
   subpackages:
   - client
   - pkg/pathutil
