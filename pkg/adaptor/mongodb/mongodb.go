@@ -258,16 +258,21 @@ func (m *MongoDB) writeMessage(msg message.Msg) (message.Msg, error) {
 	if msg.OP() == ops.Delete {
 		newMsg, dErr := message.Exec(a, a.From(ops.Delete, msgColl, doc.Doc))
 		if dErr != nil {
-			m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error removing (%s)", err.Error()), msg.Data)
+			m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("write message mongodb error removing (%s)", err.Error()), msg.Data)
 		}
 		return newMsg, dErr
 	}
-	msg, err = message.Exec(a, a.From(ops.Insert, m.computeNamespace(msgColl), doc.Doc))
-	if mgo.IsDup(err) {
-		msg, err = message.Exec(a, a.From(ops.Update, m.computeNamespace(msgColl), doc.Doc))
-	}
-	if err != nil {
-		m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error (%s)", err.Error()), msg.Data)
+	for {
+		msg, err = message.Exec(a, a.From(ops.Insert, m.computeNamespace(msgColl), doc.Doc))
+		if mgo.IsDup(err) {
+			msg, err = message.Exec(a, a.From(ops.Update, m.computeNamespace(msgColl), doc.Doc))
+		}
+		if err != nil {
+			fmt.Printf("is dup error on update: %v: retrying %s\n", err, msg.ID())
+			m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("write message mongodb error (%s)", err.Error()), msg.Data())
+		} else {
+			break
+		}
 	}
 	return msg, err
 }
@@ -278,7 +283,7 @@ func (m *MongoDB) bulkWriter() {
 		case doc := <-m.bulkWriteChannel:
 			sz, err := docSize(doc.Doc)
 			if err != nil {
-				m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error (%s)", err.Error()), doc)
+				m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("bulk writer mongodb error (%s)", err.Error()), doc)
 				break
 			}
 
@@ -319,11 +324,11 @@ func (m *MongoDB) writeBuffer() {
 						_, e = message.Exec(a, a.From(ops.Update, m.computeNamespace(coll), op.Data()))
 					}
 					if e != nil {
-						m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error (%s)", e.Error()), op)
+						m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("write buffer (loop) mongodb error (%s)", e.Error()), op)
 					}
 				}
 			} else {
-				m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error (%#v)", err.Error()), docs[0])
+				m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("write buffer (bulk) mongodb error (%#v)", err.Error()), docs[0])
 			}
 		}
 
@@ -335,7 +340,7 @@ func (m *MongoDB) writeBuffer() {
 }
 
 // catdata pulls down the original collections
-func (m *MongoDB) catData() (err error) {
+func (m *MongoDB) catData() error {
 	collections, _ := m.mongoSession.DB(m.database).CollectionNames()
 	for _, collection := range collections {
 		if strings.HasPrefix(collection, "system.") {
@@ -343,43 +348,33 @@ func (m *MongoDB) catData() (err error) {
 		} else if match := m.collectionMatch.MatchString(collection); !match {
 			continue
 		}
-
-		var (
-			query  = bson.M{}
-			result bson.M // hold the document
-		)
-
-		iter := m.mongoSession.DB(m.database).C(collection).Find(query).Sort("_id").Iter()
-
+		query := bson.M{}
+		lastID := ""
 		for {
-			for iter.Next(&result) {
-				if stop := m.pipe.Stopped; stop {
-					return
-				}
-
-				// set up the message
-				msg := message.MustUseAdaptor("mongo").From(ops.Insert, m.computeNamespace(collection), data.Data(result))
-
-				m.pipe.Send(msg)
-				result = bson.M{}
-			}
-
-			// we've exited the mongo read loop, lets figure out why
-			// check here again if we've been asked to quit
 			if stop := m.pipe.Stopped; stop {
-				return
+				return nil
+			}
+			if lastID != "" {
+				query = bson.M{
+					"_id": bson.M{"$gte": bson.ObjectIdHex(lastID)},
+				}
+			}
+			iter := m.mongoSession.DB(m.database).C(collection).Find(query).Sort("_id").Iter()
+			var result bson.M
+			for iter.Next(&result) {
+				msg := message.MustUseAdaptor("mongo").From(ops.Insert, m.computeNamespace(collection), data.Data(result))
+				m.pipe.Send(msg)
+				lastID = msg.ID()
 			}
 
-			if iter.Err() != nil && m.restartable {
-				fmt.Printf("got err reading collection. reissuing query %v\n", iter.Err())
-				time.Sleep(1 * time.Second)
-				iter = m.mongoSession.DB(m.database).C(collection).Find(query).Sort("_id").Iter()
+			if err := iter.Err(); err != nil {
+				fmt.Printf("got err reading collection (%v). reissuing query starting with ID: %s\n", err, lastID)
 				continue
 			}
 			break
 		}
 	}
-	return
+	return nil
 }
 
 /*
@@ -421,7 +416,7 @@ func (m *MongoDB) tailData() (err error) {
 				case "u":
 					doc, err = m.getOriginalDoc(result.O2, coll)
 					if err != nil { // errors aren't fatal here, but we need to send it down the pipe
-						m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("MongoDB error (%s)", err.Error()), nil)
+						m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("tail MongoDB error (%s)", err.Error()), nil)
 						continue
 					}
 				default:
