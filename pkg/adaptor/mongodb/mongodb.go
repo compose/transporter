@@ -362,10 +362,10 @@ func (m *MongoDB) catData() error {
 			iter := m.mongoSession.DB(m.database).C(collection).Find(query).Sort("_id").Iter()
 			var result bson.M
 			for iter.Next(&result) {
-				t := result
-				msg := message.MustUseAdaptor("mongo").From(ops.Insert, m.computeNamespace(collection), data.Data(t))
+				msg := message.MustUseAdaptor("mongo").From(ops.Insert, m.computeNamespace(collection), data.Data(result))
 				m.pipe.Send(msg)
 				lastID = msg.ID()
+				result = bson.M{}
 			}
 
 			if err := iter.Err(); err != nil {
