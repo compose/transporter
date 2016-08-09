@@ -54,7 +54,7 @@ type MongoDB struct {
 	opsBufferCount   int
 	opsBuffer        map[string][]message.Msg
 	opsBufferSize    int
-	bulkWriteChannel chan *syncDoc
+	bulkWriteChannel chan syncDoc
 	bulkQuitChannel  chan chan bool
 	bulk             bool
 
@@ -62,7 +62,7 @@ type MongoDB struct {
 }
 
 type syncDoc struct {
-	Doc        map[string]interface{}
+	Doc        data.Data
 	Collection string
 }
 
@@ -111,7 +111,7 @@ func init() {
 			debug:            conf.Debug,
 			path:             path,
 			opsBuffer:        make(map[string][]message.Msg),
-			bulkWriteChannel: make(chan *syncDoc),
+			bulkWriteChannel: make(chan syncDoc),
 			bulkQuitChannel:  make(chan chan bool),
 			bulk:             conf.Bulk,
 			conf:             conf,
@@ -245,7 +245,7 @@ func (m *MongoDB) writeMessage(msg message.Msg) (message.Msg, error) {
 		return msg, nil
 	}
 
-	doc := &syncDoc{
+	doc := syncDoc{
 		Doc:        msg.Data(),
 		Collection: msgColl,
 	}
@@ -281,13 +281,13 @@ func (m *MongoDB) bulkWriter() {
 	for {
 		select {
 		case doc := <-m.bulkWriteChannel:
-			sz, err := docSize(doc.Doc)
+			sz, err := docSize(doc.Doc.AsMap())
 			if err != nil {
 				m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("bulk writer mongodb error (%s)", err.Error()), doc)
 				break
 			}
 
-			if ((sz + m.opsBufferSize) > bufferSize) || (m.opsBufferCount == bufferLen) {
+			if ((sz + m.opsBufferSize) > bufferSize) || (m.opsBufferCount >= bufferLen) {
 				m.writeBuffer() // send it off to be inserted
 			}
 
