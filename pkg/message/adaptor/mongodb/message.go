@@ -37,7 +37,7 @@ func (r *Message) ID() string {
 	case string:
 		return r
 	case bson.ObjectId:
-		return string(r)
+		return r.Hex()
 	default:
 		return fmt.Sprintf("%v", r)
 	}
