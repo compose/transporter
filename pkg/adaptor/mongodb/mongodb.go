@@ -281,7 +281,7 @@ func (m *MongoDB) bulkWriter() {
 	for {
 		select {
 		case doc := <-m.bulkWriteChannel:
-			sz, err := docSize(doc.Doc.AsMap())
+			sz, err := docSize(doc.Doc)
 			if err != nil {
 				m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("bulk writer mongodb error (%s)", err.Error()), doc)
 				break
@@ -362,7 +362,8 @@ func (m *MongoDB) catData() error {
 			iter := m.mongoSession.DB(m.database).C(collection).Find(query).Sort("_id").Iter()
 			var result bson.M
 			for iter.Next(&result) {
-				msg := message.MustUseAdaptor("mongo").From(ops.Insert, m.computeNamespace(collection), data.Data(result))
+				t := result
+				msg := message.MustUseAdaptor("mongo").From(ops.Insert, m.computeNamespace(collection), data.Data(t))
 				m.pipe.Send(msg)
 				lastID = msg.ID()
 			}
