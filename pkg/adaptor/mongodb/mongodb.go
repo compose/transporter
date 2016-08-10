@@ -366,12 +366,14 @@ func (m *MongoDB) catData() error {
 			if stop := m.pipe.Stopped; stop {
 				return nil
 			}
+			sess := m.mongoSession.Copy()
+
 			// if lastID != "" {
 			// 	query = bson.M{
 			// 		"_id": bson.M{"$gte": rawDataFromString(lastID)},
 			// 	}
 			// }
-			iter := m.mongoSession.DB(m.database).C(collection).Find(query).Sort("_id").Iter()
+			iter := sess.DB(m.database).C(collection).Find(query).Sort("_id").Iter()
 			var result bson.M
 			for iter.Next(&result) {
 				msg := message.MustUseAdaptor("mongo").From(ops.Insert, m.computeNamespace(collection), data.Data(result))
@@ -384,11 +386,11 @@ func (m *MongoDB) catData() error {
 				fmt.Printf("got err reading collection (%v). reissuing query\n", err)
 				time.Sleep(errSleep)
 				errSleep *= 2
-				m.mongoSession.Close()
-				m.mongoSession = m.mongoSession.Copy()
+				sess.Close()
 				continue
 			}
 			errSleep = time.Second
+			sess.Close()
 			break
 		}
 	}
