@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -172,6 +173,7 @@ func (m *MongoDB) Connect() error {
 	m.mongoSession.EnsureSafe(&mgo.Safe{W: m.conf.Wc, FSync: m.conf.FSync})
 	m.mongoSession.SetBatch(1000)
 	m.mongoSession.SetPrefetch(0.5)
+	m.mongoSession.SetSocketTimeout(time.Hour)
 
 	if m.tail {
 		if iter := m.mongoSession.DB("local").C("oplog.rs").Find(bson.M{}).Limit(1).Iter(); iter.Err() != nil {
@@ -312,24 +314,33 @@ func (m *MongoDB) writeBuffer() {
 		if len(docs) == 0 {
 			continue
 		}
-		a := message.MustUseAdaptor("mongo").(mongodb.Adaptor).MustUseSession(m.mongoSession)
-		err := a.BulkInsert(m.database, coll, docs...)
+		for {
+			sess := m.mongoSession.Copy()
+			a := message.MustUseAdaptor("mongo").(mongodb.Adaptor).MustUseSession(sess)
+			err := a.BulkInsert(m.database, coll, docs...)
 
-		if err != nil {
-			if mgo.IsDup(err) {
-				err = nil
-				for _, op := range docs {
-					_, e := message.Exec(a, a.From(ops.Insert, m.computeNamespace(coll), op.Data()))
-					if mgo.IsDup(e) {
-						_, e = message.Exec(a, a.From(ops.Update, m.computeNamespace(coll), op.Data()))
+			if err != nil {
+				if mgo.IsDup(err) {
+					err = nil
+					for _, op := range docs {
+						_, e := message.Exec(a, a.From(ops.Insert, m.computeNamespace(coll), op.Data()))
+						if mgo.IsDup(e) {
+							_, e = message.Exec(a, a.From(ops.Update, m.computeNamespace(coll), op.Data()))
+						}
+						if e != nil {
+							m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("write buffer (loop) mongodb error (%s)", e.Error()), op)
+							sess.Close()
+							continue
+						}
 					}
-					if e != nil {
-						m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("write buffer (loop) mongodb error (%s)", e.Error()), op)
-					}
+				} else {
+					m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("write buffer (bulk) mongodb error (%#v)", err.Error()), docs[0])
+					sess.Close()
+					continue
 				}
-			} else {
-				m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("write buffer (bulk) mongodb error (%#v)", err.Error()), docs[0])
 			}
+			sess.Close()
+			break
 		}
 
 	}
@@ -349,33 +360,52 @@ func (m *MongoDB) catData() error {
 			continue
 		}
 		query := bson.M{}
-		lastID := ""
+		// lastID := ""
+		errSleep := time.Second
 		for {
 			if stop := m.pipe.Stopped; stop {
 				return nil
 			}
-			if lastID != "" {
-				query = bson.M{
-					"_id": bson.M{"$gte": bson.ObjectIdHex(lastID)},
-				}
-			}
+			// if lastID != "" {
+			// 	query = bson.M{
+			// 		"_id": bson.M{"$gte": rawDataFromString(lastID)},
+			// 	}
+			// }
 			iter := m.mongoSession.DB(m.database).C(collection).Find(query).Sort("_id").Iter()
 			var result bson.M
 			for iter.Next(&result) {
 				msg := message.MustUseAdaptor("mongo").From(ops.Insert, m.computeNamespace(collection), data.Data(result))
 				m.pipe.Send(msg)
-				lastID = msg.ID()
+				// lastID = msg.ID()
 				result = bson.M{}
 			}
 
 			if err := iter.Err(); err != nil {
-				fmt.Printf("got err reading collection (%v). reissuing query starting with ID: %s\n", err, lastID)
+				fmt.Printf("got err reading collection (%v). reissuing query\n", err)
+				time.Sleep(errSleep)
+				errSleep *= 2
+				m.mongoSession.Close()
+				m.mongoSession = m.mongoSession.Copy()
 				continue
 			}
+			errSleep = time.Second
 			break
 		}
 	}
 	return nil
+}
+
+func rawDataFromString(s string) interface{} {
+	if bson.IsObjectIdHex(s) {
+		return bson.ObjectIdHex(s)
+	}
+	if i, err := strconv.Atoi(s); err != nil {
+		return i
+	}
+	if i, err := strconv.ParseFloat(s, 64); err != nil {
+		return i
+	}
+	return s
 }
 
 /*
