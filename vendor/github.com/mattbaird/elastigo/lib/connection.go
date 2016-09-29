@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	hostpool "github.com/bitly/go-hostpool"
+	"github.com/smartystreets/go-aws-auth"
 	"net/http"
 	"net/url"
 	"runtime"
@@ -50,6 +51,10 @@ type Conn struct {
 	// value of 5 minutes. The EpsilonValueCalculator uses this to calculate a score
 	// from the weighted average response time.
 	DecayDuration time.Duration
+
+	// Determines whether or not to use Amazon request signing.
+	AmzUseSignature bool
+	AmzCredentials  *awsauth.Credentials
 }
 
 func NewConn() *Conn {
@@ -168,6 +173,21 @@ func (c *Conn) NewRequest(method, path, query string) (*Request, error) {
 		hostResponse: hr,
 	}
 	return newRequest, nil
+}
+
+// SignRequest signs an HTTP request, currently only supported for Amazon
+// ElasticSearch's signed requests.
+func (c *Conn) SignRequest(r *Request) {
+	if !c.AmzUseSignature {
+		return
+	}
+
+	// Use credentials if provided.
+	if c.AmzCredentials != nil {
+		awsauth.Sign(r.Request, *c.AmzCredentials)
+	} else {
+		awsauth.Sign(r.Request)
+	}
 }
 
 // Split apart the hostname on colon

@@ -139,6 +139,7 @@ func (e *Elasticsearch) setupClient() {
 
 	client.SetHosts(strings.Split(hostBits[0], ","))
 	client.Protocol = e.uri.Scheme
+	client.AmzUseSignature = true
 
 	e.indexer = client.NewBulkIndexerErrors(10, 60)
 }
