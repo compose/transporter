@@ -91,6 +91,9 @@ func (c *Conn) ExistsBool(index string, _type string, id string, args map[string
 		return false, err
 	}
 
+	// Sign request if necessary.
+	c.SignRequest(req)
+
 	httpStatusCode, _, err := req.Do(nil)
 
 	// RecordNotFound is the expected response for a non-existent document,
@@ -117,6 +120,9 @@ func (c *Conn) ExistsIndex(index string, _type string, args map[string]interface
 		url = fmt.Sprintf("/%s", index)
 	}
 	req, err := c.NewRequest("HEAD", url, query)
+
+	c.SignRequest(req)
+
 	httpStatusCode, _, err := req.Do(nil)
 
 	if err != nil {

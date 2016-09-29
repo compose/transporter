@@ -62,6 +62,9 @@ func (c *Conn) DoCommand(method string, url string, args map[string]interface{},
 		c.RequestTracer(req.Method, req.URL.String(), string(requestBody))
 	}
 
+	// Sign request if necessary.
+	c.SignRequest(req)
+
 	httpStatusCode, body, err = req.Do(&response)
 	if err != nil {
 		return body, err
@@ -115,6 +118,10 @@ func (c *Conn) Exists(index string, _type string, id string, args map[string]int
 	if err != nil {
 		// some sort of generic error handler
 	}
+
+	// Sign request if necessary.
+	c.SignRequest(req)
+
 	httpStatusCode, body, err = req.Do(&response)
 	if httpStatusCode > 304 {
 		if error, ok := response["error"]; ok {
