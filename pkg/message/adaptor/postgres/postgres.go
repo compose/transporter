@@ -40,31 +40,43 @@ func (r Adaptor) From(op ops.Op, namespace string, d data.Data) message.Msg {
 }
 
 func (r Adaptor) Insert(m message.Msg) error {
-	fmt.Printf("Write INSERT to Postgres %v\n", m.Namespace())
-	var (
-		keys         []string
-		placeholders []string
-		data         []interface{}
-	)
+	fmt.Printf("Write INSERT to Postgres %v values %v\n", m.Namespace(), m.Data())
+	// var (
+	// 	keys         []string
+	// 	placeholders []string
+	// 	data         []interface{}
+	// )
 
-	i := 1
-	for key, value := range m.Data() {
-		keys = append(keys, key)
-		placeholders = append(placeholders, fmt.Sprintf("$%v", i))
+	// i := 1
+	// for key, value := range m.Data() {
+	// 	keys = append(keys, key)
+	// 	placeholders = append(placeholders, fmt.Sprintf("$%v", i))
 
-		switch value.(type) {
-		case map[string]interface{}:
-			value, _ = json.Marshal(value)
-		case []interface{}:
-			value, _ = json.Marshal(value)
-		}
-		data = append(data, value)
+	// 	switch value.(type) {
+	// 	case map[string]interface{}:
+	// 		value, _ = json.Marshal(value)
+	// 	case []interface{}:
+	// 		value, _ = json.Marshal(value)
+	// 	}
+	// 	data = append(data, value)
 
-		i = i + 1
+	// 	i = i + 1
+	// }
+
+	st := r.GenerateUpsertStatement(m)
+	fmt.Printf("Write UPSERT BIT to Postgres %v\n", strings.Join(st.Ukeys, ", "))
+
+	query := fmt.Sprintf("INSERT INTO %v (%v) VALUES (%v)", m.Namespace(), strings.Join(st.Inames, ", "), strings.Join(st.Ikeys, ", "))
+
+	if len(st.Ukeys) == 0 {
+		query = fmt.Sprintf("%v ON CONFLICT (id) DO NOTHING;", query)
+
+	} else {
+		query = fmt.Sprintf("%v ON CONFLICT (id) DO UPDATE SET %v;", query, strings.Join(st.Ukeys, ", "))
 	}
 
-	query := fmt.Sprintf("INSERT INTO %v (%v) VALUES (%v);", m.Namespace(), strings.Join(keys, ", "), strings.Join(placeholders, ", "))
-	_, err := r.session.Exec(query, data...)
+	fmt.Printf("Write INSERT to Postgres %v\n", query)
+	_, err := r.session.Exec(query, st.Vals...)
 	return err
 }
 
@@ -98,6 +110,55 @@ func (r Adaptor) Delete(m message.Msg) error {
 	query := fmt.Sprintf("DELETE FROM %v WHERE %v;", m.Namespace(), strings.Join(ckeys, " AND "))
 	_, err = r.session.Exec(query, vals...)
 	return err
+}
+
+type set struct {
+	Inames []string
+	Ikeys  []string
+	Ckeys  []string
+	Ukeys  []string
+	Vals   []interface{}
+	Pkeys  map[string]bool
+}
+
+func (r Adaptor) GenerateUpsertStatement(m message.Msg) set {
+	fmt.Printf("Generating UPSERT statement for Postgres %v\n", m.Namespace())
+	var (
+		inames []string
+		ikeys  []string
+		ckeys  []string
+		ukeys  []string
+		vals   []interface{}
+	)
+
+	pkeys, err := r.primaryKeys(m.Namespace())
+	if err != nil {
+		fmt.Errorf("Error generating UPSERT statement for Postgres %v : %v\n", m.Namespace(), err)
+	}
+
+	i := 1
+	for key, value := range m.Data() {
+		inames = append(inames, fmt.Sprintf("%v", key))
+		ikeys = append(ikeys, fmt.Sprintf("$%v", i))
+		if pkeys[key] { // key is primary key
+			ckeys = append(ckeys, fmt.Sprintf("%v=$%v", key, i))
+		} else {
+			ukeys = append(ukeys, fmt.Sprintf("%v=$%v", key, i))
+		}
+
+		switch value.(type) {
+		case map[string]interface{}:
+			value, _ = json.Marshal(value)
+		case []interface{}:
+			value, _ = json.Marshal(value)
+			value = string(value.([]byte))
+			value = fmt.Sprintf("{%v}", value.(string)[1:len(value.(string))-1])
+		}
+		vals = append(vals, value)
+		i = i + 1
+	}
+
+	return set{Inames: inames, Ikeys: ikeys, Ckeys: ckeys, Ukeys: ukeys, Vals: vals, Pkeys: pkeys}
 }
 
 func (r Adaptor) Update(m message.Msg) error {
@@ -138,6 +199,7 @@ func (r Adaptor) Update(m message.Msg) error {
 	}
 
 	query := fmt.Sprintf("UPDATE %v SET %v WHERE %v;", m.Namespace(), strings.Join(ukeys, ", "), strings.Join(ckeys, " AND "))
+	fmt.Printf("Write UPDATE to Postgres %v\n", query)
 	_, err = r.session.Exec(query, vals...)
 	return err
 }
