@@ -1,8 +1,8 @@
 package etcd
 
 import (
-	"git.compose.io/compose/transporter/pkg/message/data"
-	"git.compose.io/compose/transporter/pkg/message/ops"
+	"github.com/compose/transporter/pkg/message/data"
+	"github.com/compose/transporter/pkg/message/ops"
 )
 
 type Message struct {

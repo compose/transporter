@@ -4,8 +4,8 @@ import (
 	"log"
 	"os"
 
-	_ "git.compose.io/compose/transporter/pkg/adaptor/all"
-	"git.compose.io/compose/transporter/pkg/transporter"
+	_ "github.com/compose/transporter/pkg/adaptor/all"
+	"github.com/compose/transporter/pkg/transporter"
 	"github.com/mitchellh/cli"
 )
 

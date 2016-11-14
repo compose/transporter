@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"strings"
 
-	"git.compose.io/compose/transporter/pkg/message/data"
-	"git.compose.io/compose/transporter/pkg/message/ops"
+	"github.com/compose/transporter/pkg/message/data"
+	"github.com/compose/transporter/pkg/message/ops"
 )
 
 // A Msg serves to wrap the actual document to

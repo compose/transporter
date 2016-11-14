@@ -13,8 +13,8 @@ package influxdb
 // 	"fmt"
 // 	"net/url"
 
-// 	"git.compose.io/compose/transporter/pkg/message"
-// 	"git.compose.io/compose/transporter/pkg/pipe"
+// 	"github.com/compose/transporter/pkg/message"
+// 	"github.com/compose/transporter/pkg/pipe"
 // 	"github.com/influxdb/influxdb/client"
 // )
 

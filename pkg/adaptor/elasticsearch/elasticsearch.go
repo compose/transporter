@@ -6,10 +6,10 @@ import (
 	"regexp"
 	"strings"
 
-	"git.compose.io/compose/transporter/pkg/adaptor"
-	"git.compose.io/compose/transporter/pkg/message"
-	"git.compose.io/compose/transporter/pkg/message/adaptor/elasticsearch"
-	"git.compose.io/compose/transporter/pkg/pipe"
+	"github.com/compose/transporter/pkg/adaptor"
+	"github.com/compose/transporter/pkg/message"
+	"github.com/compose/transporter/pkg/message/adaptor/elasticsearch"
+	"github.com/compose/transporter/pkg/pipe"
 	elastigo "github.com/mattbaird/elastigo/lib"
 )
 

@@ -4,11 +4,11 @@ import (
 	"reflect"
 	"testing"
 
-	"git.compose.io/compose/transporter/pkg/message"
-	_ "git.compose.io/compose/transporter/pkg/message/adaptor/transformer"
-	"git.compose.io/compose/transporter/pkg/message/data"
-	"git.compose.io/compose/transporter/pkg/message/ops"
-	"git.compose.io/compose/transporter/pkg/pipe"
+	"github.com/compose/transporter/pkg/message"
+	_ "github.com/compose/transporter/pkg/message/adaptor/transformer"
+	"github.com/compose/transporter/pkg/message/data"
+	"github.com/compose/transporter/pkg/message/ops"
+	"github.com/compose/transporter/pkg/pipe"
 	"gopkg.in/mgo.v2/bson"
 )
 

@@ -1,4 +1,4 @@
-package: git.compose.io/compose/transporter
+package: github.com/compose/transporter
 import:
 - package: github.com/compose/mejson
 - package: github.com/coreos/etcd

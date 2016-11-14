@@ -3,9 +3,9 @@ package transformer
 import (
 	"time"
 
-	"git.compose.io/compose/transporter/pkg/message"
-	"git.compose.io/compose/transporter/pkg/message/data"
-	"git.compose.io/compose/transporter/pkg/message/ops"
+	"github.com/compose/transporter/pkg/message"
+	"github.com/compose/transporter/pkg/message/data"
+	"github.com/compose/transporter/pkg/message/ops"
 )
 
 type Adaptor struct {
