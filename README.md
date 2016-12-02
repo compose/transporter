@@ -122,3 +122,7 @@ Want to talk about Transporter? Join us in #compose on irc.freenode.net!
 Licensing
 =========
 Transporter is licensed under the New BSD License. See LICENSE for full license text.
+
+Support and Guarantees
+=========
+Compose does not provide support nor guarantee stability or functionality of this tool. Please take adequate caution when using Transporter to ensure that it's the right tool for the job. Transporter may not account for failure scenarios that could lead to unexpected behavior. Always take backups, always test in dev, and always feel free to submit a PR with enhancements, features, and bug fixes.
