@@ -5,27 +5,35 @@ import (
 
 	"github.com/Sirupsen/logrus"
 
-	"github.com/dancannon/gorethink/encoding"
+	"gopkg.in/dancannon/gorethink.v1/encoding"
 )
 
 var (
-	log *logrus.Logger
+	Log *logrus.Logger
 )
 
 func init() {
 	// Set encoding package
 	encoding.IgnoreType(reflect.TypeOf(Term{}))
 
-	log = logrus.New()
+	Log = logrus.New()
 }
 
 // SetVerbose allows the driver logging level to be set. If true is passed then
 // the log level is set to Debug otherwise it defaults to Info.
 func SetVerbose(verbose bool) {
 	if verbose {
-		log.Level = logrus.DebugLevel
+		Log.Level = logrus.DebugLevel
 		return
 	}
 
-	log.Level = logrus.InfoLevel
+	Log.Level = logrus.InfoLevel
+}
+
+// SetTags allows you to override the tags used when decoding or encoding
+// structs. The driver will check for the tags in the same order that they were
+// passed into this function. If no parameters are passed then the driver will
+// default to checking for the gorethink tag.
+func SetTags(tags ...string) {
+	encoding.Tags = tags
 }

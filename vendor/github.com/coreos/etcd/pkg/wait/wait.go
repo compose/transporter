@@ -1,4 +1,4 @@
-// Copyright 2015 CoreOS, Inc.
+// Copyright 2015 The etcd Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,15 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package wait provides utility functions for polling, listening using Go
+// channel.
 package wait
 
 import (
+	"log"
 	"sync"
 )
 
 type Wait interface {
 	Register(id uint64) <-chan interface{}
 	Trigger(id uint64, x interface{})
+	IsRegistered(id uint64) bool
 }
 
 type List struct {
@@ -39,6 +43,8 @@ func (w *List) Register(id uint64) <-chan interface{} {
 	if ch == nil {
 		ch = make(chan interface{}, 1)
 		w.m[id] = ch
+	} else {
+		log.Panicf("dup id %x", id)
 	}
 	return ch
 }
@@ -52,4 +58,27 @@ func (w *List) Trigger(id uint64, x interface{}) {
 		ch <- x
 		close(ch)
 	}
+}
+
+func (w *List) IsRegistered(id uint64) bool {
+	w.l.Lock()
+	defer w.l.Unlock()
+	_, ok := w.m[id]
+	return ok
+}
+
+type waitWithResponse struct {
+	ch <-chan interface{}
+}
+
+func NewWithResponse(ch <-chan interface{}) Wait {
+	return &waitWithResponse{ch: ch}
+}
+
+func (w *waitWithResponse) Register(id uint64) <-chan interface{} {
+	return w.ch
+}
+func (w *waitWithResponse) Trigger(id uint64, x interface{}) {}
+func (w *waitWithResponse) IsRegistered(id uint64) bool {
+	panic("waitWithResponse.IsRegistered() shouldn't be called")
 }

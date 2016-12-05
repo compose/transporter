@@ -84,10 +84,30 @@ func JsonHelperHttp(method, urlStr string, data interface{}) (JsonHelper, error)
 
 // posts an application/json to url with body
 // ie:   type = application/json
-func PostJson(url, body string) (ret string, err error, resp *http.Response) {
-	//Post(url string, bodyType string, body io.Reader)
-	buf := bytes.NewBufferString(body)
-	resp, err = http.Post(url, "application/json", buf)
+func PostJson(postUrl string, data interface{}) (ret string, err error, resp *http.Response) {
+	var buf io.Reader
+	if data != nil {
+		switch val := data.(type) {
+		case string:
+			buf = bytes.NewBufferString(val)
+		case []byte:
+			buf = bytes.NewReader(val)
+		case json.RawMessage:
+			buf = bytes.NewReader([]byte(val))
+		case io.Reader:
+			buf = val
+		case url.Values:
+			buf = bytes.NewBufferString(val.Encode())
+		default:
+			by, err := json.Marshal(data)
+			if err != nil {
+				return "", err, nil
+			}
+			buf = bytes.NewReader(by)
+		}
+	}
+
+	resp, err = http.Post(postUrl, "application/json", buf)
 	defer func() {
 		if resp != nil && resp.Body != nil {
 			resp.Body.Close()
@@ -97,12 +117,12 @@ func PostJson(url, body string) (ret string, err error, resp *http.Response) {
 		Log(WARN, err.Error())
 		return "", err, resp
 	}
-	data, err := ioutil.ReadAll(resp.Body)
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return "", err, resp
 	}
 
-	return string(data), nil, resp
+	return string(bodyBytes), nil, resp
 }
 
 // issues http delete an application/json to url with body

@@ -18,6 +18,9 @@ func Marshal(in interface{}) (interface{}, error) {
 	}
 
 	if reflect.TypeOf(in).Kind() == reflect.Slice {
+		if v, ok := in.([]byte); ok {
+			return marshalBinary(bson.Binary{0x00, v}), nil
+		}
 		v := reflect.ValueOf(in)
 
 		slice := make([]interface{}, v.Len())
@@ -40,6 +43,8 @@ func Marshal(in interface{}) (interface{}, error) {
 			return marshalObjectId(v), nil
 		case time.Time:
 			return marshalTime(v), nil
+		case bson.MongoTimestamp:
+			return marshalTimestamp(v), nil
 		case bson.RegEx:
 			return marshalRegex(v), nil
 		case string, int, int64, bool, float64, uint8, uint32:

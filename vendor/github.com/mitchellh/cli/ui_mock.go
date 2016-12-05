@@ -29,6 +29,10 @@ func (u *MockUi) Ask(query string) (string, error) {
 	return result, nil
 }
 
+func (u *MockUi) AskSecret(query string) (string, error) {
+	return u.Ask(query)
+}
+
 func (u *MockUi) Error(message string) {
 	u.once.Do(u.init)
 
@@ -45,6 +49,13 @@ func (u *MockUi) Output(message string) {
 
 	fmt.Fprint(u.OutputWriter, message)
 	fmt.Fprint(u.OutputWriter, "\n")
+}
+
+func (u *MockUi) Warn(message string) {
+	u.once.Do(u.init)
+
+	fmt.Fprint(u.ErrorWriter, message)
+	fmt.Fprint(u.ErrorWriter, "\n")
 }
 
 func (u *MockUi) init() {

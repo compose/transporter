@@ -1,19 +1,25 @@
-## Libraries and Tools
+# Libraries and tools
 
 **Tools**
 
-- [etcdctl](https://github.com/coreos/etcdctl) - A command line client for etcd
+- [etcdctl](https://github.com/coreos/etcd/tree/master/etcdctl) - A command line client for etcd
 - [etcd-backup](https://github.com/fanhattan/etcd-backup) - A powerful command line utility for dumping/restoring etcd - Supports v2
 - [etcd-dump](https://npmjs.org/package/etcd-dump) - Command line utility for dumping/restoring etcd.
 - [etcd-fs](https://github.com/xetorthio/etcd-fs) - FUSE filesystem for etcd
+- [etcddir](https://github.com/rekby/etcddir) - Realtime sync etcd and local directory. Work with windows and linux.
 - [etcd-browser](https://github.com/henszey/etcd-browser) - A web-based key/value editor for etcd using AngularJS
 - [etcd-lock](https://github.com/datawisesystems/etcd-lock) - Master election & distributed r/w lock implementation using etcd - Supports v2
 - [etcd-console](https://github.com/matishsiao/etcd-console) - A web-base key/value editor for etcd using PHP
 - [etcd-viewer](https://github.com/nikfoundas/etcd-viewer) - An etcd key-value store editor/viewer written in Java
+- [etcdtool](https://github.com/mickep76/etcdtool) - Export/Import/Edit etcd directory as JSON/YAML/TOML and Validate directory using JSON schema
+- [etcd-rest](https://github.com/mickep76/etcd-rest) - Create generic REST API in Go using etcd as a backend with validation using JSON schema
+- [etcdsh](https://github.com/kamilhark/etcdsh) - A command line client with support of command history and tab completion. Supports v2
 
 **Go libraries**
 
-- [go-etcd](https://github.com/coreos/go-etcd) - Supports v2
+- [etcd/clientv3](https://github.com/coreos/etcd/blob/master/clientv3) - the officially maintained Go client for v3
+- [etcd/client](https://github.com/coreos/etcd/blob/master/client) - the officially maintained Go client for v2
+- [go-etcd](https://github.com/coreos/go-etcd) - the deprecated official client. May be useful for older (<2.0.0) versions of etcd.
 
 **Java libraries**
 
@@ -22,6 +28,11 @@
 - [diwakergupta/jetcd](https://github.com/diwakergupta/jetcd) - Supports v2
 - [jurmous/etcd4j](https://github.com/jurmous/etcd4j) - Supports v2, Async/Sync, waits and SSL
 - [AdoHe/etcd4j](http://github.com/AdoHe/etcd4j) - Supports v2 (enhance for real production cluster)
+- [cdancy/etcd-rest](https://github.com/cdancy/etcd-rest) - Uses jclouds to provide a complete implementation of v2 API.
+
+**Scala libraries**
+
+- [maciej/etcd-client](https://github.com/maciej/etcd-client) - Supports v2. Akka HTTP-based fully async client
 
 **Python libraries**
 
@@ -49,6 +60,7 @@
 
 **C++ libraries**
 - [edwardcapriolo/etcdcpp](https://github.com/edwardcapriolo/etcdcpp) - Supports v2
+- [suryanathan/etcdcpp](https://github.com/suryanathan/etcdcpp) - Supports v2 (with waits)
 
 **Clojure libraries**
 
@@ -62,6 +74,7 @@
 
 **.Net Libraries**
 
+- [wangjia184/etcdnet](https://github.com/wangjia184/etcdnet) - Supports v2
 - [drusellers/etcetera](https://github.com/drusellers/etcetera)
 
 **PHP Libraries**
@@ -80,9 +93,9 @@
 
 - [efrecon/etcd-tcl](https://github.com/efrecon/etcd-tcl) - Supports v2, except wait.
 
-A detailed recap of client functionalities can be found in the [clients compatibility matrix][clients-matrix.md].
+**Gradle Plugins**
 
-[clients-matrix.md]: https://github.com/coreos/etcd/blob/master/Documentation/clients-matrix.md
+- [gradle-etcd-rest-plugin](https://github.com/cdancy/gradle-etcd-rest-plugin) - Supports v2
 
 **Chef Integration**
 
@@ -111,7 +124,7 @@ A detailed recap of client functionalities can be found in the [clients compatib
 - [configdb](https://git.autistici.org/ai/configdb/tree/master) - A REST relational abstraction on top of arbitrary database backends, aimed at storing configs and inventories.
 - [scrz](https://github.com/scrz/scrz) - Container manager, stores configuration in etcd.
 - [fleet](https://github.com/coreos/fleet) - Distributed init system
-- [GoogleCloudPlatform/kubernetes](https://github.com/GoogleCloudPlatform/kubernetes) - Container cluster manager.
+- [kubernetes/kubernetes](https://github.com/kubernetes/kubernetes) - Container cluster manager introduced by Google.
 - [mailgun/vulcand](https://github.com/mailgun/vulcand) - HTTP proxy that uses etcd as a configuration backend.
 - [duedil-ltd/discodns](https://github.com/duedil-ltd/discodns) - Simple DNS nameserver using etcd as a database for names and records.
 - [skynetservices/skydns](https://github.com/skynetservices/skydns) - RFC compliant DNS server
@@ -119,3 +132,4 @@ A detailed recap of client functionalities can be found in the [clients compatib
 - [spf13/viper](https://github.com/spf13/viper) - Go configuration library, reads values from ENV, pflags, files, and etcd with optional encryption
 - [lytics/metafora](https://github.com/lytics/metafora) - Go distributed task library
 - [ryandoyle/nss-etcd](https://github.com/ryandoyle/nss-etcd) - A GNU libc NSS module for resolving names from etcd.
+- [Gru](https://github.com/dnaeon/gru) - Orchestration made easy with Go

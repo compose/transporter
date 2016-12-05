@@ -1,4 +1,4 @@
-// Copyright 2015 CoreOS, Inc.
+// Copyright 2015 The etcd Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,8 +28,8 @@ func TestErrorWriteTo(t *testing.T) {
 		rr := httptest.NewRecorder()
 		err.WriteTo(rr)
 
-		if err.statusCode() != rr.Code {
-			t.Errorf("HTTP status code %d, want %d", rr.Code, err.statusCode())
+		if err.StatusCode() != rr.Code {
+			t.Errorf("HTTP status code %d, want %d", rr.Code, err.StatusCode())
 		}
 
 		gbody := strings.TrimSuffix(rr.Body.String(), "\n")

@@ -1,0 +1,25 @@
+package: github.com/compose/transporter
+import:
+- package: github.com/compose/mejson
+- package: github.com/coreos/etcd
+  subpackages:
+  - client
+- package: github.com/dancannon/gorethink
+- package: github.com/hashicorp/go-version
+- package: github.com/lib/pq
+- package: github.com/mattbaird/elastigo
+  subpackages:
+  - lib
+- package: github.com/mitchellh/cli
+- package: github.com/nu7hatch/gouuid
+- package: github.com/robertkrimen/otto
+  subpackages:
+  - underscore
+- package: golang.org/x/net
+  subpackages:
+  - context
+- package: gopkg.in/dancannon/gorethink.v1
+- package: gopkg.in/mgo.v2
+  subpackages:
+  - bson
+- package: gopkg.in/yaml.v2
