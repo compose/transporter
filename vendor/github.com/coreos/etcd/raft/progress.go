@@ -1,4 +1,4 @@
-// Copyright 2015 CoreOS, Inc.
+// Copyright 2015 The etcd Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,6 +36,8 @@ func (st ProgressStateType) String() string { return prstmap[uint64(st)] }
 // progresses of all followers, and sends entries to the follower based on its progress.
 type Progress struct {
 	Match, Next uint64
+	// State defines how the leader should interact with the follower.
+	//
 	// When in ProgressStateProbe, leader sends at most one replication message
 	// per heartbeat interval. It also probes actual progress of the follower.
 	//
@@ -56,13 +58,18 @@ type Progress struct {
 	// is reported to be failed.
 	PendingSnapshot uint64
 
+	// RecentActive is true if the progress is recently active. Receiving any messages
+	// from the corresponding follower indicates the progress is active.
+	// RecentActive can be reset to false after an election timeout.
+	RecentActive bool
+
 	// inflights is a sliding window for the inflight messages.
 	// When inflights is full, no more message should be sent.
-	// When sends out a message, the index of the last entry should
-	// be add to inflights. The index MUST be added into inflights
-	// in order.
-	// When receives a reply, the previous inflights should be freed
-	// by calling inflights.freeTo.
+	// When a leader sends out a message, the index of the last
+	// entry should be added to inflights. The index MUST be added
+	// into inflights in order.
+	// When a leader receives a reply, the previous inflights should
+	// be freed by calling inflights.freeTo.
 	ins *inflights
 }
 
@@ -159,9 +166,9 @@ func (pr *Progress) isPaused() bool {
 
 func (pr *Progress) snapshotFailure() { pr.PendingSnapshot = 0 }
 
-// maybeSnapshotAbort unsets pendingSnapshot if Match is equal or higher than
-// the pendingSnapshot
-func (pr *Progress) maybeSnapshotAbort() bool {
+// needSnapshotAbort returns true if snapshot progress's Match
+// is equal or higher than the pendingSnapshot.
+func (pr *Progress) needSnapshotAbort() bool {
 	return pr.State == ProgressStateSnapshot && pr.Match >= pr.PendingSnapshot
 }
 
@@ -214,7 +221,7 @@ func (in *inflights) freeTo(to uint64) {
 		}
 
 		// increase index and maybe rotate
-		if idx += 1; idx >= in.size {
+		if idx++; idx >= in.size {
 			idx -= in.size
 		}
 	}

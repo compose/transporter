@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	p "github.com/dancannon/gorethink/ql2"
+	p "gopkg.in/dancannon/gorethink.v1/ql2"
 )
 
 // A Query represents a query ready to be sent to the database, A Query differs
@@ -14,16 +14,17 @@ import (
 // and also allows the driver to identify the response as they can come out of
 // order.
 type Query struct {
-	Type  p.Query_QueryType
-	Token int64
-	Term  *Term
-	Opts  map[string]interface{}
+	Type      p.Query_QueryType
+	Token     int64
+	Term      *Term
+	Opts      map[string]interface{}
+	builtTerm interface{}
 }
 
 func (q *Query) build() []interface{} {
 	res := []interface{}{int(q.Type)}
 	if q.Term != nil {
-		res = append(res, q.Term.build())
+		res = append(res, q.builtTerm)
 	}
 
 	if len(q.Opts) > 0 {
@@ -44,43 +45,65 @@ type termsObj map[string]Term
 // see http://rethinkdb.com/docs/writing-drivers/.
 type Term struct {
 	name     string
+	rawQuery bool
 	rootTerm bool
 	termType p.Term_TermType
 	data     interface{}
 	args     []Term
 	optArgs  map[string]Term
+	lastErr  error
 }
 
 // build takes the query tree and prepares it to be sent as a JSON
 // expression
-func (t Term) build() interface{} {
+func (t Term) build() (interface{}, error) {
+	var err error
+
+	if t.lastErr != nil {
+		return nil, t.lastErr
+	}
+
+	if t.rawQuery {
+		return t.data, nil
+	}
+
 	switch t.termType {
 	case p.Term_DATUM:
-		return t.data
+		return t.data, nil
 	case p.Term_MAKE_OBJ:
 		res := map[string]interface{}{}
 		for k, v := range t.optArgs {
-			res[k] = v.build()
+			res[k], err = v.build()
+			if err != nil {
+				return nil, err
+			}
 		}
-		return res
+		return res, nil
 	case p.Term_BINARY:
 		if len(t.args) == 0 {
 			return map[string]interface{}{
 				"$reql_type$": "BINARY",
 				"data":        t.data,
-			}
+			}, nil
 		}
 	}
 
-	args := []interface{}{}
-	optArgs := map[string]interface{}{}
+	args := make([]interface{}, len(t.args))
+	optArgs := make(map[string]interface{}, len(t.optArgs))
 
-	for _, v := range t.args {
-		args = append(args, v.build())
+	for i, v := range t.args {
+		arg, err := v.build()
+		if err != nil {
+			return nil, err
+		}
+		args[i] = arg
 	}
 
 	for k, v := range t.optArgs {
-		optArgs[k] = v.build()
+		optArgs[k], err = v.build()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	ret := []interface{}{int(t.termType)}
@@ -92,7 +115,7 @@ func (t Term) build() interface{} {
 		ret = append(ret, optArgs)
 	}
 
-	return ret
+	return ret, nil
 }
 
 // String returns a string representation of the query tree
@@ -133,6 +156,11 @@ func (t Term) String() string {
 	if t.rootTerm {
 		return fmt.Sprintf("r.%s(%s)", t.name, strings.Join(allArgsToStringSlice(t.args, t.optArgs), ", "))
 	}
+
+	if t.args == nil {
+		return "r"
+	}
+
 	return fmt.Sprintf("%s.%s(%s)", t.args[0].String(), t.name, strings.Join(allArgsToStringSlice(t.args[1:], t.optArgs), ", "))
 }
 
@@ -175,9 +203,10 @@ type ChangeResponse struct {
 
 // RunOpts contains the optional arguments for the Run function.
 type RunOpts struct {
-	Db             interface{} `gorethink:"db,omitempty"`
+	DB             interface{} `gorethink:"db,omitempty"`
+	Db             interface{} `gorethink:"db,omitempty"` // Deprecated
 	Profile        interface{} `gorethink:"profile,omitempty"`
-	UseOutdated    interface{} `gorethink:"use_outdated,omitempty"`
+	UseOutdated    interface{} `gorethink:"use_outdated,omitempty"` // Deprecated
 	ArrayLimit     interface{} `gorethink:"array_limit,omitempty"`
 	TimeFormat     interface{} `gorethink:"time_format,omitempty"`
 	GroupFormat    interface{} `gorethink:"group_format,omitempty"`
@@ -212,16 +241,21 @@ func (t Term) Run(s *Session, optArgs ...RunOpts) (*Cursor, error) {
 		opts = optArgs[0].toMap()
 	}
 
-	return s.Query(s.newQuery(t, opts))
+	q, err := s.newQuery(t, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.Query(q)
 }
 
 // RunWrite runs a query using the given connection but unlike Run automatically
-// scans the result into a variable of type WriteResponss. This function should be used
+// scans the result into a variable of type WriteResponse. This function should be used
 // if you are running a write query (such as Insert,  Update, TableCreate, etc...).
 //
 // If an error occurs when running the write query the first error is returned.
 //
-//	res, err := r.Db("database").Table("table").Insert(doc).RunWrite(sess)
+//	res, err := r.DB("database").Table("table").Insert(doc).RunWrite(sess)
 func (t Term) RunWrite(s *Session, optArgs ...RunOpts) (WriteResponse, error) {
 	var response WriteResponse
 
@@ -229,17 +263,14 @@ func (t Term) RunWrite(s *Session, optArgs ...RunOpts) (WriteResponse, error) {
 	if err != nil {
 		return response, err
 	}
+	defer res.Close()
 
 	if err = res.One(&response); err != nil {
 		return response, err
 	}
 
-	if err = res.Close(); err != nil {
-		return response, err
-	}
-
 	if response.Errors > 0 {
-		return response, fmt.Errorf(response.FirstError)
+		return response, fmt.Errorf("%s", response.FirstError)
 	}
 
 	return response, nil
@@ -252,9 +283,10 @@ func (t Term) RunWrite(s *Session, optArgs ...RunOpts) (WriteResponse, error) {
 // When NoReply is true it causes the driver not to wait to receive the result
 // and return immediately.
 type ExecOpts struct {
-	Db             interface{} `gorethink:"db,omitempty"`
+	DB             interface{} `gorethink:"db,omitempty"`
+	Db             interface{} `gorethink:"db,omitempty"` // Deprecated
 	Profile        interface{} `gorethink:"profile,omitempty"`
-	UseOutdated    interface{} `gorethink:"use_outdated,omitempty"`
+	UseOutdated    interface{} `gorethink:"use_outdated,omitempty"` // Deprecated
 	ArrayLimit     interface{} `gorethink:"array_limit,omitempty"`
 	TimeFormat     interface{} `gorethink:"time_format,omitempty"`
 	GroupFormat    interface{} `gorethink:"group_format,omitempty"`
@@ -277,7 +309,7 @@ func (o *ExecOpts) toMap() map[string]interface{} {
 // Exec runs the query but does not return the result. Exec will still wait for
 // the response to be received unless the NoReply field is true.
 //
-//	err := r.Db("database").Table("table").Insert(doc).Exec(sess, r.ExecOpts{
+//	err := r.DB("database").Table("table").Insert(doc).Exec(sess, r.ExecOpts{
 //		NoReply: true,
 //	})
 func (t Term) Exec(s *Session, optArgs ...ExecOpts) error {
@@ -286,5 +318,10 @@ func (t Term) Exec(s *Session, optArgs ...ExecOpts) error {
 		opts = optArgs[0].toMap()
 	}
 
-	return s.Exec(s.newQuery(t, opts))
+	q, err := s.newQuery(t, opts)
+	if err != nil {
+		return err
+	}
+
+	return s.Exec(q)
 }

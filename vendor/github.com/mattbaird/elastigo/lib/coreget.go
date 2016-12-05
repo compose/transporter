@@ -102,7 +102,7 @@ func (c *Conn) ExistsBool(index string, _type string, id string, args map[string
 	return httpStatusCode == http.StatusOK, err
 }
 
-// ExistsIndex allows caller to check for the existance of an index or a type using HEAD
+// ExistsIndex allows caller to check for the existence of an index or a type using HEAD
 func (c *Conn) ExistsIndex(index string, _type string, args map[string]interface{}) (bool, error) {
 	var url string
 

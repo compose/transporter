@@ -1,4 +1,4 @@
-// Copyright 2015 CoreOS, Inc.
+// Copyright 2015 The etcd Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coreos/etcd/Godeps/_workspace/src/golang.org/x/net/context"
+	"golang.org/x/net/context"
 )
 
 func TestV2KeysURLHelper(t *testing.T) {
@@ -356,6 +356,18 @@ func TestSetAction(t *testing.T) {
 			wantURL:  "http://example.com/foo",
 			wantBody: "ttl=180&value=",
 		},
+
+		// Refresh is set
+		{
+			act: setAction{
+				Key:     "foo",
+				TTL:     3 * time.Minute,
+				Refresh: true,
+			},
+			wantURL:  "http://example.com/foo",
+			wantBody: "refresh=true&ttl=180&value=",
+		},
+
 		// Dir is set
 		{
 			act: setAction{
@@ -633,15 +645,14 @@ func assertRequest(got http.Request, wantMethod string, wantURL *url.URL, wantHe
 	} else {
 		if wantBody == nil {
 			return fmt.Errorf("want.Body=%v got.Body=%s", wantBody, got.Body)
-		} else {
-			gotBytes, err := ioutil.ReadAll(got.Body)
-			if err != nil {
-				return err
-			}
+		}
+		gotBytes, err := ioutil.ReadAll(got.Body)
+		if err != nil {
+			return err
+		}
 
-			if !reflect.DeepEqual(wantBody, gotBytes) {
-				return fmt.Errorf("want.Body=%s got.Body=%s", wantBody, gotBytes)
-			}
+		if !reflect.DeepEqual(wantBody, gotBytes) {
+			return fmt.Errorf("want.Body=%s got.Body=%s", wantBody, gotBytes)
 		}
 	}
 
@@ -1234,7 +1245,6 @@ func TestHTTPKeysAPIGetResponse(t *testing.T) {
 func TestHTTPKeysAPIDeleteAction(t *testing.T) {
 	tests := []struct {
 		key        string
-		value      string
 		opts       *DeleteOptions
 		wantAction httpAction
 	}{

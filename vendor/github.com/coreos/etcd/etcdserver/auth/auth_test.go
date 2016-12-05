@@ -1,4 +1,4 @@
-// Copyright 2015 CoreOS, Inc.
+// Copyright 2015 The etcd Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,13 +19,27 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coreos/etcd/Godeps/_workspace/src/golang.org/x/crypto/bcrypt"
-	"github.com/coreos/etcd/Godeps/_workspace/src/golang.org/x/net/context"
 	etcderr "github.com/coreos/etcd/error"
 	"github.com/coreos/etcd/etcdserver"
 	"github.com/coreos/etcd/etcdserver/etcdserverpb"
 	etcdstore "github.com/coreos/etcd/store"
+	"golang.org/x/net/context"
 )
+
+type fakeDoer struct{}
+
+func (_ fakeDoer) Do(context.Context, etcdserverpb.Request) (etcdserver.Response, error) {
+	return etcdserver.Response{}, nil
+}
+
+func TestCheckPassword(t *testing.T) {
+	st := NewStore(fakeDoer{}, 5*time.Second)
+	u := User{Password: "$2a$10$I3iddh1D..EIOXXQtsra4u8AjOtgEa2ERxVvYGfXFBJDo1omXwP.q"}
+	matched := st.CheckPassword(u, "foo")
+	if matched {
+		t.Fatalf("expected false, got %v", matched)
+	}
+}
 
 const testTimeout = time.Millisecond
 
@@ -72,24 +86,20 @@ func TestMergeUser(t *testing.T) {
 			User{User: "foo", Roles: []string{"role1", "role2"}},
 			false,
 		},
-		{
-			User{User: "foo"},
-			User{User: "foo", Password: "bar"},
-			User{User: "foo", Roles: []string{}, Password: "$2a$10$aUPOdbOGNawaVSusg3g2wuC3AH6XxIr9/Ms4VgDvzrAVOJPYzZILa"},
+		{ // empty password will not overwrite the previous password
+			User{User: "foo", Password: "foo", Roles: []string{}},
+			User{User: "foo", Password: ""},
+			User{User: "foo", Password: "foo", Roles: []string{}},
 			false,
 		},
 	}
 
 	for i, tt := range tbl {
-		out, err := tt.input.merge(tt.merge)
+		out, err := tt.input.merge(tt.merge, passwordStore{})
 		if err != nil && !tt.iserr {
 			t.Fatalf("Got unexpected error on item %d", i)
 		}
 		if !tt.iserr {
-			err := bcrypt.CompareHashAndPassword([]byte(out.Password), []byte(tt.merge.Password))
-			if err == nil {
-				tt.expect.Password = out.Password
-			}
 			if !reflect.DeepEqual(out, tt.expect) {
 				t.Errorf("Unequal merge expectation on item %d: got: %#v, expect: %#v", i, out, tt.expect)
 			}
@@ -357,6 +367,15 @@ func TestEnsure(t *testing.T) {
 	}
 }
 
+type fastPasswordStore struct {
+}
+
+func (_ fastPasswordStore) CheckPassword(user User, password string) bool {
+	return user.Password == password
+}
+
+func (_ fastPasswordStore) HashPassword(password string) (string, error) { return password, nil }
+
 func TestCreateAndUpdateUser(t *testing.T) {
 	olduser := `{"user": "cat", "roles" : ["animal"]}`
 	newuser := `{"user": "cat", "roles" : ["animal", "pet"]}`
@@ -410,9 +429,9 @@ func TestCreateAndUpdateUser(t *testing.T) {
 	update := User{User: "cat", Grant: []string{"pet"}}
 	expected := User{User: "cat", Roles: []string{"animal", "pet"}}
 
-	s := store{server: d, timeout: testTimeout, ensuredOnce: true}
+	s := store{server: d, timeout: testTimeout, ensuredOnce: true, PasswordStore: fastPasswordStore{}}
 	out, created, err := s.CreateOrUpdateUser(user)
-	if created == false {
+	if !created {
 		t.Error("Should have created user, instead updated?")
 	}
 	if err != nil {
@@ -423,7 +442,7 @@ func TestCreateAndUpdateUser(t *testing.T) {
 		t.Error("UpdateUser doesn't match given update. Got", out, "expected", expected)
 	}
 	out, created, err = s.CreateOrUpdateUser(update)
-	if created == true {
+	if created {
 		t.Error("Should have updated user, instead created?")
 	}
 	if err != nil {
@@ -568,6 +587,7 @@ func TestEnableAuth(t *testing.T) {
 		t.Error("Unexpected error", err)
 	}
 }
+
 func TestDisableAuth(t *testing.T) {
 	trueval := "true"
 	falseval := "false"

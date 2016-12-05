@@ -6,9 +6,9 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/dancannon/gorethink/encoding"
+	"gopkg.in/dancannon/gorethink.v1/encoding"
 
-	p "github.com/dancannon/gorethink/ql2"
+	p "gopkg.in/dancannon/gorethink.v1/ql2"
 )
 
 // Helper functions for constructing terms
@@ -41,21 +41,33 @@ func constructMethodTerm(prevVal Term, name string, termType p.Term_TermType, ar
 
 // Helper functions for creating internal RQL types
 
-func newQuery(t Term, qopts map[string]interface{}, copts *ConnectOpts) Query {
+func newQuery(t Term, qopts map[string]interface{}, copts *ConnectOpts) (q Query, err error) {
 	queryOpts := map[string]interface{}{}
 	for k, v := range qopts {
-		queryOpts[k] = Expr(v).build()
+		queryOpts[k], err = Expr(v).build()
+		if err != nil {
+			return
+		}
 	}
 	if copts.Database != "" {
-		queryOpts["db"] = DB(copts.Database).build()
+		queryOpts["db"], err = DB(copts.Database).build()
+		if err != nil {
+			return
+		}
+	}
+
+	builtTerm, err := t.build()
+	if err != nil {
+		return q, err
 	}
 
 	// Construct query
 	return Query{
-		Type: p.Query_START,
-		Term: &t,
-		Opts: queryOpts,
-	}
+		Type:      p.Query_START,
+		Term:      &t,
+		Opts:      queryOpts,
+		builtTerm: builtTerm,
+	}, nil
 }
 
 // makeArray takes a slice of terms and produces a single MAKE_ARRAY term
@@ -86,9 +98,9 @@ func makeFunc(f interface{}) Term {
 	var args = make([]reflect.Value, valueType.NumIn())
 	for i := 0; i < valueType.NumIn(); i++ {
 		// Get a slice of the VARs to use as the function arguments
-		args[i] = reflect.ValueOf(constructRootTerm("var", p.Term_VAR, []interface{}{nextVarID}, map[string]interface{}{}))
-		argNums[i] = nextVarID
-		atomic.AddInt64(&nextVarID, 1)
+		varID := atomic.AddInt64(&nextVarID, 1)
+		args[i] = reflect.ValueOf(constructRootTerm("var", p.Term_VAR, []interface{}{varID}, map[string]interface{}{}))
+		argNums[i] = varID
 
 		// make sure all input arguments are of type Term
 		if valueType.In(i).String() != "gorethink.Term" {
@@ -161,6 +173,10 @@ func optArgsToMap(optArgs OptArgs) map[string]interface{} {
 
 // Convert a list into a slice of terms
 func convertTermList(l []interface{}) termsList {
+	if len(l) == 0 {
+		return nil
+	}
+
 	terms := make(termsList, len(l))
 	for i, v := range l {
 		terms[i] = Expr(v)
@@ -171,6 +187,10 @@ func convertTermList(l []interface{}) termsList {
 
 // Convert a map into a map of terms
 func convertTermObj(o map[string]interface{}) termsObj {
+	if len(o) == 0 {
+		return nil
+	}
+
 	terms := make(termsObj, len(o))
 	for k, v := range o {
 		terms[k] = Expr(v)

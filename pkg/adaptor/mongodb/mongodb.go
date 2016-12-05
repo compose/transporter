@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -54,7 +55,7 @@ type MongoDB struct {
 	opsBufferCount   int
 	opsBuffer        map[string][]message.Msg
 	opsBufferSize    int
-	bulkWriteChannel chan *syncDoc
+	bulkWriteChannel chan syncDoc
 	bulkQuitChannel  chan chan bool
 	bulk             bool
 
@@ -62,7 +63,7 @@ type MongoDB struct {
 }
 
 type syncDoc struct {
-	Doc        map[string]interface{}
+	Doc        data.Data
 	Collection string
 }
 
@@ -111,7 +112,7 @@ func init() {
 			debug:            conf.Debug,
 			path:             path,
 			opsBuffer:        make(map[string][]message.Msg),
-			bulkWriteChannel: make(chan *syncDoc),
+			bulkWriteChannel: make(chan syncDoc),
 			bulkQuitChannel:  make(chan chan bool),
 			bulk:             conf.Bulk,
 			conf:             conf,
@@ -172,6 +173,7 @@ func (m *MongoDB) Connect() error {
 	m.mongoSession.EnsureSafe(&mgo.Safe{W: m.conf.Wc, FSync: m.conf.FSync})
 	m.mongoSession.SetBatch(1000)
 	m.mongoSession.SetPrefetch(0.5)
+	m.mongoSession.SetSocketTimeout(time.Hour)
 
 	if m.tail {
 		if iter := m.mongoSession.DB("local").C("oplog.rs").Find(bson.M{}).Limit(1).Iter(); iter.Err() != nil {
@@ -245,7 +247,7 @@ func (m *MongoDB) writeMessage(msg message.Msg) (message.Msg, error) {
 		return msg, nil
 	}
 
-	doc := &syncDoc{
+	doc := syncDoc{
 		Doc:        msg.Data(),
 		Collection: msgColl,
 	}
@@ -258,16 +260,21 @@ func (m *MongoDB) writeMessage(msg message.Msg) (message.Msg, error) {
 	if msg.OP() == ops.Delete {
 		newMsg, dErr := message.Exec(a, a.From(ops.Delete, msgColl, doc.Doc))
 		if dErr != nil {
-			m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error removing (%s)", err.Error()), msg.Data)
+			m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("write message mongodb error removing (%s)", err.Error()), msg.Data)
 		}
 		return newMsg, dErr
 	}
-	msg, err = message.Exec(a, a.From(ops.Insert, m.computeNamespace(msgColl), doc.Doc))
-	if mgo.IsDup(err) {
-		msg, err = message.Exec(a, a.From(ops.Update, m.computeNamespace(msgColl), doc.Doc))
-	}
-	if err != nil {
-		m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error (%s)", err.Error()), msg.Data)
+	for {
+		msg, err = message.Exec(a, a.From(ops.Insert, m.computeNamespace(msgColl), doc.Doc))
+		if mgo.IsDup(err) {
+			msg, err = message.Exec(a, a.From(ops.Update, m.computeNamespace(msgColl), doc.Doc))
+		}
+		if err != nil {
+			fmt.Printf("is dup error on update: %v: retrying %s\n", err, msg.ID())
+			m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("write message mongodb error (%s)", err.Error()), msg.Data())
+		} else {
+			break
+		}
 	}
 	return msg, err
 }
@@ -278,11 +285,11 @@ func (m *MongoDB) bulkWriter() {
 		case doc := <-m.bulkWriteChannel:
 			sz, err := docSize(doc.Doc)
 			if err != nil {
-				m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error (%s)", err.Error()), doc)
+				m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("bulk writer mongodb error (%s)", err.Error()), doc)
 				break
 			}
 
-			if ((sz + m.opsBufferSize) > bufferSize) || (m.opsBufferCount == bufferLen) {
+			if ((sz + m.opsBufferSize) > bufferSize) || (m.opsBufferCount >= bufferLen) {
 				m.writeBuffer() // send it off to be inserted
 			}
 
@@ -307,24 +314,33 @@ func (m *MongoDB) writeBuffer() {
 		if len(docs) == 0 {
 			continue
 		}
-		a := message.MustUseAdaptor("mongo").(mongodb.Adaptor).MustUseSession(m.mongoSession)
-		err := a.BulkInsert(m.database, coll, docs...)
+		for {
+			sess := m.mongoSession.Copy()
+			a := message.MustUseAdaptor("mongo").(mongodb.Adaptor).MustUseSession(sess)
+			err := a.BulkInsert(m.database, coll, docs...)
 
-		if err != nil {
-			if mgo.IsDup(err) {
-				err = nil
-				for _, op := range docs {
-					_, e := message.Exec(a, a.From(ops.Insert, m.computeNamespace(coll), op.Data()))
-					if mgo.IsDup(e) {
-						_, e = message.Exec(a, a.From(ops.Update, m.computeNamespace(coll), op.Data()))
+			if err != nil {
+				if mgo.IsDup(err) {
+					err = nil
+					for _, op := range docs {
+						_, e := message.Exec(a, a.From(ops.Insert, m.computeNamespace(coll), op.Data()))
+						if mgo.IsDup(e) {
+							_, e = message.Exec(a, a.From(ops.Update, m.computeNamespace(coll), op.Data()))
+						}
+						if e != nil {
+							m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("write buffer (loop) mongodb error (%s)", e.Error()), op)
+							sess.Close()
+							continue
+						}
 					}
-					if e != nil {
-						m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error (%s)", e.Error()), op)
-					}
+				} else {
+					m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("write buffer (bulk) mongodb error (%#v)", err.Error()), docs[0])
+					sess.Close()
+					continue
 				}
-			} else {
-				m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("mongodb error (%#v)", err.Error()), docs[0])
 			}
+			sess.Close()
+			break
 		}
 
 	}
@@ -335,7 +351,7 @@ func (m *MongoDB) writeBuffer() {
 }
 
 // catdata pulls down the original collections
-func (m *MongoDB) catData() (err error) {
+func (m *MongoDB) catData() error {
 	collections, _ := m.mongoSession.DB(m.database).CollectionNames()
 	for _, collection := range collections {
 		if strings.HasPrefix(collection, "system.") {
@@ -343,43 +359,55 @@ func (m *MongoDB) catData() (err error) {
 		} else if match := m.collectionMatch.MatchString(collection); !match {
 			continue
 		}
-
-		var (
-			query  = bson.M{}
-			result bson.M // hold the document
-		)
-
-		iter := m.mongoSession.DB(m.database).C(collection).Find(query).Sort("_id").Iter()
-
+		query := bson.M{}
+		// lastID := ""
+		errSleep := time.Second
 		for {
+			if stop := m.pipe.Stopped; stop {
+				return nil
+			}
+			sess := m.mongoSession.Copy()
+
+			// if lastID != "" {
+			// 	query = bson.M{
+			// 		"_id": bson.M{"$gte": rawDataFromString(lastID)},
+			// 	}
+			// }
+			iter := sess.DB(m.database).C(collection).Find(query).Sort("_id").Iter()
+			var result bson.M
 			for iter.Next(&result) {
-				if stop := m.pipe.Stopped; stop {
-					return
-				}
-
-				// set up the message
 				msg := message.MustUseAdaptor("mongo").From(ops.Insert, m.computeNamespace(collection), data.Data(result))
-
 				m.pipe.Send(msg)
+				// lastID = msg.ID()
 				result = bson.M{}
 			}
 
-			// we've exited the mongo read loop, lets figure out why
-			// check here again if we've been asked to quit
-			if stop := m.pipe.Stopped; stop {
-				return
-			}
-
-			if iter.Err() != nil && m.restartable {
-				fmt.Printf("got err reading collection. reissuing query %v\n", iter.Err())
-				time.Sleep(1 * time.Second)
-				iter = m.mongoSession.DB(m.database).C(collection).Find(query).Sort("_id").Iter()
+			if err := iter.Err(); err != nil {
+				fmt.Printf("got err reading collection (%v). reissuing query\n", err)
+				time.Sleep(errSleep)
+				errSleep *= 2
+				sess.Close()
 				continue
 			}
+			errSleep = time.Second
+			sess.Close()
 			break
 		}
 	}
-	return
+	return nil
+}
+
+func rawDataFromString(s string) interface{} {
+	if bson.IsObjectIdHex(s) {
+		return bson.ObjectIdHex(s)
+	}
+	if i, err := strconv.Atoi(s); err != nil {
+		return i
+	}
+	if i, err := strconv.ParseFloat(s, 64); err != nil {
+		return i
+	}
+	return s
 }
 
 /*
@@ -421,7 +449,7 @@ func (m *MongoDB) tailData() (err error) {
 				case "u":
 					doc, err = m.getOriginalDoc(result.O2, coll)
 					if err != nil { // errors aren't fatal here, but we need to send it down the pipe
-						m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("MongoDB error (%s)", err.Error()), nil)
+						m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("tail MongoDB error (%s)", err.Error()), nil)
 						continue
 					}
 				default:

@@ -1,4 +1,4 @@
-// Copyright 2015 CoreOS, Inc.
+// Copyright 2015 The etcd Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,13 +28,16 @@ var (
 	resolveTCPAddr = net.ResolveTCPAddr
 )
 
+// SRVGetCluster gets the cluster information via DNS discovery.
 // TODO(barakmich): Currently ignores priority and weight (as they don't make as much sense for a bootstrap)
 // Also doesn't do any lookups for the token (though it could)
 // Also sees each entry as a separate instance.
 func SRVGetCluster(name, dns string, defaultToken string, apurls types.URLs) (string, string, error) {
-	stringParts := make([]string, 0)
+	var (
+		stringParts []string
+		tcpAPUrls   []string
+	)
 	tempName := int(0)
-	tcpAPUrls := make([]string, 0)
 
 	// First, resolve the apurls
 	for _, url := range apurls {
@@ -67,7 +70,7 @@ func SRVGetCluster(name, dns string, defaultToken string, apurls types.URLs) (st
 			}
 			if n == "" {
 				n = fmt.Sprintf("%d", tempName)
-				tempName += 1
+				tempName++
 			}
 			stringParts = append(stringParts, fmt.Sprintf("%s=%s%s", n, prefix, host))
 			plog.Noticef("got bootstrap from DNS for %s at %s%s", service, prefix, host)
@@ -80,12 +83,12 @@ func SRVGetCluster(name, dns string, defaultToken string, apurls types.URLs) (st
 	srvErr := make([]string, 2)
 	if err != nil {
 		srvErr[0] = fmt.Sprintf("error querying DNS SRV records for _etcd-server-ssl %s", err)
-		failCount += 1
+		failCount++
 	}
 	err = updateNodeMap("etcd-server", "http://")
 	if err != nil {
 		srvErr[1] = fmt.Sprintf("error querying DNS SRV records for _etcd-server %s", err)
-		failCount += 1
+		failCount++
 	}
 	if failCount == 2 {
 		plog.Warningf(srvErr[0])

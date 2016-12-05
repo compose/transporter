@@ -1,11 +1,59 @@
+dist: trusty
 language: go
+go_import_path: github.com/coreos/etcd
 sudo: false
-go:
-  - 1.4
-  - 1.5
 
+go:
+  - 1.6
+  - tip
+
+env:
+  global:
+   - GO15VENDOREXPERIMENT=1
+  matrix:
+   - TARGET=amd64
+   - TARGET=arm64
+   - TARGET=arm
+   - TARGET=386
+
+matrix:
+  fast_finish: true
+  allow_failures:
+    - go: tip
+  exclude:
+  - go: tip
+    env: TARGET=arm
+  - go: tip
+    env: TARGET=arm64
+  - go: tip
+    env: TARGET=386
+
+addons:
+  apt:
+    packages:
+    - libpcap-dev
+    - libaspell-dev
+    - libhunspell-dev
+
+before_install:
+ - go get -v github.com/chzchzchz/goword
+ - go get -v honnef.co/go/simple/cmd/gosimple
+ - go get -v honnef.co/go/unused/cmd/unused
+
+# disable godep restore override
 install:
- - go get github.com/barakmich/go-nyet
+ - pushd cmd/ && go get -t -v ./... && popd
 
 script:
- - INTEGRATION=y ./test
+ - >
+    case "${TARGET}" in
+      amd64)
+        GOARCH=amd64 ./test
+        ;;
+      386)
+        GOARCH=386 PASSES="build unit" ./test
+        ;;
+      *)
+        GOARCH="${TARGET}" ./build
+        ;;
+    esac

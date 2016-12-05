@@ -16,7 +16,7 @@ import (
 	"strings"
 )
 
-// IndicesExists checks for the existance of indices. uses RecordNotFound message if it doesn't exist and
+// IndicesExists checks for the existence of indices. uses RecordNotFound message if it doesn't exist and
 // "no error" situation if it exists. If there is some other error, gives the error and says it exists
 // just in case
 // see http://www.elasticsearch.org/guide/reference/api/admin-indices-indices-exists/

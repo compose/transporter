@@ -6,13 +6,13 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/compose/mejson"
 	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/message"
 	"github.com/compose/transporter/pkg/message/adaptor/transformer"
 	"github.com/compose/transporter/pkg/message/data"
 	"github.com/compose/transporter/pkg/message/ops"
 	"github.com/compose/transporter/pkg/pipe"
+	"github.com/compose/mejson"
 	"github.com/robertkrimen/otto"
 	_ "github.com/robertkrimen/otto/underscore" // enable underscore
 )

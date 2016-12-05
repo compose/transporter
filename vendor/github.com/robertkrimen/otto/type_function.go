@@ -31,13 +31,18 @@ type _nativeFunction func(FunctionCall) Value
 
 type _nativeFunctionObject struct {
 	name      string
+	file      string
+	line      int
 	call      _nativeFunction    // [[Call]]
 	construct _constructFunction // [[Construct]]
 }
 
-func (runtime *_runtime) newNativeFunctionObject(name string, native _nativeFunction, length int) *_object {
+func (runtime *_runtime) newNativeFunctionObject(name, file string, line int, native _nativeFunction, length int) *_object {
 	self := runtime.newClassObject("Function")
 	self.value = _nativeFunctionObject{
+		name:      name,
+		file:      file,
+		line:      line,
 		call:      native,
 		construct: defaultConstruct,
 	}
@@ -125,11 +130,27 @@ func (self *_object) call(this Value, argumentList []Value, eval bool, frame _fr
 	switch fn := self.value.(type) {
 
 	case _nativeFunctionObject:
-		// TODO Enter a scope, name from the native object...
 		// Since eval is a native function, we only have to check for it here
 		if eval {
 			eval = self == self.runtime.eval // If eval is true, then it IS a direct eval
 		}
+
+		// Enter a scope, name from the native object...
+		rt := self.runtime
+		if rt.scope != nil && !eval {
+			rt.enterFunctionScope(rt.scope.lexical, this)
+			rt.scope.frame = _frame{
+				native:     true,
+				nativeFile: fn.file,
+				nativeLine: fn.line,
+				callee:     fn.name,
+				file:       nil,
+			}
+			defer func() {
+				rt.leaveScope()
+			}()
+		}
+
 		return fn.call(FunctionCall{
 			runtime: self.runtime,
 			eval:    eval,
@@ -147,10 +168,13 @@ func (self *_object) call(this Value, argumentList []Value, eval bool, frame _fr
 	case _nodeFunctionObject:
 		rt := self.runtime
 		stash := rt.enterFunctionScope(fn.stash, this)
+		rt.scope.frame = _frame{
+			callee: fn.node.name,
+			file:   fn.node.file,
+		}
 		defer func() {
 			rt.leaveScope()
 		}()
-		rt.scope.frame = frame
 		callValue := rt.cmpl_call_nodeFunction(self, stash, fn.node, this, argumentList)
 		if value, valid := callValue.value.(_result); valid {
 			return value.value
@@ -259,4 +283,10 @@ func (self *FunctionCall) thisClassObject(class string) *_object {
 
 func (self FunctionCall) toObject(value Value) *_object {
 	return self.runtime.toObject(value)
+}
+
+// CallerLocation will return file location information (file:line:pos) where this function is being called.
+func (self FunctionCall) CallerLocation() string {
+	// see error.go for location()
+	return self.runtime.scope.outer.frame.location()
 }

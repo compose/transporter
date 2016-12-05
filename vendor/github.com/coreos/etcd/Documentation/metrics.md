@@ -1,137 +1,136 @@
-## Metrics
+# Metrics
 
-**NOTE: The metrics feature is considered as an experimental. We might add/change/remove metrics without warning in the future releases.**
+etcd uses [Prometheus][prometheus] for metrics reporting. The metrics can be used for real-time monitoring and debugging. etcd does not persist its metrics; if a member restarts, the metrics will be reset.
 
-etcd uses [Prometheus](http://prometheus.io/) for metrics reporting in the server. The metrics can be used for real-time monitoring and debugging.
+The simplest way to see the available metrics is to cURL the metrics endpoint `/metrics`. The format is described [here](http://prometheus.io/docs/instrumenting/exposition_formats/).
 
-The simplest way to see the available metrics is to cURL the metrics endpoint `/metrics` of etcd. The format is described [here](http://prometheus.io/docs/instrumenting/exposition_formats/).
+Follow the [Prometheus getting started doc][prometheus-getting-started] to spin up a Prometheus server to collect etcd metrics.
 
+The naming of metrics follows the suggested [Prometheus best practices][prometheus-naming]. A metric name has an `etcd` or `etcd_debugging` prefix as its namespace and a subsystem prefix (for example `wal` and `etcdserver`).
 
-You can also follow the doc [here](http://prometheus.io/docs/introduction/getting_started/) to start a Promethus server and monitor etcd metrics.
+## etcd namespace metrics
 
-The naming of metrics follows the suggested [best practice of Promethus](http://prometheus.io/docs/practices/naming/). A metric name has an `etcd` prefix as its namespace and a subsystem prefix (for example `wal` and `etcdserver`).
+The metrics under the `etcd` prefix are for monitoring and alerting. They are stable high level metrics. If there is any change of these metrics, it will be included in release notes.
 
-etcd now exposes the following metrics:
+Metrics that are etcd2 related are documented [v2 metrics guide][v2-http-metrics].
 
-### etcdserver
+### Server
 
-| Name                                    | Description                                      | Type    |
-|-----------------------------------------|--------------------------------------------------|---------|
-| file_descriptors_used_total             | The total number of file descriptors used        | Gauge   |
-| proposal_durations_milliseconds         | The latency distributions of committing proposal | Summary |
-| pending_proposal_total                  | The total number of pending proposals            | Gauge   |
-| proposal_failed_total                   | The total number of failed proposals             | Counter |
+These metrics describe the status of the etcd server. In order to detect outages or problems for troubleshooting, the server metrics of every production etcd cluster should be closely monitored.
 
-High file descriptors (`file_descriptors_used_total`) usage (near the file descriptors limitation of the process) indicates a potential out of file descriptors issue. That might cause etcd fails to create new WAL files and panics.
+All these metrics are prefixed with `etcd_server_`
 
-[Proposal](glossary.md#proposal) durations (`proposal_durations_milliseconds`) give you an summary about the proposal commit latency. Latency can be introduced into this process by network and disk IO.
+| Name                      | Description                                              | Type    |
+|---------------------------|----------------------------------------------------------|---------|
+| has_leader                | Whether or not a leader exists. 1 is existence, 0 is not.| Gauge   |
+| leader_changes_seen_total | The number of leader changes seen.                       | Counter |
+| proposals_committed_total | The total number of consensus proposals committed.       | Gauge   |
+| proposals_applied_total   | The total number of consensus proposals applied.         | Gauge   |
+| proposals_pending         | The current number of pending proposals.                 | Gauge   |
+| proposals_failed_total    | The total number of failed proposals seen.               | Counter |
 
-Pending proposal (`pending_proposal_total`) gives you an idea about how many proposal are in the queue and waiting for commit. An increasing pending number indicates a high client load or an unstable cluster.
+`has_leader` indicates whether the member has a leader. If a member does not have a leader, it is
+totally unavailable. If all the members in the cluster do not have any leader, the entire cluster
+is totally unavailable.
 
-Failed proposals (`proposal_failed_total`) are normally related to two issues: temporary failures related to a leader election or longer duration downtime caused by a loss of quorum in the cluster.
+`leader_changes_seen_total` counts the number of leader changes the member has seen since its start. Rapid leadership changes impact the performance of etcd significantly. It also signals that the leader is unstable, perhaps due to network connectivity issues or excessive load hitting the etcd cluster.
 
+`proposals_committed_total` records the total number of consensus proposals committed. This gauge should increase over time if the cluster is healthy. Several healthy members of an etcd cluster may have different total committed proposals at once. This discrepancy may be due to recovering from peers after starting, lagging behind the leader, or being the leader and therefore having the most commits. It is important to monitor this metric across all the members in the cluster; a consistently large lag between a single member and its leader indicates that member is slow or unhealthy.
 
-### store
+`proposals_applied_total` records the total number of consensus proposals applied. The etcd server applies every committed proposal asynchronously. The difference between `proposals_committed_total` and `proposals_applied_total` should usually be small (within a few thousands even under high load). If the difference between them continues to rise, it indicates that the etcd server is overloaded. This might happen when applying expensive queries like heavy range queries or large txn operations.
 
-These metrics describe the accesses into the data store of etcd members that exist in the cluster. They 
-are useful to count what kind of actions are taken by users. It is also useful to see and whether all etcd members 
-"see" the same set of data mutations, and whether reads and watches (which are local) are equally distributed.
+`proposals_pending` indicates how many proposals are queued to commit. Rising pending proposals suggests there is a high client load or the member cannot commit proposals.
 
-All these metrics are prefixed with `etcd_store_`. 
+`proposals_failed_total` are normally related to two issues: temporary failures related to a leader election or longer downtime caused by a loss of quorum in the cluster.
 
-| Name                      | Description                                                                          | Type                   |
-|---------------------------|------------------------------------------------------------------------------------------|--------------------|
-| reads_total               | Total number of reads from store, should differ among etcd members (local reads).    | Counter(action)        |
-| writes_total              | Total number of writes to store, should be same among all etcd members.              | Counter(action)        |
-| reads_failed_total        | Number of failed reads from store (e.g. key missing) on local reads.                 | Counter(action)        |
-| writes_failed_total     | Number of failed writes to store (e.g. failed compare and swap).                       | Counter(action)        |
-| expires_total             | Total number of expired keys (due to TTL).                                           | Counter                |
-| watch_requests_totals     | Total number of incoming watch requests to this etcd member (local watches).         | Counter                | 
-| watchers                  | Current count of active watchers on this etcd member.                                | Gauge                  |
+### Disk
 
-Both `reads_total` and `writes_total` count both successful and failed requests. `reads_failed_total` and 
-`writes_failed_total` count failed requests. A lot of failed writes indicate possible contentions on keys (e.g. when 
-doing  `compareAndSet`), and read failures indicate that some clients try to access keys that don't exist.
+These metrics describe the status of the disk operations.
+
+All these metrics are prefixed with `etcd_disk_`.
+
+| Name                               | Description                                           | Type      |
+|------------------------------------|-------------------------------------------------------|-----------|
+| wal_fsync_duration_seconds         | The latency distributions of fsync called by wal      | Histogram |
+| backend_commit_duration_seconds    | The latency distributions of commit called by backend.| Histogram |
+
+A `wal_fsync` is called when etcd persists its log entries to disk before applying them.
+
+A `backend_commit` is called when etcd commits an incremental snapshot of its most recent changes to disk.
+
+High disk operation latencies (`wal_fsync_duration_seconds` or `backend_commit_duration_seconds`) often indicate disk issues. It may cause high request latency or make the cluster unstable.
+
+### Network
+
+These metrics describe the status of the network.
+
+All these metrics are prefixed with `etcd_network_`
+
+| Name                      | Description                                                        | Type          |
+|---------------------------|--------------------------------------------------------------------|---------------|
+| peer_sent_bytes_total           | The total number of bytes sent to the peer with ID `To`.         | Counter(To)   |
+| peer_received_bytes_total       | The total number of bytes received from the peer with ID `From`. | Counter(From) |
+| peer_round_trip_time_seconds    | Round-Trip-Time histogram between peers.                         | Histogram(To) |
+| client_grpc_sent_bytes_total    | The total number of bytes sent to grpc clients.                  | Counter   |
+| client_grpc_received_bytes_total| The total number of bytes received to grpc clients.              | Counter   |
+
+`peer_sent_bytes_total` counts the total number of bytes sent to a specific peer. Usually the leader member sends more data than other members since it is responsible for transmitting replicated data.
+
+`peer_received_bytes_total` counts the total number of bytes received from a specific peer. Usually follower members receive data only from the leader member.
+
+### gRPC requests
+
+These metrics describe the requests served by a specific etcd member: total received requests, total failed requests, and processing latency. They are useful for tracking user-generated traffic hitting the etcd cluster.
+
+All these metrics are prefixed with `etcd_grpc_`
+
+| Name                           | Description                                                                         | Type                   |
+|--------------------------------|-------------------------------------------------------------------------------------|------------------------|
+| requests_total                 | Total number of received requests                                                   | Counter(method)        |
+| requests_failed_total                   | Total number of failed requests.                                                    | Counter(method,error)  |
+| unary_requests_duration_seconds     | Bucketed handling duration of the requests.                                         | Histogram(method)      |
+
 
 Example Prometheus queries that may be useful from these metrics (across all etcd members):
-
- *  `sum(rate(etcd_store_reads_total{job="etcd"}[1m])) by (action)`
-    `max(rate(etcd_store_writes_total{job="etcd"}[1m])) by (action)`
+ 
+ * `sum(rate(etcd_grpc_requests_failed_total{job="etcd"}[1m]) by (grpc_method) / sum(rate(etcd_grpc_total{job="etcd"})[1m]) by (grpc_method)` 
     
-    Rate of reads and writes by action, across all servers across a time window of `1m`. The reason why `max` is used
-     for writes as opposed to `sum` for reads is because all of etcd nodes in the cluster apply all writes to their stores.
-    Shows the rate of successfull readonly/write queries across all servers, across a time window of `1m`.
- * `sum(rate(etcd_store_watch_requests_total{job="etcd"}[1m]))`
+    Shows the fraction of events that failed by gRPC method across all members, across a time window of `1m`.
+ 
+ * `sum(rate(etcd_grpc_requests_total{job="etcd",grpc_method="PUT"})[1m]) by (grpc_method)`
     
-    Shows rate of new watch requests per second. Likely driven by how often watched keys change. 
- * `sum(etcd_store_watchers{job="etcd"})`
+    Shows the rate of PUT requests across all members, across a time window of `1m`.
     
-    Number of active watchers across all etcd servers.        
-
-
-### wal
-
-| Name                               | Description                                      | Type    |
-|------------------------------------|--------------------------------------------------|---------|
-| fsync_durations_microseconds       | The latency distributions of fsync called by wal | Summary |
-| last_index_saved                   | The index of the last entry saved by wal         | Gauge   |
-
-Abnormally high fsync duration (`fsync_durations_microseconds`) indicates disk issues and might cause the cluster to be unstable.
-
-### snapshot
-
-| Name                                       | Description                                                | Type    |
-|--------------------------------------------|------------------------------------------------------------|---------|
-| snapshot_save_total_durations_microseconds | The total latency distributions of save called by snapshot | Summary |
-
-Abnormally high snapshot duration (`snapshot_save_total_durations_microseconds`) indicates disk issues and might cause the cluster to be unstable.
-
-
-### rafthttp
-
-| Name                              | Description                                | Type    | Labels                         |
-|-----------------------------------|--------------------------------------------|---------|--------------------------------|
-| message_sent_latency_microseconds | The latency distributions of messages sent | Summary | sendingType, msgType, remoteID |
-| message_sent_failed_total         | The total number of failed messages sent   | Summary | sendingType, msgType, remoteID |
-
-
-Abnormally high message duration (`message_sent_latency_microseconds`) indicates network issues and might cause the cluster to be unstable.
-
-An increase in message failures (`message_sent_failed_total`) indicates more severe network issues and might cause the cluster to be unstable.
-
-Label `sendingType` is the connection type to send messages. `message`, `msgapp` and `msgappv2` use HTTP streaming, while `pipeline` does HTTP request for each message.
-
-Label `msgType` is the type of raft message. `MsgApp` is log replication message; `MsgSnap` is snapshot install message; `MsgProp` is proposal forward message; the others are used to maintain raft internal status. If you have a large snapshot, you would expect a long msgSnap sending latency. For other types of messages, you would expect low latency, which is comparable to your ping latency if you have enough network bandwidth.
-
-Label `remoteID` is the member ID of the message destination.
-
-
-### proxy
-
-etcd members operating in proxy mode do not do store operations. They forward all requests
- to cluster instances.
-
-Tracking the rate of requests coming from a proxy allows one to pin down which machine is performing most reads/writes.
-
-All these metrics are prefixed with `etcd_proxy_`
-
-| Name                      | Description                                                                         | Type                   |
-|---------------------------|-----------------------------------------------------------------------------------------|--------------------|
-| requests_total            | Total number of requests by this proxy instance.    .                               | Counter(method)        |
-| handled_total             | Total number of fully handled requests, with responses from etcd members.           | Counter(method)        |
-| dropped_total             | Total number of dropped requests due to forwarding errors to etcd members.          | Counter(method,error)  |
-| handling_duration_seconds | Bucketed handling times by HTTP method, including round trip to member instances.   | Histogram(method)      |  
-
-Example Prometheus queries that may be useful from these metrics (across all etcd servers):
-
- *  `sum(rate(etcd_proxy_handled_total{job="etcd"}[1m])) by (method)`
+ * `histogram_quantile(0.9, sum(rate(etcd_grpc_unary_requests_duration_seconds{job="etcd",grpc_method="PUT"}[5m]) ) by (le))`
     
-    Rate of requests (by HTTP method) handled by all proxies, across a window of `1m`. 
- * `histogram_quantile(0.9, sum(increase(etcd_proxy_events_handling_time_seconds_bucket{job="etcd",method="GET"}[5m])) by (le))`
-   `histogram_quantile(0.9, sum(increase(etcd_proxy_events_handling_time_seconds_bucket{job="etcd",method!="GET"}[5m])) by (le))`
-    
-    Show the 0.90-tile latency (in seconds) of handling of user requestsacross all proxy machines, with a window of `5m`.  
- * `sum(rate(etcd_proxy_dropped_total{job="etcd"}[1m])) by (proxying_error)`
-    
-    Number of failed request on the proxy. This should be 0, spikes here indicate connectivity issues to etcd cluster.
-            
+    Show the 0.90-tile latency (in seconds) of PUT request handling across all members, with a window of `5m`. 
+
+## etcd_debugging namespace metrics
+
+The metrics under the `etcd_debugging` prefix are for debugging. They are very implementation dependent and volatile. They might be changed or removed without any warning in new etcd releases. Some of the metrics might be moved to the `etcd` prefix when they become more stable.
+
+
+### Snapshot
+
+| Name                                       | Description                                                | Type      |
+|--------------------------------------------|------------------------------------------------------------|-----------|
+| snapshot_save_total_duration_seconds      | The total latency distributions of save called by snapshot | Histogram |
+
+Abnormally high snapshot duration (`snapshot_save_total_duration_seconds`) indicates disk issues and might cause the cluster to be unstable.
+
+## Prometheus supplied metrics
+
+The Prometheus client library provides a number of metrics under the `go` and `process` namespaces. There are a few that are particlarly interesting.
+
+| Name                              | Description                                | Type         |
+|-----------------------------------|--------------------------------------------|--------------|
+| process_open_fds                  | Number of open file descriptors.           | Gauge        |
+| process_max_fds                   | Maximum number of open file descriptors.   | Gauge        |
+
+Heavy file descriptor (`process_open_fds`) usage (i.e., near the process's file descriptor limit, `process_max_fds`) indicates a potential file descriptor exhaustion issue. If the file descriptors are exhausted, etcd may panic because it cannot create new WAL files.
+
+[glossary-proposal]: learning/glossary.md#proposal
+[prometheus]: http://prometheus.io/
+[prometheus-getting-started]: http://prometheus.io/docs/introduction/getting_started/
+[prometheus-naming]: http://prometheus.io/docs/practices/naming/
+[v2-http-metrics]: v2/metrics.md#http-requests

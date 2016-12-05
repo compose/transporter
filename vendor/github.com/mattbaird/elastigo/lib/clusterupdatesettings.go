@@ -25,7 +25,7 @@ func (c *Conn) UpdateSettings(settingType string, key string, value int) (Cluste
 		return retval, fmt.Errorf("settingType must be one of transient or persistent, you passed %s", settingType)
 	}
 	var url string = "/_cluster/state"
-	m := map[string]map[string]int{settingType: map[string]int{key: value}}
+	m := map[string]map[string]int{settingType: {key: value}}
 	body, err := c.DoCommand("PUT", url, nil, m)
 	if err != nil {
 		return retval, err

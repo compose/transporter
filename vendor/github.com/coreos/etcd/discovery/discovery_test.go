@@ -1,4 +1,4 @@
-// Copyright 2015 CoreOS, Inc.
+// Copyright 2015 The etcd Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,8 +25,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coreos/etcd/Godeps/_workspace/src/github.com/jonboulle/clockwork"
-	"github.com/coreos/etcd/Godeps/_workspace/src/golang.org/x/net/context"
+	"github.com/jonboulle/clockwork"
+	"golang.org/x/net/context"
 
 	"github.com/coreos/etcd/client"
 )
@@ -182,7 +182,7 @@ func TestCheckCluster(t *testing.T) {
 	}
 
 	for i, tt := range tests {
-		rs := make([]*client.Response, 0)
+		var rs []*client.Response
 		if len(tt.nodes) > 0 {
 			rs = append(rs, &client.Response{Node: tt.nodes[0], Index: tt.index})
 			rs = append(rs, &client.Response{
@@ -267,7 +267,7 @@ func TestWaitNodes(t *testing.T) {
 		dBase := &discovery{cluster: "1000", c: c}
 
 		// Retry case
-		retryScanResp := make([]*client.Response, 0)
+		var retryScanResp []*client.Response
 		if len(tt.nodes) > 0 {
 			retryScanResp = append(retryScanResp, &client.Response{
 				Node: &client.Node{
@@ -329,9 +329,9 @@ func TestCreateSelf(t *testing.T) {
 		{c, nil},
 		// client.create returns an error
 		{errc, errc.err},
-		// watcher.next retuens an error
+		// watcher.next returns an error
 		{errwc, errw.err},
-		// parse key exist error to duplciate ID error
+		// parse key exist error to duplicate ID error
 		{errdupc, ErrDuplicateID},
 	}
 
@@ -406,18 +406,18 @@ func TestSortableNodes(t *testing.T) {
 	}
 	sns := sortableNodes{ns}
 	sort.Sort(sns)
-	cis := make([]int, 0)
+	var cis []int
 	for _, n := range sns.Nodes {
 		cis = append(cis, int(n.CreatedIndex))
 	}
-	if sort.IntsAreSorted(cis) != true {
+	if !sort.IntsAreSorted(cis) {
 		t.Errorf("isSorted = %v, want %v", sort.IntsAreSorted(cis), true)
 	}
 	cis = make([]int, 0)
 	for _, n := range ns {
 		cis = append(cis, int(n.CreatedIndex))
 	}
-	if sort.IntsAreSorted(cis) != true {
+	if !sort.IntsAreSorted(cis) {
 		t.Errorf("isSorted = %v, want %v", sort.IntsAreSorted(cis), true)
 	}
 }

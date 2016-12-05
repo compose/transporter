@@ -1,4 +1,4 @@
-// Copyright 2015 CoreOS, Inc.
+// Copyright 2015 The etcd Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,28 +15,41 @@
 package rafthttp
 
 import (
-	"net/http"
 	"net/http/httptest"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/coreos/etcd/Godeps/_workspace/src/golang.org/x/net/context"
 	"github.com/coreos/etcd/etcdserver/stats"
 	"github.com/coreos/etcd/pkg/types"
 	"github.com/coreos/etcd/raft"
 	"github.com/coreos/etcd/raft/raftpb"
+	"golang.org/x/net/context"
 )
 
 func BenchmarkSendingMsgApp(b *testing.B) {
 	// member 1
-	tr := NewTransporter(&http.Transport{}, types.ID(1), types.ID(1), &fakeRaft{}, nil, newServerStats(), stats.NewLeaderStats("1"))
+	tr := &Transport{
+		ID:          types.ID(1),
+		ClusterID:   types.ID(1),
+		Raft:        &fakeRaft{},
+		ServerStats: newServerStats(),
+		LeaderStats: stats.NewLeaderStats("1"),
+	}
+	tr.Start()
 	srv := httptest.NewServer(tr.Handler())
 	defer srv.Close()
 
 	// member 2
 	r := &countRaft{}
-	tr2 := NewTransporter(&http.Transport{}, types.ID(2), types.ID(1), r, nil, newServerStats(), stats.NewLeaderStats("2"))
+	tr2 := &Transport{
+		ID:          types.ID(2),
+		ClusterID:   types.ID(1),
+		Raft:        r,
+		ServerStats: newServerStats(),
+		LeaderStats: stats.NewLeaderStats("2"),
+	}
+	tr2.Start()
 	srv2 := httptest.NewServer(tr2.Handler())
 	defer srv2.Close()
 
@@ -44,7 +57,7 @@ func BenchmarkSendingMsgApp(b *testing.B) {
 	defer tr.Stop()
 	tr2.AddPeer(types.ID(1), []string{srv.URL})
 	defer tr2.Stop()
-	if !waitStreamWorking(tr.(*transport).Get(types.ID(2)).(*peer)) {
+	if !waitStreamWorking(tr.Get(types.ID(2)).(*peer)) {
 		b.Fatalf("stream from 1 to 2 is not in work as expected")
 	}
 

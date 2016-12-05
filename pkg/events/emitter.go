@@ -138,17 +138,17 @@ func LogEmitter() EmitFunc {
 }
 
 // JSONLogEmitter constructs a LogEmitter to use with a transporter pipeline.
-// A JsonLogEmitter listens on the event channel and uses go's log package to emit the event,
+// A JsonLogEmitter listens on the event channel and uses go's fmt package to emit the event,
 // eg.
-// 2015/07/14 11:52:01 {"ts":1436889121,"name":"metrics","path":"source-development.jobs/dest-x.jobs","records":121}
-// 2015/07/14 11:52:01 {"ts":1436889121,"name":"exit","version":"0.0.4","endpoints":{"dest-x.jobs":"mongo","source-development.jobs":"mongo"}}
+// {"ts":1436889121,"name":"metrics","path":"source-development.jobs/dest-x.jobs","records":121}
+// {"ts":1436889121,"name":"exit","version":"0.0.4","endpoints":{"dest-x.jobs":"mongo","source-development.jobs":"mongo"}}
 func JSONLogEmitter() EmitFunc {
 	return EmitFunc(func(event Event) error {
 		j, err := event.Emit()
 		if err != nil {
 			return err
 		}
-		log.Println(string(j))
+		fmt.Println(string(j))
 		return nil
 	})
 }
