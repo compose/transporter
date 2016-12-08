@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/compose/transporter",
-	"GoVersion": "go1.4.2",
+	"GoVersion": "go1.4",
 	"Packages": [
 		"./..."
 	],
@@ -65,6 +65,11 @@
 		{
 			"ImportPath": "github.com/robertkrimen/otto",
 			"Rev": "dea31a3d392779af358ec41f77a07fcc7e9d04ba"
+		},
+		{
+			"ImportPath": "github.com/sendgridlabs/go-kinesis",
+			"Comment": "1.0.1-18-g6bfbebe",
+			"Rev": "6bfbebe8eea5e7045704521629a3db151a99b674"
 		},
 		{
 			"ImportPath": "gopkg.in/dancannon/gorethink.v1",

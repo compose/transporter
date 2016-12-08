@@ -50,3 +50,10 @@ nodes:
   logtransformer:
     filename: test/transformers/passthrough_and_log.js
     type: transformer
+  kinesisstream:
+    type: kinesis
+    awsaccesskey: XXXX
+    awssecretkey: XXXX
+    awsrregionname: us-east-1
+    streamname: appbase_test
+    sharditeratortype: TRIM_HORIZON
