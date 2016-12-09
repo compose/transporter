@@ -1,3 +1,9 @@
+## v0.1.2 [UNRELEASED]
+
+### Bugfixes
+- [#213](https://github.com/compose/transporter/pull/213): track mongodb \_id field so we can attempt to reissue queries
+
+
 ## v0.1.1 [2015-08-27]
 
 This release contains the first step to getting savable state into adaptors for the ability to resume.

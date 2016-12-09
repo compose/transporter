@@ -359,8 +359,8 @@ func (m *MongoDB) catData() error {
 		} else if match := m.collectionMatch.MatchString(collection); !match {
 			continue
 		}
-		query := bson.M{}
-		// lastID := ""
+		canReissueQuery := m.requeryable(collection)
+		var lastID interface{}
 		errSleep := time.Second
 		for {
 			if stop := m.pipe.Stopped; stop {
@@ -368,26 +368,27 @@ func (m *MongoDB) catData() error {
 			}
 			sess := m.mongoSession.Copy()
 
-			// if lastID != "" {
-			// 	query = bson.M{
-			// 		"_id": bson.M{"$gte": rawDataFromString(lastID)},
-			// 	}
-			// }
-			iter := sess.DB(m.database).C(collection).Find(query).Sort("_id").Iter()
+			iter := m.catQuery(collection, lastID, sess).Iter()
 			var result bson.M
 			for iter.Next(&result) {
 				msg := message.MustUseAdaptor("mongo").From(ops.Insert, m.computeNamespace(collection), data.Data(result))
-				m.pipe.Send(msg)
-				// lastID = msg.ID()
+				if id, ok := result["_id"]; ok {
+					lastID = id
+				}
 				result = bson.M{}
+				m.pipe.Send(msg)
 			}
 
 			if err := iter.Err(); err != nil {
-				fmt.Printf("got err reading collection (%v). reissuing query\n", err)
-				time.Sleep(errSleep)
-				errSleep *= 2
+				fmt.Printf("got err reading collection (%v)\n", err)
 				sess.Close()
-				continue
+				if canReissueQuery {
+					fmt.Println("attempting to reissue query")
+					time.Sleep(errSleep)
+					errSleep *= 2
+					continue
+				}
+				break
 			}
 			errSleep = time.Second
 			sess.Close()
@@ -397,14 +398,56 @@ func (m *MongoDB) catData() error {
 	return nil
 }
 
+func (m *MongoDB) catQuery(collection string, lastID interface{}, sess *mgo.Session) *mgo.Query {
+	query := bson.M{}
+	if lastID != nil {
+		query = bson.M{"_id": bson.M{"$gte": lastID}}
+	}
+	return sess.DB(m.database).C(collection).Find(query).Sort("_id")
+}
+
+func (m *MongoDB) requeryable(collection string) bool {
+	sess := m.mongoSession.Copy()
+	defer sess.Close()
+	indexes, err := sess.DB(m.database).C(collection).Indexes()
+	if err != nil {
+		fmt.Printf("[ERROR] unable to list indexes for %s, %s", collection, err)
+		return false
+	}
+	for _, index := range indexes {
+		if index.Key[0] == "_id" {
+			var result bson.M
+			err := sess.DB(m.database).C(collection).Find(nil).Select(bson.M{"_id": 1}).One(&result)
+			if err != nil {
+				fmt.Printf("[ERROR] unable to sample document, %s", err)
+				break
+			}
+			if id, ok := result["_id"]; ok && sortable(id) {
+				return true
+			}
+			break
+		}
+	}
+	fmt.Printf("[WARN] %s invalid _id, any issues with copying the collection will be aborted", collection)
+	return false
+}
+
+func sortable(id interface{}) bool {
+	switch id.(type) {
+	case bson.ObjectId, string, float64, int64, time.Time:
+		return true
+	}
+	return false
+}
+
 func rawDataFromString(s string) interface{} {
 	if bson.IsObjectIdHex(s) {
 		return bson.ObjectIdHex(s)
 	}
-	if i, err := strconv.Atoi(s); err != nil {
+	if i, err := strconv.Atoi(s); err == nil {
 		return i
 	}
-	if i, err := strconv.ParseFloat(s, 64); err != nil {
+	if i, err := strconv.ParseFloat(s, 64); err == nil {
 		return i
 	}
 	return s
