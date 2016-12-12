@@ -3,6 +3,8 @@ package events
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/compose/transporter/pkg/log"
 )
 
 // Event is an interface that describes data which is produced periodically by the running transporter.
@@ -12,6 +14,7 @@ import (
 type Event interface {
 	Emit() ([]byte, error)
 	String() string
+	Logger() log.Logger
 }
 
 // BaseEvent is an event that is sent when the pipeline has been started or exited
@@ -54,6 +57,10 @@ func (e *baseEvent) String() string {
 	return fmt.Sprintf("%s %v", e.Kind, e.Endpoints)
 }
 
+func (e *baseEvent) Logger() log.Logger {
+	return log.With("ts", e.Ts)
+}
+
 // metricsEvent is an event used to indicated progress.
 type metricsEvent struct {
 	Ts   int64  `json:"ts"`
@@ -82,6 +89,10 @@ func (e *metricsEvent) Emit() ([]byte, error) {
 
 func (e *metricsEvent) String() string {
 	return fmt.Sprintf("%s %s records: %d", e.Kind, e.Path, e.Records)
+}
+
+func (e *metricsEvent) Logger() log.Logger {
+	return log.With("ts", e.Ts).With("path", e.Path)
 }
 
 // errorEvent is an event that indicates an error occurred
@@ -120,4 +131,8 @@ func (e *errorEvent) String() string {
 	msg := fmt.Sprintf("%s", e.Kind)
 	msg += fmt.Sprintf(" record: %v, message: %s", e.Record, e.Message)
 	return msg
+}
+
+func (e *errorEvent) Logger() log.Logger {
+	return log.With("ts", e.Ts).With("path", e.Path)
 }
