@@ -44,7 +44,9 @@ func (r Adaptor) Insert(m message.Msg) error {
 	if err != nil {
 		return err
 	}
-	return r.sess.DB(db).C(coll).Insert(m.Data())
+	sess := r.sess.Copy()
+	defer sess.Close()
+	return sess.DB(db).C(coll).Insert(m.Data())
 }
 
 func (r Adaptor) BulkInsert(db string, coll string, m ...message.Msg) error {
