@@ -234,8 +234,8 @@ func (js *JavascriptBuilder) findNode(token string, in otto.Value) (n Node, err 
 // and returns the correct
 func (js *JavascriptBuilder) emitfunc() events.EmitFunc {
 	if js.config.API.URI == "" {
-		// no URI set, return a noop emitter
-		return events.NoopEmitter()
+		// no URI set, return a LogEmitter
+		return events.LogEmitter()
 	}
 
 	return events.HTTPPostEmitter(js.config.API.URI, js.config.API.Key, js.config.API.Pid)

@@ -1,5 +1,5 @@
-hash: 0f82abc05bfa2bb9326b6c8590dd2a21c984427ce692789d048a1eb710193fa3
-updated: 2016-07-22T20:48:48.279862421-04:00
+hash: ff1a22a5dedb1b508fc52fddb7877c5b882a539e6e09fa7a4114fb75127c0faf
+updated: 2016-12-12T16:04:55.812176674-06:00
 imports:
 - name: github.com/araddon/gou
   version: 50a94aa4a3fb69e8fbde05df290fcb49fa685e07

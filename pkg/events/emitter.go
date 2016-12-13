@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/compose/transporter/pkg/log"
 )
 
 // Emitter types are used by the transporter pipeline to consume events from a pipeline's event channel
@@ -70,7 +71,7 @@ func (e *emitter) startEventListener() {
 				defer e.wg.Done()
 				err := e.emit(event)
 				if err != nil {
-					log.Print(err)
+					log.Errorf("%s\n", err)
 				}
 			}(event)
 		case <-time.After(100 * time.Millisecond):
@@ -132,7 +133,7 @@ func NoopEmitter() EmitFunc {
 //   2014/11/28 16:56:58 metrics source/out recordsIn: 203, recordsOut: 0
 func LogEmitter() EmitFunc {
 	return EmitFunc(func(event Event) error {
-		log.Println(event.String())
+		event.Logger().Infoln(event.String())
 		return nil
 	})
 }
@@ -148,7 +149,7 @@ func JSONLogEmitter() EmitFunc {
 		if err != nil {
 			return err
 		}
-		fmt.Println(string(j))
+		log.Infoln(string(j))
 		return nil
 	})
 }
