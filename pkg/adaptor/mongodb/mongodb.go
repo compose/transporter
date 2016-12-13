@@ -104,18 +104,16 @@ func init() {
 		}
 
 		m := &MongoDB{
-			restartable:      true,            // assume for that we're able to restart the process
-			oplogTimeout:     5 * time.Second, // timeout the oplog iterator
-			pipe:             p,
-			uri:              conf.URI,
-			tail:             conf.Tail,
-			debug:            conf.Debug,
-			path:             path,
-			opsBuffer:        make(map[string][]message.Msg),
-			bulkWriteChannel: make(chan syncDoc),
-			bulkQuitChannel:  make(chan chan bool),
-			bulk:             conf.Bulk,
-			conf:             conf,
+			restartable:  true,            // assume for that we're able to restart the process
+			oplogTimeout: 5 * time.Second, // timeout the oplog iterator
+			pipe:         p,
+			uri:          conf.URI,
+			tail:         conf.Tail,
+			debug:        conf.Debug,
+			path:         path,
+			opsBuffer:    make(map[string][]message.Msg),
+			bulk:         conf.Bulk,
+			conf:         conf,
 		}
 		// opsBuffer:        make([]*SyncDoc, 0, MONGO_BUFFER_LEN),
 
@@ -218,6 +216,8 @@ func (m *MongoDB) Listen() (err error) {
 	}()
 
 	if m.bulk {
+		m.bulkWriteChannel = make(chan syncDoc)
+		m.bulkQuitChannel = make(chan chan bool)
 		go m.bulkWriter()
 	}
 	return m.pipe.Listen(m.writeMessage, m.collectionMatch)
@@ -228,7 +228,7 @@ func (m *MongoDB) Stop() error {
 	m.pipe.Stop()
 
 	// if we're bulk writing, ask our writer to exit here
-	if m.bulk {
+	if m.bulkWriteChannel != nil {
 		q := make(chan bool)
 		m.bulkQuitChannel <- q
 		<-q
@@ -391,6 +391,7 @@ func (m *MongoDB) catData() error {
 				break
 			}
 			errSleep = time.Second
+			iter.Close()
 			sess.Close()
 			break
 		}
