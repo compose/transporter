@@ -1,0 +1,23 @@
+language: go
+
+go:
+  - 1.6.x
+  - 1.7.x
+
+script: go test -v $(go list ./... | grep -v '/vendor/') -tags=integration
+
+services:
+  - mongodb
+  - postgresql
+
+addons:
+  postgresql: "9.4"
+
+before_script:
+  - psql -c "ALTER SYSTEM SET max_replication_slots = 4"
+  - psql -c "ALTER SYSTEM SET wal_level = logical"
+  - sudo -E -u postgres /usr/lib/postgresql/9.4/bin/pg_ctl restart; sleep 1
+
+branches:
+  only:
+  - experimental
