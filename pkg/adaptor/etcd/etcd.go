@@ -2,11 +2,11 @@ package etcd
 
 import (
 	"fmt"
-	"log"
 	"regexp"
 	"strings"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"golang.org/x/net/context"
 
 	"github.com/compose/transporter/pkg/adaptor"

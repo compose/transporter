@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/compose/transporter/pkg/adaptor"
+	"github.com/compose/transporter/pkg/log"
+
 	"github.com/mitchellh/cli"
 )
 
@@ -27,6 +29,15 @@ var subCommandFactory = map[string]cli.CommandFactory{
 	},
 }
 
+func buildFlagSet(setName string, configFilename *string, args []string, usage func()) *flag.FlagSet {
+	cmdFlags := flag.NewFlagSet(setName, flag.ContinueOnError)
+	log.AddFlags(cmdFlags)
+	cmdFlags.Usage = usage
+	cmdFlags.StringVar(configFilename, "config", "", "config file")
+	cmdFlags.Parse(args)
+	return cmdFlags
+}
+
 // listCommand loads the config, and lists the configured nodes
 type listCommand struct {
 	configFilename string
@@ -44,10 +55,7 @@ func (c *listCommand) Help() string {
 
 func (c *listCommand) Run(args []string) int {
 	var configFilename string
-	cmdFlags := flag.NewFlagSet("list", flag.ContinueOnError)
-	cmdFlags.Usage = func() { c.Help() }
-	cmdFlags.StringVar(&configFilename, "config", "", "config file")
-	cmdFlags.Parse(args)
+	buildFlagSet("list", &configFilename, args, func() { c.Help() })
 
 	config, err := LoadConfig(configFilename)
 	if err != nil {
@@ -86,10 +94,7 @@ func (c *runCommand) Synopsis() string {
 
 func (c *runCommand) Run(args []string) int {
 	var configFilename string
-	cmdFlags := flag.NewFlagSet("run", flag.ContinueOnError)
-	cmdFlags.Usage = func() { c.Help() }
-	cmdFlags.StringVar(&configFilename, "config", "", "config file")
-	cmdFlags.Parse(args)
+	cmdFlags := buildFlagSet("run", &configFilename, args, func() { c.Help() })
 
 	config, err := LoadConfig(configFilename)
 	if err != nil {
@@ -136,10 +141,7 @@ func (c *testCommand) Synopsis() string {
 
 func (c *testCommand) Run(args []string) int {
 	var configFilename string
-	cmdFlags := flag.NewFlagSet("test", flag.ContinueOnError)
-	cmdFlags.Usage = func() { c.Help() }
-	cmdFlags.StringVar(&configFilename, "config", "", "config file")
-	cmdFlags.Parse(args)
+	cmdFlags := buildFlagSet("test", &configFilename, args, func() { c.Help() })
 
 	config, err := LoadConfig(configFilename)
 	if err != nil {
@@ -182,10 +184,7 @@ func (c *evalCommand) Synopsis() string {
 
 func (c *evalCommand) Run(args []string) int {
 	var configFilename string
-	cmdFlags := flag.NewFlagSet("run", flag.ContinueOnError)
-	cmdFlags.Usage = func() { c.Help() }
-	cmdFlags.StringVar(&configFilename, "config", "", "config file")
-	cmdFlags.Parse(args)
+	cmdFlags := buildFlagSet("eval", &configFilename, args, func() { c.Help() })
 
 	config, err := LoadConfig(configFilename)
 	if err != nil {

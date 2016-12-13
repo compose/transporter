@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/compose/transporter/pkg/adaptor"
+	"github.com/compose/transporter/pkg/log"
 	"github.com/compose/transporter/pkg/message"
 	"github.com/compose/transporter/pkg/message/adaptor/mongodb"
 	"github.com/compose/transporter/pkg/message/data"
@@ -183,6 +184,7 @@ func (m *MongoDB) Connect() error {
 
 // Start the adaptor as a source
 func (m *MongoDB) Start() (err error) {
+	log.With("path", m.path).Debugln("adaptor Starting...")
 	defer func() {
 		m.pipe.Stop()
 	}()
@@ -211,6 +213,7 @@ func (m *MongoDB) Start() (err error) {
 
 // Listen starts the pipe's listener
 func (m *MongoDB) Listen() (err error) {
+	log.With("path", m.path).Debugln("adaptor Listening...")
 	defer func() {
 		m.pipe.Stop()
 	}()
@@ -225,6 +228,7 @@ func (m *MongoDB) Listen() (err error) {
 
 // Stop the adaptor
 func (m *MongoDB) Stop() error {
+	log.With("path", m.path).Debugln("adaptor Stopping...")
 	m.pipe.Stop()
 
 	// if we're bulk writing, ask our writer to exit here
@@ -234,6 +238,7 @@ func (m *MongoDB) Stop() error {
 		<-q
 	}
 
+	log.With("path", m.path).Debugln("adaptor Stopped")
 	return nil
 }
 

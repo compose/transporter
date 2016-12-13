@@ -1,11 +1,11 @@
 package transporter
 
 import (
-	"log"
 	"time"
 
 	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/events"
+	"github.com/compose/transporter/pkg/log"
 	"github.com/compose/transporter/pkg/state"
 )
 
@@ -99,7 +99,6 @@ func (pipeline *Pipeline) String() string {
 // all nodes have stopped successfully
 func (pipeline *Pipeline) Stop() {
 	pipeline.source.Stop()
-	pipeline.emitter.Stop()
 	if pipeline.sessionStore != nil {
 		pipeline.sessionTicker.Stop()
 	}
@@ -118,15 +117,16 @@ func (pipeline *Pipeline) Run() error {
 		pipeline.Err = err // only set it if it hasn't been set already.
 	}
 
-	// pipeline has stopped, emit one last round of metrics and send the exit event
-	pipeline.emitMetrics()
 	if pipeline.sessionStore != nil {
 		pipeline.setState()
 	}
-	pipeline.source.pipe.Event <- events.NewExitEvent(time.Now().UnixNano(), VERSION, endpoints)
-
 	// the source has exited, stop all the other nodes
 	pipeline.Stop()
+
+	// pipeline has stopped, emit one last round of metrics and send the exit event
+	pipeline.emitMetrics()
+	pipeline.source.pipe.Event <- events.NewExitEvent(time.Now().UnixNano(), VERSION, endpoints)
+	pipeline.emitter.Stop()
 
 	return pipeline.Err
 }
@@ -138,7 +138,7 @@ func (pipeline *Pipeline) startErrorListener(cherr chan error) {
 		if aerr, ok := err.(adaptor.Error); ok {
 			pipeline.source.pipe.Event <- events.NewErrorEvent(time.Now().UnixNano(), aerr.Path, aerr.Record, aerr.Error())
 			if aerr.Lvl == adaptor.ERROR || aerr.Lvl == adaptor.CRITICAL {
-				log.Println(aerr)
+				log.With("path", aerr.Path).Errorln(aerr)
 			}
 		} else {
 			if pipeline.Err == nil {
