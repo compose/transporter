@@ -11,7 +11,7 @@ addons:
 before_script:
 - psql -c "ALTER SYSTEM SET max_replication_slots = 4"
 - psql -c "ALTER SYSTEM SET wal_level = logical"
-- sudo -E -u postgres /usr/lib/postgresql/9.4/bin/pg_ctl restart; sleep 1
+- sudo /etc/init.d/postgresql restart; sleep 1
 install: true
 branches:
   only:
