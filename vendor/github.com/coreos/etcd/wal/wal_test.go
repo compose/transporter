@@ -61,7 +61,7 @@ func TestNew(t *testing.T) {
 	}
 
 	var wb bytes.Buffer
-	e := newEncoder(&wb, 0)
+	e := newEncoder(&wb, 0, 0)
 	err = e.encode(&walpb.Record{Type: crcType, Crc: 0})
 	if err != nil {
 		t.Fatalf("err = %v, want nil", err)
@@ -210,6 +210,69 @@ func TestCut(t *testing.T) {
 	}
 	if !reflect.DeepEqual(gst, state) {
 		t.Errorf("state = %+v, want %+v", gst, state)
+	}
+}
+
+func TestSaveWithCut(t *testing.T) {
+	p, err := ioutil.TempDir(os.TempDir(), "waltest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(p)
+
+	w, err := Create(p, []byte("metadata"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	state := raftpb.HardState{Term: 1}
+	if err = w.Save(state, nil); err != nil {
+		t.Fatal(err)
+	}
+	bigData := make([]byte, 500)
+	strdata := "Hello World!!"
+	copy(bigData, strdata)
+	// set a lower value for SegmentSizeBytes, else the test takes too long to complete
+	restoreLater := SegmentSizeBytes
+	const EntrySize int = 500
+	SegmentSizeBytes = 2 * 1024
+	defer func() { SegmentSizeBytes = restoreLater }()
+	var index uint64 = 0
+	for totalSize := 0; totalSize < int(SegmentSizeBytes); totalSize += EntrySize {
+		ents := []raftpb.Entry{{Index: index, Term: 1, Data: bigData}}
+		if err = w.Save(state, ents); err != nil {
+			t.Fatal(err)
+		}
+		index++
+	}
+
+	w.Close()
+
+	neww, err := Open(p, walpb.Snapshot{})
+	if err != nil {
+		t.Fatalf("err = %v, want nil", err)
+	}
+	defer neww.Close()
+	wname := walName(1, index)
+	if g := path.Base(neww.tail().Name()); g != wname {
+		t.Errorf("name = %s, want %s", g, wname)
+	}
+
+	_, newhardstate, entries, err := neww.ReadAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(newhardstate, state) {
+		t.Errorf("Hard State = %+v, want %+v", newhardstate, state)
+	}
+	if len(entries) != int(SegmentSizeBytes/int64(EntrySize)) {
+		t.Errorf("Number of entries = %d, expected = %d", len(entries), int(SegmentSizeBytes/int64(EntrySize)))
+	}
+	for _, oneent := range entries {
+		if !bytes.Equal(oneent.Data, bigData) {
+			t.Errorf("the saved data does not match at Index %d : found: %s , want :%s", oneent.Index, oneent.Data, bigData)
+		}
 	}
 }
 
@@ -465,7 +528,7 @@ func TestSaveEmpty(t *testing.T) {
 	var buf bytes.Buffer
 	var est raftpb.HardState
 	w := WAL{
-		encoder: newEncoder(&buf, 0),
+		encoder: newEncoder(&buf, 0, 0),
 	}
 	if err := w.saveState(&est); err != nil {
 		t.Errorf("err = %v, want nil", err)
@@ -634,5 +697,91 @@ func TestRestartCreateWal(t *testing.T) {
 
 	if meta, _, _, rerr := w.ReadAll(); rerr != nil || string(meta) != "abc" {
 		t.Fatalf("got error %v and meta %q, expected nil and %q", rerr, meta, "abc")
+	}
+}
+
+// TestOpenOnTornWrite ensures that entries past the torn write are truncated.
+func TestOpenOnTornWrite(t *testing.T) {
+	maxEntries := 40
+	clobberIdx := 20
+	overwriteEntries := 5
+
+	p, err := ioutil.TempDir(os.TempDir(), "waltest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(p)
+	w, err := Create(p, nil)
+	defer w.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// get offset of end of each saved entry
+	offsets := make([]int64, maxEntries)
+	for i := range offsets {
+		es := []raftpb.Entry{{Index: uint64(i)}}
+		if err = w.Save(raftpb.HardState{}, es); err != nil {
+			t.Fatal(err)
+		}
+		if offsets[i], err = w.tail().Seek(0, os.SEEK_CUR); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	fn := path.Join(p, path.Base(w.tail().Name()))
+	w.Close()
+
+	// clobber some entry with 0's to simulate a torn write
+	f, ferr := os.OpenFile(fn, os.O_WRONLY, fileutil.PrivateFileMode)
+	if ferr != nil {
+		t.Fatal(ferr)
+	}
+	defer f.Close()
+	_, err = f.Seek(offsets[clobberIdx], os.SEEK_SET)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zeros := make([]byte, offsets[clobberIdx+1]-offsets[clobberIdx])
+	_, err = f.Write(zeros)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+
+	w, err = Open(p, walpb.Snapshot{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// seek up to clobbered entry
+	_, _, _, err = w.ReadAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// write a few entries past the clobbered entry
+	for i := 0; i < overwriteEntries; i++ {
+		// Index is different from old, truncated entries
+		es := []raftpb.Entry{{Index: uint64(i + clobberIdx), Data: []byte("new")}}
+		if err = w.Save(raftpb.HardState{}, es); err != nil {
+			t.Fatal(err)
+		}
+	}
+	w.Close()
+
+	// read back the entries, confirm number of entries matches expectation
+	w, err = OpenForRead(p, walpb.Snapshot{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, _, ents, rerr := w.ReadAll()
+	if rerr != nil {
+		// CRC error? the old entries were likely never truncated away
+		t.Fatal(rerr)
+	}
+	wEntries := (clobberIdx - 1) + overwriteEntries
+	if len(ents) != wEntries {
+		t.Fatalf("expected len(ents) = %d, got %d", wEntries, len(ents))
 	}
 }

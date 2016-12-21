@@ -22,7 +22,10 @@ import (
 	"github.com/coreos/etcd/mvcc/backend"
 )
 
-// isSubset returns true if a is a subset of b
+// isSubset returns true if a is a subset of b.
+// If a is a prefix of b, then a is a subset of b.
+// Given intervals [a1,a2) and [b1,b2), is
+// the a interval a subset of b?
 func isSubset(a, b *rangePerm) bool {
 	switch {
 	case len(a.end) == 0 && len(b.end) == 0:
@@ -32,9 +35,11 @@ func isSubset(a, b *rangePerm) bool {
 		// b is a key, a is a range
 		return false
 	case len(a.end) == 0:
-		return 0 <= bytes.Compare(a.begin, b.begin) && bytes.Compare(a.begin, b.end) <= 0
+		// a is a key, b is a range. need b1 <= a1 and a1 < b2
+		return bytes.Compare(b.begin, a.begin) <= 0 && bytes.Compare(a.begin, b.end) < 0
 	default:
-		return 0 <= bytes.Compare(a.begin, b.begin) && bytes.Compare(a.end, b.end) <= 0
+		// both are ranges. need b1 <= a1 and a2 <= b2
+		return bytes.Compare(b.begin, a.begin) <= 0 && bytes.Compare(a.end, b.end) <= 0
 	}
 }
 
@@ -44,38 +49,30 @@ func isRangeEqual(a, b *rangePerm) bool {
 
 // removeSubsetRangePerms removes any rangePerms that are subsets of other rangePerms.
 // If there are equal ranges, removeSubsetRangePerms only keeps one of them.
-func removeSubsetRangePerms(perms []*rangePerm) []*rangePerm {
-	// TODO(mitake): currently it is O(n^2), we need a better algorithm
-	var newp []*rangePerm
-
+// It returns a sorted rangePerm slice.
+func removeSubsetRangePerms(perms []*rangePerm) (newp []*rangePerm) {
+	sort.Sort(RangePermSliceByBegin(perms))
+	var prev *rangePerm
 	for i := range perms {
-		skip := false
-
-		for j := range perms {
-			if i == j {
-				continue
-			}
-
-			if isRangeEqual(perms[i], perms[j]) {
-				// if ranges are equal, we only keep the first range.
-				if i > j {
-					skip = true
-					break
-				}
-			} else if isSubset(perms[i], perms[j]) {
-				// if a range is a strict subset of the other one, we skip the subset.
-				skip = true
-				break
-			}
-		}
-
-		if skip {
+		if i == 0 {
+			prev = perms[i]
+			newp = append(newp, perms[i])
 			continue
 		}
-
+		if isRangeEqual(perms[i], prev) {
+			continue
+		}
+		if isSubset(perms[i], prev) {
+			continue
+		}
+		if isSubset(prev, perms[i]) {
+			prev = perms[i]
+			newp[len(newp)-1] = perms[i]
+			continue
+		}
+		prev = perms[i]
 		newp = append(newp, perms[i])
 	}
-
 	return newp
 }
 
@@ -83,17 +80,22 @@ func removeSubsetRangePerms(perms []*rangePerm) []*rangePerm {
 func mergeRangePerms(perms []*rangePerm) []*rangePerm {
 	var merged []*rangePerm
 	perms = removeSubsetRangePerms(perms)
-	sort.Sort(RangePermSliceByBegin(perms))
 
 	i := 0
 	for i < len(perms) {
 		begin, next := i, i
-		for next+1 < len(perms) && bytes.Compare(perms[next].end, perms[next+1].begin) != -1 {
+		for next+1 < len(perms) && bytes.Compare(perms[next].end, perms[next+1].begin) >= 0 {
 			next++
 		}
-
-		merged = append(merged, &rangePerm{begin: perms[begin].begin, end: perms[next].end})
-
+		// don't merge ["a", "b") with ["b", ""), because perms[next+1].end is empty.
+		if next != begin && len(perms[next].end) > 0 {
+			merged = append(merged, &rangePerm{begin: perms[begin].begin, end: perms[next].end})
+		} else {
+			merged = append(merged, perms[begin])
+			if next != begin {
+				merged = append(merged, perms[next])
+			}
+		}
 		i = next + 1
 	}
 

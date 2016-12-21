@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	p "gopkg.in/dancannon/gorethink.v2/ql2"
+	p "gopkg.in/gorethink/gorethink.v2/ql2"
 )
 
 // A Session represents a connection to a RethinkDB cluster and should be used
@@ -99,7 +99,7 @@ type ConnectOpts struct {
 	MaxIdle int `gorethink:"max_idle,omitempty"`
 }
 
-func (o *ConnectOpts) toMap() map[string]interface{} {
+func (o ConnectOpts) toMap() map[string]interface{} {
 	return optArgsToMap(o)
 }
 
@@ -148,7 +148,12 @@ func Connect(opts ConnectOpts) (*Session, error) {
 
 	err := s.Reconnect()
 	if err != nil {
-		return nil, err
+		// note: s.Reconnect() will initialize cluster information which
+		// will cause the .IsConnected() method to be caught in a loop
+		return &Session{
+			hosts: hosts,
+			opts:  &opts,
+		}, err
 	}
 
 	return s, nil
@@ -159,7 +164,7 @@ type CloseOpts struct {
 	NoReplyWait bool `gorethink:"noreplyWait,omitempty"`
 }
 
-func (o *CloseOpts) toMap() map[string]interface{} {
+func (o CloseOpts) toMap() map[string]interface{} {
 	return optArgsToMap(o)
 }
 
@@ -185,6 +190,7 @@ func (s *Session) Reconnect(optArgs ...CloseOpts) error {
 	s.mu.Lock()
 	s.cluster, err = NewCluster(s.hosts, s.opts)
 	if err != nil {
+		s.mu.Unlock()
 		return err
 	}
 
@@ -220,13 +226,13 @@ func (s *Session) Close(optArgs ...CloseOpts) error {
 	return nil
 }
 
-// SetInitalPoolCap sets the initial capacity of the connection pool.
-func (s *Session) SetInitalPoolCap(n int) {
+// SetInitialPoolCap sets the initial capacity of the connection pool.
+func (s *Session) SetInitialPoolCap(n int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.opts.InitialCap = n
-	s.cluster.SetInitalPoolCap(n)
+	s.cluster.SetInitialPoolCap(n)
 }
 
 // SetMaxIdleConns sets the maximum number of connections in the idle

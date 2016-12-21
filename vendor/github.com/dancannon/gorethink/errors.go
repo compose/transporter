@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	p "gopkg.in/dancannon/gorethink.v2/ql2"
+	p "gopkg.in/gorethink/gorethink.v2/ql2"
 )
 
 var (
@@ -87,7 +87,7 @@ func (e rqlServerError) Error() string {
 		return fmt.Sprintf("gorethink: %s", err)
 	}
 
-	return fmt.Sprintf("gorethink: %s in: \n%s", err, e.term.String())
+	return fmt.Sprintf("gorethink: %s in:\n%s", err, e.term.String())
 
 }
 

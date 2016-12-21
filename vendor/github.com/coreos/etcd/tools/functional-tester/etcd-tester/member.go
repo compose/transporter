@@ -16,13 +16,13 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"time"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	clientv2 "github.com/coreos/etcd/client"
 	"github.com/coreos/etcd/clientv3"
 	pb "github.com/coreos/etcd/etcdserver/etcdserverpb"
 	"github.com/coreos/etcd/tools/functional-tester/etcd-agent/client"
@@ -104,6 +104,19 @@ func (m *member) RevHash() (int64, int64, error) {
 	return resp.Header.Revision, int64(resp.Hash), nil
 }
 
+func (m *member) Rev(ctx context.Context) (int64, error) {
+	cli, err := m.newClientV3()
+	if err != nil {
+		return 0, err
+	}
+	defer cli.Close()
+	resp, err := cli.Status(ctx, m.ClientURL)
+	if err != nil {
+		return 0, err
+	}
+	return resp.Header.Revision, nil
+}
+
 func (m *member) IsLeader() (bool, error) {
 	cli, err := m.newClientV3()
 	if err != nil {
@@ -123,26 +136,14 @@ func (m *member) SetHealthKeyV3() error {
 		return fmt.Errorf("%v (%s)", err, m.ClientURL)
 	}
 	defer cli.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	// give enough time-out in case expensive requests (range/delete) are pending
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	_, err = cli.Put(ctx, "health", "good")
 	cancel()
 	if err != nil {
 		return fmt.Errorf("%v (%s)", err, m.ClientURL)
 	}
 	return nil
-}
-
-func (m *member) SetHealthKeyV2() error {
-	cfg := clientv2.Config{Endpoints: []string{m.ClientURL}}
-	c, err := clientv2.New(cfg)
-	if err != nil {
-		return err
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	kapi := clientv2.NewKeysAPI(c)
-	_, err = kapi.Set(ctx, "health", "good", nil)
-	cancel()
-	return err
 }
 
 func (m *member) newClientV3() (*clientv3.Client, error) {
@@ -153,7 +154,7 @@ func (m *member) newClientV3() (*clientv3.Client, error) {
 }
 
 func (m *member) dialGRPC() (*grpc.ClientConn, error) {
-	return grpc.Dial(m.grpcAddr(), grpc.WithInsecure(), grpc.WithTimeout(5*time.Second))
+	return grpc.Dial(m.grpcAddr(), grpc.WithInsecure(), grpc.WithTimeout(5*time.Second), grpc.WithBlock())
 }
 
 // grpcAddr gets the host from clientURL so it works with grpc.Dial()
@@ -163,4 +164,19 @@ func (m *member) grpcAddr() string {
 		panic(err)
 	}
 	return u.Host
+}
+
+func (m *member) peerPort() (port int) {
+	u, err := url.Parse(m.PeerURL)
+	if err != nil {
+		panic(err)
+	}
+	_, portStr, err := net.SplitHostPort(u.Host)
+	if err != nil {
+		panic(err)
+	}
+	if _, err = fmt.Sscanf(portStr, "%d", &port); err != nil {
+		panic(err)
+	}
+	return port
 }

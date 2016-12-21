@@ -20,6 +20,7 @@ import (
 	defaultLog "log"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	"strings"
 	"time"
 
@@ -35,6 +36,8 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
+const pprofPrefix = "/debug/pprof"
+
 type serveCtx struct {
 	l        net.Listener
 	secure   bool
@@ -42,11 +45,13 @@ type serveCtx struct {
 
 	ctx    context.Context
 	cancel context.CancelFunc
+
+	userHandlers map[string]http.Handler
 }
 
 func newServeCtx() *serveCtx {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &serveCtx{ctx: ctx, cancel: cancel}
+	return &serveCtx{ctx: ctx, cancel: cancel, userHandlers: make(map[string]http.Handler)}
 }
 
 // serve accepts incoming connections on the listener l,
@@ -72,9 +77,8 @@ func (sctx *serveCtx) serve(s *etcdserver.EtcdServer, tlscfg *tls.Config, handle
 			return err
 		}
 
-		httpmux := http.NewServeMux()
-		httpmux.Handle("/v3alpha/", gwmux)
-		httpmux.Handle("/", handler)
+		httpmux := sctx.createMux(gwmux, handler)
+
 		srvhttp := &http.Server{
 			Handler:  httpmux,
 			ErrorLog: logger, // do not log user error
@@ -100,9 +104,8 @@ func (sctx *serveCtx) serve(s *etcdserver.EtcdServer, tlscfg *tls.Config, handle
 
 		tlsl := tls.NewListener(m.Match(cmux.Any()), tlscfg)
 		// TODO: add debug flag; enable logging when debug flag is set
-		httpmux := http.NewServeMux()
-		httpmux.Handle("/v3alpha/", gwmux)
-		httpmux.Handle("/", handler)
+		httpmux := sctx.createMux(gwmux, handler)
+
 		srv := &http.Server{
 			Handler:   httpmux,
 			TLSConfig: tlscfg,
@@ -169,4 +172,35 @@ func (sctx *serveCtx) registerGateway(opts []grpc.DialOption) (*gw.ServeMux, err
 		return nil, err
 	}
 	return gwmux, nil
+}
+
+func (sctx *serveCtx) createMux(gwmux *gw.ServeMux, handler http.Handler) *http.ServeMux {
+	httpmux := http.NewServeMux()
+	for path, h := range sctx.userHandlers {
+		httpmux.Handle(path, h)
+	}
+
+	httpmux.Handle("/v3alpha/", gwmux)
+	httpmux.Handle("/", handler)
+	return httpmux
+}
+
+func (sctx *serveCtx) registerPprof() {
+	f := func(s string, h http.Handler) {
+		if sctx.userHandlers[s] != nil {
+			plog.Warningf("path %s already registered by user handler", s)
+			return
+		}
+		sctx.userHandlers[s] = h
+	}
+	f(pprofPrefix+"/", http.HandlerFunc(pprof.Index))
+	f(pprofPrefix+"/profile", http.HandlerFunc(pprof.Profile))
+	f(pprofPrefix+"/symbol", http.HandlerFunc(pprof.Symbol))
+	f(pprofPrefix+"/cmdline", http.HandlerFunc(pprof.Cmdline))
+	f(pprofPrefix+"/trace", http.HandlerFunc(pprof.Trace))
+
+	f(pprofPrefix+"/heap", pprof.Handler("heap"))
+	f(pprofPrefix+"/goroutine", pprof.Handler("goroutine"))
+	f(pprofPrefix+"/threadcreate", pprof.Handler("threadcreate"))
+	f(pprofPrefix+"/block", pprof.Handler("block"))
 }

@@ -348,6 +348,51 @@ func TestV3WatchFutureRevision(t *testing.T) {
 	}
 }
 
+// TestV3WatchWrongRange tests wrong range does not create watchers.
+func TestV3WatchWrongRange(t *testing.T) {
+	defer testutil.AfterTest(t)
+
+	clus := NewClusterV3(t, &ClusterConfig{Size: 1})
+	defer clus.Terminate(t)
+
+	wAPI := toGRPC(clus.RandClient()).Watch
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	wStream, err := wAPI.Watch(ctx)
+	if err != nil {
+		t.Fatalf("wAPI.Watch error: %v", err)
+	}
+
+	tests := []struct {
+		key      []byte
+		end      []byte
+		canceled bool
+	}{
+		{[]byte("a"), []byte("a"), true},  // wrong range end
+		{[]byte("b"), []byte("a"), true},  // wrong range end
+		{[]byte("foo"), []byte{0}, false}, // watch request with 'WithFromKey'
+	}
+	for i, tt := range tests {
+		if err := wStream.Send(&pb.WatchRequest{RequestUnion: &pb.WatchRequest_CreateRequest{
+			CreateRequest: &pb.WatchCreateRequest{Key: tt.key, RangeEnd: tt.end, StartRevision: 1}}}); err != nil {
+			t.Fatalf("#%d: wStream.Send error: %v", i, err)
+		}
+		cresp, err := wStream.Recv()
+		if err != nil {
+			t.Fatalf("#%d: wStream.Recv error: %v", i, err)
+		}
+		if !cresp.Created {
+			t.Fatalf("#%d: create %v, want %v", i, cresp.Created, true)
+		}
+		if cresp.Canceled != tt.canceled {
+			t.Fatalf("#%d: canceled %v, want %v", i, tt.canceled, cresp.Canceled)
+		}
+		if tt.canceled && cresp.WatchId != -1 {
+			t.Fatalf("#%d: canceled watch ID %d, want -1", i, cresp.WatchId)
+		}
+	}
+}
+
 // TestV3WatchCancelSynced tests Watch APIs cancellation from synced map.
 func TestV3WatchCancelSynced(t *testing.T) {
 	defer testutil.AfterTest(t)
@@ -672,7 +717,7 @@ func testV3WatchMultipleEventsTxn(t *testing.T, startRev int64) {
 	if err := wStream.Send(wreq); err != nil {
 		t.Fatalf("wStream.Send error: %v", err)
 	}
-	if resp, err := wStream.Recv(); err != nil || resp.Created == false {
+	if resp, err := wStream.Recv(); err != nil || !resp.Created {
 		t.Fatalf("create response failed: resp=%v, err=%v", resp, err)
 	}
 
@@ -903,21 +948,23 @@ func testV3WatchMultipleStreams(t *testing.T, startRev int64) {
 // returned closing the WatchClient stream. Or the response will
 // be returned.
 func waitResponse(wc pb.Watch_WatchClient, timeout time.Duration) (bool, *pb.WatchResponse) {
-	rCh := make(chan *pb.WatchResponse)
+	rCh := make(chan *pb.WatchResponse, 1)
+	donec := make(chan struct{})
+	defer close(donec)
 	go func() {
 		resp, _ := wc.Recv()
-		rCh <- resp
+		select {
+		case rCh <- resp:
+		case <-donec:
+		}
 	}()
 	select {
 	case nr := <-rCh:
 		return false, nr
 	case <-time.After(timeout):
 	}
+	// didn't get response
 	wc.CloseSend()
-	rv, ok := <-rCh
-	if rv != nil || !ok {
-		return false, rv
-	}
 	return true, nil
 }
 
@@ -1077,5 +1124,78 @@ func TestV3WatchWithFilter(t *testing.T) {
 		}
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal("failed to receive delete event")
+	}
+}
+
+func TestV3WatchWithPrevKV(t *testing.T) {
+	defer testutil.AfterTest(t)
+	clus := NewClusterV3(t, &ClusterConfig{Size: 1})
+	defer clus.Terminate(t)
+
+	wctx, wcancel := context.WithCancel(context.Background())
+	defer wcancel()
+
+	tests := []struct {
+		key  string
+		end  string
+		vals []string
+	}{{
+		key:  "foo",
+		end:  "fop",
+		vals: []string{"bar1", "bar2"},
+	}, {
+		key:  "/abc",
+		end:  "/abd",
+		vals: []string{"first", "second"},
+	}}
+	for i, tt := range tests {
+		kvc := toGRPC(clus.RandClient()).KV
+		if _, err := kvc.Put(context.TODO(), &pb.PutRequest{Key: []byte(tt.key), Value: []byte(tt.vals[0])}); err != nil {
+			t.Fatal(err)
+		}
+
+		ws, werr := toGRPC(clus.RandClient()).Watch.Watch(wctx)
+		if werr != nil {
+			t.Fatal(werr)
+		}
+
+		req := &pb.WatchRequest{RequestUnion: &pb.WatchRequest_CreateRequest{
+			CreateRequest: &pb.WatchCreateRequest{
+				Key:      []byte(tt.key),
+				RangeEnd: []byte(tt.end),
+				PrevKv:   true,
+			}}}
+		if err := ws.Send(req); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ws.Recv(); err != nil {
+			t.Fatal(err)
+		}
+
+		if _, err := kvc.Put(context.TODO(), &pb.PutRequest{Key: []byte(tt.key), Value: []byte(tt.vals[1])}); err != nil {
+			t.Fatal(err)
+		}
+
+		recv := make(chan *pb.WatchResponse)
+		go func() {
+			// check received PUT
+			resp, rerr := ws.Recv()
+			if rerr != nil {
+				t.Fatal(rerr)
+			}
+			recv <- resp
+		}()
+
+		select {
+		case resp := <-recv:
+			if tt.vals[1] != string(resp.Events[0].Kv.Value) {
+				t.Errorf("#%d: unequal value: want=%s, get=%s", i, tt.vals[1], resp.Events[0].Kv.Value)
+			}
+			if tt.vals[0] != string(resp.Events[0].PrevKv.Value) {
+				t.Errorf("#%d: unequal value: want=%s, get=%s", i, tt.vals[0], resp.Events[0].PrevKv.Value)
+			}
+		case <-time.After(30 * time.Second):
+			t.Error("timeout waiting for watch response")
+		}
 	}
 }

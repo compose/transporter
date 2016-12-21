@@ -28,6 +28,8 @@ func TestNewVersion(t *testing.T) {
 		{"1.2.3.4", false},
 		{"v1.2.3", false},
 		{"foo1.2.3", true},
+		{"1.7rc2", false},
+		{"v1.7rc2", false},
 	}
 
 	for _, tc := range cases {
@@ -60,6 +62,8 @@ func TestVersionCompare(t *testing.T) {
 		{"v1.2", "v1.2.0.0.1", -1},
 		{"v1.2.0.0", "v1.2.0.0.1", -1},
 		{"v1.2.3.0", "v1.2.3.4", -1},
+		{"1.7rc2", "1.7rc1", 1},
+		{"1.7rc2", "1.7", -1},
 	}
 
 	for _, tc := range cases {
@@ -196,6 +200,32 @@ func TestVersionSegments(t *testing.T) {
 		}
 
 		actual := v.Segments()
+		expected := tc.expected
+		if !reflect.DeepEqual(actual, expected) {
+			t.Fatalf("expected: %#v\nactual: %#v", expected, actual)
+		}
+	}
+}
+
+func TestVersionSegments64(t *testing.T) {
+	cases := []struct {
+		version  string
+		expected []int64
+	}{
+		{"1.2.3", []int64{1, 2, 3}},
+		{"1.2-beta", []int64{1, 2, 0}},
+		{"1-x.Y.0", []int64{1, 0, 0}},
+		{"1.2.0-x.Y.0+metadata", []int64{1, 2, 0}},
+		{"1.4.9223372036854775807", []int64{1, 4, 9223372036854775807}},
+	}
+
+	for _, tc := range cases {
+		v, err := NewVersion(tc.version)
+		if err != nil {
+			t.Fatalf("err: %s", err)
+		}
+
+		actual := v.Segments64()
 		expected := tc.expected
 		if !reflect.DeepEqual(actual, expected) {
 			t.Fatalf("expected: %#v\nactual: %#v", expected, actual)

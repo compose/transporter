@@ -16,6 +16,8 @@ package integration
 
 import (
 	"bytes"
+	"math/rand"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -34,8 +36,8 @@ func TestKVPutError(t *testing.T) {
 	defer testutil.AfterTest(t)
 
 	var (
-		maxReqBytes = 1.5 * 1024 * 1024
-		quota       = int64(maxReqBytes * 1.2)
+		maxReqBytes = 1.5 * 1024 * 1024 // hard coded max in v3_server.go
+		quota       = int64(int(maxReqBytes) + 8*os.Getpagesize())
 	)
 	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1, QuotaBackendBytes: quota})
 	defer clus.Terminate(t)
@@ -48,7 +50,7 @@ func TestKVPutError(t *testing.T) {
 		t.Fatalf("expected %v, got %v", rpctypes.ErrEmptyKey, err)
 	}
 
-	_, err = kv.Put(ctx, "key", strings.Repeat("a", int(maxReqBytes+100))) // 1.5MB
+	_, err = kv.Put(ctx, "key", strings.Repeat("a", int(maxReqBytes+100)))
 	if err != rpctypes.ErrRequestTooLarge {
 		t.Fatalf("expected %v, got %v", rpctypes.ErrRequestTooLarge, err)
 	}
@@ -58,7 +60,7 @@ func TestKVPutError(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	time.Sleep(500 * time.Millisecond) // give enough time for commit
+	time.Sleep(1 * time.Second) // give enough time for commit
 
 	_, err = kv.Put(ctx, "foo2", strings.Repeat("a", int(maxReqBytes-50)))
 	if err != rpctypes.ErrNoSpace { // over quota
@@ -224,6 +226,21 @@ func TestKVRange(t *testing.T) {
 				{Key: []byte("fop"), Value: nil, CreateRevision: 9, ModRevision: 9, Version: 1},
 			},
 		},
+		// range all with SortByKey, missing sorting order (ASCEND by default)
+		{
+			"a", "x",
+			0,
+			[]clientv3.OpOption{clientv3.WithSort(clientv3.SortByKey, clientv3.SortNone)},
+
+			[]*mvccpb.KeyValue{
+				{Key: []byte("a"), Value: nil, CreateRevision: 2, ModRevision: 2, Version: 1},
+				{Key: []byte("b"), Value: nil, CreateRevision: 3, ModRevision: 3, Version: 1},
+				{Key: []byte("c"), Value: nil, CreateRevision: 4, ModRevision: 6, Version: 3},
+				{Key: []byte("foo"), Value: nil, CreateRevision: 7, ModRevision: 7, Version: 1},
+				{Key: []byte("foo/abc"), Value: nil, CreateRevision: 8, ModRevision: 8, Version: 1},
+				{Key: []byte("fop"), Value: nil, CreateRevision: 9, ModRevision: 9, Version: 1},
+			},
+		},
 		// range all with SortByCreateRevision, SortDescend
 		{
 			"a", "x",
@@ -237,6 +254,21 @@ func TestKVRange(t *testing.T) {
 				{Key: []byte("c"), Value: nil, CreateRevision: 4, ModRevision: 6, Version: 3},
 				{Key: []byte("b"), Value: nil, CreateRevision: 3, ModRevision: 3, Version: 1},
 				{Key: []byte("a"), Value: nil, CreateRevision: 2, ModRevision: 2, Version: 1},
+			},
+		},
+		// range all with SortByCreateRevision, missing sorting order (ASCEND by default)
+		{
+			"a", "x",
+			0,
+			[]clientv3.OpOption{clientv3.WithSort(clientv3.SortByCreateRevision, clientv3.SortNone)},
+
+			[]*mvccpb.KeyValue{
+				{Key: []byte("a"), Value: nil, CreateRevision: 2, ModRevision: 2, Version: 1},
+				{Key: []byte("b"), Value: nil, CreateRevision: 3, ModRevision: 3, Version: 1},
+				{Key: []byte("c"), Value: nil, CreateRevision: 4, ModRevision: 6, Version: 3},
+				{Key: []byte("foo"), Value: nil, CreateRevision: 7, ModRevision: 7, Version: 1},
+				{Key: []byte("foo/abc"), Value: nil, CreateRevision: 8, ModRevision: 8, Version: 1},
+				{Key: []byte("fop"), Value: nil, CreateRevision: 9, ModRevision: 9, Version: 1},
 			},
 		},
 		// range all with SortByModRevision, SortDescend
@@ -647,18 +679,121 @@ func TestKVGetCancel(t *testing.T) {
 	}
 }
 
-// TestKVPutStoppedServerAndClose ensures closing after a failed Put works.
-func TestKVPutStoppedServerAndClose(t *testing.T) {
+// TestKVGetStoppedServerAndClose ensures closing after a failed Get works.
+func TestKVGetStoppedServerAndClose(t *testing.T) {
 	defer testutil.AfterTest(t)
+
 	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
 	defer clus.Terminate(t)
+
 	cli := clus.Client(0)
 	clus.Members[0].Stop(t)
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Second)
-	// this Put fails and triggers an asynchronous connection retry
-	_, err := cli.Put(ctx, "abc", "123")
+	// this Get fails and triggers an asynchronous connection retry
+	_, err := cli.Get(ctx, "abc")
 	cancel()
 	if !strings.Contains(err.Error(), "context deadline") {
 		t.Fatal(err)
+	}
+}
+
+// TestKVPutStoppedServerAndClose ensures closing after a failed Put works.
+func TestKVPutStoppedServerAndClose(t *testing.T) {
+	defer testutil.AfterTest(t)
+
+	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
+	defer clus.Terminate(t)
+
+	cli := clus.Client(0)
+	clus.Members[0].Stop(t)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Second)
+	// get retries on all errors.
+	// so here we use it to eat the potential broken pipe error for the next put.
+	// grpc client might see a broken pipe error when we issue the get request before
+	// grpc finds out the original connection is down due to the member shutdown.
+	_, err := cli.Get(ctx, "abc")
+	cancel()
+	if !strings.Contains(err.Error(), "context deadline") {
+		t.Fatal(err)
+	}
+
+	// this Put fails and triggers an asynchronous connection retry
+	_, err = cli.Put(ctx, "abc", "123")
+	cancel()
+	if !strings.Contains(err.Error(), "context deadline") {
+		t.Fatal(err)
+	}
+}
+
+// TestKVGetOneEndpointDown ensures a client can connect and get if one endpoint is down
+func TestKVPutOneEndpointDown(t *testing.T) {
+	defer testutil.AfterTest(t)
+	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 3})
+	defer clus.Terminate(t)
+
+	// get endpoint list
+	eps := make([]string, 3)
+	for i := range eps {
+		eps[i] = clus.Members[i].GRPCAddr()
+	}
+
+	// make a dead node
+	clus.Members[rand.Intn(len(eps))].Stop(t)
+
+	// try to connect with dead node in the endpoint list
+	cfg := clientv3.Config{Endpoints: eps, DialTimeout: 1 * time.Second}
+	cli, err := clientv3.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cli.Close()
+	ctx, cancel := context.WithTimeout(context.TODO(), 3*time.Second)
+	if _, err := cli.Get(ctx, "abc", clientv3.WithSerializable()); err != nil {
+		t.Fatal(err)
+	}
+	cancel()
+}
+
+// TestKVGetResetLoneEndpoint ensures that if an endpoint resets and all other
+// endpoints are down, then it will reconnect.
+func TestKVGetResetLoneEndpoint(t *testing.T) {
+	defer testutil.AfterTest(t)
+	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 2})
+	defer clus.Terminate(t)
+
+	// get endpoint list
+	eps := make([]string, 2)
+	for i := range eps {
+		eps[i] = clus.Members[i].GRPCAddr()
+	}
+
+	cfg := clientv3.Config{Endpoints: eps, DialTimeout: 500 * time.Millisecond}
+	cli, err := clientv3.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cli.Close()
+
+	// disconnect everything
+	clus.Members[0].Stop(t)
+	clus.Members[1].Stop(t)
+
+	// have Get try to reconnect
+	donec := make(chan struct{})
+	go func() {
+		ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+		if _, err := cli.Get(ctx, "abc", clientv3.WithSerializable()); err != nil {
+			t.Fatal(err)
+		}
+		cancel()
+		close(donec)
+	}()
+	time.Sleep(500 * time.Millisecond)
+	clus.Members[0].Restart(t)
+	select {
+	case <-time.After(10 * time.Second):
+		t.Fatalf("timed out waiting for Get")
+	case <-donec:
 	}
 }

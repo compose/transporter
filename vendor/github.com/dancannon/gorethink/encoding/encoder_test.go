@@ -89,7 +89,7 @@ var optionalsExpected = map[string]interface{}{
 	"sr":        "",
 	"omitempty": int64(0),
 	"tr":        map[string]interface{}{"$reql_type$": "TIME", "epoch_time": 0, "timezone": "+00:00"},
-	"slr":       []interface{}{},
+	"slr":       []interface{}(nil),
 	"mr":        map[string]interface{}{},
 }
 
@@ -338,6 +338,79 @@ type RefF struct {
 func TestReferenceFieldArray(t *testing.T) {
 	input := RefE{"1", &[]RefF{RefF{"2", "Name2"}, RefF{"3", "Name3"}}}
 	want := map[string]interface{}{"id": "1", "f_ids": []string{"2", "3"}}
+
+	out, err := Encode(input)
+	if err != nil {
+		t.Errorf("got error %v, expected nil", err)
+	}
+	if !jsonEqual(out, want) {
+		t.Errorf("got %q, want %q", out, want)
+	}
+}
+
+func TestEncodeBytes(t *testing.T) {
+	type BytesStruct struct {
+		A []byte
+		B [1]byte
+	}
+
+	input := BytesStruct{[]byte("A"), [1]byte{'B'}}
+	want := map[string]interface{}{
+		"A": map[string]interface{}{"$reql_type$": "BINARY", "data": "QQ=="},
+		"B": map[string]interface{}{"$reql_type$": "BINARY", "data": "Qg=="},
+	}
+
+	out, err := Encode(input)
+	if err != nil {
+		t.Errorf("got error %v, expected nil", err)
+	}
+	if !jsonEqual(out, want) {
+		t.Errorf("got %q, want %q", out, want)
+	}
+}
+
+type Compound struct {
+	PartA string `gorethink:"id[0]"`
+	PartB string `gorethink:"id[1]"`
+	ErrA  string `gorethink:"err_a[]"`
+	ErrB  string `gorethink:"err_b["`
+	ErrC  string `gorethink:"err_c]"`
+}
+
+func TestEncodeCompound(t *testing.T) {
+	input := Compound{"1", "2", "3", "4", "5"}
+	want := map[string]interface{}{"id": []string{"1", "2"}, "err_a[]": "3", "err_b[": "4", "err_c]": "5"}
+
+	out, err := Encode(input)
+	if err != nil {
+		t.Errorf("got error %v, expected nil", err)
+	}
+	if !jsonEqual(out, want) {
+		t.Errorf("got %q, want %q", out, want)
+	}
+}
+
+type CompoundRef struct {
+	PartA string `gorethink:"id[0]"`
+	PartB *RefB  `gorethink:"id[1],reference" gorethink_ref:"id"`
+}
+
+func TestEncodeCompoundRef(t *testing.T) {
+	input := CompoundRef{"1", &RefB{"2", "Name"}}
+	want := map[string]interface{}{"id": []string{"1", "2"}}
+
+	out, err := Encode(input)
+	if err != nil {
+		t.Errorf("got error %v, expected nil", err)
+	}
+	if !jsonEqual(out, want) {
+		t.Errorf("got %q, want %q", out, want)
+	}
+}
+
+func TestEncodeNilSlice(t *testing.T) {
+	input := SliceStruct{}
+	want := map[string]interface{}{"X": []string(nil)}
 
 	out, err := Encode(input)
 	if err != nil {

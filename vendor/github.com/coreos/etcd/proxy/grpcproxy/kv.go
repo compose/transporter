@@ -35,35 +35,64 @@ func NewKvProxy(c *clientv3.Client) pb.KVServer {
 }
 
 func (p *kvProxy) Range(ctx context.Context, r *pb.RangeRequest) (*pb.RangeResponse, error) {
-	// if request set Serializable, serve it from local cache first
 	if r.Serializable {
 		resp, err := p.cache.Get(r)
 		switch err {
 		case nil:
+			cacheHits.Inc()
 			return resp, nil
 		case cache.ErrCompacted:
+			cacheHits.Inc()
 			return nil, err
 		}
 	}
+	cachedMisses.Inc()
 
 	resp, err := p.kv.Do(ctx, RangeRequestToOp(r))
 	if err != nil {
 		return nil, err
 	}
 
-	p.cache.Add(r, (*pb.RangeResponse)(resp.Get()))
+	// cache linearizable as serializable
+	req := *r
+	req.Serializable = true
+	gresp := (*pb.RangeResponse)(resp.Get())
+	p.cache.Add(&req, gresp)
+	cacheKeys.Set(float64(p.cache.Size()))
 
-	return (*pb.RangeResponse)(resp.Get()), nil
+	return gresp, nil
 }
 
 func (p *kvProxy) Put(ctx context.Context, r *pb.PutRequest) (*pb.PutResponse, error) {
+	p.cache.Invalidate(r.Key, nil)
+	cacheKeys.Set(float64(p.cache.Size()))
+
 	resp, err := p.kv.Do(ctx, PutRequestToOp(r))
 	return (*pb.PutResponse)(resp.Put()), err
 }
 
 func (p *kvProxy) DeleteRange(ctx context.Context, r *pb.DeleteRangeRequest) (*pb.DeleteRangeResponse, error) {
+	p.cache.Invalidate(r.Key, r.RangeEnd)
+	cacheKeys.Set(float64(p.cache.Size()))
+
 	resp, err := p.kv.Do(ctx, DelRequestToOp(r))
 	return (*pb.DeleteRangeResponse)(resp.Del()), err
+}
+
+func (p *kvProxy) txnToCache(reqs []*pb.RequestOp, resps []*pb.ResponseOp) {
+	for i := range resps {
+		switch tv := resps[i].Response.(type) {
+		case *pb.ResponseOp_ResponsePut:
+			p.cache.Invalidate(reqs[i].GetRequestPut().Key, nil)
+		case *pb.ResponseOp_ResponseDeleteRange:
+			rdr := reqs[i].GetRequestDeleteRange()
+			p.cache.Invalidate(rdr.Key, rdr.RangeEnd)
+		case *pb.ResponseOp_ResponseRange:
+			req := *(reqs[i].GetRequestRange())
+			req.Serializable = true
+			p.cache.Add(&req, tv.ResponseRange)
+		}
+	}
 }
 
 func (p *kvProxy) Txn(ctx context.Context, r *pb.TxnRequest) (*pb.TxnResponse, error) {
@@ -85,7 +114,24 @@ func (p *kvProxy) Txn(ctx context.Context, r *pb.TxnRequest) (*pb.TxnResponse, e
 	}
 
 	resp, err := txn.If(cmps...).Then(thenops...).Else(elseops...).Commit()
-	return (*pb.TxnResponse)(resp), err
+
+	if err != nil {
+		return nil, err
+	}
+	// txn may claim an outdated key is updated; be safe and invalidate
+	for _, cmp := range r.Compare {
+		p.cache.Invalidate(cmp.Key, nil)
+	}
+	// update any fetched keys
+	if resp.Succeeded {
+		p.txnToCache(r.Success, resp.Responses)
+	} else {
+		p.txnToCache(r.Failure, resp.Responses)
+	}
+
+	cacheKeys.Set(float64(p.cache.Size()))
+
+	return (*pb.TxnResponse)(resp), nil
 }
 
 func (p *kvProxy) Compact(ctx context.Context, r *pb.CompactionRequest) (*pb.CompactionResponse, error) {
@@ -98,6 +144,8 @@ func (p *kvProxy) Compact(ctx context.Context, r *pb.CompactionRequest) (*pb.Com
 	if err == nil {
 		p.cache.Compact(r.Revision)
 	}
+
+	cacheKeys.Set(float64(p.cache.Size()))
 
 	return (*pb.CompactionResponse)(resp), err
 }
@@ -131,6 +179,10 @@ func RangeRequestToOp(r *pb.RangeRequest) clientv3.Op {
 		clientv3.SortTarget(r.SortTarget),
 		clientv3.SortOrder(r.SortOrder)),
 	)
+	opts = append(opts, clientv3.WithMaxCreateRev(r.MaxCreateRevision))
+	opts = append(opts, clientv3.WithMinCreateRev(r.MinCreateRevision))
+	opts = append(opts, clientv3.WithMaxModRev(r.MaxModRevision))
+	opts = append(opts, clientv3.WithMinModRev(r.MinModRevision))
 
 	if r.Serializable {
 		opts = append(opts, clientv3.WithSerializable())

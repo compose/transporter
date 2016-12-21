@@ -15,194 +15,251 @@
 package grpcproxy
 
 import (
-	"io"
 	"sync"
 
 	"golang.org/x/net/context"
+	"golang.org/x/time/rate"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/etcdserver/api/v3rpc"
+	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
 	pb "github.com/coreos/etcd/etcdserver/etcdserverpb"
 )
 
 type watchProxy struct {
-	c   *clientv3.Client
-	wgs watchergroups
+	cw  clientv3.Watcher
+	ctx context.Context
 
-	mu           sync.Mutex
-	nextStreamID int64
+	ranges *watchRanges
+
+	// retryLimiter controls the create watch retry rate on lost leaders.
+	retryLimiter *rate.Limiter
+
+	// mu protects leaderc updates.
+	mu      sync.RWMutex
+	leaderc chan struct{}
+
+	// wg waits until all outstanding watch servers quit.
+	wg sync.WaitGroup
 }
 
+const (
+	lostLeaderKey  = "__lostleader" // watched to detect leader loss
+	retryPerSecond = 10
+)
+
 func NewWatchProxy(c *clientv3.Client) pb.WatchServer {
-	return &watchProxy{
-		c: c,
-		wgs: watchergroups{
-			c:      c,
-			groups: make(map[watchRange]*watcherGroup),
-		},
+	wp := &watchProxy{
+		cw:           c.Watcher,
+		ctx:          clientv3.WithRequireLeader(c.Ctx()),
+		retryLimiter: rate.NewLimiter(rate.Limit(retryPerSecond), retryPerSecond),
+		leaderc:      make(chan struct{}),
 	}
+	wp.ranges = newWatchRanges(wp)
+	go func() {
+		// a new streams without opening any watchers won't catch
+		// a lost leader event, so have a special watch to monitor it
+		rev := int64((uint64(1) << 63) - 2)
+		for wp.ctx.Err() == nil {
+			wch := wp.cw.Watch(wp.ctx, lostLeaderKey, clientv3.WithRev(rev))
+			for range wch {
+			}
+			wp.mu.Lock()
+			close(wp.leaderc)
+			wp.leaderc = make(chan struct{})
+			wp.mu.Unlock()
+			wp.retryLimiter.Wait(wp.ctx)
+		}
+		wp.mu.Lock()
+		<-wp.ctx.Done()
+		wp.mu.Unlock()
+		wp.wg.Wait()
+		wp.ranges.stop()
+	}()
+	return wp
 }
 
 func (wp *watchProxy) Watch(stream pb.Watch_WatchServer) (err error) {
 	wp.mu.Lock()
-	wp.nextStreamID++
+	select {
+	case <-wp.ctx.Done():
+		wp.mu.Unlock()
+		return
+	default:
+		wp.wg.Add(1)
+	}
 	wp.mu.Unlock()
 
-	sws := serverWatchStream{
-		c:      wp.c,
-		groups: &wp.wgs,
-
-		id:         wp.nextStreamID,
-		gRPCStream: stream,
-
-		ctrlCh:  make(chan *pb.WatchResponse, 10),
-		watchCh: make(chan *pb.WatchResponse, 10),
+	ctx, cancel := context.WithCancel(stream.Context())
+	wps := &watchProxyStream{
+		ranges:   wp.ranges,
+		watchers: make(map[int64]*watcher),
+		stream:   stream,
+		watchCh:  make(chan *pb.WatchResponse, 1024),
+		ctx:      ctx,
+		cancel:   cancel,
 	}
 
-	go sws.recvLoop()
+	var leaderc <-chan struct{}
+	if md, ok := metadata.FromContext(stream.Context()); ok {
+		v := md[rpctypes.MetadataRequireLeaderKey]
+		if len(v) > 0 && v[0] == rpctypes.MetadataHasLeader {
+			leaderc = wp.lostLeaderNotify()
+		}
+	}
 
-	sws.sendLoop()
+	// post to stopc => terminate server stream; can't use a waitgroup
+	// since all goroutines will only terminate after Watch() exits.
+	stopc := make(chan struct{}, 3)
+	go func() {
+		defer func() { stopc <- struct{}{} }()
+		wps.recvLoop()
+	}()
+	go func() {
+		defer func() { stopc <- struct{}{} }()
+		wps.sendLoop()
+	}()
+	if leaderc != nil {
+		go func() {
+			defer func() { stopc <- struct{}{} }()
+			select {
+			case <-leaderc:
+			case <-ctx.Done():
+			}
+		}()
+	}
 
-	return nil
+	<-stopc
+	// recv/send may only shutdown after function exits;
+	// goroutine notifies proxy that stream is through
+	go func() {
+		if leaderc != nil {
+			<-stopc
+		}
+		<-stopc
+		wps.close()
+		wp.wg.Done()
+	}()
+
+	select {
+	case <-leaderc:
+		return rpctypes.ErrNoLeader
+	default:
+		return wps.ctx.Err()
+	}
 }
 
-type serverWatchStream struct {
-	id int64
-	c  *clientv3.Client
+func (wp *watchProxy) lostLeaderNotify() <-chan struct{} {
+	wp.mu.RLock()
+	defer wp.mu.RUnlock()
+	return wp.leaderc
+}
 
-	mu      sync.Mutex // make sure any access of groups and singles is atomic
-	groups  *watchergroups
-	singles map[int64]*watcherSingle
+// watchProxyStream forwards etcd watch events to a proxied client stream.
+type watchProxyStream struct {
+	ranges *watchRanges
 
-	gRPCStream pb.Watch_WatchServer
+	// mu protects watchers and nextWatcherID
+	mu sync.Mutex
+	// watchers receive events from watch broadcast.
+	watchers map[int64]*watcher
+	// nextWatcherID is the id to assign the next watcher on this stream.
+	nextWatcherID int64
 
-	ctrlCh  chan *pb.WatchResponse
+	stream pb.Watch_WatchServer
+
+	// watchCh receives watch responses from the watchers.
 	watchCh chan *pb.WatchResponse
 
-	nextWatcherID int64
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
-func (sws *serverWatchStream) recvLoop() error {
+func (wps *watchProxyStream) close() {
+	var wg sync.WaitGroup
+	wps.cancel()
+	wps.mu.Lock()
+	wg.Add(len(wps.watchers))
+	for _, wpsw := range wps.watchers {
+		go func(w *watcher) {
+			wps.ranges.delete(w)
+			wg.Done()
+		}(wpsw)
+	}
+	wps.watchers = nil
+	wps.mu.Unlock()
+
+	wg.Wait()
+
+	close(wps.watchCh)
+}
+
+func (wps *watchProxyStream) recvLoop() error {
 	for {
-		req, err := sws.gRPCStream.Recv()
-		if err == io.EOF {
-			return nil
-		}
+		req, err := wps.stream.Recv()
 		if err != nil {
 			return err
 		}
-
 		switch uv := req.RequestUnion.(type) {
 		case *pb.WatchRequest_CreateRequest:
 			cr := uv.CreateRequest
+			w := &watcher{
+				wr:  watchRange{string(cr.Key), string(cr.RangeEnd)},
+				id:  wps.nextWatcherID,
+				wps: wps,
 
-			watcher := watcher{
-				wr: watchRange{
-					key: string(cr.Key),
-					end: string(cr.RangeEnd),
-				},
-				id: sws.nextWatcherID,
-				ch: sws.watchCh,
-
+				nextrev:  cr.StartRevision,
 				progress: cr.ProgressNotify,
+				prevKV:   cr.PrevKv,
 				filters:  v3rpc.FiltersFromRequest(cr),
 			}
-			if cr.StartRevision != 0 {
-				sws.addDedicatedWatcher(watcher, cr.StartRevision)
-			} else {
-				sws.addCoalescedWatcher(watcher)
+			if !w.wr.valid() {
+				w.post(&pb.WatchResponse{WatchId: -1, Created: true, Canceled: true})
+				continue
 			}
-
-			wresp := &pb.WatchResponse{
-				Header:  &pb.ResponseHeader{}, // TODO: fill in header
-				WatchId: sws.nextWatcherID,
-				Created: true,
-			}
-
-			sws.nextWatcherID++
-			select {
-			case sws.ctrlCh <- wresp:
-			default:
-				panic("handle this")
-			}
-
+			wps.nextWatcherID++
+			w.nextrev = cr.StartRevision
+			wps.watchers[w.id] = w
+			wps.ranges.add(w)
 		case *pb.WatchRequest_CancelRequest:
-			sws.removeWatcher(uv.CancelRequest.WatchId)
+			wps.delete(uv.CancelRequest.WatchId)
 		default:
 			panic("not implemented")
 		}
 	}
 }
 
-func (sws *serverWatchStream) sendLoop() {
+func (wps *watchProxyStream) sendLoop() {
 	for {
 		select {
-		case wresp, ok := <-sws.watchCh:
+		case wresp, ok := <-wps.watchCh:
 			if !ok {
 				return
 			}
-			if err := sws.gRPCStream.Send(wresp); err != nil {
+			if err := wps.stream.Send(wresp); err != nil {
 				return
 			}
-
-		case c, ok := <-sws.ctrlCh:
-			if !ok {
-				return
-			}
-			if err := sws.gRPCStream.Send(c); err != nil {
-				return
-			}
+		case <-wps.ctx.Done():
+			return
 		}
 	}
 }
 
-func (sws *serverWatchStream) addCoalescedWatcher(w watcher) {
-	sws.mu.Lock()
-	defer sws.mu.Unlock()
+func (wps *watchProxyStream) delete(id int64) {
+	wps.mu.Lock()
+	defer wps.mu.Unlock()
 
-	rid := receiverID{streamID: sws.id, watcherID: w.id}
-	sws.groups.addWatcher(rid, w)
-}
-
-func (sws *serverWatchStream) addDedicatedWatcher(w watcher, rev int64) {
-	sws.mu.Lock()
-	defer sws.mu.Unlock()
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	wch := sws.c.Watch(ctx,
-		w.wr.key, clientv3.WithRange(w.wr.end),
-		clientv3.WithRev(rev),
-		clientv3.WithProgressNotify(),
-	)
-
-	ws := newWatcherSingle(wch, cancel, w, sws)
-	sws.singles[w.id] = ws
-	go ws.run()
-}
-
-func (sws *serverWatchStream) maybeCoalesceWatcher(ws watcherSingle) bool {
-	sws.mu.Lock()
-	defer sws.mu.Unlock()
-
-	rid := receiverID{streamID: sws.id, watcherID: ws.w.id}
-	if sws.groups.maybeJoinWatcherSingle(rid, ws) {
-		delete(sws.singles, ws.w.id)
-		return true
-	}
-	return false
-}
-
-func (sws *serverWatchStream) removeWatcher(id int64) {
-	sws.mu.Lock()
-	defer sws.mu.Unlock()
-
-	if sws.groups.removeWatcher(receiverID{streamID: sws.id, watcherID: id}) {
+	w, ok := wps.watchers[id]
+	if !ok {
 		return
 	}
-
-	if ws, ok := sws.singles[id]; ok {
-		delete(sws.singles, id)
-		ws.stop()
+	wps.ranges.delete(w)
+	delete(wps.watchers, id)
+	resp := &pb.WatchResponse{
+		Header:   &w.lastHeader,
+		WatchId:  id,
+		Canceled: true,
 	}
+	wps.watchCh <- resp
 }

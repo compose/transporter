@@ -1,7 +1,7 @@
 package gorethink
 
 import (
-	p "gopkg.in/dancannon/gorethink.v2/ql2"
+	p "gopkg.in/gorethink/gorethink.v2/ql2"
 )
 
 var (
@@ -156,7 +156,7 @@ type RandomOpts struct {
 	Float interface{} `gorethink:"float,omitempty"`
 }
 
-func (o *RandomOpts) toMap() map[string]interface{} {
+func (o RandomOpts) toMap() map[string]interface{} {
 	return optArgsToMap(o)
 }
 

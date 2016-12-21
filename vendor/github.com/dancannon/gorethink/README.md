@@ -1,14 +1,17 @@
-# GoRethink - RethinkDB Driver for Go 
+# GoRethink - RethinkDB Driver for Go
 
-[![GitHub tag](https://img.shields.io/github/tag/dancannon/gorethink.svg?style=flat)](https://github.com/dancannon/gorethink/releases)
-[![GoDoc](https://godoc.org/github.com/dancannon/gorethink?status.png)](https://godoc.org/github.com/dancannon/gorethink)
-[![build status](https://img.shields.io/travis/dancannon/gorethink/master.svg "build status")](https://travis-ci.org/dancannon/gorethink) 
+[![GitHub tag](https://img.shields.io/github/tag/gorethink/gorethink.svg?style=flat)](https://github.com/gorethink/gorethink/releases)
+[![GoDoc](https://godoc.org/github.com/gorethink/gorethink?status.png)](https://godoc.org/github.com/gorethink/gorethink)
+[![build status](https://img.shields.io/travis/gorethink/gorethink/master.svg "build status")](https://travis-ci.org/gorethink/gorethink)
+[![No Maintenance Intended](http://unmaintained.tech/badge.svg)](http://unmaintained.tech/)
 
-[Go](http://golang.org/) driver for [RethinkDB](http://www.rethinkdb.com/) 
+[Go](http://golang.org/) driver for [RethinkDB](http://www.rethinkdb.com/)
 
-![GoRethink Logo](https://raw.github.com/wiki/dancannon/gorethink/gopher-and-thinker-s.png "Golang Gopher and RethinkDB Thinker")
+![GoRethink Logo](https://raw.github.com/wiki/gorethink/gorethink/gopher-and-thinker-s.png "Golang Gopher and RethinkDB Thinker")
 
-Current version: v2.1.2 (RethinkDB v2.3)
+Current version: v3.0.0 (RethinkDB v2.3)
+
+This project is no longer maintained, for more information see the [v3.0.0 release](https://github.com/gorethink/gorethink/releases/tag/v3.0.0)
 
 Please note that this version of the driver only supports versions of RethinkDB using the v0.4 protocol (any versions of the driver older than RethinkDB 2.0 will not work).
 
@@ -17,13 +20,13 @@ If you need any help you can find me on the [RethinkDB slack](http://slack.rethi
 ## Installation
 
 ```
-go get gopkg.in/dancannon/gorethink.v2
+go get gopkg.in/gorethink/gorethink.v2
 ```
 
 (Or v1)
 
 ```sh
-go get gopkg.in/dancannon/gorethink.v1
+go get gopkg.in/gorethink/gorethink.v1
 ```
 
 ## Example
@@ -36,7 +39,7 @@ import (
 	"fmt"
 	"log"
 
-	r "gopkg.in/dancannon/gorethink.v2"
+	r "gopkg.in/gorethink/gorethink.v2"
 )
 
 func Example() {
@@ -85,13 +88,13 @@ func ExampleConnect() {
 }
 ```
 
-See the [documentation](http://godoc.org/github.com/dancannon/gorethink#Connect) for a list of supported arguments to Connect().
+See the [documentation](http://godoc.org/github.com/gorethink/gorethink#Connect) for a list of supported arguments to Connect().
 
 ### Connection Pool
 
 The driver uses a connection pool at all times, by default it creates and frees connections automatically. It's safe for concurrent use by multiple goroutines.
 
-To configure the connection pool `InitlaCap`, `MaxOpen` and `Timeout` can be specified during connection. If you wish to change the value of `InitlaCap` or `MaxOpen` during runtime then the functions `SetInitalPoolCap` and `SetMaxOpenConns` can be used.
+To configure the connection pool `InitialCap`, `MaxOpen` and `Timeout` can be specified during connection. If you wish to change the value of `InitialCap` or `MaxOpen` during runtime then the functions `SetInitialPoolCap` and `SetMaxOpenConns` can be used.
 
 [embedmd]:# (example_connect_test.go go /func ExampleConnect_connectionPool\(\) {/ /(?m)^}/)
 ```go
@@ -164,7 +167,7 @@ Please note that `DiscoverHosts` will not work with user authentication at this 
 
 This library is based on the official drivers so the code on the [API](http://www.rethinkdb.com/api/) page should require very few changes to work.
 
-To view full documentation for the query functions check the [API reference](https://github.com/dancannon/gorethink/wiki/Go-ReQL-command-reference) or [GoDoc](http://godoc.org/github.com/dancannon/gorethink#Term)
+To view full documentation for the query functions check the [API reference](https://github.com/gorethink/gorethink/wiki/Go-ReQL-command-reference) or [GoDoc](http://godoc.org/github.com/gorethink/gorethink#Term)
 
 Slice Expr Example
 ```go
@@ -290,6 +293,10 @@ Field int `gorethink:"myName,omitempty"`
 // the field is skipped if empty.
 // Note the leading comma.
 Field int `gorethink:",omitempty"`
+// When the tag name includes an index expression
+// a compound field is created
+Field1 int `gorethink:"myName[0]"`
+Field2 int `gorethink:"myName[1]"`
 ```
 
 **NOTE:** It is strongly recommended that struct tags are used to explicitly define the mapping between your Go type and how the data is stored by RethinkDB. This is especially important when using an `Id` field as by default RethinkDB will create a field named `id` as the primary key (note that the RethinkDB field is lowercase but the Go version starts with a capital letter).
@@ -298,12 +305,25 @@ When encoding maps with non-string keys the key values are automatically convert
 
 If you wish to use the `json` tags for GoRethink then you can call `SetTags("gorethink", "json")` when starting your program, this will cause GoRethink to check for `json` tags after checking for `gorethink` tags. By default this feature is disabled. This function will also let you support any other tags, the driver will check for tags in the same order as the parameters.
 
-#### Pseudo-types
+### Pseudo-types
 
 RethinkDB contains some special types which can be used to store special value types, currently supports are binary values, times and geometry data types. GoRethink supports these data types natively however there are some gotchas:
  - Time types: To store times in RethinkDB with GoRethink you must pass a `time.Time` value to your query, due to the way Go works type aliasing or embedding is not support here
  - Binary types: To store binary data pass a byte slice (`[]byte`) to your query
- - Geometry types: As Go does not include any built-in data structures for storing geometry data GoRethink includes its own in the `github.com/dancannon/gorethink/types` package, Any of the types (`Geometry`, `Point`, `Line` and `Lines`) can be passed to a query to create a RethinkDB geometry type.
+ - Geometry types: As Go does not include any built-in data structures for storing geometry data GoRethink includes its own in the `github.com/gorethink/gorethink/types` package, Any of the types (`Geometry`, `Point`, `Line` and `Lines`) can be passed to a query to create a RethinkDB geometry type.
+
+### Compound Keys
+
+RethinkDB unfortunately does not support compound primary keys using multiple fields however it does support compound keys using an array of values. For example if you wanted to create a compound key for a book where the key contained the author ID and book name then the ID might look like this `["author_id", "book name"]`. Luckily GoRethink allows you to easily manage these keys while keeping the fields separate in your structs. For example:
+
+```go
+type Book struct {
+  AuthorID string `gorethink:"id[0]"`
+  Name     string `gorethink:"id[1]"`
+}
+// Creates the following document in RethinkDB
+{"id": [AUTHORID, NAME]}
+```
 
 ### References
 
@@ -328,8 +348,8 @@ The resulting data in RethinkDB should look something like this:
 
 ```json
 {
-    "author_id": "c2182a10-6b9d-4ea1-a70c-d6649bb5f8d7",
-    "id":  "eeb006d6-7fec-46c8-9d29-45b83f07ca14",
+    "author_id": "author_1",
+    "id":  "book_1",
     "title":  "The Hobbit"
 }
 ```
@@ -344,13 +364,50 @@ r.Table("books").Get("1").Merge(func(p r.Term) interface{} {
 }).Run(session)
 ```
 
+You are also able to reference an array of documents, for example if each book stored multiple authors you could do the following:
+
+```go
+type Book struct {
+    ID       string  `gorethink:"id,omitempty"`
+    Title    string  `gorethink:"title"`
+    Authors  []Author `gorethink:"author_ids,reference" gorethink_ref:"id"`
+}
+```
+
+```json
+{
+    "author_ids": ["author_1", "author_2"],
+    "id":  "book_1",
+    "title":  "The Hobbit"
+}
+```
+
+The query for reading the data back is slightly more complicated but is very similar:
+
+```go
+r.Table("books").Get("book_1").Merge(func(p r.Term) interface{} {
+    return map[string]interface{}{
+        "author_ids": r.Table("authors").GetAll(r.Args(p.Field("author_ids"))).CoerceTo("array"),
+    }
+})
+```
+
+### Custom `Marshaler`s/`Unmarshaler`s
+
+Sometimes the default behaviour for converting Go types to and from ReQL is not desired, for these situations the driver allows you to implement both the [`Marshaler`](https://godoc.org/github.com/gorethink/gorethink/encoding#Marshaler) and [`Unmarshaler`](https://godoc.org/github.com/gorethink/gorethink/encoding#Unmarshaler) interfaces. These interfaces might look familiar if you are using to using the `encoding/json` package however instead of dealing with `[]byte` the interfaces deal with `interface{}` values (which are later encoded by the `encoding/json` package when communicating with the database).
+
+An good example of how to use these interfaces is in the [`types`](https://github.com/gorethink/gorethink/blob/master/types/geometry.go#L84-L106) package, in this package the `Point` type is encoded as the `GEOMETRY` pseudo-type instead of a normal JSON object.
+
 ## Logging
 
-By default the driver logs errors when it fails to connect to the database. If you would like more verbose error logging you can call `r.SetVerbose(true)`.
+By default the driver logs are disabled however when enabled the driver will log errors when it fails to connect to the database. If you would like more verbose error logging you can call `r.SetVerbose(true)`.
 
 Alternatively if you wish to modify the logging behaviour you can modify the logger provided by `github.com/Sirupsen/logrus`. For example the following code completely disable the logger:
 
 ```go
+// Enabled
+r.Log.Out = os.Stderr
+// Disabled
 r.Log.Out = ioutil.Discard
 ```
 
@@ -391,7 +448,7 @@ The mocking implementation is based on amazing https://github.com/stretchr/testi
 
 ## Benchmarks
 
-Everyone wants their project's benchmarks to be speedy. And while we know that rethinkDb and the gorethink driver are quite fast, our primary goal is for our benchmarks to be correct. They are designed to give you, the user, an accurate picture of writes per second (w/s). If you come up with a accurate test that meets this aim, submit a pull request please. 
+Everyone wants their project's benchmarks to be speedy. And while we know that rethinkDb and the gorethink driver are quite fast, our primary goal is for our benchmarks to be correct. They are designed to give you, the user, an accurate picture of writes per second (w/s). If you come up with a accurate test that meets this aim, submit a pull request please.
 
 Thanks to @jaredfolkins for the contribution.
 
@@ -399,12 +456,12 @@ Thanks to @jaredfolkins for the contribution.
 | --- | --- |
 | **Model Name** | MacBook Pro |
 | **Model Identifier** | MacBookPro11,3 |
-| **Processor Name** | Intel Core i7 | 
-| **Processor Speed** | 2.3 GHz | 
+| **Processor Name** | Intel Core i7 |
+| **Processor Speed** | 2.3 GHz |
 | **Number of Processors** | 1 |
 | **Total Number of Cores** | 4 |
-| **L2 Cache (per Core)** | 256 KB | 
-| **L3 Cache** | 6 MB | 
+| **L2 Cache (per Core)** | 256 KB |
+| **L3 Cache** | 6 MB |
 | **Memory** | 16 GB |
 
 ```bash
@@ -423,7 +480,7 @@ BenchmarkSequentialSoftWritesParallel10      10000                           263
 
 ## Examples
 
-Many functions have examples and are viewable in the godoc, alternatively view some more full features examples on the [wiki](https://github.com/dancannon/gorethink/wiki/Examples).
+Many functions have examples and are viewable in the godoc, alternatively view some more full features examples on the [wiki](https://github.com/gorethink/gorethink/wiki/Examples).
 
 Another good place to find examples are the tests, almost every term will have a couple of tests that demonstrate how they can be used.
 
@@ -451,4 +508,4 @@ limitations under the License.
 
 ## Donations
 
-[![Donations](https://pledgie.com/campaigns/29517.png "Donations")](https://pledgie.com/campaigns/29517) 
+[![Donations](https://pledgie.com/campaigns/29517.png "Donations")](https://pledgie.com/campaigns/29517)

@@ -1,7 +1,7 @@
 package gorethink
 
 import (
-	p "gopkg.in/dancannon/gorethink.v2/ql2"
+	p "gopkg.in/gorethink/gorethink.v2/ql2"
 )
 
 // CircleOpts contains the optional arguments for the Circle term.
@@ -12,7 +12,7 @@ type CircleOpts struct {
 	Fill        interface{} `gorethink:"fill,omitempty"`
 }
 
-func (o *CircleOpts) toMap() map[string]interface{} {
+func (o CircleOpts) toMap() map[string]interface{} {
 	return optArgsToMap(o)
 }
 
@@ -34,7 +34,7 @@ type DistanceOpts struct {
 	Unit      interface{} `gorethink:"unit,omitempty"`
 }
 
-func (o *DistanceOpts) toMap() map[string]interface{} {
+func (o DistanceOpts) toMap() map[string]interface{} {
 	return optArgsToMap(o)
 }
 
@@ -82,7 +82,7 @@ type GetIntersectingOpts struct {
 	Index interface{} `gorethink:"index,omitempty"`
 }
 
-func (o *GetIntersectingOpts) toMap() map[string]interface{} {
+func (o GetIntersectingOpts) toMap() map[string]interface{} {
 	return optArgsToMap(o)
 }
 
@@ -106,7 +106,7 @@ type GetNearestOpts struct {
 	GeoSystem  interface{} `gorethink:"geo_system,omitempty"`
 }
 
-func (o *GetNearestOpts) toMap() map[string]interface{} {
+func (o GetNearestOpts) toMap() map[string]interface{} {
 	return optArgsToMap(o)
 }
 

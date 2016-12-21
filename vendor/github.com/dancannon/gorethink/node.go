@@ -3,7 +3,7 @@ package gorethink
 import (
 	"sync"
 
-	p "gopkg.in/dancannon/gorethink.v2/ql2"
+	p "gopkg.in/gorethink/gorethink.v2/ql2"
 )
 
 // Node represents a database server in the cluster
@@ -63,9 +63,9 @@ func (n *Node) Close(optArgs ...CloseOpts) error {
 	return nil
 }
 
-// SetInitalPoolCap sets the initial capacity of the connection pool.
-func (n *Node) SetInitalPoolCap(idleConns int) {
-	n.pool.SetInitalPoolCap(idleConns)
+// SetInitialPoolCap sets the initial capacity of the connection pool.
+func (n *Node) SetInitialPoolCap(idleConns int) {
+	n.pool.SetInitialPoolCap(idleConns)
 }
 
 // SetMaxIdleConns sets the maximum number of connections in the idle

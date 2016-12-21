@@ -2,6 +2,122 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## v3.0.0 - 2016-12-06
+
+Unfortunately this will likely be the last release I plan to work on. This is due to the following reasons:
+
+ - Over the last few years while I have spent a lot of time maintaining this driver I have not used it very much for my own personal projects.
+ - My job has been keeping me very busy lately and I don't have as much time to work on this project as I used to.
+ - The company behind RethinkDB has shut down and while I am sure the community will keep the database going it seems like a good time for me to step away from the project.
+ - The driver itself is in a relatively good condition and many companies are using the existing version in production.
+
+I hope you understand my decision to step back from the project, if you have any questions or would be interested in take over some of the maintenance of the project please let me know. To make this process easier I have also decided to move the repository to the GoRethink organisation. All existing imports _should_ still work.
+
+Thanks to everybody who got involved with this project over the last ~4 years and helped out, I have truly enjoyed the time I have spent building this library and I hope both RethinkDB and this driver manage to keep going.
+
+### Changed
+
+ - Moved project to `gorethink` organisation
+ - Fixed behaviour when unmarshaling nil slices
+
+### Fixed
+
+ - Fix possible deadlock when calling `Session.Reconnect`
+ - Fixed another bug with panic/infinite loop when closing cursor during reads
+ - Fixed goroutine leak when calling `Session.Close`
+
+## v2.2.2 - 2016-09-25
+
+### Changed
+
+ - The `gorethink` struct tag is now always checked even after calling `SetTags`
+
+### Fixed
+
+ - Fixed infinite loop in cursor when closed during read
+
+## v2.2.1 - 2016-09-18
+
+### Added
+
+ - Added `State` and `Error` to `ChangeResponse`
+
+### Fixed
+
+ - Fixed panic caused by cursor trying to read outstanding responses while closed
+ - Fixed panic when using mock session
+
+## v2.2.0 - 2016-08-16
+
+### Added
+
+ - Added support for optional arguments to `r.JS()`
+ - Added `NonVotingReplicaTags` optional argument to `TableCreateOpts`
+ - Added root term `TypeOf`, previously only the method term was supported
+ - Added root version of `Group` terms (`Group`, `GroupByIndex`, `MultiGroup`, `MultiGroupByIndex`)
+ - Added root version of `Distinct`
+ - Added root version of `Contains`
+ - Added root version of `Count`
+ - Added root version of `Sum`
+ - Added root version of `Avg`
+ - Added root version of `Min`
+ - Added root version of `MinIndex`
+ - Added root version of `Max`
+ - Added root version of `MaxIndex`
+ - Added `ReadMode` to `RunOpts`
+ - Added the `Interface` function to the `Cursor` which returns a queries result set as an `interface{}`
+ - Added `GroupOpts` type
+ - Added `GetAllOpts` type
+ - Added `MinOpts`/`MaxOpts` types
+ - Added `OptArgs` method to `Term` which allows optional arguments to be specified in an alternative way, for example:
+
+```go
+r.DB("examples").Table("heroes").GetAll("man_of_steel").OptArgs(r.GetAllOpts{
+    Index: "code_name",
+})
+```
+ 
+ - Added ability to create compound keys from structs, for example:
+
+```
+type User struct {
+  Company string `gorethink:"id[0]"`
+  Name    string `gorethink:"id[1]"`
+  Age     int    `gorethink:"age"`
+}
+// Creates
+{"id": [COMPANY, NAME], "age": AGE}
+```
+
+ - Added `Merge` function to `encoding` package that decodes data into a value without zeroing it first.
+ - Added `MockAnything` functions to allow mocking of only part of a query (Thanks to @pzduniak)
+
+### Changed
+
+ - Renamed `PrimaryTag` to `PrimaryReplicaTag` in `ReconfigureOpts`
+ - Renamed `NotAtomic` to `NonAtomic` in `ReplaceOpts` and `UpdateOpts`
+ - Changed behaviour of function callbacks to allow arguments to be either of type `r.Term` or `interface {}` instead of only `r.Term`
+ - Changed logging to be disabled by default, to enable logs change the output writer of the logger. For example: `r.Log.Out = os.Stderr`
+
+### Fixed
+
+ - Fixed `All` not working correctly when the cursor is created by `Mock`
+ - Fixed `Mock` not matching queries containing functions
+ - Fixed byte arrays not being correctly converted to the BINARY pseudo-type
+
+## v2.1.3 - 2016-08-01
+
+### Changed
+
+ - Changed behaviour of function callbacks to allow arguments to be either of type `r.Term` or `interface {}` instead of only `r.Term`
+
+### Fixed
+
+ - Fixed incorrectly named `Replicas` field in `TableCreateOpts`
+ - Fixed broken optional argument `FinalEmit` in `FoldOpts`
+ - Fixed bug causing some queries using `r.Row` to fail with the error `Cannot use r.row in nested queries.`
+ - Fixed typos in `ConnectOpt` field (and related functions) `InitialCap`.
+
 ## v2.1.2 - 2016-07-22
 
 ### Added
@@ -242,7 +358,7 @@ r.Connect(
 
 1.0.0 is finally here, This is the first stable production ready release of GoRethink!
 
-![GoRethink Logo](https://raw.github.com/wiki/dancannon/gorethink/gopher-and-thinker.png "Golang Gopher and RethinkDB Thinker")
+![GoRethink Logo](https://raw.github.com/wiki/gorethink/gorethink/gopher-and-thinker.png "Golang Gopher and RethinkDB Thinker")
 
 In an attempt to make this library more "idiomatic" some functions have been renamed, for the full list of changes and bug fixes see below.
 
@@ -308,7 +424,7 @@ if err != nil {
 }
 ```
 
-Also added was the ability to read from a cursor using a channel, this is especially useful when using changefeeds. For more information see this [gist](https://gist.github.com/dancannon/2865686d163ed78bbc3c)
+Also added was the ability to read from a cursor using a channel, this is especially useful when using changefeeds. For more information see this [gist](https://gist.github.com/gorethink/2865686d163ed78bbc3c)
 
 ```go
 cursor, err := r.Table("items").Changes()
@@ -316,7 +432,7 @@ ch := make(chan map[string]interface{})
 cursor.Listen(ch)
 ```
 
-For more details checkout the [README](https://github.com/dancannon/gorethink/blob/master/README.md) and [godoc](https://godoc.org/github.com/dancannon/gorethink). As always if you have any further questions send me a message on [Gitter](https://gitter.im/dancannon/gorethink).
+For more details checkout the [README](https://github.com/gorethink/gorethink/blob/master/README.md) and [godoc](https://godoc.org/github.com/gorethink/gorethink). As always if you have any further questions send me a message on [Gitter](https://gitter.im/gorethink/gorethink).
 
 - Added the ability to connect to multiple nodes, queries are then distributed between these nodes. If a node stops responding then queries stop being sent to this node.
 - Added the `DiscoverHosts` optional argument to `ConnectOpts`, when this value is `true` the driver will listen for new nodes added to the cluster.

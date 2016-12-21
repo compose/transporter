@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"sync"
 
-	"gopkg.in/dancannon/gorethink.v2/encoding"
-	p "gopkg.in/dancannon/gorethink.v2/ql2"
+	"gopkg.in/gorethink/gorethink.v2/encoding"
+	p "gopkg.in/gorethink/gorethink.v2/ql2"
 )
 
 var (
@@ -21,8 +21,14 @@ func newCursor(conn *Connection, cursorType string, token int64, term *Term, opt
 		cursorType = "Cursor"
 	}
 
+	connOpts := &ConnectOpts{}
+	if conn != nil {
+		connOpts = conn.opts
+	}
+
 	cursor := &Cursor{
 		conn:       conn,
+		connOpts:   connOpts,
 		token:      token,
 		cursorType: cursorType,
 		term:       term,
@@ -53,21 +59,23 @@ type Cursor struct {
 	releaseConn func() error
 
 	conn       *Connection
+	connOpts   *ConnectOpts
 	token      int64
 	cursorType string
 	term       *Term
 	opts       map[string]interface{}
 
-	mu           sync.RWMutex
-	lastErr      error
-	fetching     bool
-	closed       bool
-	finished     bool
-	isAtom       bool
-	pendingSkips int
-	buffer       []interface{}
-	responses    []json.RawMessage
-	profile      interface{}
+	mu            sync.RWMutex
+	lastErr       error
+	fetching      bool
+	closed        bool
+	finished      bool
+	isAtom        bool
+	isSingleValue bool
+	pendingSkips  int
+	buffer        []interface{}
+	responses     []json.RawMessage
+	profile       interface{}
 }
 
 // Profile returns the information returned from the query profiler.
@@ -204,6 +212,10 @@ func (c *Cursor) nextLocked(dest interface{}, progressCursor bool) (bool, error)
 	for {
 		if err := c.seekCursor(true); err != nil {
 			return false, err
+		}
+
+		if c.closed {
+			return false, nil
 		}
 
 		if len(c.buffer) == 0 && c.finished {
@@ -419,6 +431,41 @@ func (c *Cursor) One(result interface{}) error {
 	return nil
 }
 
+// Interface retrieves all documents from the result set and returns the data
+// as an interface{} and closes the cursor.
+//
+// If the query returns multiple documents then a slice will be returned,
+// otherwise a single value will be returned.
+func (c *Cursor) Interface() (interface{}, error) {
+	if c == nil {
+		return nil, errNilCursor
+	}
+
+	var results []interface{}
+	var result interface{}
+	for c.Next(&result) {
+		results = append(results, result)
+	}
+
+	if err := c.Err(); err != nil {
+		return nil, err
+	}
+
+	c.mu.RLock()
+	isSingleValue := c.isSingleValue
+	c.mu.RUnlock()
+
+	if isSingleValue {
+		if len(results) == 0 {
+			return nil, nil
+		}
+
+		return results[0], nil
+	}
+
+	return results, nil
+}
+
 // Listen listens for rows from the database and sends the result onto the given
 // channel. The type that the row is scanned into is determined by the element
 // type of the channel.
@@ -492,13 +539,10 @@ func (c *Cursor) IsNil() bool {
 func (c *Cursor) fetchMore() error {
 	var err error
 
-	fetching := c.fetching
-	closed := c.closed
-
-	if !fetching {
+	if !c.fetching {
 		c.fetching = true
 
-		if closed {
+		if c.closed {
 			return errCursorClosed
 		}
 
@@ -571,10 +615,13 @@ func (c *Cursor) seekCursor(bufferResponse bool) error {
 				return err
 			}
 			continue // go around the loop again to re-apply pending skips
-		} else if len(c.buffer) == 0 && len(c.responses) == 0 && !c.finished && !c.closed {
+		} else if len(c.buffer) == 0 && len(c.responses) == 0 && !c.finished {
 			//  We skipped all of our data, load some more
 			if err := c.fetchMore(); err != nil {
 				return err
+			}
+			if c.closed {
+				return nil
 			}
 			continue // go around the loop again to re-apply pending skips
 		}
@@ -619,6 +666,9 @@ func (c *Cursor) applyPendingSkips(drainFromBuffer bool) (stillPending bool) {
 // if the response is from an atomic response, it will check if the
 // response contains multiple records and store them all into the buffer
 func (c *Cursor) bufferNextResponse() error {
+	if c.closed {
+		return errCursorClosed
+	}
 	// If there are no responses, nothing to do
 	if len(c.responses) == 0 {
 		return nil
@@ -629,7 +679,7 @@ func (c *Cursor) bufferNextResponse() error {
 
 	var value interface{}
 	decoder := json.NewDecoder(bytes.NewBuffer(response))
-	if c.conn.opts.UseJSONNumber {
+	if c.connOpts.UseJSONNumber {
 		decoder.UseNumber()
 	}
 	err := decoder.Decode(&value)
@@ -649,6 +699,12 @@ func (c *Cursor) bufferNextResponse() error {
 		c.buffer = append(c.buffer, nil)
 	} else {
 		c.buffer = append(c.buffer, value)
+
+		// If this is the only value in the response and the response was an
+		// atom then set the single value flag
+		if c.isAtom {
+			c.isSingleValue = true
+		}
 	}
 	return nil
 }
