@@ -56,3 +56,10 @@ nodes:
   postgres:
     type: postgres
     uri: "host=localhost sslmode=disable dbname=fizz user=focker"
+  kinesisstream:
+    type: kinesis
+    awsaccesskey: XXXX
+    awssecretkey: XXXX
+    awsrregionname: us-east-1
+    streamname: appbase_test
+    sharditeratortype: TRIM_HORIZON
