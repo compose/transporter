@@ -74,6 +74,7 @@ imports:
   version: 6acef71eb69611914f7a30939ea9f6e194c78172
   subpackages:
   - context
+  - context/ctxhttp
 - name: golang.org/x/sys
   version: d75a52659825e75fff6158388dddc6a5b04f9ba5
   subpackages:
@@ -95,6 +96,13 @@ imports:
   - internal/json
   - internal/sasl
   - internal/scram
+- name: gopkg.in/olivere/elastic.v3
+  version: b272fab42387a42585235d56f8c6b53b13ddfb7d
+- name: gopkg.in/olivere/elastic.v5
+  version: b272fab42387a42585235d56f8c6b53b13ddfb7d
+  subpackages:
+  - backoff
+  - uritemplates
 - name: gopkg.in/sourcemap.v1
   version: eef8f47ab679652a7d3a4ee34c34314d255d2536
   subpackages:

@@ -9,9 +9,6 @@ import:
   - client
 - package: github.com/hashicorp/go-version
 - package: github.com/lib/pq
-- package: github.com/mattbaird/elastigo
-  subpackages:
-  - lib
 - package: github.com/mitchellh/cli
 - package: github.com/nu7hatch/gouuid
 - package: github.com/robertkrimen/otto
@@ -30,3 +27,9 @@ import:
   version: ^0.1.1
   subpackages:
   - pkg/group
+- package: github.com/Sirupsen/logrus
+  version: ^0.11.0
+- package: gopkg.in/olivere/elastic.v5
+  version: ^5.0.13
+- package: gopkg.in/olivere/elastic.v3
+  version: ^5.0.13
