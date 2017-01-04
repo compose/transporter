@@ -46,7 +46,7 @@ func (e *Elasticsearch) SampleConfig() string {
 }
 
 func init() {
-	adaptor.Add("elasticsearch", adaptor.Creator(func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.Adaptor, error) {
+	adaptor.Add("elasticsearch", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.Adaptor, error) {
 		var (
 			conf adaptor.DbConfig
 			err  error
@@ -63,6 +63,7 @@ func init() {
 		e := &Elasticsearch{
 			uri:  u,
 			pipe: p,
+			path: path,
 		}
 
 		e.index, e.typeMatch, err = extra.CompileNamespace()
@@ -71,7 +72,7 @@ func init() {
 		}
 
 		return e, nil
-	}))
+	})
 }
 
 // Start the adaptor as a source (not implemented)

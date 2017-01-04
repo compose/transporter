@@ -137,10 +137,10 @@ func (n *Node) Init(interval time.Duration) (err error) {
 
 // Stop this node's adaptor, and sends a stop to each child of this node
 func (n *Node) Stop() {
+	n.adaptor.Stop()
 	for _, node := range n.Children {
 		node.Stop()
 	}
-	n.adaptor.Stop()
 }
 
 // Start starts the nodes children in a go routine, and then runs either Start() or Listen()

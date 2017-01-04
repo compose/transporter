@@ -62,7 +62,7 @@ type Config struct {
 }
 
 func init() {
-	adaptor.Add("postgres", adaptor.Creator(func(ppipe *pipe.Pipe, path string, extra adaptor.Config) (adaptor.Adaptor, error) {
+	adaptor.Add("postgres", func(ppipe *pipe.Pipe, path string, extra adaptor.Config) (adaptor.Adaptor, error) {
 		var (
 			conf Config
 			err  error
@@ -95,7 +95,7 @@ func init() {
 			return p, err
 		}
 		return p, nil
-	}))
+	})
 }
 
 // Description for postgres adaptor

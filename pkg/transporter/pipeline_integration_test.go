@@ -1,5 +1,3 @@
-// +build integration
-
 package transporter
 
 import (
@@ -15,7 +13,7 @@ import (
 )
 
 var (
-	mongoUri = "mongodb://127.0.0.1:27017/test"
+	mongoURI = "mongodb://127.0.0.1:27017/test"
 )
 
 // set up some local files
@@ -32,26 +30,25 @@ func setupFiles(in, out string) {
 // set up local mongo
 func setupMongo() {
 	// setup mongo
-	mongoSess, _ := mgo.Dial(mongoUri)
+	mongoSess, _ := mgo.Dial(mongoURI)
 	collection := mongoSess.DB("testOut").C("coll")
 	collection.DropCollection()
 
-	for i := 0; i <= 5; i += 1 {
+	for i := 0; i <= 5; i++ {
 		collection.Insert(bson.M{"index": i})
 	}
 
 	mongoSess.Close()
-	mongoSess, _ = mgo.Dial(mongoUri)
+	mongoSess, _ = mgo.Dial(mongoURI)
 	collection = mongoSess.DB("testIn").C("coll")
 	collection.DropCollection()
 	mongoSess.Close()
 }
 
-//
-//
-//
-
 func TestFileToFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping FileToFile in short mode")
+	}
 	var (
 		inFile  = "/tmp/crapIn"
 		outFile = "/tmp/crapOut"
@@ -90,11 +87,10 @@ func TestFileToFile(t *testing.T) {
 	}
 }
 
-//
-//
-//
-
 func TestMongoToMongo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping MongoToMongo in short mode")
+	}
 	setupMongo()
 
 	var (
@@ -103,8 +99,8 @@ func TestMongoToMongo(t *testing.T) {
 	)
 
 	// create the source node and attach our sink
-	outNode := NewNode("localOutmongo", "mongo", adaptor.Config{"uri": mongoUri, "namespace": outNs}).
-		Add(NewNode("localInmongo", "mongo", adaptor.Config{"uri": mongoUri, "namespace": inNs}))
+	outNode := NewNode("localOutmongo", "mongodb", adaptor.Config{"uri": mongoURI, "namespace": outNs}).
+		Add(NewNode("localInmongo", "mongodb", adaptor.Config{"uri": mongoURI, "namespace": inNs}))
 
 	// create the pipeline
 	p, err := NewDefaultPipeline(outNode, "", "", "", 100*time.Millisecond)
@@ -121,7 +117,7 @@ func TestMongoToMongo(t *testing.T) {
 	}
 
 	// connect to mongo and compare results
-	mongoSess, err := mgo.Dial(mongoUri)
+	mongoSess, err := mgo.Dial(mongoURI)
 	if err != nil {
 		t.Error(err.Error())
 	}

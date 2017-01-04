@@ -40,7 +40,7 @@ func (f *File) SampleConfig() string {
 }
 
 func init() {
-	adaptor.Add("file", adaptor.Creator(func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.Adaptor, error) {
+	adaptor.Add("file", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.Adaptor, error) {
 		var (
 			conf Config
 			err  error
@@ -54,7 +54,7 @@ func init() {
 			pipe: p,
 			path: path,
 		}, nil
-	}))
+	})
 }
 
 // Start the file adaptor
