@@ -11,6 +11,15 @@ make sure godep is installed, `go get github.com/tools/godep` and then build wit
 `godep restore`
 `godep go build -a ./cmd/...`
 
+Adaptors
+--------
+* [elasticsearch](./pkg/adaptor/elasticsearch)
+* [etcd](./pkg/adaptor/etcd)
+* [file](./pkg/adaptor/file)
+* [mongodb](./pkg/adaptor/mongodb)
+* [postgresql](./pkg/adaptor/postgres)
+* [rethinkdb](./pkg/adaptor/rethinkdb)
+* [transformer](./pkg/adaptor/transformer)
 
 Configure
 ---------
