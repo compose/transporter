@@ -42,6 +42,7 @@ var (
 	ErrGRPCRootUserNotExist     = grpc.Errorf(codes.FailedPrecondition, "etcdserver: root user does not exist")
 	ErrGRPCRootRoleNotExist     = grpc.Errorf(codes.FailedPrecondition, "etcdserver: root user does not have root role")
 	ErrGRPCUserAlreadyExist     = grpc.Errorf(codes.FailedPrecondition, "etcdserver: user name already exists")
+	ErrGRPCUserEmpty            = grpc.Errorf(codes.InvalidArgument, "etcdserver: user name is empty")
 	ErrGRPCUserNotFound         = grpc.Errorf(codes.FailedPrecondition, "etcdserver: user name not found")
 	ErrGRPCRoleAlreadyExist     = grpc.Errorf(codes.FailedPrecondition, "etcdserver: role name already exists")
 	ErrGRPCRoleNotFound         = grpc.Errorf(codes.FailedPrecondition, "etcdserver: role name not found")
@@ -51,9 +52,12 @@ var (
 	ErrGRPCPermissionNotGranted = grpc.Errorf(codes.FailedPrecondition, "etcdserver: permission is not granted to the role")
 	ErrGRPCAuthNotEnabled       = grpc.Errorf(codes.FailedPrecondition, "etcdserver: authentication is not enabled")
 
-	ErrGRPCNoLeader   = grpc.Errorf(codes.Unavailable, "etcdserver: no leader")
-	ErrGRPCNotCapable = grpc.Errorf(codes.Unavailable, "etcdserver: not capable")
-	ErrGRPCStopped    = grpc.Errorf(codes.Unavailable, "etcdserver: server stopped")
+	ErrGRPCNoLeader               = grpc.Errorf(codes.Unavailable, "etcdserver: no leader")
+	ErrGRPCNotCapable             = grpc.Errorf(codes.Unavailable, "etcdserver: not capable")
+	ErrGRPCStopped                = grpc.Errorf(codes.Unavailable, "etcdserver: server stopped")
+	ErrGRPCTimeout                = grpc.Errorf(codes.Unavailable, "etcdserver: request timed out")
+	ErrGRPCTimeoutDueToLeaderFail = grpc.Errorf(codes.Unavailable, "etcdserver: request timed out, possibly due to previous leader failure")
+	ErrGRPCUnhealthy              = grpc.Errorf(codes.Unavailable, "etcdserver: unhealthy cluster")
 
 	errStringToError = map[string]error{
 		grpc.ErrorDesc(ErrGRPCEmptyKey):     ErrGRPCEmptyKey,
@@ -77,6 +81,7 @@ var (
 		grpc.ErrorDesc(ErrGRPCRootUserNotExist):     ErrGRPCRootUserNotExist,
 		grpc.ErrorDesc(ErrGRPCRootRoleNotExist):     ErrGRPCRootRoleNotExist,
 		grpc.ErrorDesc(ErrGRPCUserAlreadyExist):     ErrGRPCUserAlreadyExist,
+		grpc.ErrorDesc(ErrGRPCUserEmpty):            ErrGRPCUserEmpty,
 		grpc.ErrorDesc(ErrGRPCUserNotFound):         ErrGRPCUserNotFound,
 		grpc.ErrorDesc(ErrGRPCRoleAlreadyExist):     ErrGRPCRoleAlreadyExist,
 		grpc.ErrorDesc(ErrGRPCRoleNotFound):         ErrGRPCRoleNotFound,
@@ -86,9 +91,12 @@ var (
 		grpc.ErrorDesc(ErrGRPCPermissionNotGranted): ErrGRPCPermissionNotGranted,
 		grpc.ErrorDesc(ErrGRPCAuthNotEnabled):       ErrGRPCAuthNotEnabled,
 
-		grpc.ErrorDesc(ErrGRPCNoLeader):   ErrGRPCNoLeader,
-		grpc.ErrorDesc(ErrGRPCNotCapable): ErrGRPCNotCapable,
-		grpc.ErrorDesc(ErrGRPCStopped):    ErrGRPCStopped,
+		grpc.ErrorDesc(ErrGRPCNoLeader):               ErrGRPCNoLeader,
+		grpc.ErrorDesc(ErrGRPCNotCapable):             ErrGRPCNotCapable,
+		grpc.ErrorDesc(ErrGRPCStopped):                ErrGRPCStopped,
+		grpc.ErrorDesc(ErrGRPCTimeout):                ErrGRPCTimeout,
+		grpc.ErrorDesc(ErrGRPCTimeoutDueToLeaderFail): ErrGRPCTimeoutDueToLeaderFail,
+		grpc.ErrorDesc(ErrGRPCUnhealthy):              ErrGRPCUnhealthy,
 	}
 
 	// client-side error
@@ -113,6 +121,7 @@ var (
 	ErrRootUserNotExist     = Error(ErrGRPCRootUserNotExist)
 	ErrRootRoleNotExist     = Error(ErrGRPCRootRoleNotExist)
 	ErrUserAlreadyExist     = Error(ErrGRPCUserAlreadyExist)
+	ErrUserEmpty            = Error(ErrGRPCUserEmpty)
 	ErrUserNotFound         = Error(ErrGRPCUserNotFound)
 	ErrRoleAlreadyExist     = Error(ErrGRPCRoleAlreadyExist)
 	ErrRoleNotFound         = Error(ErrGRPCRoleNotFound)
@@ -122,9 +131,12 @@ var (
 	ErrPermissionNotGranted = Error(ErrGRPCPermissionNotGranted)
 	ErrAuthNotEnabled       = Error(ErrGRPCAuthNotEnabled)
 
-	ErrNoLeader   = Error(ErrGRPCNoLeader)
-	ErrNotCapable = Error(ErrGRPCNotCapable)
-	ErrStopped    = Error(ErrGRPCStopped)
+	ErrNoLeader               = Error(ErrGRPCNoLeader)
+	ErrNotCapable             = Error(ErrGRPCNotCapable)
+	ErrStopped                = Error(ErrGRPCStopped)
+	ErrTimeout                = Error(ErrGRPCTimeout)
+	ErrTimeoutDueToLeaderFail = Error(ErrGRPCTimeoutDueToLeaderFail)
+	ErrUnhealthy              = Error(ErrGRPCUnhealthy)
 )
 
 // EtcdError defines gRPC server errors.

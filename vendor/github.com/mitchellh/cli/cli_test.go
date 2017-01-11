@@ -20,9 +20,15 @@ func TestCLIIsHelp(t *testing.T) {
 		{[]string{"-h", "foo"}, true},
 		{[]string{"foo", "bar"}, false},
 		{[]string{"-v", "bar"}, false},
-		{[]string{"foo", "-h"}, false},
-		{[]string{"foo", "-help"}, false},
-		{[]string{"foo", "--help"}, false},
+		{[]string{"foo", "-h"}, true},
+		{[]string{"foo", "-help"}, true},
+		{[]string{"foo", "--help"}, true},
+		{[]string{"foo", "bar", "-h"}, true},
+		{[]string{"foo", "bar", "-help"}, true},
+		{[]string{"foo", "bar", "--help"}, true},
+		{[]string{"foo", "bar", "--", "zip", "-h"}, false},
+		{[]string{"foo", "bar", "--", "zip", "-help"}, false},
+		{[]string{"foo", "bar", "--", "zip", "--help"}, false},
 	}
 
 	for _, testCase := range testCases {
@@ -40,6 +46,9 @@ func TestCLIIsVersion(t *testing.T) {
 		args      []string
 		isVersion bool
 	}{
+		{[]string{"--", "-v"}, false},
+		{[]string{"--", "-version"}, false},
+		{[]string{"--", "--version"}, false},
 		{[]string{"-v"}, true},
 		{[]string{"-version"}, true},
 		{[]string{"--version"}, true},
@@ -49,6 +58,9 @@ func TestCLIIsVersion(t *testing.T) {
 		{[]string{"foo", "-v"}, false},
 		{[]string{"foo", "-version"}, false},
 		{[]string{"foo", "--version"}, false},
+		{[]string{"foo", "--", "zip", "-v"}, false},
+		{[]string{"foo", "--", "zip", "-version"}, false},
+		{[]string{"foo", "--", "zip", "--version"}, false},
 	}
 
 	for _, testCase := range testCases {
@@ -119,6 +131,37 @@ func TestCLIRun_blank(t *testing.T) {
 	}
 }
 
+func TestCLIRun_prefix(t *testing.T) {
+	buf := new(bytes.Buffer)
+	command := new(MockCommand)
+	cli := &CLI{
+		Args: []string{"foobar"},
+		Commands: map[string]CommandFactory{
+			"foo": func() (Command, error) {
+				return command, nil
+			},
+
+			"foo bar": func() (Command, error) {
+				return command, nil
+			},
+		},
+		HelpWriter: buf,
+	}
+
+	exitCode, err := cli.Run()
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	if exitCode != 1 {
+		t.Fatalf("bad: %d", exitCode)
+	}
+
+	if command.RunCalled {
+		t.Fatalf("run should not be called")
+	}
+}
+
 func TestCLIRun_default(t *testing.T) {
 	commandBar := new(MockCommand)
 	commandBar.RunResult = 42
@@ -167,7 +210,7 @@ func TestCLIRun_helpNested(t *testing.T) {
 			helpCalled = true
 
 			var keys []string
-			for k, _ := range m {
+			for k := range m {
 				keys = append(keys, k)
 			}
 			sort.Strings(keys)
@@ -278,7 +321,7 @@ func TestCLIRun_printHelp(t *testing.T) {
 			},
 			HelpFunc: func(m map[string]CommandFactory) string {
 				var keys []string
-				for k, _ := range m {
+				for k := range m {
 					keys = append(keys, k)
 				}
 				sort.Strings(keys)

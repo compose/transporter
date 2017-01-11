@@ -150,24 +150,19 @@ func TestNodeReadIndex(t *testing.T) {
 	appendStep := func(r *raft, m raftpb.Message) {
 		msgs = append(msgs, m)
 	}
-	wreadIndex := uint64(1)
-	wrequestCtx := []byte("somedata")
+	wrs := []ReadState{{Index: uint64(1), RequestCtx: []byte("somedata")}}
 
 	n := newNode()
 	s := NewMemoryStorage()
 	r := newTestRaft(1, []uint64{1}, 10, 1, s)
-	r.readState.Index = wreadIndex
-	r.readState.RequestCtx = wrequestCtx
+	r.readStates = wrs
+
 	go n.run(r)
 	n.Campaign(context.TODO())
 	for {
 		rd := <-n.Ready()
-		if rd.Index != wreadIndex {
-			t.Errorf("ReadIndex = %d, want %d", rd.Index, wreadIndex)
-		}
-
-		if !bytes.Equal(rd.RequestCtx, wrequestCtx) {
-			t.Errorf("RequestCtx = %v, want %v", rd.RequestCtx, wrequestCtx)
+		if !reflect.DeepEqual(rd.ReadStates, wrs) {
+			t.Errorf("ReadStates = %v, want %v", rd.ReadStates, wrs)
 		}
 
 		s.Append(rd.Entries)
@@ -180,7 +175,7 @@ func TestNodeReadIndex(t *testing.T) {
 	}
 
 	r.step = appendStep
-	wrequestCtx = []byte("somedata2")
+	wrequestCtx := []byte("somedata2")
 	n.ReadIndex(context.TODO(), wrequestCtx)
 	n.Stop()
 
@@ -192,6 +187,64 @@ func TestNodeReadIndex(t *testing.T) {
 	}
 	if !bytes.Equal(msgs[0].Entries[0].Data, wrequestCtx) {
 		t.Errorf("data = %v, want %v", msgs[0].Entries[0].Data, wrequestCtx)
+	}
+}
+
+// TestNodeReadIndexToOldLeader ensures that raftpb.MsgReadIndex to old leader
+// gets forwarded to the new leader and 'send' method does not attach its term.
+func TestNodeReadIndexToOldLeader(t *testing.T) {
+	r1 := newTestRaft(1, []uint64{1, 2, 3}, 10, 1, NewMemoryStorage())
+	r2 := newTestRaft(2, []uint64{1, 2, 3}, 10, 1, NewMemoryStorage())
+	r3 := newTestRaft(3, []uint64{1, 2, 3}, 10, 1, NewMemoryStorage())
+
+	nt := newNetwork(r1, r2, r3)
+
+	// elect r1 as leader
+	nt.send(raftpb.Message{From: 1, To: 1, Type: raftpb.MsgHup})
+
+	var testEntries = []raftpb.Entry{{Data: []byte("testdata")}}
+
+	// send readindex request to r2(follower)
+	r2.Step(raftpb.Message{From: 2, To: 2, Type: raftpb.MsgReadIndex, Entries: testEntries})
+
+	// verify r2(follower) forwards this message to r1(leader) with term not set
+	if len(r2.msgs) != 1 {
+		t.Fatalf("len(r2.msgs) expected 1, got %d", len(r2.msgs))
+	}
+	readIndxMsg1 := raftpb.Message{From: 2, To: 1, Type: raftpb.MsgReadIndex, Entries: testEntries}
+	if !reflect.DeepEqual(r2.msgs[0], readIndxMsg1) {
+		t.Fatalf("r2.msgs[0] expected %+v, got %+v", readIndxMsg1, r2.msgs[0])
+	}
+
+	// send readindex request to r3(follower)
+	r3.Step(raftpb.Message{From: 3, To: 3, Type: raftpb.MsgReadIndex, Entries: testEntries})
+
+	// verify r3(follower) forwards this message to r1(leader) with term not set as well.
+	if len(r3.msgs) != 1 {
+		t.Fatalf("len(r3.msgs) expected 1, got %d", len(r3.msgs))
+	}
+	readIndxMsg2 := raftpb.Message{From: 3, To: 1, Type: raftpb.MsgReadIndex, Entries: testEntries}
+	if !reflect.DeepEqual(r3.msgs[0], readIndxMsg2) {
+		t.Fatalf("r3.msgs[0] expected %+v, got %+v", readIndxMsg2, r3.msgs[0])
+	}
+
+	// now elect r3 as leader
+	nt.send(raftpb.Message{From: 3, To: 3, Type: raftpb.MsgHup})
+
+	// let r1 steps the two messages previously we got from r2, r3
+	r1.Step(readIndxMsg1)
+	r1.Step(readIndxMsg2)
+
+	// verify r1(follower) forwards these messages again to r3(new leader)
+	if len(r1.msgs) != 2 {
+		t.Fatalf("len(r1.msgs) expected 1, got %d", len(r1.msgs))
+	}
+	readIndxMsg3 := raftpb.Message{From: 1, To: 3, Type: raftpb.MsgReadIndex, Entries: testEntries}
+	if !reflect.DeepEqual(r1.msgs[0], readIndxMsg3) {
+		t.Fatalf("r1.msgs[0] expected %+v, got %+v", readIndxMsg3, r1.msgs[0])
+	}
+	if !reflect.DeepEqual(r1.msgs[1], readIndxMsg3) {
+		t.Fatalf("r1.msgs[1] expected %+v, got %+v", readIndxMsg3, r1.msgs[1])
 	}
 }
 
@@ -357,15 +410,12 @@ func TestNodeStart(t *testing.T) {
 	}
 	wants := []Ready{
 		{
-			SoftState: &SoftState{Lead: 1, RaftState: StateLeader},
-			HardState: raftpb.HardState{Term: 2, Commit: 2, Vote: 1},
+			HardState: raftpb.HardState{Term: 1, Commit: 1, Vote: 0},
 			Entries: []raftpb.Entry{
 				{Type: raftpb.EntryConfChange, Term: 1, Index: 1, Data: ccdata},
-				{Term: 2, Index: 2},
 			},
 			CommittedEntries: []raftpb.Entry{
 				{Type: raftpb.EntryConfChange, Term: 1, Index: 1, Data: ccdata},
-				{Term: 2, Index: 2},
 			},
 		},
 		{
@@ -385,7 +435,6 @@ func TestNodeStart(t *testing.T) {
 	}
 	n := StartNode(c, []Peer{{ID: 1}})
 	defer n.Stop()
-	n.Campaign(ctx)
 	g := <-n.Ready()
 	if !reflect.DeepEqual(g, wants[0]) {
 		t.Fatalf("#%d: g = %+v,\n             w   %+v", 1, g, wants[0])
@@ -393,6 +442,11 @@ func TestNodeStart(t *testing.T) {
 		storage.Append(g.Entries)
 		n.Advance()
 	}
+
+	n.Campaign(ctx)
+	rd := <-n.Ready()
+	storage.Append(rd.Entries)
+	n.Advance()
 
 	n.Propose(ctx, []byte("foo"))
 	if g2 := <-n.Ready(); !reflect.DeepEqual(g2, wants[1]) {
@@ -508,10 +562,14 @@ func TestNodeAdvance(t *testing.T) {
 	}
 	n := StartNode(c, []Peer{{ID: 1}})
 	defer n.Stop()
+	rd := <-n.Ready()
+	storage.Append(rd.Entries)
+	n.Advance()
+
 	n.Campaign(ctx)
 	<-n.Ready()
+
 	n.Propose(ctx, []byte("foo"))
-	var rd Ready
 	select {
 	case rd = <-n.Ready():
 		t.Fatalf("unexpected Ready before Advance: %+v", rd)

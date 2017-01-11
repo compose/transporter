@@ -12,6 +12,9 @@ set -e
 
 source ./build
 
+# build tests with vendored dependencies
+etcd_setup_gopath
+
 if [ -z "$PASSES" ]; then
 	PASSES="fmt dep compile build unit"
 fi
@@ -24,11 +27,15 @@ GOSIMPLE_UNUSED_PATHS=$(go list ./... | sed -e 's/github.com\/coreos\/etcd\///g'
 COVER=${COVER:-"-cover"}
 
 # Hack: gofmt ./ will recursively check the .git directory. So use *.go for gofmt.
-IGNORE_PKGS="(cmd|vendor|etcdserverpb|rafttest)"
+IGNORE_PKGS="(cmd|vendor|etcdserverpb|rafttest|gopath.proto)"
 INTEGRATION_PKGS="(integration|e2e|contrib|functional-tester)"
 TEST_PKGS=`find . -name \*_test.go | while read a; do dirname $a; done | sort | uniq | egrep -v "$IGNORE_PKGS" | sed "s|\./||g"`
 FORMATTABLE=`find . -name \*.go | while read a; do echo $(dirname $a)/"*.go"; done | sort | uniq | egrep -v "$IGNORE_PKGS" | sed "s|\./||g"`
 TESTABLE_AND_FORMATTABLE=`echo "$TEST_PKGS" | egrep -v "$INTEGRATION_PKGS"`
+
+if [ -z "$GOARCH" ]; then
+	GOARCH=$(go env GOARCH);
+fi
 
 # user has not provided PKG override
 if [ -z "$PKG" ]; then
@@ -51,12 +58,7 @@ split=(${TEST// / })
 TEST=${split[@]/#/${REPO_PATH}/}
 
 # determine whether target supports race detection
-if [ -z "$GOARCH" ]; then
-	MACHINE_TYPE=$(uname -m)
-	if [ "$MACHINE_TYPE" == "x86_64" ]; then
-		RACE="--race"
-	fi
-elif [ "$GOARCH" == "amd64" ]; then
+if [ "$GOARCH" == "amd64" ]; then
 	RACE="--race"
 fi
 
@@ -68,6 +70,20 @@ function unit_pass {
 
 function integration_pass {
 	echo "Running integration tests..."
+	go test -timeout 15m -v -cpu 1,2,4 $@ ${REPO_PATH}/integration
+	go test -timeout 1m -v ${RACE} -cpu 1,2,4 $@ ${REPO_PATH}/client/integration
+	go test -timeout 10m -v ${RACE} -cpu 1,2,4 $@ ${REPO_PATH}/clientv3/integration
+	go test -timeout 1m -v -cpu 1,2,4 $@ ${REPO_PATH}/contrib/raftexample
+	go test -timeout 1m -v ${RACE} -cpu 1,2,4 -run=Example $@ ${TEST}
+}
+
+function e2e_pass {
+	echo "Running e2e tests..."
+	go test -timeout 10m -v -cpu 1,2,4 $@ ${REPO_PATH}/e2e
+}
+
+function integration_e2e_pass {
+	echo "Running integration and e2e tests..."
 
 	go test -timeout 10m -v -cpu 1,2,4 $@ ${REPO_PATH}/e2e &
 	e2epid="$!"
@@ -86,14 +102,31 @@ function grpcproxy_pass {
 }
 
 function release_pass {
-	UPGRADE_VER=$(git tag -l | tail -1)
+	rm -f ./bin/etcd-last-release
+	# to grab latest patch release; bump this up for every minor release
+	UPGRADE_VER=$(git tag -l --sort=-version:refname "v3.0.*" | head -1)
 	if [ -n "$MANUAL_VER" ]; then
 		# in case, we need to test against different version
 		UPGRADE_VER=$MANUAL_VER
 	fi
-	echo "Running release upgrade tests with" etcd $UPGRADE_VER
-	curl -L https://github.com/coreos/etcd/releases/download/$UPGRADE_VER/etcd-$UPGRADE_VER-linux-amd64.tar.gz -o /tmp/etcd-$UPGRADE_VER-linux-amd64.tar.gz
-	tar xzvf /tmp/etcd-$UPGRADE_VER-linux-amd64.tar.gz -C /tmp/ --strip-components=1
+
+	local file="etcd-$UPGRADE_VER-linux-$GOARCH.tar.gz"
+	echo "Downloading $file"
+
+	set +e
+	curl --fail -L https://github.com/coreos/etcd/releases/download/$UPGRADE_VER/$file -o /tmp/$file
+	local result=$?
+	set -e
+	case $result in
+		0)	;;
+		22)	return 0
+			;;
+		*)	exit $result
+			;;
+	esac
+
+	tar xzvf /tmp/$file -C /tmp/ --strip-components=1
+	mkdir -p ./bin
 	mv /tmp/etcd ./bin/etcd-last-release
 }
 
@@ -169,7 +202,7 @@ function fmt_pass {
 	fi
 
 	echo "Checking for license header..."
-	licRes=$(for file in $(find . -type f -iname '*.go' ! -path './cmd/*'); do
+	licRes=$(for file in $(find . -type f -iname '*.go' ! -path './cmd/*' ! -path './gopath.proto/*'); do
 			head -n3 "${file}" | grep -Eq "(Copyright|generated|GENERATED)" || echo -e "  ${file}"
 		done;)
 	if [ -n "${licRes}" ]; then

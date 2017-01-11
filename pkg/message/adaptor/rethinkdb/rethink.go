@@ -8,7 +8,7 @@ import (
 	"github.com/compose/transporter/pkg/message"
 	"github.com/compose/transporter/pkg/message/data"
 	"github.com/compose/transporter/pkg/message/ops"
-	"github.com/dancannon/gorethink"
+	gorethink "gopkg.in/gorethink/gorethink.v1"
 )
 
 type Adaptor struct {

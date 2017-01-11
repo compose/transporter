@@ -22,17 +22,16 @@ var (
 // timeout (in seconds) is the last arg
 func WaitFor(check func() bool, timeoutSecs int) {
 	timer := time.NewTicker(100 * time.Millisecond)
-	tryct := 0
-	for range timer.C {
-		if check() {
-			timer.Stop()
-			break
+	for {
+		select {
+		case <-timer.C:
+			if check() {
+				timer.Stop()
+				return
+			}
+		case <-time.After(time.Duration(timeoutSecs) * time.Second):
+			return
 		}
-		if tryct >= timeoutSecs*10 {
-			timer.Stop()
-			break
-		}
-		tryct++
 	}
 }
 

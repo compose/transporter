@@ -17,6 +17,7 @@ package integration
 import (
 	"fmt"
 	"math/rand"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -279,6 +280,18 @@ func TestV3TxnRevision(t *testing.T) {
 	txnget := &pb.RequestOp{Request: &pb.RequestOp_RequestRange{RequestRange: &pb.RangeRequest{Key: []byte("abc")}}}
 	txn := &pb.TxnRequest{Success: []*pb.RequestOp{txnget}}
 	tresp, err := kvc.Txn(context.TODO(), txn)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// did not update revision
+	if presp.Header.Revision != tresp.Header.Revision {
+		t.Fatalf("got rev %d, wanted rev %d", tresp.Header.Revision, presp.Header.Revision)
+	}
+
+	txndr := &pb.RequestOp{Request: &pb.RequestOp_RequestDeleteRange{RequestDeleteRange: &pb.DeleteRangeRequest{Key: []byte("def")}}}
+	txn = &pb.TxnRequest{Success: []*pb.RequestOp{txndr}}
+	tresp, err = kvc.Txn(context.TODO(), txn)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -571,10 +584,12 @@ func TestV3Hash(t *testing.T) {
 // TestV3StorageQuotaAPI tests the V3 server respects quotas at the API layer
 func TestV3StorageQuotaAPI(t *testing.T) {
 	defer testutil.AfterTest(t)
+	quotasize := int64(16 * os.Getpagesize())
 
 	clus := NewClusterV3(t, &ClusterConfig{Size: 3})
 
-	clus.Members[0].QuotaBackendBytes = 64 * 1024
+	// Set a quota on one node
+	clus.Members[0].QuotaBackendBytes = quotasize
 	clus.Members[0].Stop(t)
 	clus.Members[0].Restart(t)
 
@@ -590,7 +605,7 @@ func TestV3StorageQuotaAPI(t *testing.T) {
 	}
 
 	// test big put
-	bigbuf := make([]byte, 64*1024)
+	bigbuf := make([]byte, quotasize)
 	_, err := kvc.Put(context.TODO(), &pb.PutRequest{Key: key, Value: bigbuf})
 	if !eqErrGRPC(err, rpctypes.ErrGRPCNoSpace) {
 		t.Fatalf("big put got %v, expected %v", err, rpctypes.ErrGRPCNoSpace)
@@ -616,14 +631,15 @@ func TestV3StorageQuotaAPI(t *testing.T) {
 // TestV3StorageQuotaApply tests the V3 server respects quotas during apply
 func TestV3StorageQuotaApply(t *testing.T) {
 	testutil.AfterTest(t)
+	quotasize := int64(16 * os.Getpagesize())
 
 	clus := NewClusterV3(t, &ClusterConfig{Size: 2})
 	defer clus.Terminate(t)
 	kvc0 := toGRPC(clus.Client(0)).KV
 	kvc1 := toGRPC(clus.Client(1)).KV
 
-	// force a node to have a different quota
-	clus.Members[0].QuotaBackendBytes = 64 * 1024
+	// Set a quota on one node
+	clus.Members[0].QuotaBackendBytes = quotasize
 	clus.Members[0].Stop(t)
 	clus.Members[0].Restart(t)
 	clus.waitLeader(t, clus.Members)
@@ -638,7 +654,7 @@ func TestV3StorageQuotaApply(t *testing.T) {
 	}
 
 	// test big put
-	bigbuf := make([]byte, 64*1024)
+	bigbuf := make([]byte, quotasize)
 	_, err := kvc1.Put(context.TODO(), &pb.PutRequest{Key: key, Value: bigbuf})
 	if err != nil {
 		t.Fatal(err)
@@ -842,6 +858,12 @@ func TestV3RangeRequest(t *testing.T) {
 					SortOrder:  pb.RangeRequest_DESCEND,
 					SortTarget: pb.RangeRequest_CREATE,
 				},
+				{ // sort ASCEND by default
+					Key: []byte("a"), RangeEnd: []byte("z"),
+					Limit:      10,
+					SortOrder:  pb.RangeRequest_NONE,
+					SortTarget: pb.RangeRequest_CREATE,
+				},
 			},
 
 			[][]string{
@@ -850,8 +872,71 @@ func TestV3RangeRequest(t *testing.T) {
 				{"b"},
 				{"c"},
 				{},
+				{"b", "a", "c", "d"},
 			},
-			[]bool{true, true, true, true, false},
+			[]bool{true, true, true, true, false, false},
+		},
+		// min/max mod rev
+		{
+			[]string{"rev2", "rev3", "rev4", "rev5", "rev6"},
+			[]pb.RangeRequest{
+				{
+					Key: []byte{0}, RangeEnd: []byte{0},
+					MinModRevision: 3,
+				},
+				{
+					Key: []byte{0}, RangeEnd: []byte{0},
+					MaxModRevision: 3,
+				},
+				{
+					Key: []byte{0}, RangeEnd: []byte{0},
+					MinModRevision: 3,
+					MaxModRevision: 5,
+				},
+				{
+					Key: []byte{0}, RangeEnd: []byte{0},
+					MaxModRevision: 10,
+				},
+			},
+
+			[][]string{
+				{"rev3", "rev4", "rev5", "rev6"},
+				{"rev2", "rev3"},
+				{"rev3", "rev4", "rev5"},
+				{"rev2", "rev3", "rev4", "rev5", "rev6"},
+			},
+			[]bool{false, false, false, false},
+		},
+		// min/max create rev
+		{
+			[]string{"rev2", "rev3", "rev2", "rev2", "rev6", "rev3"},
+			[]pb.RangeRequest{
+				{
+					Key: []byte{0}, RangeEnd: []byte{0},
+					MinCreateRevision: 3,
+				},
+				{
+					Key: []byte{0}, RangeEnd: []byte{0},
+					MaxCreateRevision: 3,
+				},
+				{
+					Key: []byte{0}, RangeEnd: []byte{0},
+					MinCreateRevision: 3,
+					MaxCreateRevision: 5,
+				},
+				{
+					Key: []byte{0}, RangeEnd: []byte{0},
+					MaxCreateRevision: 10,
+				},
+			},
+
+			[][]string{
+				{"rev3", "rev6"},
+				{"rev2", "rev3"},
+				{"rev3"},
+				{"rev2", "rev3", "rev6"},
+			},
+			[]bool{false, false, false, false},
 		},
 	}
 
