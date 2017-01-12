@@ -14,7 +14,7 @@ import (
 	"github.com/compose/transporter/pkg/message/ops"
 	"github.com/compose/transporter/pkg/pipe"
 	version "github.com/hashicorp/go-version"
-	gorethink "gopkg.in/dancannon/gorethink.v1"
+	gorethink "gopkg.in/gorethink/gorethink.v1"
 )
 
 // RethinkDB is an adaptor that writes metrics to rethinkdb (http://rethinkdb.com/)

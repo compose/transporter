@@ -4,7 +4,7 @@ go_import_path: github.com/coreos/etcd
 sudo: false
 
 go:
-  - 1.6
+  - 1.7.3
   - tip
 
 env:
@@ -15,6 +15,7 @@ env:
    - TARGET=arm64
    - TARGET=arm
    - TARGET=386
+   - TARGET=ppc64le
 
 matrix:
   fast_finish: true
@@ -27,6 +28,8 @@ matrix:
     env: TARGET=arm64
   - go: tip
     env: TARGET=386
+  - go: tip
+    env: TARGET=ppc64le
 
 addons:
   apt:
@@ -42,7 +45,7 @@ before_install:
 
 # disable godep restore override
 install:
- - pushd cmd/ && go get -t -v ./... && popd
+ - pushd cmd/etcd && go get -t -v ./... && popd
 
 script:
  - >
@@ -54,6 +57,7 @@ script:
         GOARCH=386 PASSES="build unit" ./test
         ;;
       *)
-        GOARCH="${TARGET}" ./build
+        # test building out of gopath
+        GO_BUILD_FLAGS="-a -v" GOPATH="" GOARCH="${TARGET}" ./build
         ;;
     esac

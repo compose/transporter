@@ -2,30 +2,28 @@ package backoff
 
 import "log"
 
-func ExampleRetry() error {
+func ExampleRetry() {
+	// An operation that may fail.
 	operation := func() error {
-		// An operation that might fail.
-		return nil // or return errors.New("some error")
+		return nil // or an error
 	}
 
 	err := Retry(operation, NewExponentialBackOff())
 	if err != nil {
 		// Handle error.
-		return err
+		return
 	}
 
 	// Operation is successful.
-	return nil
 }
 
-func ExampleTicker() error {
+func ExampleTicker() {
+	// An operation that may fail.
 	operation := func() error {
-		// An operation that might fail
-		return nil // or return errors.New("some error")
+		return nil // or an error
 	}
 
-	b := NewExponentialBackOff()
-	ticker := NewTicker(b)
+	ticker := NewTicker(NewExponentialBackOff())
 
 	var err error
 
@@ -43,9 +41,9 @@ func ExampleTicker() error {
 
 	if err != nil {
 		// Operation has failed.
-		return err
+		return
 	}
 
 	// Operation is successful.
-	return nil
+	return
 }

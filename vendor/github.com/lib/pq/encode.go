@@ -76,6 +76,12 @@ func binaryDecode(parameterStatus *parameterStatus, s []byte, typ oid.Oid) inter
 		return int64(int32(binary.BigEndian.Uint32(s)))
 	case oid.T_int2:
 		return int64(int16(binary.BigEndian.Uint16(s)))
+	case oid.T_uuid:
+		b, err := decodeUUIDBinary(s)
+		if err != nil {
+			panic(err)
+		}
+		return b
 
 	default:
 		errorf("don't know how to decode binary parameter of type %d", uint32(typ))
@@ -89,7 +95,11 @@ func textDecode(parameterStatus *parameterStatus, s []byte, typ oid.Oid) interfa
 	case oid.T_char, oid.T_varchar, oid.T_text:
 		return string(s)
 	case oid.T_bytea:
-		return parseBytea(s)
+		b, err := parseBytea(s)
+		if err != nil {
+			errorf("%s", err)
+		}
+		return b
 	case oid.T_timestamptz:
 		return parseTs(parameterStatus.currentLocation, string(s))
 	case oid.T_timestamp, oid.T_date:
@@ -467,7 +477,7 @@ func FormatTimestamp(t time.Time) []byte {
 		t = t.AddDate((-t.Year())*2+1, 0, 0)
 		bc = true
 	}
-	b := []byte(t.Format(time.RFC3339Nano))
+	b := []byte(t.Format("2006-01-02 15:04:05.999999999Z07:00"))
 
 	_, offset := t.Zone()
 	offset = offset % 60
@@ -492,14 +502,14 @@ func FormatTimestamp(t time.Time) []byte {
 
 // Parse a bytea value received from the server.  Both "hex" and the legacy
 // "escape" format are supported.
-func parseBytea(s []byte) (result []byte) {
+func parseBytea(s []byte) (result []byte, err error) {
 	if len(s) >= 2 && bytes.Equal(s[:2], []byte("\\x")) {
 		// bytea_output = hex
 		s = s[2:] // trim off leading "\\x"
 		result = make([]byte, hex.DecodedLen(len(s)))
 		_, err := hex.Decode(result, s)
 		if err != nil {
-			errorf("%s", err)
+			return nil, err
 		}
 	} else {
 		// bytea_output = escape
@@ -514,11 +524,11 @@ func parseBytea(s []byte) (result []byte) {
 
 				// '\\' followed by an octal number
 				if len(s) < 4 {
-					errorf("invalid bytea sequence %v", s)
+					return nil, fmt.Errorf("invalid bytea sequence %v", s)
 				}
 				r, err := strconv.ParseInt(string(s[1:4]), 8, 9)
 				if err != nil {
-					errorf("could not parse bytea value: %s", err.Error())
+					return nil, fmt.Errorf("could not parse bytea value: %s", err.Error())
 				}
 				result = append(result, byte(r))
 				s = s[4:]
@@ -536,7 +546,7 @@ func parseBytea(s []byte) (result []byte) {
 		}
 	}
 
-	return result
+	return result, nil
 }
 
 func encodeBytea(serverVersion int, v []byte) (result []byte) {
