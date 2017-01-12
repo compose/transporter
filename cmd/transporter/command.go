@@ -3,6 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/log"
@@ -117,7 +120,22 @@ func (c *runCommand) Run(args []string) int {
 		return 1
 	}
 
-	if err = builder.Run(); err != nil {
+	stop := make(chan struct{})
+	shutdown := make(chan struct{})
+	signals := make(chan os.Signal)
+	signal.Notify(signals, os.Interrupt, syscall.SIGHUP)
+	go func() {
+		select {
+		case sig := <-signals:
+			if sig == os.Interrupt {
+				close(shutdown)
+			}
+		case <-stop:
+			close(shutdown)
+		}
+	}()
+
+	if err = builder.Run(stop); err != nil {
 		fmt.Println(err)
 		return 1
 	}
@@ -207,7 +225,22 @@ func (c *evalCommand) Run(args []string) int {
 		return 1
 	}
 
-	if err = builder.Run(); err != nil {
+	stop := make(chan struct{})
+	shutdown := make(chan struct{})
+	signals := make(chan os.Signal)
+	signal.Notify(signals, os.Interrupt, syscall.SIGHUP)
+	go func() {
+		select {
+		case sig := <-signals:
+			if sig == os.Interrupt {
+				close(shutdown)
+			}
+		case <-stop:
+			close(shutdown)
+		}
+	}()
+
+	if err = builder.Run(stop); err != nil {
 		fmt.Println(err)
 		return 1
 	}

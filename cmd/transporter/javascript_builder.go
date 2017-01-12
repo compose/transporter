@@ -294,7 +294,7 @@ func (js *JavascriptBuilder) Build() error {
 }
 
 // Run runs each of the transporter pipelines sequentially
-func (js *JavascriptBuilder) Run() error {
+func (js *JavascriptBuilder) Run(stop chan struct{}) error {
 	for _, p := range js.pipelines {
 		err := p.Run()
 		if err != nil {
