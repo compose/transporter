@@ -1,5 +1,3 @@
-// +build integration
-
 package transporter
 
 import (
@@ -24,6 +22,9 @@ type EventHolder struct {
 }
 
 func TestEventsBroadcast(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping EventsBroadcast in short mode")
+	}
 	data := []struct {
 		evt     string
 		evtPath string

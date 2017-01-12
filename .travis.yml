@@ -1,8 +1,11 @@
 language: go
 go:
-- 1.6.x
 - 1.7.x
-script: go test -v $(go list ./... | grep -v '/vendor/') -tags=integration
+before_install:
+  - go get github.com/mattn/goveralls
+script:
+  - ./scripts/tests.sh
+  - $HOME/gopath/bin/goveralls -service=travis-ci -coverprofile=/tmp/coverage.out
 services:
 - mongodb
 - postgresql
@@ -12,6 +15,11 @@ before_script:
 - psql -c "ALTER SYSTEM SET max_replication_slots = 4"
 - psql -c "ALTER SYSTEM SET wal_level = logical"
 - sudo /etc/init.d/postgresql restart; sleep 1
+- echo "replSet = transporterRs" | sudo tee -a /etc/mongodb.conf
+- sudo service mongodb restart
+- sleep 20
+- mongo --eval 'rs.initiate()'
+- sleep 15
 install: true
 branches:
   only:

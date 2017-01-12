@@ -1,5 +1,15 @@
 ## v0.1.2 [UNRELEASED]
 
+This release contains several breaking changes:
+- MongoDB adaptor SSL configuration is now defined as:
+```yaml
+nodes:
+  localmongo:
+    type: mongodb
+    ssl: true
+    cacerts: ["/path/to/cert.pem"] # optional
+```
+
 ### Bugfixes
 - [#211](https://github.com/compose/transporter/pull/211): defer bulk channel init for mongo node reuse
 - [#213](https://github.com/compose/transporter/pull/213): track mongodb \_id field so we can attempt to reissue queries
