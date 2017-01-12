@@ -36,7 +36,10 @@ import (
 	"github.com/coreos/etcd/pkg/types"
 	"github.com/coreos/etcd/raft"
 	"github.com/coreos/etcd/raft/raftpb"
+	"github.com/coreos/etcd/snap"
+	"github.com/coreos/etcd/store"
 	"github.com/coreos/etcd/wal"
+	"github.com/coreos/etcd/wal/walpb"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
 )
@@ -88,7 +91,7 @@ The items in the lists are hash, revision, total keys, total size.
 
 func NewSnapshotRestoreCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "restore <filename>",
+		Use:   "restore <filename> [options]",
 		Short: "Restores an etcd member snapshot to an etcd directory",
 		Run:   snapshotRestoreCommandFunc,
 	}
@@ -112,7 +115,7 @@ func snapshotSaveCommandFunc(cmd *cobra.Command, args []string) {
 
 	partpath := path + ".part"
 	f, err := os.Create(partpath)
-	defer f.Close()
+
 	if err != nil {
 		exiterr := fmt.Errorf("could not open %s (%v)", partpath, err)
 		ExitWithError(ExitBadArgs, exiterr)
@@ -130,6 +133,8 @@ func snapshotSaveCommandFunc(cmd *cobra.Command, args []string) {
 	}
 
 	fileutil.Fsync(f)
+
+	f.Close()
 
 	if rerr := os.Rename(partpath, path); rerr != nil {
 		exiterr := fmt.Errorf("could not rename %s to %s (%v)", partpath, path, rerr)
@@ -186,8 +191,8 @@ func snapshotRestoreCommandFunc(cmd *cobra.Command, args []string) {
 		ExitWithError(ExitInvalidInput, fmt.Errorf("data-dir %q exists", basedir))
 	}
 
-	makeDB(snapdir, args[0])
-	makeWAL(waldir, cl)
+	makeDB(snapdir, args[0], len(cl.Members()))
+	makeWALAndSnap(waldir, snapdir, cl)
 }
 
 func initialClusterFromName(name string) string {
@@ -199,9 +204,16 @@ func initialClusterFromName(name string) string {
 }
 
 // makeWAL creates a WAL for the initial cluster
-func makeWAL(waldir string, cl *membership.RaftCluster) {
+func makeWALAndSnap(waldir, snapdir string, cl *membership.RaftCluster) {
 	if err := fileutil.CreateDirAll(waldir); err != nil {
 		ExitWithError(ExitIO, err)
+	}
+
+	// add members again to persist them to the store we create.
+	st := store.New(etcdserver.StoreClusterPrefix, etcdserver.StoreKeysPrefix)
+	cl.SetStore(st)
+	for _, m := range cl.Members() {
+		cl.AddMember(m)
 	}
 
 	m := cl.MemberByName(restoreName)
@@ -227,7 +239,9 @@ func makeWAL(waldir string, cl *membership.RaftCluster) {
 	}
 
 	ents := make([]raftpb.Entry, len(peers))
+	nodeIDs := make([]uint64, len(peers))
 	for i, p := range peers {
+		nodeIDs[i] = p.ID
 		cc := raftpb.ConfChange{
 			Type:    raftpb.ConfChangeAddNode,
 			NodeID:  p.ID,
@@ -245,20 +259,48 @@ func makeWAL(waldir string, cl *membership.RaftCluster) {
 		ents[i] = e
 	}
 
-	w.Save(raftpb.HardState{
-		Term:   1,
+	commit, term := uint64(len(ents)), uint64(1)
+
+	if err := w.Save(raftpb.HardState{
+		Term:   term,
 		Vote:   peers[0].ID,
-		Commit: uint64(len(ents))}, ents)
+		Commit: commit}, ents); err != nil {
+		ExitWithError(ExitIO, err)
+	}
+
+	b, berr := st.Save()
+	if berr != nil {
+		ExitWithError(ExitError, berr)
+	}
+
+	raftSnap := raftpb.Snapshot{
+		Data: b,
+		Metadata: raftpb.SnapshotMetadata{
+			Index: commit,
+			Term:  term,
+			ConfState: raftpb.ConfState{
+				Nodes: nodeIDs,
+			},
+		},
+	}
+	snapshotter := snap.New(snapdir)
+	if err := snapshotter.SaveSnap(raftSnap); err != nil {
+		panic(err)
+	}
+
+	if err := w.SaveSnapshot(walpb.Snapshot{Index: commit, Term: term}); err != nil {
+		ExitWithError(ExitIO, err)
+	}
 }
 
 // initIndex implements ConsistentIndexGetter so the snapshot won't block
 // the new raft instance by waiting for a future raft index.
-type initIndex struct{}
+type initIndex int
 
-func (*initIndex) ConsistentIndex() uint64 { return 1 }
+func (i *initIndex) ConsistentIndex() uint64 { return uint64(*i) }
 
 // makeDB copies the database snapshot to the snapshot directory
-func makeDB(snapdir, dbfile string) {
+func makeDB(snapdir, dbfile string, commit int) {
 	f, ferr := os.OpenFile(dbfile, os.O_RDONLY, 0600)
 	if ferr != nil {
 		ExitWithError(ExitInvalidInput, ferr)
@@ -329,7 +371,7 @@ func makeDB(snapdir, dbfile string) {
 	// update consistentIndex so applies go through on etcdserver despite
 	// having a new raft instance
 	be := backend.NewDefaultBackend(dbpath)
-	s := mvcc.NewStore(be, nil, &initIndex{})
+	s := mvcc.NewStore(be, nil, (*initIndex)(&commit))
 	id := s.TxnBegin()
 	btx := be.BatchTx()
 	del := func(k, v []byte) error {
@@ -339,6 +381,7 @@ func makeDB(snapdir, dbfile string) {
 
 	// delete stored members from old cluster since using new members
 	btx.UnsafeForEach([]byte("members"), del)
+	// todo: add back new members when we start to deprecate old snap file.
 	btx.UnsafeForEach([]byte("members_removed"), del)
 	// trigger write-out of new consistent index
 	s.TxnEnd(id)

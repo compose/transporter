@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/lytics/logrus"
 )
 
 const (
@@ -44,6 +46,7 @@ var (
 	EMPTY       struct{}
 	ErrLogLevel int = ERROR
 	logger      *log.Logger
+	rus         *logrus.Logger
 	loggerErr   *log.Logger
 	LogColor    = map[int]string{FATAL: "\033[0m\033[37m",
 		ERROR: "\033[0m\033[31m",
@@ -76,6 +79,32 @@ func SetupLogging(lvl string) {
 //	gou.SetLogger(log.New(os.Stderr, "", log.LstdFlags|log.Lshortfile|log.Lmicroseconds), level)
 func SetupLoggingLong(lvl string) {
 	SetLogger(log.New(os.Stderr, "", log.LstdFlags|log.Llongfile|log.Lmicroseconds), strings.ToLower(lvl))
+}
+
+// SetupLoggingFile writes logs to the file object parameter.
+func SetupLoggingFile(f *os.File, lvl string) {
+	SetLogger(log.New(f, "", log.LstdFlags|log.Lshortfile|log.Lmicroseconds), strings.ToLower(lvl))
+}
+
+// SetupLogrus initializes an internal logrus.Logger object
+// with the GCP log format compatible SeverityFormatter.
+func SetupLogrus(lvl string) {
+	loglvl, err := logrus.ParseLevel(lvl)
+	if err != nil {
+		fmt.Printf("error parsing log level: %v", err)
+	}
+
+	rus = &logrus.Logger{
+		Out:       os.Stdout,
+		Formatter: new(logrus.SeverityFormatter), //Possible to pass via interface?
+		Hooks:     make(logrus.LevelHooks),
+		Level:     loglvl,
+	}
+}
+
+// GetRus returns the logrus logger if initialized
+func GetRus() *logrus.Logger {
+	return rus
 }
 
 // Setup colorized output if this is a terminal
@@ -191,7 +220,7 @@ func Warn(v ...interface{}) {
 	}
 }
 
-// Debug log formatted
+// Warn log formatted
 func Warnf(format string, v ...interface{}) {
 	if LogLevel >= 2 {
 		DoLog(3, WARN, fmt.Sprintf(format, v...))
@@ -434,10 +463,31 @@ func DoLog(depth, logLvl int, msg string) {
 	if escapeNewlines {
 		msg = EscapeNewlines(msg)
 	}
-	if ErrLogLevel >= logLvl && loggerErr != nil {
-		loggerErr.Output(depth, LogPrefix[logLvl]+msg+postFix)
-	} else if LogLevel >= logLvl && logger != nil {
-		logger.Output(depth, LogPrefix[logLvl]+msg+postFix)
+
+	if rus == nil {
+		// Use standard logger
+		if ErrLogLevel >= logLvl && loggerErr != nil {
+			loggerErr.Output(depth, LogPrefix[logLvl]+msg+postFix)
+		} else if LogLevel >= logLvl && logger != nil {
+			logger.Output(depth, LogPrefix[logLvl]+msg+postFix)
+		}
+	} else {
+		// Write logs using Logrus logger
+		logrusLvl := logrus.Level(logLvl) + 1
+		switch logrusLvl {
+		case logrus.FatalLevel:
+			rus.Fatal(msg)
+		case logrus.ErrorLevel:
+			rus.Error(msg)
+		case logrus.WarnLevel:
+			rus.Warn(msg)
+		case logrus.InfoLevel:
+			rus.Info(msg)
+		case logrus.DebugLevel:
+			rus.Debug(msg)
+		default:
+			rus.Warn("!invalid log level! " + msg)
+		}
 	}
 }
 

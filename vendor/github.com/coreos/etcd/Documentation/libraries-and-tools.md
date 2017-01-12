@@ -23,6 +23,7 @@
 
 **Java libraries**
 
+- [coreos/jetcd](https://github.com/coreos/jetcd) - Supports v3
 - [boonproject/etcd](https://github.com/boonproject/boon/blob/master/etcd/README.md) - Supports v2, Async/Sync and waits
 - [justinsb/jetcd](https://github.com/justinsb/jetcd)
 - [diwakergupta/jetcd](https://github.com/diwakergupta/jetcd) - Supports v2
@@ -36,6 +37,7 @@
 
 **Python libraries**
 
+- [kragniz/python-etcd3](https://github.com/kragniz/python-etcd3) - Work in progress client for v3
 - [jplana/python-etcd](https://github.com/jplana/python-etcd) - Supports v2
 - [russellhaering/txetcd](https://github.com/russellhaering/txetcd) - a Twisted Python library
 - [cholcombe973/autodock](https://github.com/cholcombe973/autodock) - A docker deployment automation tool
@@ -61,6 +63,8 @@
 **C++ libraries**
 - [edwardcapriolo/etcdcpp](https://github.com/edwardcapriolo/etcdcpp) - Supports v2
 - [suryanathan/etcdcpp](https://github.com/suryanathan/etcdcpp) - Supports v2 (with waits)
+- [nokia/etcd-cpp-api](https://github.com/nokia/etcd-cpp-api) - Supports v2
+- [nokia/etcd-cpp-apiv3](https://github.com/nokia/etcd-cpp-apiv3) - Supports v3
 
 **Clojure libraries**
 
@@ -80,6 +84,7 @@
 **PHP Libraries**
 
 - [linkorb/etcd-php](https://github.com/linkorb/etcd-php)
+- [activecollab/etcd](https://github.com/activecollab/etcd) 
 
 **Haskell libraries**
 
@@ -88,6 +93,10 @@
 **R libraries**
 
 - [ropensci/etseed](https://github.com/ropensci/etseed)
+
+**Nim libraries**
+
+- [etcd_client](https://github.com/FedericoCeratto/nim-etcd-client)
 
 **Tcl libraries**
 

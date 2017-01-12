@@ -1,10 +1,12 @@
 package: github.com/compose/transporter
 import:
+- package: github.com/Sirupsen/logrus
+  version: ^0.11.0
 - package: github.com/compose/mejson
 - package: github.com/coreos/etcd
+  version: ^3.1.0-rc.1
   subpackages:
   - client
-- package: github.com/dancannon/gorethink
 - package: github.com/hashicorp/go-version
 - package: github.com/lib/pq
 - package: github.com/mattbaird/elastigo
@@ -18,10 +20,9 @@ import:
 - package: golang.org/x/net
   subpackages:
   - context
-- package: gopkg.in/dancannon/gorethink.v1
+- package: gopkg.in/gorethink/gorethink.v1
+  version: ^3.0.0
 - package: gopkg.in/mgo.v2
   subpackages:
   - bson
 - package: gopkg.in/yaml.v2
-- package: github.com/Sirupsen/logrus
-  version: ^0.11.0

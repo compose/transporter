@@ -34,7 +34,7 @@ func NewThrottler(max int, per time.Duration) *Throttler {
 // Should we limit this because we are above rate?
 // Returns a bool of whether to throttle the message, and a count
 // of previous log messages throttled since last log message.
-func (r *Throttler) Throttle() (bool, int32) {
+func (r *Throttler) ThrottleAdd(ct int32) (bool, int32) {
 
 	if r.maxPer == 0 {
 		return false, 0
@@ -52,7 +52,7 @@ func (r *Throttler) Throttle() (bool, int32) {
 	}
 
 	if r.allowance < 1.0 {
-		r.count++            // increment throttled log count
+		r.count += ct        // increment throttled log count
 		return true, r.count // do throttle/limit
 	}
 
@@ -61,6 +61,13 @@ func (r *Throttler) Throttle() (bool, int32) {
 
 	r.allowance -= 1.0
 	return false, tmpCount // dont throttle, return previous throttle count
+}
+
+// Should we limit this because we are above rate?
+// Returns a bool of whether to throttle the message, and a count
+// of previous log messages throttled since last log message.
+func (r *Throttler) Throttle() (bool, int32) {
+	return r.ThrottleAdd(1)
 }
 
 func (r *Throttler) ThrottleCount() int32 {
