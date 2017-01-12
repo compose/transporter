@@ -51,7 +51,7 @@ type Config struct {
 }
 
 func init() {
-	adaptor.Add("etcd", adaptor.Creator(func(ppipe *pipe.Pipe, path string, extra adaptor.Config) (adaptor.Adaptor, error) {
+	adaptor.Add("etcd", func(ppipe *pipe.Pipe, path string, extra adaptor.Config) (adaptor.Adaptor, error) {
 		var (
 			conf Config
 			err  error
@@ -83,7 +83,7 @@ func init() {
 			}
 		}
 		return e, nil
-	}))
+	})
 }
 
 // Description for etcd adaptor

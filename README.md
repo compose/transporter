@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/compose/transporter.svg?branch=experimental)](https://travis-ci.org/compose/transporter) [![Go Report Card](https://goreportcard.com/badge/github.com/compose/transporter)](https://goreportcard.com/report/github.com/compose/transporter)
+[![Build Status](https://travis-ci.org/compose/transporter.svg?branch=experimental)](https://travis-ci.org/compose/transporter) [![Go Report Card](https://goreportcard.com/badge/github.com/compose/transporter)](https://goreportcard.com/report/github.com/compose/transporter) [![Coverage Status](https://coveralls.io/repos/github/compose/transporter/badge.svg?branch=218-client-pkg)](https://coveralls.io/github/compose/transporter?branch=218-client-pkg)
 
 Compose helps with database transformations from one store to another.  It can also sync from one to another or several stores.
 

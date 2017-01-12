@@ -57,7 +57,7 @@ func (r *RethinkDB) SampleConfig() string {
 }
 
 func init() {
-	adaptor.Add("rethinkdb", adaptor.Creator(func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.Adaptor, error) {
+	adaptor.Add("rethinkdb", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.Adaptor, error) {
 		var (
 			conf Config
 			err  error
@@ -91,7 +91,7 @@ func init() {
 			fmt.Printf("tableMatch: %+v\n", r.tableMatch)
 		}
 		return r, nil
-	}))
+	})
 }
 
 // Connect tests the connection and if successful, connects to the database

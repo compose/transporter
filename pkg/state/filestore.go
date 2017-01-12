@@ -24,6 +24,7 @@ type filestore struct {
 }
 
 // NewFilestore initializes a new SessionStore backed by a file
+// TODO: fix race bug
 func NewFilestore(key, filename string) SessionStore {
 	filestore := &filestore{
 		key:    key,
