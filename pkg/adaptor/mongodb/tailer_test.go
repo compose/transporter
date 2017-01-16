@@ -12,12 +12,12 @@ import (
 )
 
 var (
-	tailTestData = &TestData{"tail_test", "foo", 10}
+	tailTestData = &TestData{"tail_test", "foo", 50}
 )
 
-func insertMockTailData(s *Session) error {
+func insertMockTailData(s *Session, c string) error {
 	for i := 0; i < tailTestData.InsertCount; i++ {
-		s.mgoSession.DB(tailTestData.DB).C("foo").Insert(bson.M{"i": i})
+		s.mgoSession.DB(tailTestData.DB).C(c).Insert(bson.M{"i": i})
 	}
 	return nil
 }
@@ -47,6 +47,14 @@ func TestTail(t *testing.T) {
 		t.Skip("skipping Tail in short mode")
 	}
 
+	// test that the initial read works against multiple collections
+	if err := insertMockTailData(defaultSession, "blah"); err != nil {
+		t.Fatalf("unexpected insertMockTailData error, %s\n", err)
+	}
+	if err := insertMockTailData(defaultSession, "boo"); err != nil {
+		t.Fatalf("unexpected insertMockTailData error, %s\n", err)
+	}
+
 	tail := newTailer(tailTestData.DB)
 
 	time.Sleep(1 * time.Second)
@@ -64,11 +72,11 @@ func TestTail(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected Tail error, %s\n", err)
 	}
-	// drain messages inserted
-	checkCount("initial drain", tailTestData.InsertCount, msgChan, t)
+	// drain messages inserted from all 3 collections (foo, blah, boo)
+	checkCount("initial drain", 3*tailTestData.InsertCount, msgChan, t)
 	// let the iterator timeout before next insert
 	time.Sleep(6 * time.Second)
-	if err = insertMockTailData(defaultSession); err != nil {
+	if err = insertMockTailData(defaultSession, "foo"); err != nil {
 		t.Fatalf("unexpected insertMockTailData error, %s\n", err)
 	}
 	checkCount("oplogTimeout", tailTestData.InsertCount, msgChan, t)
