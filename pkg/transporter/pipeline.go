@@ -106,7 +106,7 @@ func (pipeline *Pipeline) Stop() {
 }
 
 // Run the pipeline
-func (pipeline *Pipeline) Run() error {
+func (pipeline *Pipeline) Run(shutdown chan struct{}) error {
 	endpoints := pipeline.source.Endpoints()
 	// send a boot event
 	pipeline.source.pipe.Event <- events.NewBootEvent(time.Now().UnixNano(), VERSION, endpoints)

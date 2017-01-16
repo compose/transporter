@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/log"
@@ -225,22 +226,35 @@ func (c *evalCommand) Run(args []string) int {
 		return 1
 	}
 
-	stop := make(chan struct{})
 	shutdown := make(chan struct{})
-	signals := make(chan os.Signal)
-	signal.Notify(signals, os.Interrupt, syscall.SIGHUP)
+	signalCh := make(chan os.Signal, 1)
+	signal.Notify(signalCh, os.Interrupt, syscall.SIGTERM)
 	go func() {
+		log.Infoln("Listening for signals")
+
+		// Block until one of the signals above is received
 		select {
-		case sig := <-signals:
-			if sig == os.Interrupt {
+		case <-signalCh:
+			log.Infoln("Signal received, attempting clean shutdown...")
+			go func() {
 				close(shutdown)
-			}
-		case <-stop:
-			close(shutdown)
+			}()
+		}
+
+		// Block again until another signal is received, a shutdown timeout elapses,
+		// or the Command is gracefully closed
+		log.Infoln("Waiting for clean shutdown...")
+		select {
+		case <-signalCh:
+			log.Infoln("second signal received, initializing hard shutdown")
+		case <-time.After(time.Second * 30):
+			log.Infoln("time limit reached, initializing hard shutdown")
+			// case <-cmd.Closed:
+			// 	log.Infoln("pipeline shutdown completed")
 		}
 	}()
 
-	if err = builder.Run(stop); err != nil {
+	if err = builder.Run(shutdown); err != nil {
 		fmt.Println(err)
 		return 1
 	}

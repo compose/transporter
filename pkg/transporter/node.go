@@ -14,6 +14,10 @@ import (
 	"github.com/compose/transporter/pkg/pipe"
 )
 
+var (
+	transformerNode = "transformer"
+)
+
 // A Node is the basic building blocks of transporter pipelines.
 // Nodes are constructed in a tree, with the first node broadcasting
 // data to each of it's children.
@@ -54,7 +58,7 @@ func (n *Node) String() string {
 		namespace = n.Extra.GetString("namespace")
 		depth     = n.depth()
 	)
-	if n.Type == "transformer" {
+	if n.Type == transformerNode {
 		uri = n.Extra.GetString("filename")
 	} else {
 		uri = n.Extra.GetString("uri")
@@ -67,7 +71,7 @@ func (n *Node) String() string {
 		prefix = fmt.Sprintf(prefixformatter, " ", "- Source: ")
 	} else if len(n.Children) == 0 {
 		prefix = fmt.Sprintf(prefixformatter, " ", "- Sink: ")
-	} else if n.Type == "transformer" {
+	} else if n.Type == transformerNode {
 		prefix = fmt.Sprintf(prefixformatter, " ", "- Transformer: ")
 	}
 
@@ -170,7 +174,7 @@ func (n *Node) Validate() bool {
 		return false
 	}
 
-	if n.Type == "transformer" && len(n.Children) == 0 { // transformers need children
+	if n.Type == transformerNode && len(n.Children) == 0 { // transformers need children
 		return false
 	}
 
