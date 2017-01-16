@@ -95,7 +95,10 @@ func (r *Reader) iterateCollection(mgoSession *mgo.Session, in <-chan string, do
 		defer close(out)
 		for {
 			select {
-			case c := <-in:
+			case c, ok := <-in:
+				if !ok {
+					return
+				}
 				log.With("collection", c).Infoln("iterating...")
 				canReissueQuery := r.requeryable(c, mgoSession)
 				var lastID interface{}
@@ -105,6 +108,9 @@ func (r *Reader) iterateCollection(mgoSession *mgo.Session, in <-chan string, do
 					var result bson.M
 					for iter.Next(&result) {
 						out <- resultDoc{result, c}
+						if id, ok := result["_id"]; ok {
+							lastID = id
+						}
 						result = bson.M{}
 					}
 					if err := iter.Err(); err != nil {
@@ -119,7 +125,7 @@ func (r *Reader) iterateCollection(mgoSession *mgo.Session, in <-chan string, do
 					}
 					iter.Close()
 					s.Close()
-					return
+					break
 				}
 				log.With("collection", c).Infoln("iterating complete")
 			case <-done:
