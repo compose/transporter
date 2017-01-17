@@ -1,15 +1,22 @@
 package mongodb
 
 import (
+	"math"
 	"sync"
 	"time"
 
 	"github.com/compose/transporter/pkg/client"
 	"github.com/compose/transporter/pkg/log"
 	"github.com/compose/transporter/pkg/message"
+	"github.com/compose/transporter/pkg/message/data"
 	"github.com/compose/transporter/pkg/message/ops"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+)
+
+const (
+	maxObjSize     int = 1000
+	maxBSONObjSize int = 1e6
 )
 
 var (
@@ -19,14 +26,18 @@ var (
 // Bulk implements client.Writer for use with MongoDB and takes advantage of the Bulk API for
 // performance improvements.
 type Bulk struct {
-	bulkMap   map[string]*bulkOperation
-	lock      sync.Mutex
-	opCounter int
+	bulkMap map[string]*bulkOperation
+	lock    sync.Mutex
 }
 
 type bulkOperation struct {
-	s    *mgo.Session
-	bulk *mgo.Bulk
+	s          *mgo.Session
+	bulk       *mgo.Bulk
+	opCounter  float64
+	avgOpCount int
+	avgTotal   int
+	avgOpSize  float64
+	bsonOpSize int
 }
 
 func newBulker(done chan struct{}, wg *sync.WaitGroup) *Bulk {
@@ -58,13 +69,32 @@ func (b *Bulk) Write(msg message.Msg) func(client.Session) error {
 		case ops.Update:
 			bOp.bulk.Update(bson.M{"_id": msg.Data().Get("_id")}, msg.Data())
 		}
-		b.opCounter++
+		if math.Mod(bOp.opCounter, 20.0) == 0 {
+			log.With("opCounter", bOp.opCounter).Debugln("calculating avg obj size")
+			bOp.calculateAvgObjSize(msg.Data())
+		}
+		bOp.opCounter++
+		bOp.bsonOpSize = int(bOp.avgOpSize) * int(bOp.opCounter)
 		b.lock.Unlock()
-		if b.opCounter == 1000 {
-			b.flush()
+		if int(bOp.opCounter) >= maxObjSize || bOp.bsonOpSize >= maxBSONObjSize {
+			return b.flush(coll, bOp)
 		}
 		return nil
 	}
+}
+
+func (bOp *bulkOperation) calculateAvgObjSize(d data.Data) {
+	bs, err := bson.Marshal(d)
+	if err != nil {
+		log.Infof("unable to marshal doc to BSON, not adding to average", err)
+		return
+	}
+	bOp.avgOpCount++
+	// add the 4 bytes for the MsgHeader
+	// https://docs.mongodb.com/manual/reference/mongodb-wire-protocol/#standard-message-header
+	bOp.avgTotal += (len(bs) + 4)
+	bOp.avgOpSize = float64(bOp.avgTotal / bOp.avgOpCount)
+	log.With("avgOpCount", bOp.avgOpCount).With("avgTotal", bOp.avgTotal).With("avgObSize", bOp.avgOpSize).Debugln("bulk stats")
 }
 
 func (b *Bulk) run(done chan struct{}, wg *sync.WaitGroup) {
@@ -72,34 +102,37 @@ func (b *Bulk) run(done chan struct{}, wg *sync.WaitGroup) {
 	for {
 		select {
 		case <-time.After(2 * time.Second):
-			b.flush()
+			b.flushAll()
 		case <-done:
 			log.Debugln("received done channel")
-			b.flush()
+			b.flushAll()
 			wg.Done()
 			return
 		}
 	}
 }
 
-func (b *Bulk) flush() error {
+func (b *Bulk) flushAll() error {
+	for c, bOp := range b.bulkMap {
+		b.flush(c, bOp)
+	}
+	return nil
+}
+
+func (b *Bulk) flush(c string, bOp *bulkOperation) error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
-	log.Debugln("flushing bulk messages")
-	for coll, bulkOp := range b.bulkMap {
-		log.With("collection", coll).Debugln("flushing messages")
-		result, err := bulkOp.bulk.Run()
-		if err != nil {
-			log.With("collection", coll).Errorf("flush error, %s\n", err)
-			return err
-		}
-		bulkOp.s.Close()
-		log.With("collection", coll).
-			With("modified", result.Modified).
-			With("match", result.Matched).
-			Debugln("flush complete")
+	log.With("collection", c).With("opCounter", bOp.opCounter).With("bsonOpSize", bOp.bsonOpSize).Debugln("flushing bulk messages")
+	result, err := bOp.bulk.Run()
+	if err != nil {
+		log.With("collection", c).Errorf("flush error, %s\n", err)
+		return err
 	}
-	b.bulkMap = make(map[string]*bulkOperation)
-	b.opCounter = 0
+	bOp.s.Close()
+	log.With("collection", c).
+		With("modified", result.Modified).
+		With("match", result.Matched).
+		Debugln("flush complete")
+	delete(b.bulkMap, c)
 	return nil
 }

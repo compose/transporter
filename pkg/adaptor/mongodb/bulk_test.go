@@ -1,8 +1,8 @@
 package mongodb
 
 import (
+	"crypto/rand"
 	"fmt"
-	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -29,6 +29,15 @@ type BulkTest struct {
 	extraData     map[string]interface{}
 }
 
+func checkBulkCount(c string, countQuery bson.M, expectedCount int, t *testing.T) {
+	count, err := defaultSession.mgoSession.DB(bulkTestData.DB).C(c).Find(countQuery).Count()
+	if err != nil {
+		t.Errorf("[%s] unable to determine collection count, %s\n", c, err)
+	} else if count != expectedCount {
+		t.Errorf("[%s] mismatched doc count, expected %d, got %d\n", c, expectedCount, count)
+	}
+}
+
 func TestBulkWrite(t *testing.T) {
 	var wg sync.WaitGroup
 	done := make(chan struct{})
@@ -44,13 +53,9 @@ func TestBulkWrite(t *testing.T) {
 			b.Write(From(bt.op, ns, data))(defaultSession)
 		}
 		time.Sleep(3 * time.Second)
-		count, err := defaultSession.mgoSession.DB(bulkTestData.DB).C(bulkTestData.C).Find(bt.countQuery).Count()
-		if err != nil {
-			t.Errorf("[%s] unable to determine collection count, %s\n", bulkTestData.C, err)
-		} else if count != bt.expectedCount {
-			t.Errorf("[%s] mismatched doc count, expected %d, got %d\n", bulkTestData.C, bt.expectedCount, count)
-		}
+		checkBulkCount(bulkTestData.C, bt.countQuery, bt.expectedCount, t)
 	}
+	close(done)
 }
 
 func TestBulkWriteMixedOps(t *testing.T) {
@@ -75,17 +80,9 @@ func TestBulkWriteMixedOps(t *testing.T) {
 	// 4 docs left
 	// _id: 2 should have been updated
 	time.Sleep(3 * time.Second)
-	count, err := defaultSession.mgoSession.DB(bulkTestData.DB).C(mixedModeC).Find(bson.M{}).Count()
-	if err != nil {
-		t.Errorf("[%s] unable to determine collection count, %s\n", mixedModeC, err)
-	} else if count != 4 {
-		t.Errorf("[%s] mismatched doc count, expected %d, got %d\n", mixedModeC, 4, count)
-	}
-	var result bson.M
-	defaultSession.mgoSession.DB(bulkTestData.DB).C(mixedModeC).Find(bson.M{"_id": 2}).One(&result)
-	if !reflect.DeepEqual(result, bson.M{"_id": 2, "hello": "world"}) {
-		t.Errorf("[%s] mismatched doc, expected %+v, got %+v\n", mixedModeC, bson.M{"_id": 2, "hello": "world"}, result)
-	}
+	checkBulkCount(mixedModeC, bson.M{}, 4, t)
+	checkBulkCount(mixedModeC, bson.M{"_id": 2, "hello": "world"}, 1, t)
+	close(done)
 }
 
 func TestBulkOpCount(t *testing.T) {
@@ -93,18 +90,14 @@ func TestBulkOpCount(t *testing.T) {
 	done := make(chan struct{})
 	b := newBulker(done, &wg)
 
-	for i := 0; i < 1000; i++ {
-		msg := From(ops.Insert, fmt.Sprintf("%s.%s", bulkTestData.DB, "bar"), map[string]interface{}{"i": i})
+	ns := fmt.Sprintf("%s.%s", bulkTestData.DB, "bar")
+	for i := 0; i < maxObjSize; i++ {
+		msg := From(ops.Insert, ns, map[string]interface{}{"i": i})
 		b.Write(msg)(defaultSession)
-	}
-	count, err := defaultSession.mgoSession.DB(bulkTestData.DB).C("bar").Count()
-	if err != nil {
-		t.Errorf("[bar] unable to determine collection count, %s\n", err)
-	} else if count != 1000 {
-		t.Errorf("[bar] mismatched doc count, expected %d, got %d\n", 1000, count)
 	}
 	close(done)
 	wg.Wait()
+	checkBulkCount("bar", bson.M{}, maxObjSize, t)
 }
 
 func TestFlushOnDone(t *testing.T) {
@@ -112,17 +105,69 @@ func TestFlushOnDone(t *testing.T) {
 	done := make(chan struct{})
 	b := newBulker(done, &wg)
 
+	ns := fmt.Sprintf("%s.%s", bulkTestData.DB, "baz")
 	for i := 0; i < testBulkMsgCount; i++ {
-		msg := From(ops.Insert, fmt.Sprintf("%s.%s", bulkTestData.DB, "baz"), map[string]interface{}{"i": i})
+		msg := From(ops.Insert, ns, map[string]interface{}{"i": i})
 		b.Write(msg)(defaultSession)
 	}
 	close(done)
 	wg.Wait()
-	time.Sleep(1 * time.Second)
-	count, err := defaultSession.mgoSession.DB(bulkTestData.DB).C("baz").Count()
-	if err != nil {
-		t.Errorf("[baz] unable to determine collection count, %s\n", err)
-	} else if count != testBulkMsgCount {
-		t.Errorf("[baz] mismatched doc count, expected %d, got %d\n", testBulkMsgCount, count)
+	checkBulkCount("baz", bson.M{}, testBulkMsgCount, t)
+}
+
+func TestBulkMulitpleCollections(t *testing.T) {
+	var wg sync.WaitGroup
+	done := make(chan struct{})
+	b := newBulker(done, &wg)
+
+	ns1 := fmt.Sprintf("%s.%s", bulkTestData.DB, "multi_a")
+	ns2 := fmt.Sprintf("%s.%s", bulkTestData.DB, "multi_b")
+	ns3 := fmt.Sprintf("%s.%s", bulkTestData.DB, "multi_c")
+	for i := 0; i < (maxObjSize + 1); i++ {
+		b.Write(From(ops.Insert, ns3, map[string]interface{}{"i": i}))(defaultSession)
 	}
+	for i := 0; i < testBulkMsgCount; i++ {
+		b.Write(From(ops.Insert, ns1, map[string]interface{}{"i": i}))(defaultSession)
+		b.Write(From(ops.Insert, ns2, map[string]interface{}{"i": i}))(defaultSession)
+	}
+	checkBulkCount("multi_a", bson.M{}, 0, t)
+	checkBulkCount("multi_b", bson.M{}, 0, t)
+	checkBulkCount("multi_c", bson.M{}, maxObjSize, t)
+	time.Sleep(3 * time.Second)
+	checkBulkCount("multi_a", bson.M{}, testBulkMsgCount, t)
+	checkBulkCount("multi_b", bson.M{}, testBulkMsgCount, t)
+	checkBulkCount("multi_c", bson.M{}, (maxObjSize + 1), t)
+}
+
+func TestBulkSize(t *testing.T) {
+	b := &Bulk{bulkMap: make(map[string]*bulkOperation)}
+	ns := fmt.Sprintf("%s.%s", bulkTestData.DB, "size")
+	var bsonSize int
+	for i := 0; i < (maxObjSize - 1); i++ {
+		doc := map[string]interface{}{"i": randStr(2), "rand": randStr(16)}
+
+		bs, err := bson.Marshal(doc)
+		if err != nil {
+			t.Fatalf("unable to marshal doc to bson, %s", err)
+		}
+		bsonSize += (len(bs) + 4)
+
+		msg := From(ops.Insert, ns, doc)
+		b.Write(msg)(defaultSession)
+	}
+	bOp := b.bulkMap["size"]
+	if int(bOp.bsonOpSize) != bsonSize {
+		t.Errorf("mismatched op size, expected %d, got %d\n", bsonSize, int(bOp.bsonOpSize))
+	}
+}
+
+func randStr(strSize int) string {
+	var dictionary = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+	var bytes = make([]byte, strSize)
+	rand.Read(bytes)
+	for k, v := range bytes {
+		bytes[k] = dictionary[v%byte(len(dictionary))]
+	}
+	return string(bytes)
 }
