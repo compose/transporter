@@ -44,6 +44,7 @@ func newBulker(done chan struct{}, wg *sync.WaitGroup) *Bulk {
 	b := &Bulk{
 		bulkMap: make(map[string]*bulkOperation),
 	}
+	wg.Add(1)
 	go b.run(done, wg)
 	return b
 }
@@ -75,11 +76,12 @@ func (b *Bulk) Write(msg message.Msg) func(client.Session) error {
 		}
 		bOp.opCounter++
 		bOp.bsonOpSize = int(bOp.avgOpSize) * int(bOp.opCounter)
-		b.lock.Unlock()
+		var err error
 		if int(bOp.opCounter) >= maxObjSize || bOp.bsonOpSize >= maxBSONObjSize {
-			return b.flush(coll, bOp)
+			err = b.flush(coll, bOp)
 		}
-		return nil
+		b.lock.Unlock()
+		return err
 	}
 }
 
@@ -98,7 +100,6 @@ func (bOp *bulkOperation) calculateAvgObjSize(d data.Data) {
 }
 
 func (b *Bulk) run(done chan struct{}, wg *sync.WaitGroup) {
-	wg.Add(1)
 	for {
 		select {
 		case <-time.After(2 * time.Second):
@@ -113,6 +114,8 @@ func (b *Bulk) run(done chan struct{}, wg *sync.WaitGroup) {
 }
 
 func (b *Bulk) flushAll() error {
+	b.lock.Lock()
+	defer b.lock.Unlock()
 	for c, bOp := range b.bulkMap {
 		b.flush(c, bOp)
 	}
@@ -120,8 +123,6 @@ func (b *Bulk) flushAll() error {
 }
 
 func (b *Bulk) flush(c string, bOp *bulkOperation) error {
-	b.lock.Lock()
-	defer b.lock.Unlock()
 	log.With("collection", c).With("opCounter", bOp.opCounter).With("bsonOpSize", bOp.bsonOpSize).Infoln("flushing bulk messages")
 	result, err := bOp.bulk.Run()
 	if err != nil {
