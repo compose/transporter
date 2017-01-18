@@ -1,5 +1,5 @@
-hash: 156890dd04ec89bc6c821f5a92f592aa60a26875680a3fb11141345b64a8346c
-updated: 2017-01-11T13:46:28.980161678-06:00
+hash: 2fc30e4371e35a2f311a3f87a62491f54e8bab00c27250069190307e97ace293
+updated: 2017-01-18T10:13:26.999508736-06:00
 imports:
 - name: github.com/araddon/gou
   version: 0ab1e8f997e35d27da012072dc531fcc0204da5a
@@ -44,6 +44,10 @@ imports:
   version: fa17b36f6c61f1ddbbb08c9f6fde94b3c065a09d
 - name: github.com/nu7hatch/gouuid
   version: 179d4d0c4d8d407a32af483c2354df1d2c91e6c3
+- name: github.com/oklog/oklog
+  version: c03851f6dfa4bb86af4187eb9f92a16ed5054984
+  subpackages:
+  - pkg/group
 - name: github.com/robertkrimen/otto
   version: bf1c3795ba078da6905fe80bfbc3ed3d8c36e9aa
   subpackages:

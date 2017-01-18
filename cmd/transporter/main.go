@@ -23,7 +23,7 @@ func main() {
 
 	exitStatus, err := c.Run()
 	if err != nil {
-		log.Infoln(err)
+		log.Errorln(err)
 	}
 
 	os.Exit(exitStatus)

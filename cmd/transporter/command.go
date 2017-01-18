@@ -3,10 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
 	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/log"
@@ -63,7 +59,7 @@ func (c *listCommand) Run(args []string) int {
 
 	config, err := LoadConfig(configFilename)
 	if err != nil {
-		fmt.Println(err)
+		log.Errorln(err)
 		return 1
 	}
 	fmt.Printf("%-20s %-15s %s\n", "Name", "Type", "URI")
@@ -102,42 +98,27 @@ func (c *runCommand) Run(args []string) int {
 
 	config, err := LoadConfig(configFilename)
 	if err != nil {
-		fmt.Println(err)
+		log.Errorln(err)
 		return 1
 	}
 
 	if len(cmdFlags.Args()) == 0 {
-		fmt.Println("err: a name of a file to run is required")
+		log.Errorln("a name of a file to run is required")
 		return 1
 	}
 
 	builder, err := NewJavascriptBuilder(config, cmdFlags.Args()[0], "")
 	if err != nil {
-		fmt.Println(err)
+		log.Errorln(err)
 		return 1
 	}
 	if err = builder.Build(); err != nil {
-		fmt.Println(err)
+		log.Errorln(err)
 		return 1
 	}
 
-	stop := make(chan struct{})
-	shutdown := make(chan struct{})
-	signals := make(chan os.Signal)
-	signal.Notify(signals, os.Interrupt, syscall.SIGHUP)
-	go func() {
-		select {
-		case sig := <-signals:
-			if sig == os.Interrupt {
-				close(shutdown)
-			}
-		case <-stop:
-			close(shutdown)
-		}
-	}()
-
-	if err = builder.Run(stop); err != nil {
-		fmt.Println(err)
+	if err = builder.Run(); err != nil {
+		log.Errorln(err)
 		return 1
 	}
 	return 0
@@ -164,24 +145,26 @@ func (c *testCommand) Run(args []string) int {
 
 	config, err := LoadConfig(configFilename)
 	if err != nil {
-		fmt.Println(err)
+		log.Errorln(err)
 		return 1
 	}
 
 	if len(cmdFlags.Args()) == 0 {
-		fmt.Println("Error: A name of a file to test is required")
+		log.Errorln("a name of a file to test is required")
 		return 1
 	}
 
 	builder, err := NewJavascriptBuilder(config, cmdFlags.Args()[0], "")
 	if err != nil {
-		fmt.Println(err)
+		log.Errorln(err)
 		return 1
 	}
+
 	if err = builder.Build(); err != nil {
-		fmt.Println(err)
+		log.Errorln(err)
 		return 1
 	}
+
 	fmt.Println(builder)
 	return 0
 }
@@ -207,55 +190,28 @@ func (c *evalCommand) Run(args []string) int {
 
 	config, err := LoadConfig(configFilename)
 	if err != nil {
-		fmt.Println(err)
+		log.Errorln(err)
 		return 1
 	}
 
 	if len(cmdFlags.Args()) == 0 {
-		fmt.Println("err: a string to evaluate is required")
+		log.Errorln("a string to evaluate is required")
 		return 1
 	}
 
 	builder, err := NewJavascriptBuilder(config, "", cmdFlags.Args()[0])
 	if err != nil {
-		fmt.Println(err)
+		log.Errorln(err)
 		return 1
 	}
+
 	if err = builder.Build(); err != nil {
-		fmt.Println(err)
+		log.Errorln(err)
 		return 1
 	}
 
-	shutdown := make(chan struct{})
-	signalCh := make(chan os.Signal, 1)
-	signal.Notify(signalCh, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		log.Infoln("Listening for signals")
-
-		// Block until one of the signals above is received
-		select {
-		case <-signalCh:
-			log.Infoln("Signal received, attempting clean shutdown...")
-			go func() {
-				close(shutdown)
-			}()
-		}
-
-		// Block again until another signal is received, a shutdown timeout elapses,
-		// or the Command is gracefully closed
-		log.Infoln("Waiting for clean shutdown...")
-		select {
-		case <-signalCh:
-			log.Infoln("second signal received, initializing hard shutdown")
-		case <-time.After(time.Second * 30):
-			log.Infoln("time limit reached, initializing hard shutdown")
-			// case <-cmd.Closed:
-			// 	log.Infoln("pipeline shutdown completed")
-		}
-	}()
-
-	if err = builder.Run(shutdown); err != nil {
-		fmt.Println(err)
+	if err = builder.Run(); err != nil {
+		log.Errorln(err)
 		return 1
 	}
 
@@ -280,7 +236,7 @@ func (c *aboutCommand) Run(args []string) int {
 	if len(args) > 0 {
 		creator, ok := adaptor.Adaptors[args[0]]
 		if !ok {
-			fmt.Printf("no adaptor named '%s' exists\n", args[0])
+			log.Errorf("no adaptor named '%s' exists", args[0])
 			return 1
 		}
 		adaptor.Adaptors = map[string]adaptor.Creator{args[0]: creator}
@@ -289,7 +245,7 @@ func (c *aboutCommand) Run(args []string) int {
 	for name, creator := range adaptor.Adaptors {
 		dummyAdaptor, err := creator(nil, "", adaptor.Config{"uri": "test", "namespace": "test.test"})
 		if err != nil {
-			fmt.Printf("unable to create adaptor '%s', %s\n", name, err.Error())
+			log.Errorf("unable to create adaptor '%s', %s", name, err)
 			return 1
 		}
 		if d, ok := dummyAdaptor.(adaptor.Describable); ok {

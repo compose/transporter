@@ -1,14 +1,20 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/compose/transporter/pkg/events"
 	"github.com/compose/transporter/pkg/state"
 	"github.com/compose/transporter/pkg/transporter"
+
 	"github.com/nu7hatch/gouuid"
+	"github.com/oklog/oklog/pkg/group"
 	"github.com/robertkrimen/otto"
 )
 
@@ -294,15 +300,36 @@ func (js *JavascriptBuilder) Build() error {
 }
 
 // Run runs each of the transporter pipelines sequentially
-func (js *JavascriptBuilder) Run(shutdown chan struct{}) error {
+func (js *JavascriptBuilder) Run() error {
+	var g group.Group
 	for _, p := range js.pipelines {
-		err := p.Run(shutdown)
-		if err != nil {
-			return err
-		}
+		g.Add(func() error {
+			return p.Run()
+		}, func(error) {
+			p.Stop()
+		})
+	}
+	{
+		cancel := make(chan struct{})
+		g.Add(func() error {
+			return interrupt(cancel)
+		}, func(error) {
+			close(cancel)
+		})
 	}
 
-	return nil
+	return g.Run()
+}
+
+func interrupt(cancel <-chan struct{}) error {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+	select {
+	case sig := <-c:
+		return fmt.Errorf("received signal %s", sig)
+	case <-cancel:
+		return errors.New("canceled")
+	}
 }
 
 // String represents the pipelines as a string
