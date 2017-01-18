@@ -1,14 +1,10 @@
-hash: 2fc30e4371e35a2f311a3f87a62491f54e8bab00c27250069190307e97ace293
-updated: 2017-01-18T10:13:26.999508736-06:00
+hash: bff8575f1390b4820fbb704b6eadcc17793cf56835590097695806c876e1ae9e
+updated: 2017-01-18T10:55:03.646130866-06:00
 imports:
-- name: github.com/araddon/gou
-  version: 0ab1e8f997e35d27da012072dc531fcc0204da5a
 - name: github.com/armon/go-radix
   version: 4239b77079c7b5d1243b7b4736304ce8ddb6f0f2
 - name: github.com/bgentry/speakeasy
   version: 675b82c74c0ed12283ee81ba8a534c8982c07b85
-- name: github.com/bitly/go-hostpool
-  version: d0e59c22a56e8dadfed24f74f452cea5a52722d2
 - name: github.com/cenk/backoff
   version: b02f2bbce11d7ea6b97f282ef1771b0fe2f65ef3
 - name: github.com/compose/mejson
@@ -32,12 +28,6 @@ imports:
   version: 8df6253d1317616f36b0c3740eb30c239a7372cb
   subpackages:
   - oid
-- name: github.com/lytics/logrus
-  version: 59cd2e4a569b4494d9196bef82f0784e467adac9
-- name: github.com/mattbaird/elastigo
-  version: 34c4c4d8425cbdcbc8e257943a2044d5e9f7dab5
-  subpackages:
-  - lib
 - name: github.com/mattn/go-isatty
   version: 30a891c33c7cde7b02a981314b4228ec99380cca
 - name: github.com/mitchellh/cli
@@ -97,9 +87,9 @@ imports:
   - internal/sasl
   - internal/scram
 - name: gopkg.in/olivere/elastic.v3
-  version: b272fab42387a42585235d56f8c6b53b13ddfb7d
+  version: f27a28dd68c359eb20ce5918a7d976f34c18cf03
 - name: gopkg.in/olivere/elastic.v5
-  version: b272fab42387a42585235d56f8c6b53b13ddfb7d
+  version: f27a28dd68c359eb20ce5918a7d976f34c18cf03
   subpackages:
   - backoff
   - uritemplates
