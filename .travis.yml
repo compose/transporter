@@ -1,8 +1,10 @@
+sudo: true
 language: go
 go:
   - 1.7.x
 before_install:
   - go get github.com/mattn/goveralls
+  - curl -O https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.1.1.deb && sudo dpkg -i --force-confnew elasticsearch-5.1.1.deb && sudo service elasticsearch start
 script:
   - ./scripts/tests.sh
   - $HOME/gopath/bin/goveralls -service=travis-ci -coverprofile=/tmp/coverage.out
@@ -12,10 +14,8 @@ services:
 addons:
   postgresql: '9.4'
   apt:
-    sources:
-      - elasticsearch-5.x
     packages:
-      - elasticsearch
+      - oracle-java8-set-default
 before_script:
   - psql -c "ALTER SYSTEM SET max_replication_slots = 4"
   - psql -c "ALTER SYSTEM SET wal_level = logical"
@@ -24,10 +24,7 @@ before_script:
   - sudo service mongodb restart
   - sleep 20
   - mongo --eval 'rs.initiate()'
-  - sleep 15
-  - elasticsearch -d --default.path.conf=config
-  - sleep 15
-  - curl http://localhost:9200/
+  - curl -v http://localhost:9200/
 install: true
 branches:
   except:
