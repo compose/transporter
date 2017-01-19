@@ -7,8 +7,16 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/compose/transporter/pkg/adaptor"
+	"github.com/compose/transporter/pkg/adaptor/elasticsearch/clients"
+	// used to call init function for each client to register itself
+	_ "github.com/compose/transporter/pkg/adaptor/elasticsearch/clients/all"
+	"github.com/compose/transporter/pkg/client"
+	"github.com/compose/transporter/pkg/log"
 	"github.com/compose/transporter/pkg/message"
 	"github.com/compose/transporter/pkg/pipe"
 	"github.com/hashicorp/go-version"
@@ -17,8 +25,7 @@ import (
 // Elasticsearch is an adaptor to connect a pipeline to
 // an elasticsearch cluster.
 type Elasticsearch struct {
-	// pull these in from the node
-	uri *url.URL
+	client client.Writer
 
 	index     string
 	typeMatch *regexp.Regexp
@@ -26,8 +33,8 @@ type Elasticsearch struct {
 	pipe *pipe.Pipe
 	path string
 
-	// indexer *elastigo.BulkIndexer
-	running bool
+	doneChannel chan struct{}
+	wg          sync.WaitGroup
 }
 
 // Description for the Elasticsearcb adaptor
@@ -38,7 +45,7 @@ func (e *Elasticsearch) Description() string {
 const sampleConfig = `
 - es:
 		type: elasticsearch
-    uri: https://username:password@hostname:port/thisgetsignored
+    uri: https://username:password@hostname:port
 `
 
 // SampleConfig for elasticsearch adaptor
@@ -49,27 +56,27 @@ func (e *Elasticsearch) SampleConfig() string {
 func init() {
 	adaptor.Add("elasticsearch", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.Adaptor, error) {
 		var (
-			conf adaptor.DbConfig
+			conf Config
 			err  error
 		)
 		if err = extra.Construct(&conf); err != nil {
 			return nil, adaptor.NewError(adaptor.CRITICAL, path, fmt.Sprintf("bad config (%s)", err.Error()), nil)
 		}
-
-		u, err := url.Parse(conf.URI)
-		if err != nil {
-			return nil, err
-		}
+		log.With("path", path).Debugf("adaptor config: %+v", conf)
 
 		e := &Elasticsearch{
-			uri:  u,
-			pipe: p,
-			path: path,
+			pipe:        p,
+			path:        path,
+			doneChannel: make(chan struct{}),
 		}
 
 		e.index, e.typeMatch, err = extra.CompileNamespace()
 		if err != nil {
 			return e, adaptor.NewError(adaptor.CRITICAL, path, fmt.Sprintf("can't split namespace into _index and typeMatch (%s)", err.Error()), nil)
+		}
+
+		if err := e.setupClient(conf); err != nil {
+			return nil, adaptor.NewError(adaptor.CRITICAL, path, fmt.Sprintf("unable to setup client (%s)", err), nil)
 		}
 
 		return e, nil
@@ -83,22 +90,10 @@ func (e *Elasticsearch) Start() error {
 
 // Listen starts the listener
 func (e *Elasticsearch) Listen() error {
-	e.setupClient()
-	// e.indexer.Start()
-	e.running = true
-
-	// go func(cherr chan *elastigo.ErrorBuffer) {
-	// 	for err := range e.indexer.ErrorChannel {
-	// 		e.pipe.Err <- adaptor.NewError(adaptor.CRITICAL, e.path, fmt.Sprintf("elasticsearch error (%s)", err.Err), nil)
-	// 	}
-	// }(e.indexer.ErrorChannel)
-
+	log.With("path", e.path).Infoln("adaptor Listening...")
 	defer func() {
-		if e.running {
-			e.running = false
-			e.pipe.Stop()
-			// e.indexer.Stop()
-		}
+		log.With("path", e.path).Infoln("adaptor Listen closing...")
+		e.pipe.Stop()
 	}()
 
 	return e.pipe.Listen(e.applyOp, e.typeMatch)
@@ -106,76 +101,107 @@ func (e *Elasticsearch) Listen() error {
 
 // Stop the adaptor
 func (e *Elasticsearch) Stop() error {
-	if e.running {
-		e.running = false
-		e.pipe.Stop()
-		// e.indexer.Stop()
-	}
+	log.With("path", e.path).Infoln("adaptor Stopping...")
+	e.pipe.Stop()
+
+	close(e.doneChannel)
+	e.wg.Wait()
+
+	log.With("path", e.path).Infoln("adaptor Stopped")
 	return nil
 }
 
 func (e *Elasticsearch) applyOp(msg message.Msg) (message.Msg, error) {
-	// m, err := message.Exec(message.MustUseAdaptor("elasticsearch").(elasticsearch.Adaptor).UseIndexer(e.indexer).UseIndex(e.index), msg)
-	// if err != nil {
-	// 	e.pipe.Err <- adaptor.NewError(adaptor.ERROR, e.path, fmt.Sprintf("elasticsearch error (%s)", err), msg.Data)
-	// }
-	// return m, err
-	return nil, nil
-}
+	_, msgColl, _ := message.SplitNamespace(msg)
+	err := e.client.Write(From(msg.OP(), e.computeNamespace(msgColl), msg.Data()))(nil)
 
-func (e *Elasticsearch) setupClient() {
-	stringVersion, _ := e.determineVersion()
-	v, _ := version.NewVersion(stringVersion)
-	v1client, _ := version.NewConstraint(">= 1.4, < 2.0")
-	v2client, _ := version.NewConstraint(">= 2.0, < 5.0")
-	v5client, _ := version.NewConstraint(">= 5.0")
-	if v1client.Check(v) {
-		fmt.Println("setting up v1 client")
-	} else if v2client.Check(v) {
-		fmt.Println("setting up v2 client")
-	} else if v5client.Check(v) {
-		fmt.Println("setting up v5 client")
-	} else {
-		fmt.Printf("unable to setup client for version: %s\n", stringVersion)
+	if err != nil {
+		e.pipe.Err <- adaptor.NewError(adaptor.ERROR, e.path, fmt.Sprintf("write message error (%s)", err), msg.Data)
 	}
-	// set up the client, we need host(s), port, username, password, and scheme
-	// client := elastigo.NewConn()
-	//
-	// if e.uri.User != nil {
-	// 	client.Username = e.uri.User.Username()
-	// 	if password, set := e.uri.User.Password(); set {
-	// 		client.Password = password
-	// 	}
-	// }
-	//
-	// // we might have a port in the host bit
-	// hostBits := strings.Split(e.uri.Host, ":")
-	// if len(hostBits) > 1 {
-	// 	client.SetPort(hostBits[1])
-	// }
-	//
-	// client.SetHosts(strings.Split(hostBits[0], ","))
-	// client.Protocol = e.uri.Scheme
-	//
-	// e.indexer = client.NewBulkIndexerErrors(10, 60)
+	return msg, err
 }
 
-func (e *Elasticsearch) determineVersion() (string, error) {
-	resp, err := http.DefaultClient.Get(e.uri.String())
+func (e *Elasticsearch) computeNamespace(Type string) string {
+	return fmt.Sprintf("%s.%s", e.index, Type)
+}
+
+func (e *Elasticsearch) setupClient(conf Config) error {
+	uri, err := url.Parse(conf.URI)
+	if err != nil {
+		return err
+	}
+	// v1client, _ := version.NewConstraint(">= 1.4, < 2.0")
+	hostsAndPorts := strings.Split(uri.Host, ",")
+
+	stringVersion, err := determineVersion(fmt.Sprintf("%s://%s", uri.Scheme, hostsAndPorts[0]))
+	if err != nil {
+		return err
+	}
+
+	v, err := version.NewVersion(stringVersion)
+	if err != nil {
+		return err
+	}
+
+	httpClient := http.DefaultClient
+	if conf.Timeout != "" {
+		t, err := time.ParseDuration(conf.Timeout)
+		if err != nil {
+			return err
+		}
+		httpClient = &http.Client{
+			Timeout: t,
+		}
+	}
+
+	for _, vc := range clients.Clients {
+		if vc.Constraint.Check(v) {
+			urls := make([]string, len(hostsAndPorts))
+			for i, hAndP := range hostsAndPorts {
+				urls[i] = fmt.Sprintf("%s://%s", uri.Scheme, hAndP)
+			}
+			opts := &clients.ClientOptions{
+				URLs:       urls,
+				UserInfo:   uri.User,
+				HTTPClient: httpClient,
+				Path:       e.path,
+			}
+			versionedClient, _ := vc.Creator(e.doneChannel, &e.wg, opts)
+			e.client = versionedClient
+			return nil
+		}
+	}
+
+	return fmt.Errorf("no client registered for version %s\n", stringVersion)
+}
+
+func determineVersion(uri string) (string, error) {
+	resp, err := http.DefaultClient.Get(uri)
 	if err != nil {
 		return "", err
 	}
 	body, err := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
-	var bareResponse struct {
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	var r struct {
 		Name    string `json:"name"`
 		Version struct {
 			Number string `json:"number"`
 		} `json:"version"`
 	}
-	err = json.Unmarshal(body, &bareResponse)
+	err = json.Unmarshal(body, &r)
 	if err != nil {
 		return "", fmt.Errorf("unable to determine version from response, %s\n", string(body))
 	}
-	return bareResponse.Version.Number, nil
+	return r.Version.Number, nil
+}
+
+// Config provides configuration options for an elasticsearch adaptor
+// the notable difference between this and dbConfig is the presence of the Timeout option
+type Config struct {
+	URI       string `json:"uri" doc:"the uri to connect to, in the form mongodb://user:password@host.com:27017/auth_database"`
+	Namespace string `json:"namespace" doc:"mongo namespace to read/write"`
+	Timeout   string `json:"timeout" doc:"timeout for establishing connection, format must be parsable by time.ParseDuration and defaults to 10s"`
 }

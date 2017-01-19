@@ -40,11 +40,8 @@ type MongoDB struct {
 	pipe *pipe.Pipe
 	path string
 
-	// a buffer to hold documents
 	doneChannel chan struct{}
 	wg          sync.WaitGroup
-
-	restartable bool // this refers to being able to refresh the iterator, not to the restart based on session op
 }
 
 type syncDoc struct {
@@ -75,7 +72,6 @@ func init() {
 		m := &MongoDB{
 			database:        db,
 			collectionMatch: collectionMatch,
-			restartable:     true, // assume for that we're able to restart the process
 			pipe:            p,
 			path:            path,
 			conf:            conf,
@@ -161,9 +157,9 @@ func (m *MongoDB) Start() (err error) {
 
 // Listen starts the pipe's listener
 func (m *MongoDB) Listen() (err error) {
-	log.With("path", m.path).Debugln("adaptor Listening...")
+	log.With("path", m.path).Infoln("adaptor Listening...")
 	defer func() {
-		log.With("path", m.path).Debugln("adaptor Listen closing...")
+		log.With("path", m.path).Infoln("adaptor Listen closing...")
 		m.pipe.Stop()
 	}()
 
@@ -172,13 +168,13 @@ func (m *MongoDB) Listen() (err error) {
 
 // Stop the adaptor
 func (m *MongoDB) Stop() error {
-	log.With("path", m.path).Debugln("adaptor Stopping...")
+	log.With("path", m.path).Infoln("adaptor Stopping...")
 	m.pipe.Stop()
 
 	close(m.doneChannel)
 	m.wg.Wait()
 
-	log.With("path", m.path).Debugln("adaptor Stopped")
+	log.With("path", m.path).Infoln("adaptor Stopped")
 	return nil
 }
 
@@ -201,7 +197,7 @@ func (m *MongoDB) collectionFilter(collection string) bool {
 }
 
 func (m *MongoDB) computeNamespace(collection string) string {
-	return strings.Join([]string{m.database, collection}, ".")
+	return fmt.Sprintf("%s.%s", m.database, collection)
 }
 
 // Config provides configuration options for a mongodb adaptor

@@ -29,6 +29,12 @@ type Writer interface {
 	Write(message.Msg) func(Session) error
 }
 
+// WriteClient encompasses the Client and Writer interfaces
+type WriteClient interface {
+	Client
+	Writer
+}
+
 // Write encapsulates the function of determining which function to call based on the msg.OP() and
 // also wraps the function call with a Session.
 func Write(client Client, writer Writer, msg message.Msg) error {

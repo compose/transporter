@@ -55,6 +55,8 @@ type Logger interface {
 	Errorln(...interface{})
 	Errorf(string, ...interface{})
 
+	Printf(string, ...interface{})
+
 	With(key string, value interface{}) Logger
 }
 
@@ -94,6 +96,10 @@ func (l logger) Errorln(args ...interface{}) {
 // Errorf logs a message at level Error on the standard logger.
 func (l logger) Errorf(format string, args ...interface{}) {
 	l.entry.Errorf(format, args...)
+}
+
+func (l logger) Printf(format string, args ...interface{}) {
+	l.entry.Infof(format, args...)
 }
 
 var origLogger = logrus.New()
