@@ -130,9 +130,7 @@ func (e *Elasticsearch) setupClient(conf Config) error {
 	if err != nil {
 		return err
 	}
-	// v1client, _ := version.NewConstraint(">= 1.4, < 2.0")
 	hostsAndPorts := strings.Split(uri.Host, ",")
-
 	stringVersion, err := determineVersion(fmt.Sprintf("%s://%s", uri.Scheme, hostsAndPorts[0]))
 	if err != nil {
 		return err
