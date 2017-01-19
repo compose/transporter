@@ -98,13 +98,11 @@ func (bOp *bulkOperation) calculateAvgObjSize(d data.Data) {
 		log.Infof("unable to marshal doc to BSON, not adding to average", err)
 		return
 	}
-	bOp.Lock()
 	bOp.avgOpCount++
 	// add the 4 bytes for the MsgHeader
 	// https://docs.mongodb.com/manual/reference/mongodb-wire-protocol/#standard-message-header
 	bOp.avgTotal += (len(bs) + 4)
 	bOp.avgOpSize = float64(bOp.avgTotal / bOp.avgOpCount)
-	bOp.Unlock()
 	log.With("avgOpCount", bOp.avgOpCount).With("avgTotal", bOp.avgTotal).With("avgObSize", bOp.avgOpSize).Debugln("bulk stats")
 }
 

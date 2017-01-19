@@ -140,7 +140,10 @@ func TestBulkMulitpleCollections(t *testing.T) {
 }
 
 func TestBulkSize(t *testing.T) {
-	b := &Bulk{bulkMap: make(map[string]*bulkOperation)}
+	b := &Bulk{
+		bulkMap: make(map[string]*bulkOperation),
+		RWMutex: &sync.RWMutex{},
+	}
 	ns := fmt.Sprintf("%s.%s", bulkTestData.DB, "size")
 	var bsonSize int
 	for i := 0; i < (maxObjSize - 1); i++ {
