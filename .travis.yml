@@ -1,4 +1,3 @@
-sudo: required
 language: go
 go:
   - 1.7.x
@@ -22,7 +21,7 @@ before_script:
   - psql -c "ALTER SYSTEM SET wal_level = logical"
   - sudo /etc/init.d/postgresql restart; sleep 1
   - echo "replSet = transporterRs" | sudo tee -a /etc/mongodb.conf
-  - sudo service mongod restart
+  - sudo service mongodb restart
   - sleep 20
   - mongo --eval 'rs.initiate()'
   - sleep 15
