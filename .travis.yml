@@ -27,12 +27,11 @@ before_script:
   - sleep 15
   - elasticsearch -d --default.path.conf=config
   - sleep 15
-  - elasticsearch -v
   - curl http://localhost:9200/
 install: true
 branches:
-  only:
-  - experimental
+  except:
+  - master
 notifications:
   slack:
     secure: R8wvRnq0DcxiFNgUvJ3npnzY2LzU8uVyF8enqfxXNuSR3jRC2tqUosB5Qzb1CCiNicmpEwj3VTcwTozzCwcqckysFek3Pp2/oxYL8tRjqxks1zUeMHVv204l83Js8PAFVhODCQjIxZNQCdUM2fQ9q46MvdY7V8h/wGTbQKq1ZLE=
