@@ -76,11 +76,11 @@ func (b *Bulk) Write(msg message.Msg) func(client.Session) error {
 		case ops.Update:
 			bOp.bulk.Update(bson.M{"_id": msg.Data().Get("_id")}, msg.Data())
 		}
+		bOp.opCounter++
 		if bOp.opCounter%20 == 0 {
 			log.With("opCounter", bOp.opCounter).Debugln("calculating avg obj size")
 			bOp.calculateAvgObjSize(msg.Data())
 		}
-		bOp.opCounter++
 		bOp.bsonOpSize = int(bOp.avgOpSize) * bOp.opCounter
 		bOp.Unlock()
 		var err error
