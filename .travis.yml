@@ -10,23 +10,26 @@ script:
 services:
   - mongodb
   - postgresql
-  - docker
 addons:
   postgresql: '9.4'
+  apt:
+    sources:
+      - elasticsearch-2.4.3
+    packages:
+      - elasticsearch
 before_script:
   - psql -c "ALTER SYSTEM SET max_replication_slots = 4"
   - psql -c "ALTER SYSTEM SET wal_level = logical"
   - sudo /etc/init.d/postgresql restart; sleep 1
   - echo "replSet = transporterRs" | sudo tee -a /etc/mongodb.conf
-  - sudo service mongodb restart
+  - sudo service mongod restart
   - sleep 20
   - mongo --eval 'rs.initiate()'
   - sleep 15
-  - mkdir -p /tmp/elasticsearch/config
-  - cp -r config/* /tmp/elasticsearch/config/
-  - sudo sysctl -w vm.max_map_count=262144
-  - docker run --rm --privileged=true -p 9200:9200 -p 9300:9300 -v "/tmp/elasticsearch/config:/usr/share/elasticsearch/config" -e ES_JAVA_OPTS='-Xms1g -Xmx1g' elasticsearch:5.1.1 elasticsearch >& /dev/null &
+  - elasticsearch -d --default.path.conf=config
   - sleep 15
+  - elasticsearch -v
+  - curl http://localhost:9200/
 install: true
 branches:
   only:
