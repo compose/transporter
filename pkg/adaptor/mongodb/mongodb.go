@@ -181,7 +181,7 @@ func (m *MongoDB) Stop() error {
 // writeMessage writes one message to the destination mongo, or sends an error down the pipe
 func (m *MongoDB) writeMessage(msg message.Msg) (message.Msg, error) {
 	_, msgColl, _ := message.SplitNamespace(msg)
-	err := client.Write(m.client, m.writer, From(msg.OP(), m.computeNamespace(msgColl), msg.Data()))
+	err := client.Write(m.client, m.writer, message.From(msg.OP(), m.computeNamespace(msgColl), msg.Data()))
 
 	if err != nil {
 		m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("write message error (%s)", err), msg.Data)

@@ -19,7 +19,7 @@ import (
 	"github.com/compose/transporter/pkg/log"
 	"github.com/compose/transporter/pkg/message"
 	"github.com/compose/transporter/pkg/pipe"
-	"github.com/hashicorp/go-version"
+	version "github.com/hashicorp/go-version"
 )
 
 // Elasticsearch is an adaptor to connect a pipeline to
@@ -113,7 +113,7 @@ func (e *Elasticsearch) Stop() error {
 
 func (e *Elasticsearch) applyOp(msg message.Msg) (message.Msg, error) {
 	_, msgColl, _ := message.SplitNamespace(msg)
-	err := e.client.Write(From(msg.OP(), e.computeNamespace(msgColl), msg.Data()))(nil)
+	err := e.client.Write(message.From(msg.OP(), e.computeNamespace(msgColl), msg.Data()))(nil)
 
 	if err != nil {
 		e.pipe.Err <- adaptor.NewError(adaptor.ERROR, e.path, fmt.Sprintf("write message error (%s)", err), msg.Data)

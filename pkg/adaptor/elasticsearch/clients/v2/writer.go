@@ -84,6 +84,5 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) error {
 }
 
 func (w *Writer) Close() {
-	w.bp.Flush()
 	w.bp.Close()
 }
