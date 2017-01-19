@@ -93,7 +93,7 @@ func TestBulkOpCount(t *testing.T) {
 
 	ns := fmt.Sprintf("%s.%s", bulkTestData.DB, "bar")
 	for i := 0; i < maxObjSize; i++ {
-		msg := message.From(ops.Insert, fmt.Sprintf("%s.%s", bulkTestData.DB, "bar"), map[string]interface{}{"i": i})
+		msg := message.From(ops.Insert, ns, map[string]interface{}{"i": i})
 		b.Write(msg)(defaultSession)
 	}
 	close(done)
@@ -108,7 +108,7 @@ func TestFlushOnDone(t *testing.T) {
 
 	ns := fmt.Sprintf("%s.%s", bulkTestData.DB, "baz")
 	for i := 0; i < testBulkMsgCount; i++ {
-		msg := message.From(ops.Insert, fmt.Sprintf("%s.%s", bulkTestData.DB, "baz"), map[string]interface{}{"i": i})
+		msg := message.From(ops.Insert, ns, map[string]interface{}{"i": i})
 		b.Write(msg)(defaultSession)
 	}
 	close(done)
@@ -125,11 +125,11 @@ func TestBulkMulitpleCollections(t *testing.T) {
 	ns2 := fmt.Sprintf("%s.%s", bulkTestData.DB, "multi_b")
 	ns3 := fmt.Sprintf("%s.%s", bulkTestData.DB, "multi_c")
 	for i := 0; i < (maxObjSize + 1); i++ {
-		b.Write(From(ops.Insert, ns3, map[string]interface{}{"i": i}))(defaultSession)
+		b.Write(message.From(ops.Insert, ns3, map[string]interface{}{"i": i}))(defaultSession)
 	}
 	for i := 0; i < testBulkMsgCount; i++ {
-		b.Write(From(ops.Insert, ns1, map[string]interface{}{"i": i}))(defaultSession)
-		b.Write(From(ops.Insert, ns2, map[string]interface{}{"i": i}))(defaultSession)
+		b.Write(message.From(ops.Insert, ns1, map[string]interface{}{"i": i}))(defaultSession)
+		b.Write(message.From(ops.Insert, ns2, map[string]interface{}{"i": i}))(defaultSession)
 	}
 	checkBulkCount("multi_a", bson.M{}, 0, t)
 	checkBulkCount("multi_b", bson.M{}, 0, t)
@@ -156,7 +156,7 @@ func TestBulkSize(t *testing.T) {
 		}
 		bsonSize += (len(bs) + 4)
 
-		msg := From(ops.Insert, ns, doc)
+		msg := message.From(ops.Insert, ns, doc)
 		b.Write(msg)(defaultSession)
 	}
 	bOp := b.bulkMap["size"]
