@@ -107,10 +107,10 @@ func (r *Reader) iterateCollection(mgoSession *mgo.Session, in <-chan string, do
 					iter := r.catQuery(c, lastID, s).Iter()
 					var result bson.M
 					for iter.Next(&result) {
-						out <- resultDoc{result, c}
 						if id, ok := result["_id"]; ok {
 							lastID = id
 						}
+						out <- resultDoc{result, c}
 						result = bson.M{}
 					}
 					if err := iter.Err(); err != nil {
