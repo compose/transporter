@@ -13,7 +13,7 @@ addons:
   postgresql: '9.4'
   apt:
     sources:
-      - elasticsearch-2.4.3
+      - elasticsearch-2.x
     packages:
       - elasticsearch
 before_script:
