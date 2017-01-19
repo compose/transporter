@@ -27,7 +27,7 @@ var (
 // performance improvements.
 type Bulk struct {
 	bulkMap map[string]*bulkOperation
-	lock    sync.Mutex
+	*sync.RWMutex
 }
 
 type bulkOperation struct {
@@ -38,11 +38,13 @@ type bulkOperation struct {
 	avgTotal   int
 	avgOpSize  float64
 	bsonOpSize int
+	*sync.Mutex
 }
 
 func newBulker(done chan struct{}, wg *sync.WaitGroup) *Bulk {
 	b := &Bulk{
 		bulkMap: make(map[string]*bulkOperation),
+		RWMutex: &sync.RWMutex{},
 	}
 	wg.Add(1)
 	go b.run(done, wg)
@@ -52,16 +54,21 @@ func newBulker(done chan struct{}, wg *sync.WaitGroup) *Bulk {
 func (b *Bulk) Write(msg message.Msg) func(client.Session) error {
 	return func(s client.Session) error {
 		db, coll, _ := message.SplitNamespace(msg)
-		b.lock.Lock()
+		b.RLock()
 		bOp, ok := b.bulkMap[coll]
+		b.RUnlock()
 		if !ok {
 			s := s.(*Session).mgoSession.Copy()
 			bOp = &bulkOperation{
-				s:    s,
-				bulk: s.DB(db).C(coll).Bulk(),
+				s:     s,
+				bulk:  s.DB(db).C(coll).Bulk(),
+				Mutex: &sync.Mutex{},
 			}
+			b.Lock()
 			b.bulkMap[coll] = bOp
+			b.Unlock()
 		}
+		bOp.Lock()
 		switch msg.OP() {
 		case ops.Delete:
 			bOp.bulk.Remove(bson.M{"_id": msg.Data().Get("_id")})
@@ -76,11 +83,11 @@ func (b *Bulk) Write(msg message.Msg) func(client.Session) error {
 		}
 		bOp.opCounter++
 		bOp.bsonOpSize = int(bOp.avgOpSize) * int(bOp.opCounter)
+		bOp.Unlock()
 		var err error
 		if int(bOp.opCounter) >= maxObjSize || bOp.bsonOpSize >= maxBSONObjSize {
 			err = b.flush(coll, bOp)
 		}
-		b.lock.Unlock()
 		return err
 	}
 }
@@ -91,11 +98,13 @@ func (bOp *bulkOperation) calculateAvgObjSize(d data.Data) {
 		log.Infof("unable to marshal doc to BSON, not adding to average", err)
 		return
 	}
+	bOp.Lock()
 	bOp.avgOpCount++
 	// add the 4 bytes for the MsgHeader
 	// https://docs.mongodb.com/manual/reference/mongodb-wire-protocol/#standard-message-header
 	bOp.avgTotal += (len(bs) + 4)
 	bOp.avgOpSize = float64(bOp.avgTotal / bOp.avgOpCount)
+	bOp.Unlock()
 	log.With("avgOpCount", bOp.avgOpCount).With("avgTotal", bOp.avgTotal).With("avgObSize", bOp.avgOpSize).Debugln("bulk stats")
 }
 
@@ -114,10 +123,10 @@ func (b *Bulk) run(done chan struct{}, wg *sync.WaitGroup) {
 }
 
 func (b *Bulk) flushAll() error {
-	b.lock.Lock()
-	defer b.lock.Unlock()
 	for c, bOp := range b.bulkMap {
+		bOp.Lock()
 		b.flush(c, bOp)
+		bOp.Unlock()
 	}
 	return nil
 }
@@ -134,6 +143,8 @@ func (b *Bulk) flush(c string, bOp *bulkOperation) error {
 		With("modified", result.Modified).
 		With("match", result.Matched).
 		Infoln("flush complete")
+	b.Lock()
 	delete(b.bulkMap, c)
+	b.Unlock()
 	return nil
 }
