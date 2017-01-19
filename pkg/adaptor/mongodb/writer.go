@@ -19,9 +19,9 @@ type Writer struct {
 func newWriter() *Writer {
 	w := &Writer{}
 	w.writeMap = map[ops.Op]func(message.Msg, *mgo.Collection) error{
-		ops.Insert: insert,
-		ops.Update: update,
-		ops.Delete: delete,
+		ops.Insert: insertMsg,
+		ops.Update: updateMsg,
+		ops.Delete: deleteMsg,
 	}
 	return w
 }
@@ -42,18 +42,18 @@ func msgCollection(msg message.Msg, s client.Session) *mgo.Collection {
 	return s.(*Session).mgoSession.DB(db).C(coll)
 }
 
-func insert(msg message.Msg, c *mgo.Collection) error {
+func insertMsg(msg message.Msg, c *mgo.Collection) error {
 	err := c.Insert(msg.Data())
 	if err != nil && mgo.IsDup(err) {
-		return update(msg, c)
+		return updateMsg(msg, c)
 	}
 	return err
 }
 
-func update(msg message.Msg, c *mgo.Collection) error {
+func updateMsg(msg message.Msg, c *mgo.Collection) error {
 	return c.Update(bson.M{"_id": msg.Data().Get("_id")}, msg.Data())
 }
 
-func delete(msg message.Msg, c *mgo.Collection) error {
+func deleteMsg(msg message.Msg, c *mgo.Collection) error {
 	return c.RemoveId(msg.Data().Get("_id"))
 }
