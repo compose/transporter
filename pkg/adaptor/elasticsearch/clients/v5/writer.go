@@ -84,5 +84,6 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) error {
 }
 
 func (w *Writer) Close() {
+	log.Infoln("flushing BulkProcessor")
 	w.bp.Close()
 }
