@@ -1,7 +1,6 @@
 package mongodb
 
 import (
-	"math"
 	"sync"
 	"time"
 
@@ -33,7 +32,7 @@ type Bulk struct {
 type bulkOperation struct {
 	s          *mgo.Session
 	bulk       *mgo.Bulk
-	opCounter  float64
+	opCounter  int
 	avgOpCount int
 	avgTotal   int
 	avgOpSize  float64
@@ -77,15 +76,15 @@ func (b *Bulk) Write(msg message.Msg) func(client.Session) error {
 		case ops.Update:
 			bOp.bulk.Update(bson.M{"_id": msg.Data().Get("_id")}, msg.Data())
 		}
-		if math.Mod(bOp.opCounter, 20.0) == 0 {
+		if bOp.opCounter%20 == 0 {
 			log.With("opCounter", bOp.opCounter).Debugln("calculating avg obj size")
 			bOp.calculateAvgObjSize(msg.Data())
 		}
 		bOp.opCounter++
-		bOp.bsonOpSize = int(bOp.avgOpSize) * int(bOp.opCounter)
+		bOp.bsonOpSize = int(bOp.avgOpSize) * bOp.opCounter
 		bOp.Unlock()
 		var err error
-		if int(bOp.opCounter) >= maxObjSize || bOp.bsonOpSize >= maxBSONObjSize {
+		if bOp.opCounter >= maxObjSize || bOp.bsonOpSize >= maxBSONObjSize {
 			err = b.flush(coll, bOp)
 		}
 		return err
