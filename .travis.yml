@@ -1,18 +1,26 @@
-sudo: true
+sudo: required
 language: go
 go:
   - 1.7.x
+env:
+  global:
+    - MONGODB_VERSION=3.2.11
+    - ES_VERSION=5.1.2
 before_install:
   - go get github.com/mattn/goveralls
-  - curl -O https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.1.1.deb && sudo dpkg -i --force-confnew elasticsearch-5.1.1.deb && sudo service elasticsearch start
-  - echo "cat elasticsearch defaults"
-  - cat /etc/default/elasticsearch
-  - echo "elasticsearch defaults end"
+  - curl -O https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-$ES_VERSION.deb && sudo dpkg -i --force-confnew elasticsearch-$ES_VERSION.deb && sudo service elasticsearch start
+  - wget http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-$MONGODB_VERSION.tgz
+  - tar xfz mongodb-linux-x86_64-$MONGODB_VERSION.tgz
+  - export PATH=`pwd`/mongodb-linux-x86_64-$MONGODB_VERSION/bin:$PATH
+  - mkdir -p data/db
+  - mongod --dbpath=data/db --replSet transporterRs &
+  - sleep 10
+  - mongo --eval 'rs.initiate()'
 script:
   - ./scripts/tests.sh
   - $HOME/gopath/bin/goveralls -service=travis-ci -coverprofile=/tmp/coverage.out
 services:
-  - mongodb
+  - docker
   - postgresql
 addons:
   postgresql: '9.4'
@@ -23,10 +31,6 @@ before_script:
   - psql -c "ALTER SYSTEM SET max_replication_slots = 4"
   - psql -c "ALTER SYSTEM SET wal_level = logical"
   - sudo /etc/init.d/postgresql restart; sleep 1
-  - echo "replSet = transporterRs" | sudo tee -a /etc/mongodb.conf
-  - sudo service mongodb restart
-  - sleep 20
-  - mongo --eval 'rs.initiate()'
   - curl -v http://localhost:9200/
 install: true
 branches:
