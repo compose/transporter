@@ -74,6 +74,8 @@ func TestFileToFile(t *testing.T) {
 		t.FailNow()
 	}
 
+	p.Stop()
+
 	// compare the files
 	sourceFile, _ := os.Open(outFile)
 	sourceSize, _ := sourceFile.Stat()
@@ -115,6 +117,8 @@ func TestMongoToMongo(t *testing.T) {
 		t.Errorf("error running pipeline, got %s", err.Error())
 		t.FailNow()
 	}
+
+	p.Stop()
 
 	// connect to mongo and compare results
 	mongoSess, err := mgo.Dial(mongoURI)
