@@ -36,7 +36,7 @@ before_script:
   - sudo sysctl -w vm.max_map_count=262144
   - docker run --rm --privileged=true -p 127.0.0.1:9200:9200 -p 9300:9300 -v "/tmp/elasticsearch/config:/usr/share/elasticsearch/config" -e ES_JAVA_OPTS='-Xms1g -Xmx1g' elasticsearch:5.1.2 elasticsearch >& /dev/null &
   - sleep 15
-  - curl -v http://127.0.0.1:9200/
+  # - curl -v http://127.0.0.1:9200/
 install: true
 branches:
   except:
