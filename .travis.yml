@@ -6,9 +6,9 @@ env:
   global:
     - MONGODB_VERSION=3.2.11
     - ES_VERSION=5.1.2
+    - ES_V5_URL=http://127.0.0.1:9205
 before_install:
   - go get github.com/mattn/goveralls
-  # - curl -O https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-$ES_VERSION.deb && sudo dpkg -i --force-confnew elasticsearch-$ES_VERSION.deb && sudo service elasticsearch start
   - wget http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-$MONGODB_VERSION.tgz
   - tar xfz mongodb-linux-x86_64-$MONGODB_VERSION.tgz
   - export PATH=`pwd`/mongodb-linux-x86_64-$MONGODB_VERSION/bin:$PATH
@@ -34,7 +34,7 @@ before_script:
   - mkdir -p /tmp/elasticsearch/config
   - cp -r config/v5/* /tmp/elasticsearch/config/
   - sudo sysctl -w vm.max_map_count=262144
-  - docker run --rm --privileged=true -p 127.0.0.1:9200:9205 -v "/tmp/elasticsearch/config:/usr/share/elasticsearch/config" -e ES_JAVA_OPTS='-Xms1g -Xmx1g' elasticsearch:5.1.2 elasticsearch >& /dev/null &
+  - docker run --rm --privileged=true -p 127.0.0.1:9205:9205 -v "/tmp/elasticsearch/config:/usr/share/elasticsearch/config" -e ES_JAVA_OPTS='-Xms1g -Xmx1g' elasticsearch:5.1.2 elasticsearch >& /dev/null &
   - sleep 15
 install: true
 branches:
