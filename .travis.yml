@@ -8,12 +8,12 @@ env:
     - ES_VERSION=5.1.2
 before_install:
   - go get github.com/mattn/goveralls
-  - curl -O https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-$ES_VERSION.deb && sudo dpkg -i --force-confnew elasticsearch-$ES_VERSION.deb && sudo service elasticsearch start
+  # - curl -O https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-$ES_VERSION.deb && sudo dpkg -i --force-confnew elasticsearch-$ES_VERSION.deb && sudo service elasticsearch start
   - wget http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-$MONGODB_VERSION.tgz
   - tar xfz mongodb-linux-x86_64-$MONGODB_VERSION.tgz
   - export PATH=`pwd`/mongodb-linux-x86_64-$MONGODB_VERSION/bin:$PATH
   - mkdir -p data/db
-  - mongod --dbpath=data/db --replSet transporterRs &
+  - mongod --dbpath=data/db --replSet transporterRs >& /dev/null &
   - sleep 10
   - mongo --eval 'rs.initiate()'
 script:
@@ -31,6 +31,11 @@ before_script:
   - psql -c "ALTER SYSTEM SET max_replication_slots = 4"
   - psql -c "ALTER SYSTEM SET wal_level = logical"
   - sudo /etc/init.d/postgresql restart; sleep 1
+  - mkdir -p /tmp/elasticsearch/config
+  - cp -r config/v5/* /tmp/elasticsearch/config/
+  - sudo sysctl -w vm.max_map_count=262144
+  - docker run --rm --privileged=true -p 9200:9205 -p 9300:9300 -v "/tmp/elasticsearch/config:/usr/share/elasticsearch/config" -e ES_JAVA_OPTS='-Xms1g -Xmx1g' elasticsearch:5.1.2 elasticsearch >& /dev/null &
+  - sleep 15
   - curl -v http://localhost:9200/
 install: true
 branches:
