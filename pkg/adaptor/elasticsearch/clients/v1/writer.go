@@ -1,8 +1,8 @@
 package v1
 
 import (
+	"context"
 	"sync"
-	"time"
 
 	elastic "gopkg.in/olivere/elastic.v2"
 
@@ -20,7 +20,7 @@ var (
 )
 
 type Writer struct {
-	bp *elastic.BulkProcessor
+	esClient *elastic.Client
 }
 
 func init() {
@@ -47,14 +47,7 @@ func init() {
 }
 
 func newWriter(client *elastic.Client, done chan struct{}, wg *sync.WaitGroup) *Writer {
-	p, _ := client.BulkProcessor().
-		Name("TransporterWorker-1").
-		Workers(2).
-		BulkActions(1000).               // commit if # requests >= 1000
-		BulkSize(2 << 20).               // commit if size of requests >= 2 MB
-		FlushInterval(30 * time.Second). // commit every 30s
-		Do()
-	w := &Writer{bp: p}
+	w := &Writer{esClient: client}
 	wg.Add(1)
 	go clients.Closer(done, wg, w)
 	return w
@@ -66,23 +59,20 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) error {
 		var id string
 		if _, ok := msg.Data()["_id"]; ok {
 			id = msg.ID()
-			msg.Data().Delete("_id")
 		}
 
-		var br elastic.BulkableRequest
 		switch msg.OP() {
 		case ops.Delete:
-			br = elastic.NewBulkDeleteRequest().Index(i).Type(t).Id(id)
+			w.esClient.Delete().Index(i).Type(t).Id(id).Do(context.TODO())
 		case ops.Insert:
-			br = elastic.NewBulkIndexRequest().Index(i).Type(t).Id(id).Doc(msg.Data())
+			w.esClient.Index().Index(i).Type(t).Id(id).BodyJson(msg.Data()).Do(context.TODO())
 		case ops.Update:
-			br = elastic.NewBulkUpdateRequest().Index(i).Type(t).Id(id).Doc(msg.Data())
+			w.esClient.Index().Index(i).Type(t).BodyJson(msg.Data()).Id(id).Do(context.TODO())
 		}
-		w.bp.Add(br)
 		return nil
 	}
 }
 
 func (w *Writer) Close() {
-	w.bp.Close()
+	// no op
 }

@@ -72,6 +72,9 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) error {
 		var br elastic.BulkableRequest
 		switch msg.OP() {
 		case ops.Delete:
+			// we need to flush any pending writes here or this could fail because we're using
+			// more than 1 worker
+			w.bp.Flush()
 			br = elastic.NewBulkDeleteRequest().Index(i).Type(t).Id(id)
 		case ops.Insert:
 			br = elastic.NewBulkIndexRequest().Index(i).Type(t).Id(id).Doc(msg.Data())

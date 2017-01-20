@@ -1,4 +1,4 @@
-package v5
+package v2
 
 import (
 	"encoding/json"
@@ -17,11 +17,11 @@ import (
 
 const (
 	DefaultURL   = "http://127.0.0.1:9200"
-	DefaultIndex = "test_v5"
+	DefaultIndex = "test_v2"
 )
 
 var (
-	TestURL = os.Getenv("ES_V5_URL")
+	TestURL = os.Getenv("ES_V2_URL")
 )
 
 func testURL(suffix string) string {
@@ -76,7 +76,7 @@ func TestWriter(t *testing.T) {
 		HTTPClient: http.DefaultClient,
 		Path:       DefaultIndex,
 	}
-	vc := clients.Clients["v5"]
+	vc := clients.Clients["v2"]
 	w, _ := vc.Creator(done, &wg, opts)
 	w.Write(message.From(ops.Insert, testNS(), map[string]interface{}{"hello": "world"}))(nil)
 	w.Write(message.From(ops.Insert, testNS(), map[string]interface{}{"_id": "booya", "hello": "world"}))(nil)
