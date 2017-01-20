@@ -3,7 +3,7 @@
 
 discovery.zen.minimum_master_nodes: 1
 
-# http.port: 9205
+http.port: 9205
 
 network.host:
 - _local_
@@ -13,6 +13,6 @@ network.publish_host: _local_
 
 
 # Enable scripting as described here: https://www.elastic.co/guide/en/elasticsearch/reference/master/modules-scripting.html
-script.inline: true
-script.stored: true
-script.file:   true
+script.inline: false
+script.stored: false
+script.file:   false
