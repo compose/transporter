@@ -78,6 +78,8 @@ func TestEventsBroadcast(t *testing.T) {
 		t.FailNow()
 	}
 
+	p.Stop()
+
 	time.Sleep(time.Duration(5) * time.Second)
 
 	if len(eh.rawEvents) != 4 {

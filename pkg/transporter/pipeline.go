@@ -98,10 +98,17 @@ func (pipeline *Pipeline) String() string {
 // the node's database adaptors are expected to clean up after themselves, and stop will block until
 // all nodes have stopped successfully
 func (pipeline *Pipeline) Stop() {
+	endpoints := pipeline.source.Endpoints()
 	pipeline.source.Stop()
 	if pipeline.sessionStore != nil {
 		pipeline.sessionTicker.Stop()
 	}
+
+	// pipeline has stopped, emit one last round of metrics and send the exit event
+	pipeline.emitMetrics()
+	pipeline.source.pipe.Event <- events.NewExitEvent(time.Now().UnixNano(), VERSION, endpoints)
+	pipeline.emitter.Stop()
+
 	pipeline.metricsTicker.Stop()
 }
 
@@ -111,22 +118,15 @@ func (pipeline *Pipeline) Run() error {
 	// send a boot event
 	pipeline.source.pipe.Event <- events.NewBootEvent(time.Now().UnixNano(), VERSION, endpoints)
 
+	if pipeline.sessionStore != nil {
+		pipeline.setState()
+	}
+
 	// start the source
 	err := pipeline.source.Start()
 	if err != nil && pipeline.Err == nil {
 		pipeline.Err = err // only set it if it hasn't been set already.
 	}
-
-	if pipeline.sessionStore != nil {
-		pipeline.setState()
-	}
-	// the source has exited, stop all the other nodes
-	pipeline.Stop()
-
-	// pipeline has stopped, emit one last round of metrics and send the exit event
-	pipeline.emitMetrics()
-	pipeline.source.pipe.Event <- events.NewExitEvent(time.Now().UnixNano(), VERSION, endpoints)
-	pipeline.emitter.Stop()
 
 	return pipeline.Err
 }
