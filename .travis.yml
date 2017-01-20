@@ -1,6 +1,5 @@
 sudo: required
 dist: trusty
-group: edge
 language: go
 go:
   - 1.7.x
@@ -34,9 +33,11 @@ before_script:
   - psql -c "ALTER SYSTEM SET wal_level = logical"
   - sudo /etc/init.d/postgresql restart; sleep 1
   - mkdir -p /tmp/elasticsearch/config
-  - cp -r config/v5/* /tmp/elasticsearch/config/
+  - cp -r config/* /tmp/elasticsearch/config/
   - sudo sysctl -w vm.max_map_count=262144
-  - docker run --rm --privileged=true -p 127.0.0.1:9205:9205 -v "/tmp/elasticsearch/config:/usr/share/elasticsearch/config" -e ES_JAVA_OPTS='-Xms1g -Xmx1g' elasticsearch:5.1.2 elasticsearch >& /dev/null &
+  - docker run --rm --privileged=true -p 127.0.0.1:9205:9205 -v "/tmp/elasticsearch/config/v5:/usr/share/elasticsearch/config" -e ES_JAVA_OPTS='-Xms1g -Xmx1g' elasticsearch:5.1.2 elasticsearch >& /dev/null &
+  - docker run --rm --privileged=true -p 127.0.0.1:9202:9202 -v "/tmp/elasticsearch/config/v2:/usr/share/elasticsearch/config" -e ES_JAVA_OPTS='-Xms1g -Xmx1g' elasticsearch:2.4.4 elasticsearch >& /dev/null &
+  - docker run --rm --privileged=true -p 127.0.0.1:9201:9201 -v "/tmp/elasticsearch/config/v1:/usr/share/elasticsearch/config" -e ES_JAVA_OPTS='-Xms1g -Xmx1g' elasticsearch:1.7.6 elasticsearch >& /dev/null &
   - sleep 15
 install: true
 branches:

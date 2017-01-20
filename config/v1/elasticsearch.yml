@@ -1,0 +1,10 @@
+
+discovery.zen.minimum_master_nodes: 1
+
+network.host: _local_
+
+http.port: 9201
+
+script.inline: off
+script.indexed: off
+script.file: off
