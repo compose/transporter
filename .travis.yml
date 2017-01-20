@@ -20,6 +20,7 @@ before_install:
   - mongo --eval 'rs.initiate()'
 script:
   - ./scripts/tests.sh
+after_success:
   - $HOME/gopath/bin/goveralls -service=travis-ci -coverprofile=/tmp/coverage.out
 services:
   - docker
