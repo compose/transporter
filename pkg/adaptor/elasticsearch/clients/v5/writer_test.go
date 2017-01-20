@@ -2,10 +2,12 @@ package v5
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/compose/transporter/pkg/adaptor/elasticsearch/clients"
 	"github.com/compose/transporter/pkg/log"
@@ -13,19 +15,36 @@ import (
 	"github.com/compose/transporter/pkg/message/ops"
 )
 
+const (
+	DefaultURL = "http://127.0.0.1:9200"
+	ESV5Index  = "test_v5"
+)
+
+var (
+	ESV5URL = os.Getenv("ES_V5_URL")
+)
+
+func testURL(suffix string) string {
+	return fmt.Sprintf("%s/%s%s", ESV5URL, ESV5Index, suffix)
+}
+
 func setup() error {
-	log.Infoln("setting up tests")
+	log.Debugln("setting up tests")
 	return clearTestData()
 }
 
 func clearTestData() error {
-	req, _ := http.NewRequest(http.MethodDelete, "http://127.0.0.1:9200/test_v5", nil)
+	req, _ := http.NewRequest(http.MethodDelete, testURL(""), nil)
 	resp, err := http.DefaultClient.Do(req)
 	log.Debugf("clearTestData response, %+v", resp)
 	return err
 }
 
 func TestMain(m *testing.M) {
+	if ESV5URL == "" {
+		ESV5URL = DefaultURL
+	}
+
 	if err := setup(); err != nil {
 		log.Errorf("unable to setup tests, %s", err)
 		os.Exit(1)
@@ -36,9 +55,9 @@ func TestMain(m *testing.M) {
 }
 
 func shutdown() {
-	log.Infoln("shutting down tests")
+	log.Debugln("shutting down tests")
 	clearTestData()
-	log.Infoln("tests shutdown complete")
+	log.Debugln("tests shutdown complete")
 }
 
 type CountResponse struct {
@@ -49,7 +68,7 @@ func TestWriter(t *testing.T) {
 	done := make(chan struct{})
 	var wg sync.WaitGroup
 	opts := &clients.ClientOptions{
-		URLs:       []string{"http://127.0.0.1:9200"},
+		URLs:       []string{ESV5URL},
 		HTTPClient: http.DefaultClient,
 		Path:       "test_v5",
 	}
@@ -62,11 +81,12 @@ func TestWriter(t *testing.T) {
 	close(done)
 	wg.Wait()
 
-	if _, err := http.Get("http://127.0.0.1:9200/test_v5/_refresh"); err != nil {
+	if _, err := http.Get(testURL("/_refresh")); err != nil {
 		t.Fatalf("_refresh request failed, %s", err)
 	}
+	time.Sleep(1 * time.Second)
 
-	resp, err := http.Get("http://127.0.0.1:9200/test_v5/_count")
+	resp, err := http.Get(testURL("/_count"))
 	if err != nil {
 		t.Fatalf("_count request failed, %s", err)
 	}

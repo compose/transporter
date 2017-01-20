@@ -5,6 +5,7 @@ go:
 before_install:
   - go get github.com/mattn/goveralls
   - curl -O https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.1.1.deb && sudo dpkg -i --force-confnew elasticsearch-5.1.1.deb && sudo service elasticsearch start
+  - cat /etc/default/elasticsearch
 script:
   - ./scripts/tests.sh
   - $HOME/gopath/bin/goveralls -service=travis-ci -coverprofile=/tmp/coverage.out

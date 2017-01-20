@@ -3,6 +3,8 @@
 
 discovery.zen.minimum_master_nodes: 1
 
+http.port: 9205
+
 network.host:
 - _local_
 - _site_
