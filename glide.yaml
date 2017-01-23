@@ -27,11 +27,10 @@ import:
   version: ^0.1.1
   subpackages:
   - pkg/group
-- package: github.com/Sirupsen/logrus
-  version: ^0.11.0
 - package: gopkg.in/olivere/elastic.v5
   version: ^5.0.13
 - package: gopkg.in/olivere/elastic.v3
   version: ^5.0.13
 - package: gopkg.in/olivere/elastic.v2
   version: ^5.0.18
+- package: github.com/smartystreets/go-aws-auth

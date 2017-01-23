@@ -27,11 +27,18 @@ type kvProxy struct {
 	cache cache.Cache
 }
 
-func NewKvProxy(c *clientv3.Client) pb.KVServer {
-	return &kvProxy{
+func NewKvProxy(c *clientv3.Client) (pb.KVServer, <-chan struct{}) {
+	kv := &kvProxy{
 		kv:    c.KV,
 		cache: cache.NewCache(cache.DefaultMaxEntries),
 	}
+	donec := make(chan struct{})
+	go func() {
+		defer close(donec)
+		<-c.Ctx().Done()
+		kv.cache.Close()
+	}()
+	return kv, donec
 }
 
 func (p *kvProxy) Range(ctx context.Context, r *pb.RangeRequest) (*pb.RangeResponse, error) {
@@ -39,11 +46,14 @@ func (p *kvProxy) Range(ctx context.Context, r *pb.RangeRequest) (*pb.RangeRespo
 		resp, err := p.cache.Get(r)
 		switch err {
 		case nil:
+			cacheHits.Inc()
 			return resp, nil
 		case cache.ErrCompacted:
+			cacheHits.Inc()
 			return nil, err
 		}
 	}
+	cachedMisses.Inc()
 
 	resp, err := p.kv.Do(ctx, RangeRequestToOp(r))
 	if err != nil {
@@ -61,12 +71,14 @@ func (p *kvProxy) Range(ctx context.Context, r *pb.RangeRequest) (*pb.RangeRespo
 
 func (p *kvProxy) Put(ctx context.Context, r *pb.PutRequest) (*pb.PutResponse, error) {
 	p.cache.Invalidate(r.Key, nil)
+
 	resp, err := p.kv.Do(ctx, PutRequestToOp(r))
 	return (*pb.PutResponse)(resp.Put()), err
 }
 
 func (p *kvProxy) DeleteRange(ctx context.Context, r *pb.DeleteRangeRequest) (*pb.DeleteRangeResponse, error) {
 	p.cache.Invalidate(r.Key, r.RangeEnd)
+
 	resp, err := p.kv.Do(ctx, DelRequestToOp(r))
 	return (*pb.DeleteRangeResponse)(resp.Del()), err
 }
@@ -120,6 +132,7 @@ func (p *kvProxy) Txn(ctx context.Context, r *pb.TxnRequest) (*pb.TxnResponse, e
 	} else {
 		p.txnToCache(r.Failure, resp.Responses)
 	}
+
 	return (*pb.TxnResponse)(resp), nil
 }
 

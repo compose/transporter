@@ -49,11 +49,6 @@ var errorTests = []struct {
 		"http://localhost:9200 running 0.9.2, its bad",
 		VersionError{"http://localhost:9200", "0.9.2", "its bad"},
 	},
-	{
-		"InvalidTimeoutError",
-		"Invalid Timeout, blah",
-		InvalidTimeoutError{"blah"},
-	},
 }
 
 func TestErrors(t *testing.T) {
@@ -92,7 +87,7 @@ var initTests = []struct {
 	},
 	{
 		"timeout config",
-		adaptor.Config{"uri": goodVersionServer.URL, "namespace": "test.test", "timeout": "30s"},
+		adaptor.Config{"uri": goodVersionServer.URL, "namespace": "test.test", "timeout": "60s"},
 		nil,
 	},
 	{
@@ -130,10 +125,6 @@ var badVersionServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseW
 
 var unsupportedVersionServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "{\"version\":{\"number\":\"0.9.2\"}}")
-}))
-
-var badTimeoutServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "{\"version\":{\"number\":\"2.0.0\"}}")
 }))
 
 var badClientTests = []struct {
@@ -177,12 +168,6 @@ var badClientTests = []struct {
 		adaptor.Config{"uri": unsupportedVersionServer.URL, "namespace": "test.test"},
 		VersionError{unsupportedVersionServer.URL, "0.9.2", "unsupported client"},
 		func() { unsupportedVersionServer.Close() },
-	},
-	{
-		"bad timeout",
-		adaptor.Config{"uri": badTimeoutServer.URL, "namespace": "test.test", "timeout": "xyz"},
-		InvalidTimeoutError{"xyz"},
-		func() { badTimeoutServer.Close() },
 	},
 }
 

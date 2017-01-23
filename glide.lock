@@ -1,5 +1,5 @@
-hash: b27d499c64c7f1d00276e9162607fab8be2d86e90aea4c10c00cc843804d5a49
-updated: 2017-01-19T12:34:03.647220051-06:00
+hash: d792c491fe81c20166e7eda4c5e816a4b2407de17e70cce5f1fd38b85e9f34e3
+updated: 2017-01-23T10:23:38.912616992-06:00
 imports:
 - name: github.com/armon/go-radix
   version: 4239b77079c7b5d1243b7b4736304ce8ddb6f0f2
@@ -10,7 +10,7 @@ imports:
 - name: github.com/compose/mejson
   version: afcf51c7c640b1e09c17065d4e5b8de3259d6261
 - name: github.com/coreos/etcd
-  version: 3d5ba43211beec7fbb1472634a9c3b464581658a
+  version: 8ba2897a21e4fc51b298ca553d251318425f93ae
   subpackages:
   - client
   - pkg/pathutil
@@ -35,7 +35,7 @@ imports:
 - name: github.com/nu7hatch/gouuid
   version: 179d4d0c4d8d407a32af483c2354df1d2c91e6c3
 - name: github.com/oklog/oklog
-  version: c03851f6dfa4bb86af4187eb9f92a16ed5054984
+  version: 80e7a2e6798623eff8d39b329efad2353154523a
   subpackages:
   - pkg/group
 - name: github.com/robertkrimen/otto
@@ -50,6 +50,8 @@ imports:
   - underscore
 - name: github.com/Sirupsen/logrus
   version: d26492970760ca5d33129d2d799e34be5c4782eb
+- name: github.com/smartystreets/go-aws-auth
+  version: 2043e6d0bb7e4c18464a7bba562acbe482e3cabd
 - name: github.com/ugorji/go
   version: f1f1a805ed361a0e078bb537e4ea78cd37dcf065
   subpackages:

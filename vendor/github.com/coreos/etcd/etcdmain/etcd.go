@@ -42,6 +42,7 @@ import (
 	"github.com/coreos/go-systemd/daemon"
 	systemdutil "github.com/coreos/go-systemd/util"
 	"github.com/coreos/pkg/capnslog"
+	"github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 )
@@ -84,12 +85,7 @@ func startEtcdOrProxyV2() {
 	GoMaxProcs := runtime.GOMAXPROCS(0)
 	plog.Infof("setting maximum number of CPUs to %d, total number of available CPUs is %d", GoMaxProcs, runtime.NumCPU())
 
-	// TODO: check whether fields are set instead of whether fields have default value
-	defaultHost, defaultHostErr := cfg.IsDefaultHost()
-	defaultHostOverride := defaultHost == "" || defaultHostErr == nil
-	if (defaultHostOverride || cfg.Name != embed.DefaultName) && cfg.InitialCluster == defaultInitialCluster {
-		cfg.InitialCluster = cfg.InitialClusterFromName(cfg.Name)
-	}
+	(&cfg.Config).UpdateDefaultClusterFromName(defaultInitialCluster)
 
 	if cfg.Dir == "" {
 		cfg.Dir = fmt.Sprintf("%v.etcd", cfg.Name)
@@ -167,7 +163,7 @@ func startEtcdOrProxyV2() {
 		// for accepting connections. The etcd instance should be
 		// joined with the cluster and ready to serve incoming
 		// connections.
-		sent, err := daemon.SdNotify("READY=1")
+		sent, err := daemon.SdNotify(false, "READY=1")
 		if err != nil {
 			plog.Errorf("failed to notify systemd for readiness: %v", err)
 		}
@@ -195,6 +191,10 @@ func startEtcd(cfg *embed.Config) (<-chan struct{}, <-chan error, error) {
 		} else {
 			plog.Noticef("failed to detect default host, advertise falling back to %q (%v)", defaultHost, dhErr)
 		}
+	}
+
+	if cfg.Metrics == "extensive" {
+		grpc_prometheus.EnableHandlingTimeHistogram()
 	}
 
 	e, err := embed.StartEtcd(cfg)

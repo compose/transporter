@@ -17,10 +17,12 @@ package integration
 import (
 	"reflect"
 	"sort"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/coreos/etcd/clientv3"
+	"github.com/coreos/etcd/clientv3/concurrency"
 	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
 	"github.com/coreos/etcd/integration"
 	"github.com/coreos/etcd/pkg/testutil"
@@ -509,4 +511,122 @@ func TestLeaseTimeToLive(t *testing.T) {
 	if len(lresp.Keys) != 0 {
 		t.Fatalf("unexpected keys %+v", lresp.Keys)
 	}
+}
+
+// TestLeaseRenewLostQuorum ensures keepalives work after losing quorum
+// for a while.
+func TestLeaseRenewLostQuorum(t *testing.T) {
+	defer testutil.AfterTest(t)
+
+	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 3})
+	defer clus.Terminate(t)
+
+	cli := clus.Client(0)
+	r, err := cli.Grant(context.TODO(), 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	kctx, kcancel := context.WithCancel(context.Background())
+	defer kcancel()
+	ka, err := cli.KeepAlive(kctx, r.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// consume first keepalive so next message sends when cluster is down
+	<-ka
+
+	// force keepalive stream message to timeout
+	clus.Members[1].Stop(t)
+	clus.Members[2].Stop(t)
+	// Use TTL-1 since the client closes the keepalive channel if no
+	// keepalive arrives before the lease deadline.
+	// The cluster has 1 second to recover and reply to the keepalive.
+	time.Sleep(time.Duration(r.TTL-1) * time.Second)
+	clus.Members[1].Restart(t)
+	clus.Members[2].Restart(t)
+
+	select {
+	case _, ok := <-ka:
+		if !ok {
+			t.Fatalf("keepalive closed")
+		}
+	case <-time.After(time.Duration(r.TTL) * time.Second):
+		t.Fatalf("timed out waiting for keepalive")
+	}
+}
+
+func TestLeaseKeepAliveLoopExit(t *testing.T) {
+	defer testutil.AfterTest(t)
+
+	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
+	defer clus.Terminate(t)
+
+	ctx := context.Background()
+	cli := clus.Client(0)
+
+	resp, err := cli.Grant(ctx, 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cli.Lease.Close()
+
+	_, err = cli.KeepAlive(ctx, resp.ID)
+	if _, ok := err.(clientv3.ErrKeepAliveHalted); !ok {
+		t.Fatalf("expected %T, got %v(%T)", clientv3.ErrKeepAliveHalted{}, err, err)
+	}
+}
+
+// TestV3LeaseFailureOverlap issues Grant and Keepalive requests to a cluster
+// before, during, and after quorum loss to confirm Grant/Keepalive tolerates
+// transient cluster failure.
+func TestV3LeaseFailureOverlap(t *testing.T) {
+	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 2})
+	defer clus.Terminate(t)
+
+	numReqs := 5
+	cli := clus.Client(0)
+
+	// bring up a session, tear it down
+	updown := func(i int) error {
+		sess, err := concurrency.NewSession(cli)
+		if err != nil {
+			return err
+		}
+		ch := make(chan struct{})
+		go func() {
+			defer close(ch)
+			sess.Close()
+		}()
+		select {
+		case <-ch:
+		case <-time.After(time.Minute / 4):
+			t.Fatalf("timeout %d", i)
+		}
+		return nil
+	}
+
+	var wg sync.WaitGroup
+	mkReqs := func(n int) {
+		wg.Add(numReqs)
+		for i := 0; i < numReqs; i++ {
+			go func() {
+				defer wg.Done()
+				err := updown(n)
+				if err == nil || err == rpctypes.ErrTimeoutDueToConnectionLost {
+					return
+				}
+				t.Fatal(err)
+			}()
+		}
+	}
+
+	mkReqs(1)
+	clus.Members[1].Stop(t)
+	mkReqs(2)
+	time.Sleep(time.Second)
+	mkReqs(3)
+	clus.Members[1].Restart(t)
+	mkReqs(4)
+	wg.Wait()
 }

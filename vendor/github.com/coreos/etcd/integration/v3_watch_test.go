@@ -407,6 +407,7 @@ func TestV3WatchCancelUnsynced(t *testing.T) {
 
 func testV3WatchCancel(t *testing.T, startRev int64) {
 	clus := NewClusterV3(t, &ClusterConfig{Size: 3})
+	defer clus.Terminate(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -455,8 +456,6 @@ func testV3WatchCancel(t *testing.T, startRev int64) {
 	if !rok {
 		t.Errorf("unexpected pb.WatchResponse is received %+v", nr)
 	}
-
-	clus.Terminate(t)
 }
 
 // TestV3WatchCurrentPutOverlap ensures current watchers receive all events with
@@ -541,7 +540,10 @@ func TestV3WatchCurrentPutOverlap(t *testing.T) {
 
 // TestV3WatchEmptyKey ensures synced watchers see empty key PUTs as PUT events
 func TestV3WatchEmptyKey(t *testing.T) {
+	defer testutil.AfterTest(t)
+
 	clus := NewClusterV3(t, &ClusterConfig{Size: 1})
+	defer clus.Terminate(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -581,8 +583,6 @@ func TestV3WatchEmptyKey(t *testing.T) {
 	if !reflect.DeepEqual(resp.Events, wevs) {
 		t.Fatalf("got %v, expected %v", resp.Events, wevs)
 	}
-
-	clus.Terminate(t)
 }
 
 func TestV3WatchMultipleWatchersSynced(t *testing.T) {
@@ -601,6 +601,8 @@ func TestV3WatchMultipleWatchersUnsynced(t *testing.T) {
 // one watcher to test if it receives expected events.
 func testV3WatchMultipleWatchers(t *testing.T, startRev int64) {
 	clus := NewClusterV3(t, &ClusterConfig{Size: 3})
+	defer clus.Terminate(t)
+
 	kvc := toGRPC(clus.RandClient()).KV
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -686,8 +688,6 @@ func testV3WatchMultipleWatchers(t *testing.T, startRev int64) {
 	if !rok {
 		t.Errorf("unexpected pb.WatchResponse is received %+v", nr)
 	}
-
-	clus.Terminate(t)
 }
 
 func TestV3WatchMultipleEventsTxnSynced(t *testing.T) {
@@ -703,6 +703,7 @@ func TestV3WatchMultipleEventsTxnUnsynced(t *testing.T) {
 // testV3WatchMultipleEventsTxn tests Watch APIs when it receives multiple events.
 func testV3WatchMultipleEventsTxn(t *testing.T, startRev int64) {
 	clus := NewClusterV3(t, &ClusterConfig{Size: 3})
+	defer clus.Terminate(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -717,7 +718,7 @@ func testV3WatchMultipleEventsTxn(t *testing.T, startRev int64) {
 	if err := wStream.Send(wreq); err != nil {
 		t.Fatalf("wStream.Send error: %v", err)
 	}
-	if resp, err := wStream.Recv(); err != nil || resp.Created == false {
+	if resp, err := wStream.Recv(); err != nil || !resp.Created {
 		t.Fatalf("create response failed: resp=%v, err=%v", resp, err)
 	}
 
@@ -772,9 +773,6 @@ func testV3WatchMultipleEventsTxn(t *testing.T, startRev int64) {
 	if !rok {
 		t.Errorf("unexpected pb.WatchResponse is received %+v", nr)
 	}
-
-	// can't defer because tcp ports will be in use
-	clus.Terminate(t)
 }
 
 type eventsSortByKey []*mvccpb.Event
@@ -875,6 +873,8 @@ func TestV3WatchMultipleStreamsUnsynced(t *testing.T) {
 // testV3WatchMultipleStreams tests multiple watchers on the same key on multiple streams.
 func testV3WatchMultipleStreams(t *testing.T, startRev int64) {
 	clus := NewClusterV3(t, &ClusterConfig{Size: 3})
+	defer clus.Terminate(t)
+
 	wAPI := toGRPC(clus.RandClient()).Watch
 	kvc := toGRPC(clus.RandClient()).KV
 
@@ -939,8 +939,6 @@ func testV3WatchMultipleStreams(t *testing.T, startRev int64) {
 		}(i)
 	}
 	wg.Wait()
-
-	clus.Terminate(t)
 }
 
 // waitResponse waits on the given stream for given duration.
@@ -948,21 +946,23 @@ func testV3WatchMultipleStreams(t *testing.T, startRev int64) {
 // returned closing the WatchClient stream. Or the response will
 // be returned.
 func waitResponse(wc pb.Watch_WatchClient, timeout time.Duration) (bool, *pb.WatchResponse) {
-	rCh := make(chan *pb.WatchResponse)
+	rCh := make(chan *pb.WatchResponse, 1)
+	donec := make(chan struct{})
+	defer close(donec)
 	go func() {
 		resp, _ := wc.Recv()
-		rCh <- resp
+		select {
+		case rCh <- resp:
+		case <-donec:
+		}
 	}()
 	select {
 	case nr := <-rCh:
 		return false, nr
 	case <-time.After(timeout):
 	}
+	// didn't get response
 	wc.CloseSend()
-	rv, ok := <-rCh
-	if rv != nil || !ok {
-		return false, rv
-	}
 	return true, nil
 }
 
@@ -1126,8 +1126,12 @@ func TestV3WatchWithFilter(t *testing.T) {
 }
 
 func TestV3WatchWithPrevKV(t *testing.T) {
+	defer testutil.AfterTest(t)
 	clus := NewClusterV3(t, &ClusterConfig{Size: 1})
 	defer clus.Terminate(t)
+
+	wctx, wcancel := context.WithCancel(context.Background())
+	defer wcancel()
 
 	tests := []struct {
 		key  string
@@ -1148,7 +1152,7 @@ func TestV3WatchWithPrevKV(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		ws, werr := toGRPC(clus.RandClient()).Watch.Watch(context.TODO())
+		ws, werr := toGRPC(clus.RandClient()).Watch.Watch(wctx)
 		if werr != nil {
 			t.Fatal(werr)
 		}

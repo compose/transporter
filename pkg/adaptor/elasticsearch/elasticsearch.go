@@ -29,6 +29,9 @@ const (
 - es:
 		type: elasticsearch
     uri: https://username:password@hostname:port
+		timeout: 10s # optional, defaults to 30s
+		aws_access_key: XXX # optional, used for signing requests to AWS Elasticsearch service
+		aws_access_secret: XXX # optional, used for signing requests to AWS Elasticsearch service
 `
 )
 
@@ -69,13 +72,13 @@ func (e VersionError) Error() string {
 }
 
 // InvalidTimeoutError wraps the underlying error when the provided is not parsable time.ParseDuration
-type InvalidTimeoutError struct {
-	timeout string
-}
-
-func (e InvalidTimeoutError) Error() string {
-	return fmt.Sprintf("Invalid Timeout, %s", e.timeout)
-}
+// type InvalidTimeoutError struct {
+// 	timeout string
+// }
+//
+// func (e InvalidTimeoutError) Error() string {
+// 	return fmt.Sprintf("Invalid Timeout, %s", e.timeout)
+// }
 
 // Elasticsearch is an adaptor to connect a pipeline to
 // an elasticsearch cluster.
@@ -191,15 +194,15 @@ func (e *Elasticsearch) setupClient(conf Config) error {
 		return VersionError{conf.URI, stringVersion, err.Error()}
 	}
 
-	httpClient := http.DefaultClient
-	if conf.Timeout != "" {
-		t, err := time.ParseDuration(conf.Timeout)
-		if err != nil {
-			return InvalidTimeoutError{conf.Timeout}
-		}
-		httpClient = &http.Client{
-			Timeout: t,
-		}
+	timeout, err := time.ParseDuration(conf.Timeout)
+	if err != nil {
+		log.Infof("failed to parse duration, %s, falling back to default timeout of 30s", conf.Timeout)
+		timeout = 30 * time.Second
+	}
+
+	httpClient := &http.Client{
+		Timeout:   timeout,
+		Transport: newTransport(conf.AWSAccessKeyID, conf.AWSAccessSecret),
 	}
 
 	for _, vc := range clients.Clients {
@@ -251,7 +254,9 @@ func determineVersion(uri string) (string, error) {
 // Config provides configuration options for an elasticsearch adaptor
 // the notable difference between this and dbConfig is the presence of the Timeout option
 type Config struct {
-	URI       string `json:"uri" doc:"the uri to connect to, in the form mongodb://user:password@host.com:27017/auth_database"`
-	Namespace string `json:"namespace" doc:"mongo namespace to read/write"`
-	Timeout   string `json:"timeout" doc:"timeout for establishing connection, format must be parsable by time.ParseDuration and defaults to 10s"`
+	URI             string `json:"uri" doc:"the uri to connect to, in the form mongodb://user:password@host.com:27017/auth_database"`
+	Namespace       string `json:"namespace" doc:"mongo namespace to read/write"`
+	Timeout         string `json:"timeout" doc:"timeout for establishing connection, format must be parsable by time.ParseDuration and defaults to 10s"`
+	AWSAccessKeyID  string `json:"aws_access_key" doc:"credentials for use with AWS Elasticsearch service"`
+	AWSAccessSecret string `json:"aws_access_secret" doc:"credentials for use with AWS Elasticsearch service"`
 }

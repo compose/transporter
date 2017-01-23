@@ -11,13 +11,13 @@ import:
   subpackages:
   - semver
 - package: github.com/coreos/go-systemd
-  version: bfdc81d0d7e0fb19447b08571f63b774495251ce
+  version: v14
   subpackages:
   - daemon
   - journal
   - util
 - package: github.com/coreos/pkg
-  version: fa29b1d70f0beaddd4c7021607cc3c3be8ce94b8
+  version: v3
   subpackages:
   - capnslog
 - package: github.com/dustin/go-humanize
@@ -25,13 +25,9 @@ import:
 - package: github.com/ghodss/yaml
   version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
 - package: github.com/gogo/protobuf
-  version: 8d70fb3182befc465c4a1eac8ad4d38ff49778e2
+  version: v0.3
   subpackages:
   - proto
-- package: github.com/golang/groupcache
-  version: 02826c3e79038b59d737d3b1c0a1d937f71a4433
-  subpackages:
-  - lru
 - package: github.com/golang/protobuf
   version: 4bd1920723d7b7c925de087aa32e2187708897f7
   subpackages:
@@ -52,7 +48,7 @@ import:
 - package: github.com/olekukonko/tablewriter
   version: cca8bbc0798408af109aaaa239cbd2634846b340
 - package: github.com/prometheus/client_golang
-  version: e51041b3fa41cece0dca035740ba6411905be473
+  version: v0.8.0
   subpackages:
   - prometheus
 - package: github.com/spf13/cobra
@@ -60,22 +56,22 @@ import:
 - package: github.com/spf13/pflag
   version: 08b1a584251b5b62f458943640fc8ebd4d50aaa5
 - package: github.com/ugorji/go
-  version: f1f1a805ed361a0e078bb537e4ea78cd37dcf065
+  version: ded73eae5db7e7a0ef6f55aace87a2873c5d2b74
   subpackages:
   - codec
 - package: github.com/urfave/cli
-  version: 6011f165dc288c72abd8acd7722f837c5c64198d
+  version: v1.18.0
 - package: github.com/xiang90/probing
   version: 07dd2e8dfe18522e9c447ba95f2fe95262f63bb2
 - package: github.com/grpc-ecosystem/go-grpc-prometheus
-  version: 6b7015e65d366bf3f19b2b2a000a831940f0f7e0
+  version: v1.1
 - package: golang.org/x/crypto
   version: 1351f936d976c60a0a48d728281922cf63eafb8d
   subpackages:
   - bcrypt
   - blowfish
 - package: golang.org/x/net
-  version: 6acef71eb69611914f7a30939ea9f6e194c78172
+  version: f2499483f923065a842d38eb4c7f1927e6fc6e6d
   subpackages:
   - context
   - http2
@@ -98,11 +94,12 @@ import:
   - peer
   - transport
 - package: gopkg.in/cheggaaa/pb.v1
-  version: 29ad9b62f9e0274422d738242b94a5b89440bfa6
+  version: v1.0.2
 - package: gopkg.in/yaml.v2
   version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
 - package: github.com/stretchr/testify
   version: 976c720a22c8eb4eb6a0b4348ad85ad12491a506
   subpackages:
   - assert
-
+- package: github.com/karlseguin/ccache
+  version: v2.0.2
