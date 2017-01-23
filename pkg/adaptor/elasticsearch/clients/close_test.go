@@ -18,7 +18,7 @@ func TestCloser(t *testing.T) {
 	done := make(chan struct{})
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go Closer(done, &wg, s)
+	go Close(done, &wg, s)
 	close(done)
 	wg.Wait()
 	if !s.closeCalled {

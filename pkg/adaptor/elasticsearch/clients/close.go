@@ -7,9 +7,9 @@ import (
 	"github.com/compose/transporter/pkg/log"
 )
 
-// Closer takes care of receiving on the done channel and then properly cleaning up
+// Close takes care of receiving on the done channel and then properly cleaning up
 // the session and WaitGroup.
-func Closer(done chan struct{}, wg *sync.WaitGroup, s client.Session) {
+func Close(done chan struct{}, wg *sync.WaitGroup, s client.Session) {
 	for {
 		select {
 		case <-done:

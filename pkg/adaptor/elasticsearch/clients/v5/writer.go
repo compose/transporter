@@ -19,6 +19,8 @@ var (
 	_ client.Session = &Writer{}
 )
 
+// Writer implements client.Writer and client.Session for sending requests to an elasticsearch
+// cluster via its _bulk API.
 type Writer struct {
 	bp *elastic.BulkProcessor
 }
@@ -56,7 +58,7 @@ func newWriter(client *elastic.Client, done chan struct{}, wg *sync.WaitGroup) *
 		Do()
 	w := &Writer{bp: p}
 	wg.Add(1)
-	go clients.Closer(done, wg, w)
+	go clients.Close(done, wg, w)
 	return w
 }
 
@@ -86,7 +88,8 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) error {
 	}
 }
 
+// Close is called by clients.Close() when it receives on the done channel.
 func (w *Writer) Close() {
-	log.Infoln("flushing BulkProcessor")
+	log.With("writer", "elasticsearch").With("version", 5).Infoln("flushing BulkProcessor")
 	w.bp.Close()
 }
