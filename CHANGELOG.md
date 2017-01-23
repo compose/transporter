@@ -15,8 +15,8 @@ nodes:
 - [#213](https://github.com/compose/transporter/pull/213): track mongodb \_id field so we can attempt to reissue queries
 - [#233](https://github.com/compose/transporter/pull/233): update elasticsearch adaptor with better support
 for multiple versions of elasticsearch as well as better performance with bulk indexing for most versions.
-Addresses [#209](https://github.com/compose/transporter/issues/209), [#222](https://github.com/compose/transporter/issues/222)
-and [#159](https://github.com/compose/transporter/issues/159).
+Addresses [#209](https://github.com/compose/transporter/issues/209), [#222](https://github.com/compose/transporter/issues/222),
+[#167](https://github.com/compose/transporter/issues/167) and [#159](https://github.com/compose/transporter/issues/159).
 
 ## v0.1.1 [2015-08-27]
 

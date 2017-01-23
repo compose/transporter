@@ -7,7 +7,7 @@ supported versions is below.
 | --- | --- |
 | 1.X | This version does not support bulk operations and will thus be much slower. |
 | 2.X | Will only receive bug fixes, please consider upgrading. |
-| 5.X | Most recent and supported version. | 
+| 5.X | Most recent and supported version. |
 
 ***IMPORTANT***
 
@@ -34,4 +34,7 @@ to address this problem.
 - es:
   type: elasticsearch
   uri: https://username:password@hostname:port/thisgetsignored
+  timeout: 10s # optional, defaults to 30s
+  aws_access_key: XXX # optional, used for signing requests to AWS Elasticsearch service
+  aws_access_secret: XXX # optional, used for signing requests to AWS Elasticsearch service
 ```
