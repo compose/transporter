@@ -16,20 +16,20 @@ import (
 )
 
 const (
-	DefaultURL   = "http://127.0.0.1:9200"
-	DefaultIndex = "test_v2"
+	defaultURL   = "http://127.0.0.1:9200"
+	defaultIndex = "test_v2"
 )
 
 var (
-	TestURL = os.Getenv("ES_V2_URL")
+	testURL = os.Getenv("ES_V2_URL")
 )
 
-func testURL(suffix string) string {
-	return fmt.Sprintf("%s/%s%s", TestURL, DefaultIndex, suffix)
+func fullURL(suffix string) string {
+	return fmt.Sprintf("%s/%s%s", testURL, defaultIndex, suffix)
 }
 
 func testNS() string {
-	return fmt.Sprintf("%s.%s", DefaultIndex, "test")
+	return fmt.Sprintf("%s.%s", defaultIndex, "test")
 }
 
 func setup() error {
@@ -38,15 +38,15 @@ func setup() error {
 }
 
 func clearTestData() error {
-	req, _ := http.NewRequest(http.MethodDelete, testURL(""), nil)
+	req, _ := http.NewRequest(http.MethodDelete, fullURL(""), nil)
 	resp, err := http.DefaultClient.Do(req)
 	log.Debugf("clearTestData response, %+v", resp)
 	return err
 }
 
 func TestMain(m *testing.M) {
-	if TestURL == "" {
-		TestURL = DefaultURL
+	if testURL == "" {
+		testURL = defaultURL
 	}
 
 	if err := setup(); err != nil {
@@ -64,7 +64,7 @@ func shutdown() {
 	log.Debugln("tests shutdown complete")
 }
 
-type CountResponse struct {
+type countResponse struct {
 	Count int `json:"count"`
 }
 
@@ -72,9 +72,9 @@ func TestWriter(t *testing.T) {
 	done := make(chan struct{})
 	var wg sync.WaitGroup
 	opts := &clients.ClientOptions{
-		URLs:       []string{TestURL},
+		URLs:       []string{testURL},
 		HTTPClient: http.DefaultClient,
-		Path:       DefaultIndex,
+		Path:       defaultIndex,
 	}
 	vc := clients.Clients["v2"]
 	w, _ := vc.Creator(done, &wg, opts)
@@ -85,17 +85,17 @@ func TestWriter(t *testing.T) {
 	close(done)
 	wg.Wait()
 
-	if _, err := http.Get(testURL("/_refresh")); err != nil {
+	if _, err := http.Get(fullURL("/_refresh")); err != nil {
 		t.Fatalf("_refresh request failed, %s", err)
 	}
 	time.Sleep(1 * time.Second)
 
-	resp, err := http.Get(testURL("/_count"))
+	resp, err := http.Get(fullURL("/_count"))
 	if err != nil {
 		t.Fatalf("_count request failed, %s", err)
 	}
 	defer resp.Body.Close()
-	var r CountResponse
+	var r countResponse
 	json.NewDecoder(resp.Body).Decode(&r)
 	if r.Count != 1 {
 		t.Errorf("mismatched doc count, expected 1, got %d", r.Count)

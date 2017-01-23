@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"regexp"
 	"testing"
 
@@ -15,13 +14,8 @@ import (
 	"github.com/compose/transporter/pkg/pipe"
 )
 
-const (
-	DefaultURL = "http://127.0.0.1:9200"
-)
-
 var (
 	mockElasticsearch = &Elasticsearch{}
-	TestURL           = os.Getenv("ES_V5_URL")
 )
 
 var errorTests = []struct {
