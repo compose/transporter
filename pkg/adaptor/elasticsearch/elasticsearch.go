@@ -165,7 +165,12 @@ func (e *Elasticsearch) Stop() error {
 
 func (e *Elasticsearch) applyOp(msg message.Msg) (message.Msg, error) {
 	_, msgColl, _ := message.SplitNamespace(msg)
-	err := e.client.Write(message.From(msg.OP(), e.computeNamespace(msgColl), msg.Data()))(nil)
+	var msgCopy map[string]interface{}
+	// Copy from the original map to the target map
+	for key, value := range msg.Data() {
+		msgCopy[key] = value
+	}
+	err := e.client.Write(message.From(msg.OP(), e.computeNamespace(msgColl), msgCopy))(nil)
 
 	if err != nil {
 		e.pipe.Err <- adaptor.NewError(adaptor.ERROR, e.path, fmt.Sprintf("write message error (%s)", err), msg.Data)
