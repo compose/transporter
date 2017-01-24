@@ -189,6 +189,10 @@ func (l *LogRecorder) Errorf(format string, msg ...interface{}) {
 	l.logCount++
 	l.logs = append(l.logs, fmt.Sprint(msg...))
 }
+func (l *LogRecorder) Printf(format string, msg ...interface{}) {
+	l.logCount++
+	l.logs = append(l.logs, fmt.Sprint(msg...))
+}
 func (l *LogRecorder) With(key string, value interface{}) log.Logger { return l }
 
 var emitterTests = []struct {
