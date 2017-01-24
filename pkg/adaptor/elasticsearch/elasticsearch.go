@@ -165,7 +165,7 @@ func (e *Elasticsearch) Stop() error {
 
 func (e *Elasticsearch) applyOp(msg message.Msg) (message.Msg, error) {
 	_, msgColl, _ := message.SplitNamespace(msg)
-	var msgCopy map[string]interface{}
+	msgCopy := make(map[string]interface{})
 	// Copy from the original map to the target map
 	for key, value := range msg.Data() {
 		msgCopy[key] = value

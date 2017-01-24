@@ -204,11 +204,16 @@ func TestListen(t *testing.T) {
 	}
 	go e.Listen()
 
-	sourcePipe.Send(message.From(ops.Insert, "source.test", map[string]interface{}{"hello": "world"}))
+	mockMsg := map[string]interface{}{"_id": "NO_TOUCHING", "hello": "world"}
+	sourcePipe.Send(message.From(ops.Insert, "source.test", mockMsg))
 
 	e.Stop()
 	if mockWriter.msgCount != 1 {
 		t.Errorf("unexpected message count, expected %d, got %d\n", 1, mockWriter.msgCount)
+	}
+
+	if _, ok := mockMsg["_id"]; !ok {
+		t.Error("_id should still exist in mockMsg but does not")
 	}
 }
 
@@ -218,6 +223,7 @@ type MockWriter struct {
 
 func (w *MockWriter) Write(msg message.Msg) func(client.Session) error {
 	return func(s client.Session) error {
+		msg.Data().Delete("_id")
 		w.msgCount++
 		return nil
 	}
