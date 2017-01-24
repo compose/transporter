@@ -3,10 +3,8 @@ package events
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"sync"
-	"time"
 
 	"github.com/compose/transporter/pkg/log"
 )
@@ -26,7 +24,7 @@ type emitter struct {
 	listenChan chan Event
 	emit       EmitFunc
 	stop       chan struct{}
-	wg         *sync.WaitGroup
+	wg         sync.WaitGroup
 	started    bool
 }
 
@@ -40,7 +38,6 @@ func NewEmitter(listen chan Event, emit EmitFunc) Emitter {
 		listenChan: listen,
 		emit:       emit,
 		stop:       make(chan struct{}),
-		wg:         &sync.WaitGroup{},
 		started:    false,
 	}
 }
@@ -49,36 +46,43 @@ func NewEmitter(listen chan Event, emit EmitFunc) Emitter {
 func (e *emitter) Start() {
 	if !e.started {
 		e.started = true
-		go e.startEventListener()
+		e.wg.Add(1)
+		go e.startEventListener(&e.wg)
 	}
 }
 
 // Stop sends a stop signal and waits for the inflight posts to complete before exiting
 func (e *emitter) Stop() {
-	e.stop <- struct{}{}
+	close(e.stop)
 	e.wg.Wait()
 	e.started = false
 }
 
-func (e *emitter) startEventListener() {
+func (e *emitter) startEventListener(wg *sync.WaitGroup) {
+	defer wg.Done()
 	for {
 		select {
 		case <-e.stop:
+			if len(e.listenChan) > 0 {
+				continue
+			}
 			return
 		case event := <-e.listenChan:
-			e.wg.Add(1)
-			go func(event Event) {
-				defer e.wg.Done()
-				err := e.emit(event)
-				if err != nil {
-					log.Errorf("%s\n", err)
-				}
-			}(event)
-		case <-time.After(100 * time.Millisecond):
-			continue
-			// noop
+			err := e.emit(event)
+			if err != nil {
+				log.Errorf("%s\n", err)
+			}
 		}
 	}
+}
+
+// BadStatusError wraps the underlying error when the provided is not parsable time.ParseDuration
+type BadStatusError struct {
+	code int
+}
+
+func (e BadStatusError) Error() string {
+	return fmt.Sprintf("bad status code, %d", e.code)
 }
 
 // HTTPPostEmitter listens on the event channel and posts the events to an http server
@@ -87,7 +91,7 @@ func (e *emitter) startEventListener() {
 func HTTPPostEmitter(uri, key, pid string) EmitFunc {
 	return EmitFunc(func(event Event) error {
 		ba, err := event.Emit()
-		if err != err {
+		if err != nil {
 			return err
 		}
 
@@ -99,19 +103,14 @@ func HTTPPostEmitter(uri, key, pid string) EmitFunc {
 		if len(pid) > 0 && len(key) > 0 {
 			req.SetBasicAuth(pid, key)
 		}
-		cli := &http.Client{}
-		resp, err := cli.Do(req)
-
-		if err != nil {
-			return err
-		}
-		_, err = ioutil.ReadAll(resp.Body)
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			return err
 		}
 		defer resp.Body.Close()
+
 		if resp.StatusCode != 200 && resp.StatusCode != 201 {
-			return fmt.Errorf("http error code, expected 200 or 201, got %d, (%s)", resp.StatusCode, ba)
+			return BadStatusError{resp.StatusCode}
 		}
 		return nil
 	})
@@ -149,7 +148,7 @@ func JSONLogEmitter() EmitFunc {
 		if err != nil {
 			return err
 		}
-		log.Infoln(string(j))
+		event.Logger().Infoln(string(j))
 		return nil
 	})
 }
