@@ -23,6 +23,7 @@ var (
 // cluster in individual requests.
 type Writer struct {
 	esClient *elastic.Client
+	logger   log.Logger
 }
 
 func init() {
@@ -33,7 +34,6 @@ func init() {
 			elastic.SetSniff(false),
 			elastic.SetHttpClient(opts.HTTPClient),
 			elastic.SetMaxRetries(2),
-			elastic.SetInfoLog(log.Base().With("path", opts.Path)),
 		}
 		if opts.UserInfo != nil {
 			if pwd, ok := opts.UserInfo.Password(); ok {
@@ -44,15 +44,14 @@ func init() {
 		if err != nil {
 			return nil, err
 		}
-		return newWriter(esClient, done, wg), nil
+		w := &Writer{
+			esClient: esClient,
+			logger:   log.With("path", opts.Path).With("writer", "elasticsearch").With("version", 1),
+		}
+		wg.Add(1)
+		go clients.Close(done, wg, w)
+		return w, nil
 	})
-}
-
-func newWriter(client *elastic.Client, done chan struct{}, wg *sync.WaitGroup) *Writer {
-	w := &Writer{esClient: client}
-	wg.Add(1)
-	go clients.Close(done, wg, w)
-	return w
 }
 
 func (w *Writer) Write(msg message.Msg) func(client.Session) error {
@@ -63,15 +62,16 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) error {
 			id = msg.ID()
 		}
 
+		var err error
 		switch msg.OP() {
 		case ops.Delete:
-			w.esClient.Delete().Index(i).Type(t).Id(id).Do(context.TODO())
+			_, err = w.esClient.Delete().Index(i).Type(t).Id(id).Do(context.TODO())
 		case ops.Insert:
-			w.esClient.Index().Index(i).Type(t).Id(id).BodyJson(msg.Data()).Do(context.TODO())
+			_, err = w.esClient.Index().Index(i).Type(t).Id(id).BodyJson(msg.Data()).Do(context.TODO())
 		case ops.Update:
-			w.esClient.Index().Index(i).Type(t).BodyJson(msg.Data()).Id(id).Do(context.TODO())
+			_, err = w.esClient.Index().Index(i).Type(t).BodyJson(msg.Data()).Id(id).Do(context.TODO())
 		}
-		return nil
+		return err
 	}
 }
 

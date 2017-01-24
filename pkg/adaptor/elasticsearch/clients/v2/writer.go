@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -22,7 +23,8 @@ var (
 // Writer implements client.Writer and client.Session for sending requests to an elasticsearch
 // cluster via its _bulk API.
 type Writer struct {
-	bp *elastic.BulkProcessor
+	bp     *elastic.BulkProcessor
+	logger log.Logger
 }
 
 func init() {
@@ -33,7 +35,6 @@ func init() {
 			elastic.SetSniff(false),
 			elastic.SetHttpClient(opts.HTTPClient),
 			elastic.SetMaxRetries(2),
-			elastic.SetInfoLog(log.Base().With("path", opts.Path)),
 		}
 		if opts.UserInfo != nil {
 			if pwd, ok := opts.UserInfo.Password(); ok {
@@ -44,22 +45,25 @@ func init() {
 		if err != nil {
 			return nil, err
 		}
-		return newWriter(esClient, done, wg), nil
+		w := &Writer{
+			logger: log.With("writer", "elasticsearch").With("version", 2).With("path", opts.Path),
+		}
+		p, err := esClient.BulkProcessor().
+			Name("TransporterWorker-1").
+			Workers(2).
+			BulkActions(1000).               // commit if # requests >= 1000
+			BulkSize(2 << 20).               // commit if size of requests >= 2 MB
+			FlushInterval(30 * time.Second). // commit every 30s
+			After(w.postBulkProcessor).
+			Do()
+		if err != nil {
+			return nil, err
+		}
+		w.bp = p
+		wg.Add(1)
+		go clients.Close(done, wg, w)
+		return w, nil
 	})
-}
-
-func newWriter(client *elastic.Client, done chan struct{}, wg *sync.WaitGroup) *Writer {
-	p, _ := client.BulkProcessor().
-		Name("TransporterWorker-1").
-		Workers(2).
-		BulkActions(1000).               // commit if # requests >= 1000
-		BulkSize(2 << 20).               // commit if size of requests >= 2 MB
-		FlushInterval(30 * time.Second). // commit every 30s
-		Do()
-	w := &Writer{bp: p}
-	wg.Add(1)
-	go clients.Close(done, wg, w)
-	return w
 }
 
 func (w *Writer) Write(msg message.Msg) func(client.Session) error {
@@ -90,6 +94,18 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) error {
 
 // Close is called by clients.Close() when it receives on the done channel.
 func (w *Writer) Close() {
-	log.With("writer", "elasticsearch").With("version", 2).Infoln("flushing BulkProcessor")
+	w.logger.Infoln("closing BulkProcessor")
 	w.bp.Close()
+}
+
+func (w *Writer) postBulkProcessor(executionID int64, reqs []elastic.BulkableRequest, resp *elastic.BulkResponse, err error) {
+	ctxLog := w.logger.
+		With("executionID", executionID).
+		With("took", fmt.Sprintf("%dms", resp.Took)).
+		With("succeeeded", len(resp.Succeeded()))
+	if err != nil {
+		ctxLog.With("failed", len(resp.Failed())).Errorln(err)
+		return
+	}
+	ctxLog.Infoln("_bulk flush completed")
 }
