@@ -1,20 +1,16 @@
-hash: 2fc30e4371e35a2f311a3f87a62491f54e8bab00c27250069190307e97ace293
-updated: 2017-01-18T10:13:26.999508736-06:00
+hash: d792c491fe81c20166e7eda4c5e816a4b2407de17e70cce5f1fd38b85e9f34e3
+updated: 2017-01-23T10:23:38.912616992-06:00
 imports:
-- name: github.com/araddon/gou
-  version: 0ab1e8f997e35d27da012072dc531fcc0204da5a
 - name: github.com/armon/go-radix
   version: 4239b77079c7b5d1243b7b4736304ce8ddb6f0f2
 - name: github.com/bgentry/speakeasy
   version: 675b82c74c0ed12283ee81ba8a534c8982c07b85
-- name: github.com/bitly/go-hostpool
-  version: d0e59c22a56e8dadfed24f74f452cea5a52722d2
 - name: github.com/cenk/backoff
   version: b02f2bbce11d7ea6b97f282ef1771b0fe2f65ef3
 - name: github.com/compose/mejson
   version: afcf51c7c640b1e09c17065d4e5b8de3259d6261
 - name: github.com/coreos/etcd
-  version: 3d5ba43211beec7fbb1472634a9c3b464581658a
+  version: 8ba2897a21e4fc51b298ca553d251318425f93ae
   subpackages:
   - client
   - pkg/pathutil
@@ -32,12 +28,6 @@ imports:
   version: 8df6253d1317616f36b0c3740eb30c239a7372cb
   subpackages:
   - oid
-- name: github.com/lytics/logrus
-  version: 59cd2e4a569b4494d9196bef82f0784e467adac9
-- name: github.com/mattbaird/elastigo
-  version: 34c4c4d8425cbdcbc8e257943a2044d5e9f7dab5
-  subpackages:
-  - lib
 - name: github.com/mattn/go-isatty
   version: 30a891c33c7cde7b02a981314b4228ec99380cca
 - name: github.com/mitchellh/cli
@@ -45,7 +35,7 @@ imports:
 - name: github.com/nu7hatch/gouuid
   version: 179d4d0c4d8d407a32af483c2354df1d2c91e6c3
 - name: github.com/oklog/oklog
-  version: c03851f6dfa4bb86af4187eb9f92a16ed5054984
+  version: 80e7a2e6798623eff8d39b329efad2353154523a
   subpackages:
   - pkg/group
 - name: github.com/robertkrimen/otto
@@ -60,6 +50,8 @@ imports:
   - underscore
 - name: github.com/Sirupsen/logrus
   version: d26492970760ca5d33129d2d799e34be5c4782eb
+- name: github.com/smartystreets/go-aws-auth
+  version: 2043e6d0bb7e4c18464a7bba562acbe482e3cabd
 - name: github.com/ugorji/go
   version: f1f1a805ed361a0e078bb537e4ea78cd37dcf065
   subpackages:
@@ -74,6 +66,7 @@ imports:
   version: 6acef71eb69611914f7a30939ea9f6e194c78172
   subpackages:
   - context
+  - context/ctxhttp
 - name: golang.org/x/sys
   version: d75a52659825e75fff6158388dddc6a5b04f9ba5
   subpackages:
@@ -95,6 +88,15 @@ imports:
   - internal/json
   - internal/sasl
   - internal/scram
+- name: gopkg.in/olivere/elastic.v2
+  version: f27a28dd68c359eb20ce5918a7d976f34c18cf03
+- name: gopkg.in/olivere/elastic.v3
+  version: f27a28dd68c359eb20ce5918a7d976f34c18cf03
+- name: gopkg.in/olivere/elastic.v5
+  version: f27a28dd68c359eb20ce5918a7d976f34c18cf03
+  subpackages:
+  - backoff
+  - uritemplates
 - name: gopkg.in/sourcemap.v1
   version: eef8f47ab679652a7d3a4ee34c34314d255d2536
   subpackages:

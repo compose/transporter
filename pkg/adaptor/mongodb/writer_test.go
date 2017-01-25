@@ -8,6 +8,7 @@ import (
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
+	"github.com/compose/transporter/pkg/message"
 	"github.com/compose/transporter/pkg/message/data"
 	"github.com/compose/transporter/pkg/message/ops"
 )
@@ -81,7 +82,7 @@ func TestInsert(t *testing.T) {
 	w := newWriter()
 	for _, it := range inserttests {
 		for _, data := range it.data {
-			msg := From(ops.Insert, fmt.Sprintf("%s.%s", writerTestData.DB, it.collection), data)
+			msg := message.From(ops.Insert, fmt.Sprintf("%s.%s", writerTestData.DB, it.collection), data)
 			if err := w.Write(msg)(defaultSession); err != nil {
 				t.Errorf("unexpected Insert error, %s\n", err)
 			}
@@ -132,13 +133,13 @@ func TestUpdate(t *testing.T) {
 		ns := fmt.Sprintf("%s.%s", writerTestData.DB, ut.collection)
 		// Insert data
 		ut.originalDoc.Set("_id", ut.id)
-		msg := From(ops.Insert, ns, ut.originalDoc)
+		msg := message.From(ops.Insert, ns, ut.originalDoc)
 		if err := w.Write(msg)(defaultSession); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
 		}
 		// Update data
 		ut.updatedDoc.Set("_id", ut.id)
-		msg = From(ops.Update, ns, ut.updatedDoc)
+		msg = message.From(ops.Update, ns, ut.updatedDoc)
 		if err := w.Write(msg)(defaultSession); err != nil {
 			t.Errorf("unexpected Update error, %s\n", err)
 		}
@@ -178,12 +179,12 @@ func TestDelete(t *testing.T) {
 		ns := fmt.Sprintf("%s.%s", writerTestData.DB, dt.collection)
 		// Insert data
 		dt.originalDoc.Set("_id", dt.id)
-		msg := From(ops.Insert, ns, dt.originalDoc)
+		msg := message.From(ops.Insert, ns, dt.originalDoc)
 		if err := w.Write(msg)(defaultSession); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
 		}
 		// Delete data
-		msg = From(ops.Delete, ns, dt.originalDoc)
+		msg = message.From(ops.Delete, ns, dt.originalDoc)
 		if err := w.Write(msg)(defaultSession); err != nil {
 			t.Errorf("unexpected Delete error, %s\n", err)
 		}

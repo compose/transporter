@@ -59,6 +59,7 @@ func (wbs *watchBroadcasts) coalesce(wb *watchBroadcast) {
 		if wbswb == wb {
 			continue
 		}
+		wb.mu.Lock()
 		wbswb.mu.Lock()
 		// 1. check if wbswb is behind wb so it won't skip any events in wb
 		// 2. ensure wbswb started; nextrev == 0 may mean wbswb is waiting
@@ -71,6 +72,7 @@ func (wbs *watchBroadcasts) coalesce(wb *watchBroadcast) {
 			wb.receivers = nil
 		}
 		wbswb.mu.Unlock()
+		wb.mu.Unlock()
 		if wb.empty() {
 			delete(wbs.bcasts, wb)
 			wb.stop()
@@ -96,7 +98,8 @@ func (wbs *watchBroadcasts) add(w *watcher) {
 	wbs.bcasts[wb] = struct{}{}
 }
 
-func (wbs *watchBroadcasts) delete(w *watcher) {
+// delete removes a watcher and returns the number of remaining watchers.
+func (wbs *watchBroadcasts) delete(w *watcher) int {
 	wbs.mu.Lock()
 	defer wbs.mu.Unlock()
 
@@ -110,19 +113,17 @@ func (wbs *watchBroadcasts) delete(w *watcher) {
 		delete(wbs.bcasts, wb)
 		wb.stop()
 	}
+	return len(wbs.bcasts)
 }
-
-func (wbs *watchBroadcasts) empty() bool { return len(wbs.bcasts) == 0 }
 
 func (wbs *watchBroadcasts) stop() {
 	wbs.mu.Lock()
-	defer wbs.mu.Unlock()
-
 	for wb := range wbs.bcasts {
 		wb.stop()
 	}
 	wbs.bcasts = nil
 	close(wbs.updatec)
+	wbs.mu.Unlock()
 	<-wbs.donec
 }
 

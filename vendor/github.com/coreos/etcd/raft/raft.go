@@ -367,7 +367,7 @@ func (r *raft) send(m pb.Message) {
 // sendAppend sends RPC, with entries to the given peer.
 func (r *raft) sendAppend(to uint64) {
 	pr := r.prs[to]
-	if pr.isPaused() {
+	if pr.IsPaused() {
 		return
 	}
 	m := pb.Message{}
@@ -469,7 +469,6 @@ func (r *raft) bcastHeartbeatWithCtx(ctx []byte) {
 			continue
 		}
 		r.sendHeartbeat(id, ctx)
-		r.prs[id].resume()
 	}
 }
 
@@ -813,6 +812,7 @@ func stepLeader(r *raft, m pb.Message) {
 		for i, e := range m.Entries {
 			if e.Type == pb.EntryConfChange {
 				if r.pendingConf {
+					r.logger.Infof("propose conf %s ignored since pending unapplied configuration", e.String())
 					m.Entries[i] = pb.Entry{Type: pb.EntryNormal}
 				}
 				r.pendingConf = true
@@ -869,7 +869,7 @@ func stepLeader(r *raft, m pb.Message) {
 				r.sendAppend(m.From)
 			}
 		} else {
-			oldPaused := pr.isPaused()
+			oldPaused := pr.IsPaused()
 			if pr.maybeUpdate(m.Index) {
 				switch {
 				case pr.State == ProgressStateProbe:
@@ -897,6 +897,7 @@ func stepLeader(r *raft, m pb.Message) {
 		}
 	case pb.MsgHeartbeatResp:
 		pr.RecentActive = true
+		pr.resume()
 
 		// free one slot for the full inflights window to allow progress.
 		if pr.State == ProgressStateReplicate && pr.ins.full() {
@@ -1145,6 +1146,7 @@ func (r *raft) promotable() bool {
 }
 
 func (r *raft) addNode(id uint64) {
+	r.pendingConf = false
 	if _, ok := r.prs[id]; ok {
 		// Ignore any redundant addNode calls (which can happen because the
 		// initial bootstrapping entries are applied twice).
@@ -1152,7 +1154,6 @@ func (r *raft) addNode(id uint64) {
 	}
 
 	r.setProgress(id, 0, r.raftLog.lastIndex()+1)
-	r.pendingConf = false
 }
 
 func (r *raft) removeNode(id uint64) {

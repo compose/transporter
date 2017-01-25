@@ -291,6 +291,76 @@ func TestNodeProposeConfig(t *testing.T) {
 	}
 }
 
+// TestNodeProposeAddDuplicateNode ensures that two proposes to add the same node should
+// not affect the later propose to add new node.
+func TestNodeProposeAddDuplicateNode(t *testing.T) {
+	n := newNode()
+	s := NewMemoryStorage()
+	r := newTestRaft(1, []uint64{1}, 10, 1, s)
+	go n.run(r)
+	n.Campaign(context.TODO())
+	rdyEntries := make([]raftpb.Entry, 0)
+	ticker := time.NewTicker(time.Millisecond * 100)
+	done := make(chan struct{})
+	stop := make(chan struct{})
+	applyConfChan := make(chan struct{})
+
+	go func() {
+		defer close(done)
+		for {
+			select {
+			case <-stop:
+				return
+			case <-ticker.C:
+				n.Tick()
+			case rd := <-n.Ready():
+				s.Append(rd.Entries)
+				for _, e := range rd.Entries {
+					rdyEntries = append(rdyEntries, e)
+					switch e.Type {
+					case raftpb.EntryNormal:
+					case raftpb.EntryConfChange:
+						var cc raftpb.ConfChange
+						cc.Unmarshal(e.Data)
+						n.ApplyConfChange(cc)
+						applyConfChan <- struct{}{}
+					}
+				}
+				n.Advance()
+			}
+		}
+	}()
+
+	cc1 := raftpb.ConfChange{Type: raftpb.ConfChangeAddNode, NodeID: 1}
+	ccdata1, _ := cc1.Marshal()
+	n.ProposeConfChange(context.TODO(), cc1)
+	<-applyConfChan
+
+	// try add the same node again
+	n.ProposeConfChange(context.TODO(), cc1)
+	<-applyConfChan
+
+	// the new node join should be ok
+	cc2 := raftpb.ConfChange{Type: raftpb.ConfChangeAddNode, NodeID: 2}
+	ccdata2, _ := cc2.Marshal()
+	n.ProposeConfChange(context.TODO(), cc2)
+	<-applyConfChan
+
+	close(stop)
+	<-done
+
+	if len(rdyEntries) != 4 {
+		t.Errorf("len(entry) = %d, want %d, %v\n", len(rdyEntries), 4, rdyEntries)
+	}
+	if !bytes.Equal(rdyEntries[1].Data, ccdata1) {
+		t.Errorf("data = %v, want %v", rdyEntries[1].Data, ccdata1)
+	}
+	if !bytes.Equal(rdyEntries[3].Data, ccdata2) {
+		t.Errorf("data = %v, want %v", rdyEntries[3].Data, ccdata2)
+	}
+	n.Stop()
+}
+
 // TestBlockProposal ensures that node will block proposal when it does not
 // know who is the current leader; node will accept proposal when it knows
 // who is the current leader.
@@ -352,9 +422,7 @@ func TestNodeStop(t *testing.T) {
 		close(donec)
 	}()
 
-	elapsed := r.electionElapsed
-	n.Tick()
-	testutil.WaitSchedule()
+	status := n.Status()
 	n.Stop()
 
 	select {
@@ -363,13 +431,15 @@ func TestNodeStop(t *testing.T) {
 		t.Fatalf("timed out waiting for node to stop!")
 	}
 
-	if r.electionElapsed != elapsed+1 {
-		t.Errorf("elapsed = %d, want %d", r.electionElapsed, elapsed+1)
+	emptyStatus := Status{}
+
+	if reflect.DeepEqual(status, emptyStatus) {
+		t.Errorf("status = %v, want not empty", status)
 	}
-	// Further ticks should have no effect, the node is stopped.
-	n.Tick()
-	if r.electionElapsed != elapsed+1 {
-		t.Errorf("elapsed = %d, want %d", r.electionElapsed, elapsed+1)
+	// Further status should return be empty, the node is stopped.
+	status = n.Status()
+	if !reflect.DeepEqual(status, emptyStatus) {
+		t.Errorf("status = %v, want empty", status)
 	}
 	// Subsequent Stops should have no effect.
 	n.Stop()
