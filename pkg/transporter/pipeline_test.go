@@ -76,7 +76,7 @@ func TestPipelineString(t *testing.T) {
 		if v.terminalNode != nil {
 			v.in.Add(v.terminalNode)
 		}
-		p, err := NewDefaultPipeline(v.in, "", "", "", 100*time.Millisecond)
+		p, err := NewDefaultPipeline(v.in, "", "", "", "test", 100*time.Millisecond)
 		if err != nil {
 			t.Errorf("can't create pipeline, got %s", err.Error())
 			t.FailNow()

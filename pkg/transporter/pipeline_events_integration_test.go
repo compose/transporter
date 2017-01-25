@@ -67,7 +67,7 @@ func TestEventsBroadcast(t *testing.T) {
 	dummyOutNode := NewNode("dummyFileOut", "file", adaptor.Config{"uri": "file://" + outFile})
 	dummyOutNode.Add(NewNode("dummyFileIn", "file", adaptor.Config{"uri": "file://" + inFile}))
 
-	p, err := NewDefaultPipeline(dummyOutNode, ts.URL, "asdf", "jklm", 1*time.Second)
+	p, err := NewDefaultPipeline(dummyOutNode, ts.URL, "asdf", "jklm", "test", 1*time.Second)
 	if err != nil {
 		t.Errorf("can't create pipeline, got %s", err.Error())
 		t.FailNow()
