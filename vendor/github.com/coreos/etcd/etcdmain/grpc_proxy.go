@@ -15,8 +15,10 @@
 package etcdmain
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"time"
 
@@ -27,6 +29,10 @@ import (
 
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
+
+	"github.com/cockroachdb/cmux"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
@@ -74,6 +80,16 @@ func startGRPCProxy(cmd *cobra.Command, args []string) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	if l, err = transport.NewKeepAliveListener(l, "tcp", nil); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	plog.Infof("listening for grpc-proxy client requests on %s", grpcProxyListenAddr)
+	defer func() {
+		l.Close()
+		plog.Infof("stopping listening for grpc-proxy client requests on %s", grpcProxyListenAddr)
+	}()
+	m := cmux.New(l)
 
 	cfg, err := newClientCfg()
 	if err != nil {
@@ -87,14 +103,17 @@ func startGRPCProxy(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	kvp := grpcproxy.NewKvProxy(client)
-	watchp := grpcproxy.NewWatchProxy(client)
+	kvp, _ := grpcproxy.NewKvProxy(client)
+	watchp, _ := grpcproxy.NewWatchProxy(client)
 	clusterp := grpcproxy.NewClusterProxy(client)
 	leasep := grpcproxy.NewLeaseProxy(client)
 	mainp := grpcproxy.NewMaintenanceProxy(client)
 	authp := grpcproxy.NewAuthProxy(client)
 
-	server := grpc.NewServer()
+	server := grpc.NewServer(
+		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
+		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
+	)
 	pb.RegisterKVServer(server, kvp)
 	pb.RegisterWatchServer(server, watchp)
 	pb.RegisterClusterServer(server, clusterp)
@@ -102,7 +121,31 @@ func startGRPCProxy(cmd *cobra.Command, args []string) {
 	pb.RegisterMaintenanceServer(server, mainp)
 	pb.RegisterAuthServer(server, authp)
 
-	server.Serve(l)
+	errc := make(chan error)
+
+	grpcl := m.Match(cmux.HTTP2())
+	go func() { errc <- server.Serve(grpcl) }()
+
+	httpmux := http.NewServeMux()
+	httpmux.HandleFunc("/", http.NotFound)
+	httpmux.Handle("/metrics", prometheus.Handler())
+	srvhttp := &http.Server{
+		Handler: httpmux,
+	}
+
+	var httpl net.Listener
+	if cfg.TLS != nil {
+		srvhttp.TLSConfig = cfg.TLS
+		httpl = tls.NewListener(m.Match(cmux.Any()), cfg.TLS)
+	} else {
+		httpl = m.Match(cmux.HTTP1())
+	}
+	go func() { errc <- srvhttp.Serve(httpl) }()
+
+	go func() { errc <- m.Serve() }()
+
+	fmt.Fprintln(os.Stderr, <-errc)
+	os.Exit(1)
 }
 
 func newClientCfg() (*clientv3.Config, error) {

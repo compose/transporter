@@ -59,7 +59,7 @@ func NewPipe(pipe *Pipe, path string) *Pipe {
 		p.Event = pipe.Event
 	} else {
 		p.Err = make(chan error)
-		p.Event = make(chan events.Event)
+		p.Event = make(chan events.Event, 10) // buffer the event channel
 	}
 
 	return p

@@ -55,12 +55,30 @@ type report struct {
 	sps *secondPoints
 }
 
+// Stats exposes results raw data.
+type Stats struct {
+	AvgTotal   float64
+	Fastest    float64
+	Slowest    float64
+	Average    float64
+	Stddev     float64
+	RPS        float64
+	Total      time.Duration
+	ErrorDist  map[string]int
+	Lats       []float64
+	TimeSeries TimeSeries
+}
+
 // Report processes a result stream until it is closed, then produces a
 // string with information about the consumed result data.
 type Report interface {
 	Results() chan<- Result
+
+	// Run returns results in print-friendly format.
 	Run() <-chan string
-	String() string
+
+	// Stats returns results in raw data.
+	Stats() <-chan Stats
 }
 
 func NewReport(precision string) Report {
@@ -89,6 +107,45 @@ func (r *report) Run() <-chan string {
 	return donec
 }
 
+func (r *report) Stats() <-chan Stats {
+	donec := make(chan Stats, 1)
+	go func() {
+		defer close(donec)
+		r.processResults()
+		var ts TimeSeries
+		if r.sps != nil {
+			ts = r.sps.getTimeSeries()
+		}
+		donec <- Stats{
+			AvgTotal:   r.avgTotal,
+			Fastest:    r.fastest,
+			Slowest:    r.slowest,
+			Average:    r.average,
+			Stddev:     r.stddev,
+			RPS:        r.rps,
+			Total:      r.total,
+			ErrorDist:  copyMap(r.errorDist),
+			Lats:       copyFloats(r.lats),
+			TimeSeries: ts,
+		}
+	}()
+	return donec
+}
+
+func copyMap(m map[string]int) (c map[string]int) {
+	c = make(map[string]int, len(m))
+	for k, v := range m {
+		c[k] = v
+	}
+	return
+}
+
+func copyFloats(s []float64) (c []float64) {
+	c = make([]float64, len(s))
+	copy(c, s)
+	return
+}
+
 func (r *report) String() (s string) {
 	if len(r.lats) > 0 {
 		s += fmt.Sprintf("\nSummary:\n")
@@ -99,7 +156,7 @@ func (r *report) String() (s string) {
 		s += fmt.Sprintf("  Stddev:\t%s.\n", r.sec2str(r.stddev))
 		s += fmt.Sprintf("  Requests/sec:\t"+r.precision+"\n", r.rps)
 		s += r.histogram()
-		s += r.latencies()
+		s += r.sprintLatencies()
 		if r.sps != nil {
 			s += fmt.Sprintf("%v\n", r.sps.getTimeSeries())
 		}
@@ -156,17 +213,29 @@ func (r *report) processResults() {
 	}
 }
 
-func (r *report) latencies() string {
-	pctls := []int{10, 25, 50, 75, 90, 95, 99}
-	data := make([]float64, len(pctls))
+var pctls = []float64{10, 25, 50, 75, 90, 95, 99, 99.9}
+
+// Percentiles returns percentile distribution of float64 slice.
+func Percentiles(nums []float64) (pcs []float64, data []float64) {
+	return pctls, percentiles(nums)
+}
+
+func percentiles(nums []float64) (data []float64) {
+	data = make([]float64, len(pctls))
 	j := 0
-	for i := 0; i < len(r.lats) && j < len(pctls); i++ {
-		current := i * 100 / len(r.lats)
+	n := len(nums)
+	for i := 0; i < n && j < len(pctls); i++ {
+		current := float64(i) * 100.0 / float64(n)
 		if current >= pctls[j] {
-			data[j] = r.lats[i]
+			data[j] = nums[i]
 			j++
 		}
 	}
+	return
+}
+
+func (r *report) sprintLatencies() string {
+	data := percentiles(r.lats)
 	s := fmt.Sprintf("\nLatency distribution:\n")
 	for i := 0; i < len(pctls); i++ {
 		if data[i] > 0 {

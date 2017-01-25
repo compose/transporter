@@ -57,7 +57,7 @@ func (r *Reader) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
 						log.With("db", r.db).Infoln("Read completed")
 						return
 					}
-					msg := From(ops.Insert, fmt.Sprintf("%s.%s", r.db, result.c), data.Data(result.doc))
+					msg := message.From(ops.Insert, fmt.Sprintf("%s.%s", r.db, result.c), data.Data(result.doc))
 					out <- msg
 				}
 			}

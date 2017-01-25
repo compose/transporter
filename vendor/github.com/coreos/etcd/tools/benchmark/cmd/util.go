@@ -17,6 +17,7 @@ package cmd
 import (
 	"crypto/rand"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -33,7 +34,10 @@ var (
 func mustCreateConn() *clientv3.Client {
 	endpoint := endpoints[dialTotal%len(endpoints)]
 	dialTotal++
-	cfg := clientv3.Config{Endpoints: []string{endpoint}}
+	cfg := clientv3.Config{
+		Endpoints:   []string{endpoint},
+		DialTimeout: dialTimeout,
+	}
 	if !tls.Empty() {
 		cfgtls, err := tls.ClientConfig()
 		if err != nil {
@@ -55,6 +59,8 @@ func mustCreateConn() *clientv3.Client {
 	}
 
 	client, err := clientv3.New(cfg)
+	clientv3.SetLogger(log.New(os.Stderr, "grpc", 0))
+
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "dial error: %v\n", err)
 		os.Exit(1)

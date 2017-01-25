@@ -99,6 +99,7 @@ func memberAddCommandFunc(cmd *cobra.Command, args []string) {
 	if len(args) != 1 {
 		ExitWithError(ExitBadArgs, fmt.Errorf("member name not provided."))
 	}
+	newMemberName := args[0]
 
 	if len(memberPeerURLs) == 0 {
 		ExitWithError(ExitBadArgs, fmt.Errorf("member peer urls not provided."))
@@ -111,8 +112,35 @@ func memberAddCommandFunc(cmd *cobra.Command, args []string) {
 	if err != nil {
 		ExitWithError(ExitError, err)
 	}
+	newID := resp.Member.ID
 
-	fmt.Printf("Member %16x added to cluster %16x\n", resp.Member.ID, resp.Header.ClusterId)
+	display.MemberAdd(*resp)
+
+	if _, ok := (display).(*simplePrinter); ok {
+		ctx, cancel = commandCtx(cmd)
+		listResp, err := mustClientFromCmd(cmd).MemberList(ctx)
+		cancel()
+
+		if err != nil {
+			ExitWithError(ExitError, err)
+		}
+
+		conf := []string{}
+		for _, memb := range listResp.Members {
+			for _, u := range memb.PeerURLs {
+				n := memb.Name
+				if memb.ID == newID {
+					n = newMemberName
+				}
+				conf = append(conf, fmt.Sprintf("%s=%s", n, u))
+			}
+		}
+
+		fmt.Print("\n")
+		fmt.Printf("ETCD_NAME=%q\n", newMemberName)
+		fmt.Printf("ETCD_INITIAL_CLUSTER=%q\n", strings.Join(conf, ","))
+		fmt.Printf("ETCD_INITIAL_CLUSTER_STATE=\"existing\"\n")
+	}
 }
 
 // memberRemoveCommandFunc executes the "member remove" command.
@@ -132,8 +160,7 @@ func memberRemoveCommandFunc(cmd *cobra.Command, args []string) {
 	if err != nil {
 		ExitWithError(ExitError, err)
 	}
-
-	fmt.Printf("Member %16x removed from cluster %16x\n", id, resp.Header.ClusterId)
+	display.MemberRemove(id, *resp)
 }
 
 // memberUpdateCommandFunc executes the "member update" command.
@@ -160,7 +187,7 @@ func memberUpdateCommandFunc(cmd *cobra.Command, args []string) {
 		ExitWithError(ExitError, err)
 	}
 
-	fmt.Printf("Member %16x updated in cluster %16x\n", id, resp.Header.ClusterId)
+	display.MemberUpdate(id, *resp)
 }
 
 // memberListCommandFunc executes the "member list" command.

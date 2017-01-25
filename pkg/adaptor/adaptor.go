@@ -54,7 +54,7 @@ type Describable interface {
 func CreateAdaptor(kind, path string, extra Config, p *pipe.Pipe) (adaptor Adaptor, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("cannot create node: %v", r)
+			err = fmt.Errorf("cannot create node [%s]: %v", kind, r)
 		}
 	}()
 
