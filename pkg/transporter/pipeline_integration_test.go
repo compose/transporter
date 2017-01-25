@@ -61,7 +61,7 @@ func TestFileToFile(t *testing.T) {
 		Add(NewNode("localfilein", "file", adaptor.Config{"uri": "file://" + inFile}))
 
 	// create the pipeline
-	p, err := NewDefaultPipeline(outNode, "", "", "", 100*time.Millisecond)
+	p, err := NewDefaultPipeline(outNode, "", "", "", "test", 100*time.Millisecond)
 	if err != nil {
 		t.Errorf("can't create pipeline, got %s", err.Error())
 		t.FailNow()
@@ -105,7 +105,7 @@ func TestMongoToMongo(t *testing.T) {
 		Add(NewNode("localInmongo", "mongodb", adaptor.Config{"uri": mongoURI, "namespace": inNs}))
 
 	// create the pipeline
-	p, err := NewDefaultPipeline(outNode, "", "", "", 100*time.Millisecond)
+	p, err := NewDefaultPipeline(outNode, "", "", "", "test", 100*time.Millisecond)
 	if err != nil {
 		t.Errorf("can't create pipeline, got %s", err.Error())
 		t.FailNow()
