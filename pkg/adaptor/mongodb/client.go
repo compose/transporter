@@ -32,7 +32,7 @@ var (
 	_ client.Client = &Client{}
 )
 
-// InvalidURIError wraps the underlying error when the provided URI is not parsable by mgo
+// InvalidURIError wraps the underlying error when the provided URI is not parsable by mgo.
 type InvalidURIError struct {
 	uri      string
 	mgoError string
@@ -42,13 +42,43 @@ func (e InvalidURIError) Error() string {
 	return fmt.Sprintf("Invalid URI (%s), %s", e.uri, e.mgoError)
 }
 
-// InvalidTimeoutError wraps the underlying error when the provided is not parsable time.ParseDuration
+// InvalidTimeoutError wraps the underlying error when the provided is not parsable time.ParseDuration.
 type InvalidTimeoutError struct {
 	timeout string
 }
 
 func (e InvalidTimeoutError) Error() string {
 	return fmt.Sprintf("Invalid Timeout, %s", e.timeout)
+}
+
+// InvalidCertError wraps the underlying error when the provided is certificate is not parsable.
+type InvalidCertError struct {
+	parseErr bool
+}
+
+func (e InvalidCertError) Error() string {
+	if e.parseErr {
+		return "failed to parse root certificate"
+	}
+	return "invalid cert error"
+}
+
+// ConnectError wraps the underlying error when a failure occurs dialing the database.
+type ConnectError struct {
+	reason string
+}
+
+func (e ConnectError) Error() string {
+	return fmt.Sprintf("connection error, %s", e.reason)
+}
+
+// OplogAccessError wraps the underlying error when access to the oplog fails.
+type OplogAccessError struct {
+	reason string
+}
+
+func (e OplogAccessError) Error() string {
+	return fmt.Sprintf("oplog access failed, %s", e.reason)
 }
 
 // ClientOptionFunc is a function that configures a Client.
@@ -150,7 +180,7 @@ func WithCACerts(certs []string) ClientOptionFunc {
 			roots := x509.NewCertPool()
 			for _, cert := range certs {
 				if ok := roots.AppendCertsFromPEM([]byte(cert)); !ok {
-					return fmt.Errorf("failed to parse root certificate")
+					return InvalidCertError{true}
 				}
 			}
 			if c.tlsConfig != nil {
@@ -158,6 +188,7 @@ func WithCACerts(certs []string) ClientOptionFunc {
 			} else {
 				c.tlsConfig = &tls.Config{RootCAs: roots}
 			}
+			c.tlsConfig.InsecureSkipVerify = false
 		}
 		return nil
 	}
@@ -213,21 +244,22 @@ func (c *Client) initConnection() error {
 
 	mgoSession, err := mgo.DialWithInfo(dialInfo)
 	if err != nil {
-		return err
+		return ConnectError{err.Error()}
 	}
 
 	// set some options on the session
+	// mgo logger _may_ be a bit too noisy but it'll be good to have for diagnosis
+	mgo.SetLogger(log.Base())
 	mgoSession.EnsureSafe(&c.safety)
 	mgoSession.SetBatch(1000)
 	mgoSession.SetPrefetch(0.5)
 	mgoSession.SetSocketTimeout(time.Hour)
 
 	if c.tail {
-		log.Infoln("testing oplog access")
+		log.With("uri", c.uri).Infoln("testing oplog access")
 		localColls, err := mgoSession.DB("local").CollectionNames()
 		if err != nil {
-			log.Errorln("unable to list collections on local database")
-			return err
+			return OplogAccessError{"unable to list collections on local database"}
 		}
 		oplogFound := false
 		for _, c := range localColls {
@@ -237,12 +269,10 @@ func (c *Client) initConnection() error {
 			}
 		}
 		if !oplogFound {
-			log.Errorln("oplog access failed")
-			return fmt.Errorf("database missing oplog.rs collection")
+			return OplogAccessError{"database missing oplog.rs collection"}
 		}
-		if iter := mgoSession.DB("local").C("oplog.rs").Find(bson.M{}).Limit(1).Iter(); iter.Err() != nil {
-			log.Errorln("oplog access failed")
-			return iter.Err()
+		if err := mgoSession.DB("local").C("oplog.rs").Find(bson.M{}).Limit(1).One(nil); err != nil {
+			return OplogAccessError{"not authorized for oplog.rs collection"}
 		}
 		log.Infoln("oplog access good")
 	}

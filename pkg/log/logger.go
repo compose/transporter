@@ -55,6 +55,8 @@ type Logger interface {
 	Errorln(...interface{})
 	Errorf(string, ...interface{})
 
+	Output(calldepth int, s string) error
+
 	With(key string, value interface{}) Logger
 }
 
@@ -64,6 +66,11 @@ type logger struct {
 
 func (l logger) With(key string, value interface{}) Logger {
 	return logger{l.entry.WithField(key, value)}
+}
+
+func (l logger) Output(calldepth int, s string) error {
+	l.entry.Infoln(s)
+	return nil
 }
 
 // Debug logs a message at level Debug on the standard logger.

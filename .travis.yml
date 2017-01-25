@@ -9,15 +9,19 @@ env:
     - ES_V5_URL=http://127.0.0.1:9205
     - ES_V2_URL=http://127.0.0.1:9202
     - ES_V1_URL=http://127.0.0.1:9201
+    - EASYRSA_VARS_FILE=$HOME/gopath/src/github.com/compose/transporter/scripts/vars
 before_install:
   - go get github.com/mattn/goveralls
-  - wget http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-$MONGODB_VERSION.tgz
-  - tar xfz mongodb-linux-x86_64-$MONGODB_VERSION.tgz
-  - export PATH=`pwd`/mongodb-linux-x86_64-$MONGODB_VERSION/bin:$PATH
-  - mkdir -p data/db
-  - mongod --dbpath=data/db --replSet transporterRs >& /dev/null &
-  - sleep 10
-  - mongo --eval 'rs.initiate()'
+  - pip install "mongo-orchestration>=0.6.7,<1.0"
+  - wget https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION.tgz
+  - tar xfz mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION.tgz
+  - export PATH=`pwd`/mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION/bin:$PATH
+  - mongod --version
+cache:
+  directories:
+    - $HOME/.cache/pip
+before_cache:
+  - rm -f $HOME/.cache/pip/log/debug.log
 script:
   - ./scripts/tests.sh
 after_success:
@@ -35,12 +39,18 @@ before_script:
   - psql -c "ALTER SYSTEM SET wal_level = logical"
   - sudo /etc/init.d/postgresql restart; sleep 1
   - mkdir -p /tmp/elasticsearch/config
-  - cp -r config/* /tmp/elasticsearch/config/
+  - cp -r config/elasticsearch/* /tmp/elasticsearch/config/
   - sudo sysctl -w vm.max_map_count=262144
   - docker run --rm --privileged=true -p 127.0.0.1:9205:9205 -v "/tmp/elasticsearch/config/v5:/usr/share/elasticsearch/config" -e ES_JAVA_OPTS='-Xms1g -Xmx1g' elasticsearch:5.1.2 elasticsearch >& /dev/null &
   - docker run --rm --privileged=true -p 127.0.0.1:9202:9202 -v "/tmp/elasticsearch/config/v2:/usr/share/elasticsearch/config" -e ES_JAVA_OPTS='-Xms1g -Xmx1g' elasticsearch:2.4.4 elasticsearch >& /dev/null &
   - docker run --rm --privileged=true -p 127.0.0.1:9201:9201 -v "/tmp/elasticsearch/config/v1:/usr/share/elasticsearch/config" -e ES_JAVA_OPTS='-Xms1g -Xmx1g' elasticsearch:1.7.6 elasticsearch >& /dev/null &
   - sleep 15
+  - mkdir -p /tmp/mongodb
+  - cp -r config/mongodb/certs/* /tmp/mongodb/
+  - mongo-orchestration start -p 20000 -b 127.0.0.1
+  - ./scripts/setup_mongodb.sh
+after_script:
+  - mongo-orchestration stop
 install: true
 branches:
   except:

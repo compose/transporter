@@ -17,6 +17,7 @@ nodes:
 for multiple versions of elasticsearch as well as better performance with bulk indexing for most versions.
 Addresses [#209](https://github.com/compose/transporter/issues/209), [#222](https://github.com/compose/transporter/issues/222),
 [#167](https://github.com/compose/transporter/issues/167) and [#159](https://github.com/compose/transporter/issues/159).
+- properly detect oplog access when attempting to use the `tail` option on the MongoDB adaptor.
 
 ## v0.1.1 [2015-08-27]
 

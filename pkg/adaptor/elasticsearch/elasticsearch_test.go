@@ -135,8 +135,8 @@ var badClientTests = []struct {
 	},
 	{
 		"no connection",
-		adaptor.Config{"uri": "http://localhost:10000", "namespace": "test.test"},
-		ConnectionError{"http://localhost:10000"},
+		adaptor.Config{"uri": "http://localhost:7200", "namespace": "test.test"},
+		ConnectionError{"http://localhost:7200"},
 		func() {},
 	},
 	{
