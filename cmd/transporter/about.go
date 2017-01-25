@@ -26,6 +26,8 @@ func runAbout(args []string) error {
 		}
 		if d, ok := dummyAdaptor.(adaptor.Describable); ok {
 			fmt.Printf("%s - %s\n", name, d.Description())
+		} else {
+			fmt.Printf("%s - %s\n", name, "no description available")
 		}
 	}
 
