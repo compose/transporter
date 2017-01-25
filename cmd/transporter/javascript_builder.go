@@ -289,7 +289,7 @@ func (js *JavascriptBuilder) Build() error {
 	// build each pipeline
 	for _, node := range js.nodes {
 		n := node.CreateTransporterNode()
-		pipeline, err := transporter.NewPipeline(n, js.emitfunc(), interval, sessionStore, sessionInterval)
+		pipeline, err := transporter.NewPipeline(version, n, js.emitfunc(), interval, sessionStore, sessionInterval)
 		if err != nil {
 			return err
 		}
