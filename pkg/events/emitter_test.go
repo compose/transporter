@@ -94,10 +94,10 @@ var httptests = []struct {
 	},
 	{
 		"server failed",
-		HTTPPostEmitter("http://127.0.0.1:10000/metrics", key, pid),
+		HTTPPostEmitter("http://127.0.0.1:8000/metrics", key, pid),
 		&url.Error{
 			Op:  "Post",
-			URL: "http://127.0.0.1:10000/metrics",
+			URL: "http://127.0.0.1:8000/metrics",
 			Err: &net.OpError{
 				Op:     "dial",
 				Net:    "tcp",
@@ -116,7 +116,7 @@ func (a *MockAddr) Network() string {
 }
 
 func (a *MockAddr) String() string {
-	return "127.0.0.1:10000"
+	return "127.0.0.1:8000"
 }
 
 func TestHTTPSever(t *testing.T) {
@@ -194,6 +194,10 @@ func (l *LogRecorder) Printf(format string, msg ...interface{}) {
 	l.logs = append(l.logs, fmt.Sprint(msg...))
 }
 func (l *LogRecorder) With(key string, value interface{}) log.Logger { return l }
+func (l LogRecorder) Output(calldepth int, s string) error {
+	l.logCount++
+	return nil
+}
 
 var emitterTests = []struct {
 	name      string

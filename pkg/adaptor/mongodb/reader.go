@@ -140,7 +140,7 @@ func (r *Reader) iterateCollection(mgoSession *mgo.Session, in <-chan string, do
 func (r *Reader) catQuery(c string, lastID interface{}, mgoSession *mgo.Session) *mgo.Query {
 	query := bson.M{}
 	if lastID != nil {
-		query = bson.M{"_id": bson.M{"$gte": lastID}}
+		query = bson.M{"_id": bson.M{"$gt": lastID}}
 	}
 	return mgoSession.DB(r.db).C(c).Find(query).Sort("_id")
 }

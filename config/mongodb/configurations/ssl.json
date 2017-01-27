@@ -1,0 +1,14 @@
+{
+    "id" : "standalonessl",
+    "name": "mongod",
+    "procParams": {
+        "port": 11112
+    },
+    "sslParams": {
+        "sslPEMKeyFile": "/tmp/mongodb/mongodb.pem",
+        "sslCAFile": "/tmp/mongodb/ca.pem",
+        "sslMode": "allowSSL",
+        "sslAllowConnectionsWithoutCertificates": true,
+        "sslAllowInvalidCertificates": true
+    }
+}

@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
+	"github.com/compose/transporter/pkg/log"
 	"github.com/compose/transporter/pkg/message"
 	"github.com/compose/transporter/pkg/message/data"
 	"github.com/compose/transporter/pkg/message/ops"
@@ -194,4 +196,59 @@ func TestDelete(t *testing.T) {
 			t.Errorf("unexpected error returned, expected mgo.ErrorNotFound, got %T\n", err)
 		}
 	}
+}
+
+var (
+	restartColl  = "restartData"
+	restartCount = 100
+)
+
+func TestRestartWrites(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping RestartWrites in short mode")
+	}
+
+	c := &Client{
+		uri:            fmt.Sprintf("mongodb://127.0.0.1:15000/%s", writerTestData.DB),
+		sessionTimeout: DefaultSessionTimeout,
+		safety:         DefaultSafety,
+	}
+	s, err := c.Connect()
+	if err != nil {
+		t.Fatalf("unable to initialize connection to mongodb, %s", err)
+	}
+	session := s.(*Session)
+	session.mgoSession.SetSocketTimeout(1 * time.Second)
+
+	if dropErr := session.mgoSession.DB(writerTestData.DB).DropDatabase(); dropErr != nil {
+		log.Errorf("failed to drop database (%s), may affect tests!, %s", writerTestData.DB, dropErr)
+	}
+
+	w := newWriter()
+	done := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case <-time.After(2 * time.Second):
+			}
+		}
+	}()
+
+	for i := 0; i < restartCount; i++ {
+		time.Sleep(100 * time.Millisecond)
+		msg := message.From(ops.Insert, fmt.Sprintf("%s.%s", writerTestData.DB, restartColl), map[string]interface{}{"i": i})
+		if wErr := w.Write(msg)(session); wErr != nil {
+			t.Errorf("unexpected Insert error, %s\n", wErr)
+		}
+	}
+
+	count, err := session.mgoSession.DB(writerTestData.DB).C(restartColl).Count()
+	if err != nil {
+		t.Errorf("unable to determine collection count, %s\n", err)
+	} else if count != restartCount {
+		t.Errorf("mismatched doc count, expected %d, got %d\n", restartCount, count)
+	}
+	close(done)
 }
