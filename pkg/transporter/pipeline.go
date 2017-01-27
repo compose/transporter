@@ -1,17 +1,12 @@
 package transporter
 
 import (
-	"log"
 	"time"
 
 	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/events"
+	"github.com/compose/transporter/pkg/log"
 	"github.com/compose/transporter/pkg/state"
-)
-
-// VERSION the library
-const (
-	VERSION = "0.1.1"
 )
 
 // A Pipeline is a the end to end description of a transporter data flow.
@@ -21,6 +16,7 @@ type Pipeline struct {
 	emitter       events.Emitter
 	sessionStore  state.SessionStore
 	metricsTicker *time.Ticker
+	version       string
 
 	// Err is the fatal error that was sent from the adaptor
 	// that caused us to stop this process.  If this is nil, then
@@ -41,9 +37,8 @@ type Pipeline struct {
 // 	  os.Exit(1)
 //   }
 // pipeline.Run()
-func NewDefaultPipeline(source *Node, uri, key, pid string, interval time.Duration) (*Pipeline, error) {
-	emitter := events.NewHTTPPostEmitter(uri, key, pid)
-	return NewPipeline(source, emitter, interval, nil, 10*time.Second)
+func NewDefaultPipeline(source *Node, uri, key, pid, version string, interval time.Duration) (*Pipeline, error) {
+	return NewPipeline(version, source, events.HTTPPostEmitter(uri, key, pid), interval, nil, 10*time.Second)
 }
 
 // NewPipeline creates a new Transporter Pipeline using the given tree of nodes, and Event Emitter
@@ -51,16 +46,16 @@ func NewDefaultPipeline(source *Node, uri, key, pid string, interval time.Durati
 //   source :=
 //   	transporter.NewNode("source", "mongo", adaptor.Config{"uri": "mongodb://localhost/", "namespace": "boom.foo", "debug": false, "tail": true}).
 // 	  	Add(transporter.NewNode("out", "file", adaptor.Config{"uri": "stdout://"}))
-//   pipeline, err := transporter.NewPipeline(source, events.NewNoopEmitter(), 1*time.Second, state.NewFilestore(pid, "/tmp/transporter.state"), 10*time.Second)
+//   pipeline, err := transporter.NewPipeline("version", source, events.NewNoopEmitter(), 1*time.Second, state.NewFilestore(pid, "/tmp/transporter.state"), 10*time.Second)
 //   if err != nil {
 // 	  fmt.Println(err)
 // 	  os.Exit(1)
 //   }
 // pipeline.Run()
-func NewPipeline(source *Node, emitter events.Emitter, interval time.Duration, sessionStore state.SessionStore, sessionInterval time.Duration) (*Pipeline, error) {
+func NewPipeline(version string, source *Node, emit events.EmitFunc, interval time.Duration, sessionStore state.SessionStore, sessionInterval time.Duration) (*Pipeline, error) {
+
 	pipeline := &Pipeline{
 		source:        source,
-		emitter:       emitter,
 		metricsTicker: time.NewTicker(interval),
 	}
 
@@ -76,7 +71,7 @@ func NewPipeline(source *Node, emitter events.Emitter, interval time.Duration, s
 	}
 
 	// init the emitter with the right chan
-	pipeline.emitter.Init(source.pipe.Event)
+	pipeline.emitter = events.NewEmitter(source.pipe.Event, emit)
 
 	// start the emitters
 	go pipeline.startErrorListener(source.pipe.Err)
@@ -92,19 +87,24 @@ func NewPipeline(source *Node, emitter events.Emitter, interval time.Duration, s
 }
 
 func (pipeline *Pipeline) String() string {
-	out := pipeline.source.String()
-	return out
+	return pipeline.source.String()
 }
 
 // Stop sends a stop signal to the emitter and all the nodes, whether they are running or not.
 // the node's database adaptors are expected to clean up after themselves, and stop will block until
 // all nodes have stopped successfully
 func (pipeline *Pipeline) Stop() {
+	endpoints := pipeline.source.Endpoints()
 	pipeline.source.Stop()
-	pipeline.emitter.Stop()
 	if pipeline.sessionStore != nil {
 		pipeline.sessionTicker.Stop()
 	}
+
+	// pipeline has stopped, emit one last round of metrics and send the exit event
+	pipeline.emitMetrics()
+	pipeline.source.pipe.Event <- events.NewExitEvent(time.Now().UnixNano(), pipeline.version, endpoints)
+	pipeline.emitter.Stop()
+
 	pipeline.metricsTicker.Stop()
 }
 
@@ -112,23 +112,17 @@ func (pipeline *Pipeline) Stop() {
 func (pipeline *Pipeline) Run() error {
 	endpoints := pipeline.source.Endpoints()
 	// send a boot event
-	pipeline.source.pipe.Event <- events.NewBootEvent(time.Now().Unix(), VERSION, endpoints)
+	pipeline.source.pipe.Event <- events.NewBootEvent(time.Now().UnixNano(), pipeline.version, endpoints)
+
+	if pipeline.sessionStore != nil {
+		pipeline.setState()
+	}
 
 	// start the source
 	err := pipeline.source.Start()
 	if err != nil && pipeline.Err == nil {
 		pipeline.Err = err // only set it if it hasn't been set already.
 	}
-
-	// pipeline has stopped, emit one last round of metrics and send the exit event
-	pipeline.emitMetrics()
-	if pipeline.sessionStore != nil {
-		pipeline.setState()
-	}
-	pipeline.source.pipe.Event <- events.NewExitEvent(time.Now().Unix(), VERSION, endpoints)
-
-	// the source has exited, stop all the other nodes
-	pipeline.Stop()
 
 	return pipeline.Err
 }
@@ -138,9 +132,9 @@ func (pipeline *Pipeline) Run() error {
 func (pipeline *Pipeline) startErrorListener(cherr chan error) {
 	for err := range cherr {
 		if aerr, ok := err.(adaptor.Error); ok {
-			pipeline.source.pipe.Event <- events.NewErrorEvent(time.Now().Unix(), aerr.Path, aerr.Record, aerr.Error())
+			pipeline.source.pipe.Event <- events.NewErrorEvent(time.Now().UnixNano(), aerr.Path, aerr.Record, aerr.Error())
 			if aerr.Lvl == adaptor.ERROR || aerr.Lvl == adaptor.CRITICAL {
-				log.Println(aerr)
+				log.With("path", aerr.Path).Errorln(aerr)
 			}
 		} else {
 			if pipeline.Err == nil {
@@ -159,28 +153,9 @@ func (pipeline *Pipeline) startMetricsGatherer() {
 
 // emit the metrics
 func (pipeline *Pipeline) emitMetrics() {
-
-	frontier := make([]*Node, 1)
-	frontier[0] = pipeline.source
-
-	for {
-		// pop the first item
-		node := frontier[0]
-		frontier = frontier[1:]
-
-		// do something with the node
-		pipeline.source.pipe.Event <- events.NewMetricsEvent(time.Now().Unix(), node.Path(), node.pipe.MessageCount)
-
-		// add this nodes children to the frontier
-		for _, child := range node.Children {
-			frontier = append(frontier, child)
-		}
-
-		// if we're empty
-		if len(frontier) == 0 {
-			break
-		}
-	}
+	pipeline.apply(func(node *Node) {
+		pipeline.source.pipe.Event <- events.NewMetricsEvent(time.Now().UnixNano(), node.Path(), node.pipe.MessageCount)
+	})
 }
 
 func (pipeline *Pipeline) startStateSaver() {
@@ -190,57 +165,35 @@ func (pipeline *Pipeline) startStateSaver() {
 }
 
 func (pipeline *Pipeline) setState() {
-	frontier := make([]*Node, 1)
-	frontier[0] = pipeline.source
-
-	for {
-		// pop the first item
-		node := frontier[0]
-		frontier = frontier[1:]
-
-		// do something with the node
+	pipeline.apply(func(node *Node) {
 		if node.Type != "transformer" && node.pipe.LastMsg != nil {
 			pipeline.sessionStore.Set(node.Path(), &state.MsgState{Msg: node.pipe.LastMsg, Extra: node.pipe.ExtraState})
 		}
-
-		// add this nodes children to the frontier
-		for _, child := range node.Children {
-			frontier = append(frontier, child)
-		}
-
-		// if we're empty
-		if len(frontier) == 0 {
-			break
-		}
-	}
+	})
 }
 
 func (pipeline *Pipeline) initState() {
-	frontier := make([]*Node, 1)
-	frontier[0] = pipeline.source
-
-	for {
-		// pop the first item
-		node := frontier[0]
-		frontier = frontier[1:]
-
-		// do something with the node
+	pipeline.apply(func(node *Node) {
 		if node.Type != "transformer" {
-			nodeState, _ := pipeline.sessionStore.Get(node.Path())
-			if nodeState != nil {
-				node.pipe.LastMsg = nodeState.Msg
-				node.pipe.ExtraState = nodeState.Extra
+			state, _ := pipeline.sessionStore.Get(node.Path())
+			if state != nil {
+				node.pipe.LastMsg = state.Msg
+				node.pipe.ExtraState = state.Extra
 			}
 		}
+	})
+}
 
-		// add this nodes children to the frontier
-		for _, child := range node.Children {
-			frontier = append(frontier, child)
-		}
-
-		// if we're empty
-		if len(frontier) == 0 {
-			break
-		}
+// apply maps a function f across all nodes of a pipeline
+func (pipeline *Pipeline) apply(f func(*Node)) {
+	if pipeline.source == nil {
+		return
+	}
+	head := pipeline.source
+	nodes := []*Node{head}
+	for len(nodes) > 0 {
+		head, nodes = nodes[0], nodes[1:]
+		f(head)
+		nodes = append(nodes, head.Children...)
 	}
 }

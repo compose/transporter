@@ -1,5 +1,3 @@
-// +build integration
-
 package transporter
 
 import (
@@ -12,6 +10,7 @@ import (
 	"time"
 
 	"github.com/compose/transporter/pkg/adaptor"
+	_ "github.com/compose/transporter/pkg/message/adaptor/file"
 )
 
 var (
@@ -23,6 +22,9 @@ type EventHolder struct {
 }
 
 func TestEventsBroadcast(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping EventsBroadcast in short mode")
+	}
 	data := []struct {
 		evt     string
 		evtPath string
@@ -65,7 +67,7 @@ func TestEventsBroadcast(t *testing.T) {
 	dummyOutNode := NewNode("dummyFileOut", "file", adaptor.Config{"uri": "file://" + outFile})
 	dummyOutNode.Add(NewNode("dummyFileIn", "file", adaptor.Config{"uri": "file://" + inFile}))
 
-	p, err := NewDefaultPipeline(dummyOutNode, ts.URL, "asdf", "jklm", 1*time.Second)
+	p, err := NewDefaultPipeline(dummyOutNode, ts.URL, "asdf", "jklm", "test", 1*time.Second)
 	if err != nil {
 		t.Errorf("can't create pipeline, got %s", err.Error())
 		t.FailNow()
@@ -75,6 +77,8 @@ func TestEventsBroadcast(t *testing.T) {
 	if err != nil {
 		t.FailNow()
 	}
+
+	p.Stop()
 
 	time.Sleep(time.Duration(5) * time.Second)
 

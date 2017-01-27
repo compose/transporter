@@ -1,0 +1,36 @@
+package: github.com/compose/transporter
+import:
+- package: github.com/Sirupsen/logrus
+  version: ^0.11.0
+- package: github.com/compose/mejson
+- package: github.com/coreos/etcd
+  version: ^3.1.0-rc.1
+  subpackages:
+  - client
+- package: github.com/hashicorp/go-version
+- package: github.com/lib/pq
+- package: github.com/mitchellh/cli
+- package: github.com/nu7hatch/gouuid
+- package: github.com/robertkrimen/otto
+  subpackages:
+  - underscore
+- package: golang.org/x/net
+  subpackages:
+  - context
+- package: gopkg.in/gorethink/gorethink.v1
+  version: ^3.0.0
+- package: gopkg.in/mgo.v2
+  subpackages:
+  - bson
+- package: gopkg.in/yaml.v2
+- package: github.com/oklog/oklog
+  version: ^0.1.1
+  subpackages:
+  - pkg/group
+- package: gopkg.in/olivere/elastic.v5
+  version: ^5.0.13
+- package: gopkg.in/olivere/elastic.v3
+  version: ^5.0.13
+- package: gopkg.in/olivere/elastic.v2
+  version: ^5.0.18
+- package: github.com/smartystreets/go-aws-auth

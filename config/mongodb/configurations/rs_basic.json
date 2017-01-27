@@ -1,0 +1,24 @@
+{
+    "id": "repl0",
+    "name": "replicaset",
+    "members": [
+        {
+            "procParams": {
+                "port": 27017
+            }
+        },
+        {
+            "procParams": {
+                "port": 27018
+            }
+        },
+        {
+            "procParams": {
+                "port": 27019
+            },
+            "rsParams": {
+                "arbiterOnly": true
+            }
+        }
+    ]
+}

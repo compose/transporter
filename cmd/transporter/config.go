@@ -3,11 +3,12 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
 	"regexp"
 	"time"
+
+	"gopkg.in/yaml.v2"
 )
 
 // A Config stores meta information about the transporter.  This contains a
@@ -34,7 +35,7 @@ type Config struct {
 // if that env var isn't present, then generate a pid
 func LoadConfig(filename string) (config Config, err error) {
 	if filename == "" {
-		if _, err := os.Stat("config.yaml"); os.IsNotExist(err) {
+		if _, err = os.Stat("config.yaml"); os.IsNotExist(err) {
 			return config, nil // return the default config
 		}
 		filename = "config.yaml"

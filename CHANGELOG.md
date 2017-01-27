@@ -1,3 +1,27 @@
+## v0.1.2 [2017-01-27]
+
+This release is primarily aimed at getting the MongoDB and Elasticsearch adaptors into a
+stable/reliable state.
+
+### Breaking changes:
+- MongoDB adaptor SSL configuration is now defined as:
+```yaml
+nodes:
+  localmongo:
+    type: mongodb
+    ssl: true
+    cacerts: ["/path/to/cert.pem"] # optional
+```
+
+### Bugfixes
+- [#211](https://github.com/compose/transporter/pull/211): defer bulk channel init for mongo node reuse
+- [#213](https://github.com/compose/transporter/pull/213): track mongodb \_id field so we can attempt to reissue queries
+- [#233](https://github.com/compose/transporter/pull/233): update elasticsearch adaptor with better support
+for multiple versions of elasticsearch as well as better performance with bulk indexing for most versions.
+Addresses [#209](https://github.com/compose/transporter/issues/209), [#222](https://github.com/compose/transporter/issues/222),
+[#167](https://github.com/compose/transporter/issues/167) and [#159](https://github.com/compose/transporter/issues/159).
+- properly detect oplog access when attempting to use the `tail` option on the MongoDB adaptor.
+
 ## v0.1.1 [2015-08-27]
 
 This release contains the first step to getting savable state into adaptors for the ability to resume.

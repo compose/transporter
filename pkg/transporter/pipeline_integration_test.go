@@ -1,5 +1,3 @@
-// +build integration
-
 package transporter
 
 import (
@@ -15,7 +13,7 @@ import (
 )
 
 var (
-	mongoUri = "mongodb://127.0.0.1:27017/test"
+	mongoURI = "mongodb://127.0.0.1:27017/test"
 )
 
 // set up some local files
@@ -25,35 +23,32 @@ func setupFiles(in, out string) {
 	os.Remove(in)
 
 	fh, _ := os.Create(out)
-	defer func() {
-		fh.Close()
-	}()
+	defer fh.Close()
 	fh.WriteString("{\"_id\":\"546656989330a846dc7ce327\",\"test\":\"hello world\"}\n")
 }
 
 // set up local mongo
 func setupMongo() {
 	// setup mongo
-	mongoSess, _ := mgo.Dial(mongoUri)
+	mongoSess, _ := mgo.Dial(mongoURI)
 	collection := mongoSess.DB("testOut").C("coll")
 	collection.DropCollection()
 
-	for i := 0; i <= 5; i += 1 {
+	for i := 0; i <= 5; i++ {
 		collection.Insert(bson.M{"index": i})
 	}
 
 	mongoSess.Close()
-	mongoSess, _ = mgo.Dial(mongoUri)
+	mongoSess, _ = mgo.Dial(mongoURI)
 	collection = mongoSess.DB("testIn").C("coll")
 	collection.DropCollection()
 	mongoSess.Close()
 }
 
-//
-//
-//
-
 func TestFileToFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping FileToFile in short mode")
+	}
 	var (
 		inFile  = "/tmp/crapIn"
 		outFile = "/tmp/crapOut"
@@ -66,7 +61,7 @@ func TestFileToFile(t *testing.T) {
 		Add(NewNode("localfilein", "file", adaptor.Config{"uri": "file://" + inFile}))
 
 	// create the pipeline
-	p, err := NewDefaultPipeline(outNode, "", "", "", 100*time.Millisecond)
+	p, err := NewDefaultPipeline(outNode, "", "", "", "test", 100*time.Millisecond)
 	if err != nil {
 		t.Errorf("can't create pipeline, got %s", err.Error())
 		t.FailNow()
@@ -78,6 +73,8 @@ func TestFileToFile(t *testing.T) {
 		t.Errorf("error running pipeline, got %s", err.Error())
 		t.FailNow()
 	}
+
+	p.Stop()
 
 	// compare the files
 	sourceFile, _ := os.Open(outFile)
@@ -92,11 +89,10 @@ func TestFileToFile(t *testing.T) {
 	}
 }
 
-//
-//
-//
-
 func TestMongoToMongo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping MongoToMongo in short mode")
+	}
 	setupMongo()
 
 	var (
@@ -105,11 +101,11 @@ func TestMongoToMongo(t *testing.T) {
 	)
 
 	// create the source node and attach our sink
-	outNode := NewNode("localOutmongo", "mongodb", adaptor.Config{"uri": mongoUri, "namespace": outNs}).
-		Add(NewNode("localInmongo", "mongodb", adaptor.Config{"uri": mongoUri, "namespace": inNs}))
+	outNode := NewNode("localOutmongo", "mongodb", adaptor.Config{"uri": mongoURI, "namespace": outNs}).
+		Add(NewNode("localInmongo", "mongodb", adaptor.Config{"uri": mongoURI, "namespace": inNs}))
 
 	// create the pipeline
-	p, err := NewDefaultPipeline(outNode, "", "", "", 100*time.Millisecond)
+	p, err := NewDefaultPipeline(outNode, "", "", "", "test", 100*time.Millisecond)
 	if err != nil {
 		t.Errorf("can't create pipeline, got %s", err.Error())
 		t.FailNow()
@@ -122,8 +118,10 @@ func TestMongoToMongo(t *testing.T) {
 		t.FailNow()
 	}
 
+	p.Stop()
+
 	// connect to mongo and compare results
-	mongoSess, err := mgo.Dial(mongoUri)
+	mongoSess, err := mgo.Dial(mongoURI)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -158,5 +156,4 @@ func TestMongoToMongo(t *testing.T) {
 	// clean up
 	mongoSess.DB("testOut").C("coll").DropCollection()
 	mongoSess.DB("testIn").C("coll").DropCollection()
-
 }

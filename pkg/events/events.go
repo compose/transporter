@@ -3,28 +3,31 @@ package events
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/compose/transporter/pkg/log"
 )
 
 // Event is an interface that describes data which is produced periodically by the running transporter.
 //
-// Events come in multiple kinds.  baseEvents are emitted when the transporter starts and stops,
-// metricsEvents are emittied by each pipe and include a measure of how many messages have been processed
+// Events come in multiple kinds. BaseEvents are emitted when the transporter starts and stops,
+// metricsEvents are emitted by each pipe and include a measure of how many messages have been processed
 type Event interface {
 	Emit() ([]byte, error)
 	String() string
+	Logger() log.Logger
 }
 
 // BaseEvent is an event that is sent when the pipeline has been started or exited
-type BaseEvent struct {
+type baseEvent struct {
 	Ts        int64             `json:"ts"`
 	Kind      string            `json:"name"`
 	Version   string            `json:"version,omitempty"`
 	Endpoints map[string]string `json:"endpoints,omitempty"`
 }
 
-// NewBootEvent (surprisingly) creates a new baseEvent
-func NewBootEvent(ts int64, version string, endpoints map[string]string) *BaseEvent {
-	e := &BaseEvent{
+// NewBootEvent (surprisingly) creates a new BaseEvent
+func NewBootEvent(ts int64, version string, endpoints map[string]string) Event {
+	e := &baseEvent{
 		Ts:        ts,
 		Kind:      "boot",
 		Version:   version,
@@ -34,8 +37,8 @@ func NewBootEvent(ts int64, version string, endpoints map[string]string) *BaseEv
 }
 
 // NewExitEvent (surprisingly) creates a new BaseEvent
-func NewExitEvent(ts int64, version string, endpoints map[string]string) *BaseEvent {
-	e := &BaseEvent{
+func NewExitEvent(ts int64, version string, endpoints map[string]string) Event {
+	e := &baseEvent{
 		Ts:        ts,
 		Kind:      "exit",
 		Version:   version,
@@ -44,31 +47,33 @@ func NewExitEvent(ts int64, version string, endpoints map[string]string) *BaseEv
 	return e
 }
 
-// Emit prepares the event to be emitted and marshalls the event into an json
-func (e *BaseEvent) Emit() ([]byte, error) {
+// Emit prepares the event to be emitted and marshals the event into a JSON
+func (e *baseEvent) Emit() ([]byte, error) {
 	return json.Marshal(e)
 }
 
 // String
-func (e *BaseEvent) String() string {
-	msg := fmt.Sprintf("%s", e.Kind)
-	msg += fmt.Sprintf(" %v", e.Endpoints)
-	return msg
+func (e *baseEvent) String() string {
+	return fmt.Sprintf("%s %v", e.Kind, e.Endpoints)
 }
 
-// MetricsEvent is an event used to indicated progress.
-type MetricsEvent struct {
+func (e *baseEvent) Logger() log.Logger {
+	return log.With("ts", e.Ts)
+}
+
+// metricsEvent is an event used to indicated progress.
+type metricsEvent struct {
 	Ts   int64  `json:"ts"`
 	Kind string `json:"name"`
 	Path string `json:"path"`
 
-	// Records indicated the total number of documents that have been transmitted
+	// Records indicates the total number of documents that have been transmitted
 	Records int `json:"records"`
 }
 
 // NewMetricsEvent creates a new metrics event
-func NewMetricsEvent(ts int64, path string, records int) *MetricsEvent {
-	e := &MetricsEvent{
+func NewMetricsEvent(ts int64, path string, records int) Event {
+	e := &metricsEvent{
 		Ts:      ts,
 		Kind:    "metrics",
 		Path:    path,
@@ -78,19 +83,21 @@ func NewMetricsEvent(ts int64, path string, records int) *MetricsEvent {
 }
 
 // Emit prepares the event to be emitted and marshalls the event into an json
-func (e *MetricsEvent) Emit() ([]byte, error) {
+func (e *metricsEvent) Emit() ([]byte, error) {
 	return json.Marshal(e)
 }
 
-func (e *MetricsEvent) String() string {
-	msg := fmt.Sprintf("%s %s", e.Kind, e.Path)
-	msg += fmt.Sprintf(" records: %d", e.Records)
-	return msg
+func (e *metricsEvent) String() string {
+	return fmt.Sprintf("%s %s records: %d", e.Kind, e.Path, e.Records)
 }
 
-// ErrorEvent is an event that indicates an error occurred
+func (e *metricsEvent) Logger() log.Logger {
+	return log.With("ts", e.Ts).With("path", e.Path)
+}
+
+// errorEvent is an event that indicates an error occurred
 // during the processing of a pipeline
-type ErrorEvent struct {
+type errorEvent struct {
 	Ts   int64  `json:"ts"`
 	Kind string `json:"name"`
 	Path string `json:"path"`
@@ -103,8 +110,8 @@ type ErrorEvent struct {
 }
 
 // NewErrorEvent are events sent to indicate a problem processing on one of the nodes
-func NewErrorEvent(ts int64, path string, record interface{}, message string) *ErrorEvent {
-	e := &ErrorEvent{
+func NewErrorEvent(ts int64, path string, record interface{}, message string) Event {
+	e := &errorEvent{
 		Ts:      ts,
 		Kind:    "error",
 		Path:    path,
@@ -115,13 +122,17 @@ func NewErrorEvent(ts int64, path string, record interface{}, message string) *E
 }
 
 // Emit prepares the event to be emitted and marshalls the event into an json
-func (e *ErrorEvent) Emit() ([]byte, error) {
+func (e *errorEvent) Emit() ([]byte, error) {
 	return json.Marshal(e)
 }
 
 // String
-func (e *ErrorEvent) String() string {
+func (e *errorEvent) String() string {
 	msg := fmt.Sprintf("%s", e.Kind)
 	msg += fmt.Sprintf(" record: %v, message: %s", e.Record, e.Message)
 	return msg
+}
+
+func (e *errorEvent) Logger() log.Logger {
+	return log.With("ts", e.Ts).With("path", e.Path)
 }

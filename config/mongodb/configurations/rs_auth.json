@@ -1,0 +1,27 @@
+{
+    "id": "authRepl0",
+    "auth_key": "secret",
+    "name": "replicaset",
+    "login": "transporter",
+    "members": [
+        {
+            "procParams": {
+                "port": 10000
+            }
+        },
+        {
+            "procParams": {
+                "port": 10001
+            }
+        },
+        {
+            "procParams": {
+                "port": 10002
+            },
+            "rsParams": {
+                "arbiterOnly": true
+            }
+        }
+    ],
+    "password": "transporter"
+}

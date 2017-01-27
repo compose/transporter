@@ -2,13 +2,14 @@ package state
 
 import (
 	"github.com/compose/transporter/pkg/message"
+	"github.com/compose/transporter/pkg/message/data"
 )
 
 // MsgState encapsulates a message state to be stored in the SessionStore for
 // graceful recovery
 type MsgState struct {
-	Msg   *message.Msg
-	Extra map[string]interface{}
+	Msg   message.Msg
+	Extra data.Data
 }
 
 // SessionStore describes the interface for a store for transporter MsgStates

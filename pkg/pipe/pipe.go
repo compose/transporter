@@ -14,15 +14,15 @@ import (
 	"github.com/compose/transporter/pkg/message"
 )
 
-type messageChan chan *message.Msg
+type messageChan chan message.Msg
 
 func newMessageChan() messageChan {
-	return make(chan *message.Msg)
+	return make(chan message.Msg)
 }
 
 // Pipe provides a set of methods to let transporter nodes communicate with each other.
 //
-// Pipes contain In, Out, Err, and Event channels.  Messages are consumed by a node through the 'in' chan, emitted from the node by the 'out' chan.
+// Pipes contain In, Out, Err, and Event channels. Messages are consumed by a node through the 'in' chan, emitted from the node by the 'out' chan.
 // Pipes come in three flavours, a sourcePipe, which only emits messages and has no listening loop, a sinkPipe which has a listening loop, but doesn't emit any messages,
 // and joinPipe which has a li tening loop that also emits messages.
 type Pipe struct {
@@ -33,7 +33,7 @@ type Pipe struct {
 	Stopped bool // has the pipe been stopped?
 
 	MessageCount int
-	LastMsg      *message.Msg
+	LastMsg      message.Msg
 	ExtraState   map[string]interface{}
 
 	path      string // the path of this pipe (for events and errors)
@@ -59,16 +59,25 @@ func NewPipe(pipe *Pipe, path string) *Pipe {
 		p.Event = pipe.Event
 	} else {
 		p.Err = make(chan error)
-		p.Event = make(chan events.Event)
+		p.Event = make(chan events.Event, 10) // buffer the event channel
 	}
 
 	return p
 }
 
+// matchNamespace tests the message's namespace against the provided Regexp
+func matchNamespace(m message.Msg, nsFilter *regexp.Regexp) (bool, error) {
+	_, ns, err := message.SplitNamespace(m)
+	if err != nil {
+		return false, err
+	}
+	return nsFilter.MatchString(ns), nil
+}
+
 // Listen starts a listening loop that pulls messages from the In chan, applies fn(msg), a `func(message.Msg) error`, and emits them on the Out channel.
 // Errors will be emitted to the Pipe's Err chan, and will terminate the loop.
 // The listening loop can be interrupted by calls to Stop().
-func (m *Pipe) Listen(fn func(*message.Msg) (*message.Msg, error), nsFilter *regexp.Regexp) error {
+func (m *Pipe) Listen(fn func(message.Msg) (message.Msg, error), nsFilter *regexp.Regexp) error {
 	if m.In == nil {
 		return nil
 	}
@@ -87,7 +96,7 @@ func (m *Pipe) Listen(fn func(*message.Msg) (*message.Msg, error), nsFilter *reg
 
 		select {
 		case msg := <-m.In:
-			if match, err := msg.MatchNamespace(nsFilter); !match || err != nil {
+			if match, err := matchNamespace(msg, nsFilter); !match || err != nil {
 				if err != nil {
 					m.Err <- err
 					return err
@@ -131,7 +140,7 @@ func (m *Pipe) Stop() {
 
 // Send emits the given message on the 'Out' channel.  the send Timesout after 100 ms in order to chaeck of the Pipe has stopped and we've been asked to exit.
 // If the Pipe has been stopped, the send will fail and there is no guarantee of either success or failure
-func (m *Pipe) Send(msg *message.Msg) {
+func (m *Pipe) Send(msg message.Msg) {
 	for _, ch := range m.Out {
 
 	A:
@@ -152,6 +161,6 @@ func (m *Pipe) Send(msg *message.Msg) {
 }
 
 // skipMsg returns true if the message should be skipped and not send on to any listening nodes
-func skipMsg(msg *message.Msg) bool {
-	return msg == nil || msg.Op == message.Noop
+func skipMsg(msg message.Msg) bool {
+	return msg == nil
 }

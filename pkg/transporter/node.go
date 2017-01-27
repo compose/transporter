@@ -14,6 +14,10 @@ import (
 	"github.com/compose/transporter/pkg/pipe"
 )
 
+var (
+	transformerNode = "transformer"
+)
+
 // A Node is the basic building blocks of transporter pipelines.
 // Nodes are constructed in a tree, with the first node broadcasting
 // data to each of it's children.
@@ -31,7 +35,7 @@ type Node struct {
 	Children []*Node        `json:"children"` // the nodes are set up as a tree, this is an array of this nodes children
 	Parent   *Node          `json:"parent"`   // this node's parent node, if this is nil, this is a 'source' node
 
-	adaptor adaptor.StopStartListener
+	adaptor adaptor.Adaptor
 	pipe    *pipe.Pipe
 }
 
@@ -54,7 +58,7 @@ func (n *Node) String() string {
 		namespace = n.Extra.GetString("namespace")
 		depth     = n.depth()
 	)
-	if n.Type == "transformer" {
+	if n.Type == transformerNode {
 		uri = n.Extra.GetString("filename")
 	} else {
 		uri = n.Extra.GetString("uri")
@@ -67,7 +71,7 @@ func (n *Node) String() string {
 		prefix = fmt.Sprintf(prefixformatter, " ", "- Source: ")
 	} else if len(n.Children) == 0 {
 		prefix = fmt.Sprintf(prefixformatter, " ", "- Sink: ")
-	} else if n.Type == "transformer" {
+	} else if n.Type == transformerNode {
 		prefix = fmt.Sprintf(prefixformatter, " ", "- Transformer: ")
 	}
 
@@ -120,7 +124,7 @@ func (n *Node) Init(interval time.Duration) (err error) {
 		n.pipe = pipe.NewPipe(n.Parent.pipe, path)
 	}
 
-	n.adaptor, err = adaptor.Createadaptor(n.Type, path, n.Extra, n.pipe)
+	n.adaptor, err = adaptor.CreateAdaptor(n.Type, path, n.Extra, n.pipe)
 	if err != nil {
 		return err
 	}
@@ -137,10 +141,10 @@ func (n *Node) Init(interval time.Duration) (err error) {
 
 // Stop this node's adaptor, and sends a stop to each child of this node
 func (n *Node) Stop() {
+	n.adaptor.Stop()
 	for _, node := range n.Children {
 		node.Stop()
 	}
-	n.adaptor.Stop()
 }
 
 // Start starts the nodes children in a go routine, and then runs either Start() or Listen()
@@ -170,7 +174,7 @@ func (n *Node) Validate() bool {
 		return false
 	}
 
-	if n.Type == "transformer" && len(n.Children) == 0 { // transformers need children
+	if n.Type == transformerNode && len(n.Children) == 0 { // transformers need children
 		return false
 	}
 

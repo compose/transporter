@@ -1,0 +1,7 @@
+{
+    "id" : "basic_server",
+    "name": "mongod",
+    "procParams": {
+        "port": 29017
+    }
+}

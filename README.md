@@ -1,4 +1,4 @@
-[![Circle CI](https://circleci.com/gh/compose/transporter.svg?style=svg)](https://circleci.com/gh/compose/transporter) [![Go Report Card](https://goreportcard.com/badge/github.com/compose/transporter)](https://goreportcard.com/report/github.com/compose/transporter)
+[![Build Status](https://travis-ci.org/compose/transporter.svg?branch=master)](https://travis-ci.org/compose/transporter) [![Go Report Card](https://goreportcard.com/badge/github.com/compose/transporter)](https://goreportcard.com/report/github.com/compose/transporter) [![Coverage Status](https://coveralls.io/repos/github/compose/transporter/badge.svg?branch=master)](https://coveralls.io/github/compose/transporter?master)
 
 Compose helps with database transformations from one store to another.  It can also sync from one to another or several stores.
 
@@ -7,10 +7,19 @@ Transporter
 
 Build
 -----
-make sure godep is installed, `go get github.com/tools/godep` and then build with
-`godep restore`
-`godep go build -a ./cmd/...`
+```
+go build ./cmd/transporter/...
+```
 
+Adaptors
+--------
+* [elasticsearch](./pkg/adaptor/elasticsearch)
+* [etcd](./pkg/adaptor/etcd)
+* [file](./pkg/adaptor/file)
+* [mongodb](./pkg/adaptor/mongodb)
+* [postgresql](./pkg/adaptor/postgres)
+* [rethinkdb](./pkg/adaptor/rethinkdb)
+* [transformer](./pkg/adaptor/transformer)
 
 Configure
 ---------
@@ -21,7 +30,7 @@ api:
   uri: "http://requestb.in/1a0zlf11"
 nodes:
   localmongo:
-    type: mongo
+    type: mongodb
     uri: mongodb://localhost/boom
   supernick:
     type: elasticsearch
@@ -69,18 +78,13 @@ Complete beginners guide
 
 ### OS X
 
-- ensure you have mercurial installed as it is required for a dependency
-    - using the homebrew package manager `brew install hg` [Homebrew Guide/Install](http://brew.sh/)
-- install the Mac OS X binary build from https://golang.org/dl/
 - follow instructions on http://golang.org/doc/install
 - VERY IMPORTANT: Go has a required directory structure which the GOPATH needs to point to. Instructions can be found on http://golang.org/doc/code.html or by typing `go help gopath` in terminal.
 - setup the directory structure in $GOPATH
     - `cd $GOPATH; mkdir src pkg bin`
     - create the github.com path and compose `mkdir -p src/github.com/compose; cd src/github.com/compose`
     - clone transporter `git clone https://github.com/compose/transporter; cd transporter`
-    - make sure godep is installed, `go get github.com/tools/godep`
-    - run `godep restore` to get all the dependencies as specified in `Godeps.json`
-    - now you can build with `godep go build -a ./cmd/...`
+    - now you can build with `go build ./cmd/transporter/...`
 
 At this point you should be able to run transporter via `$GOPATH/bin/transporter`,  you may need to add $GOPATH to your PATH environment variable. Something along the lines of `export PATH="$GOPATH/bin:$PATH"` should work.
 

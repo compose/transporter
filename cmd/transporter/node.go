@@ -23,10 +23,10 @@ type Node struct {
 }
 
 // NewNode creates a node
-func NewNode(name, kind string, extra adaptor.Config) (node Node, err error) {
+func NewNode(name, kind string, extra adaptor.Config) (Node, error) {
 	uuid, err := uuid.NewV4()
 	if err != nil {
-		return node, err
+		return Node{}, err
 	}
 
 	return Node{UUID: uuid.String(), Name: name, Type: kind, Extra: extra, RootUUID: uuid.String(), Children: make([]*Node, 0), ParentUUID: uuid.String()}, nil

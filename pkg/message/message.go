@@ -7,100 +7,92 @@
 package message
 
 import (
+	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
 	"gopkg.in/mgo.v2/bson"
+
+	"github.com/compose/transporter/pkg/message/data"
+	"github.com/compose/transporter/pkg/message/ops"
 )
 
 // A Msg serves to wrap the actual document to
 // provide additional metadata about the document
 // being transported.
-type Msg struct {
-	Timestamp int64
-	Op        OpType
-	Data      interface{}
-	Namespace string
+type Msg interface {
+	ID() string
+	OP() ops.Op
+	Timestamp() int64
+	Data() data.Data
+	Namespace() string
 }
 
-// NewMsg returns a new Msg with the ID extracted
-// from the original document
-func NewMsg(op OpType, data interface{}, namespace string) *Msg {
-	m := &Msg{
-		Timestamp: time.Now().Unix(),
-		Op:        op,
-		Data:      data,
-		Namespace: namespace,
+// From builds a message.Msg specific to an elasticsearch document
+func From(op ops.Op, namespace string, d data.Data) Msg {
+	return &Base{
+		Operation: op,
+		TS:        time.Now().Unix(),
+		NS:        namespace,
+		MapData:   d,
 	}
-
-	return m
 }
 
-// MatchNamespace tests the message's namespace against the provided Regexp
-func (m *Msg) MatchNamespace(nsFilter *regexp.Regexp) (bool, error) {
-	_, ns, err := m.SplitNamespace()
-	if err != nil {
-		return false, err
-	}
+// Base represents a standard message format for transporter data
+// if it does not meet your need, you can embed the struct and override whatever
+// methods needed to accurately represent the data structure.
+type Base struct {
+	TS        int64
+	NS        string
+	Operation ops.Op
+	MapData   data.Data
+}
 
-	return nsFilter.MatchString(ns), nil
+// Timestamp returns the time the object was created in transporter (i.e. it has no correlation
+// with any time in the database).
+func (m *Base) Timestamp() int64 {
+	return m.TS
+}
+
+// Namespace returns the combination of database/table/colleciton for the underlying adaptor.
+func (m *Base) Namespace() string {
+	return m.NS
+}
+
+// OP returns the type of operation the message is associated with (i.e. insert/update/delete).
+func (m *Base) OP() ops.Op {
+	return m.Operation
+}
+
+// Data returns the internal representation of the document as the data.Data type
+func (m *Base) Data() data.Data {
+	return m.MapData
+}
+
+// ID will attempt to convert the _id field into a string representation
+func (m *Base) ID() string {
+	switch id := m.MapData["_id"].(type) {
+	case string:
+		return id
+	case bson.ObjectId:
+		return id.Hex()
+	default:
+		return fmt.Sprintf("%v", id)
+	}
+}
+
+// MarshalData attempts to call json.Marshal on the Msg.
+func MarshalData(m Msg) ([]byte, error) {
+	return json.Marshal(m.Data())
 }
 
 // SplitNamespace splits the nessage namespace into its constituent fields
-func (m *Msg) SplitNamespace() (string, string, error) {
-	fields := strings.SplitN(m.Namespace, ".", 2)
+func SplitNamespace(m Msg) (string, string, error) {
+	fields := strings.SplitN(m.Namespace(), ".", 2)
 
 	if len(fields) != 2 {
 		return "", "", fmt.Errorf("malformed msg namespace")
 	}
 	return fields[0], fields[1], nil
-}
-
-// IsMap returns a bool indicating whether or not the msg.Data is maplike, i.e. a map[string]interface
-// or a bson.M
-func (m *Msg) IsMap() bool {
-	switch m.Data.(type) {
-	case map[string]interface{}, bson.M:
-		return true
-	default:
-		return false
-	}
-}
-
-// Map casts the Msg.Data into a map[string]interface{}
-func (m *Msg) Map() map[string]interface{} {
-	switch d := m.Data.(type) {
-	case map[string]interface{}:
-		return d
-	case bson.M:
-		return map[string]interface{}(d)
-	default:
-		return nil
-	}
-}
-
-// IDString returns the original id as a string value
-func (m *Msg) IDString(key string) (string, error) {
-	doc := m.Map()
-	if doc == nil {
-		return "", fmt.Errorf("data is not a map")
-	}
-	id, ok := doc[key]
-	if !ok {
-		return "", fmt.Errorf("no key %s found in Data", key)
-	}
-	switch t := id.(type) {
-	case string:
-		return t, nil
-	case bson.ObjectId:
-		return t.Hex(), nil
-	case int32, int64, uint32, uint64:
-		return fmt.Sprintf("%d", t), nil
-	case float32, float64:
-		return fmt.Sprintf("%f", t), nil
-	default:
-		return fmt.Sprintf("%v", t), nil
-	}
 }
