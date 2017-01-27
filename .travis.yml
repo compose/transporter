@@ -52,9 +52,6 @@ before_script:
 after_script:
   - mongo-orchestration stop
 install: true
-branches:
-  except:
-  - master
 notifications:
   slack:
     secure: R8wvRnq0DcxiFNgUvJ3npnzY2LzU8uVyF8enqfxXNuSR3jRC2tqUosB5Qzb1CCiNicmpEwj3VTcwTozzCwcqckysFek3Pp2/oxYL8tRjqxks1zUeMHVv204l83Js8PAFVhODCQjIxZNQCdUM2fQ9q46MvdY7V8h/wGTbQKq1ZLE=
