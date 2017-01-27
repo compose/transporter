@@ -1,6 +1,9 @@
-## v0.1.2 [UNRELEASED]
+## v0.1.2 [2017-01-27]
 
-This release contains several breaking changes:
+This release is primarily aimed at getting the MongoDB and Elasticsearch adaptors into a
+stable/reliable state.
+
+### Breaking changes:
 - MongoDB adaptor SSL configuration is now defined as:
 ```yaml
 nodes:
