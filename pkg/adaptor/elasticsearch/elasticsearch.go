@@ -93,11 +93,19 @@ type Elasticsearch struct {
 
 	doneChannel chan struct{}
 	wg          sync.WaitGroup
+
+	conf Config
 }
 
 // Description for the Elasticsearcb adaptor
 func (e *Elasticsearch) Description() string {
 	return description
+}
+
+// Migrate migrates a elasticsearch based on the schema directive
+func (e *Elasticsearch) Migrate() error {
+	log.Infoln("migrating elasticsearch... %s", e.conf.Schema)
+	return nil
 }
 
 // SampleConfig for elasticsearch adaptor
@@ -119,6 +127,7 @@ func init() {
 		e := &Elasticsearch{
 			pipe:        p,
 			path:        path,
+			conf:        conf,
 			doneChannel: make(chan struct{}),
 		}
 
@@ -259,8 +268,7 @@ func determineVersion(uri string) (string, error) {
 // Config provides configuration options for an elasticsearch adaptor
 // the notable difference between this and dbConfig is the presence of the Timeout option
 type Config struct {
-	URI             string `json:"uri" doc:"the uri to connect to, in the form mongodb://user:password@host.com:27017/auth_database"`
-	Namespace       string `json:"namespace" doc:"mongo namespace to read/write"`
+	adaptor.BaseConfig
 	Timeout         string `json:"timeout" doc:"timeout for establishing connection, format must be parsable by time.ParseDuration and defaults to 10s"`
 	AWSAccessKeyID  string `json:"aws_access_key" doc:"credentials for use with AWS Elasticsearch service"`
 	AWSAccessSecret string `json:"aws_access_secret" doc:"credentials for use with AWS Elasticsearch service"`

@@ -125,10 +125,8 @@ func (r *RethinkDB) Connect() error {
 
 // Config provides custom configuration options for the RethinkDB adapter
 type Config struct {
-	URI       string `json:"uri" doc:"the uri to connect to, in the form rethink://user:password@host.example:28015/database"`
-	Namespace string `json:"namespace" doc:"rethink namespace to read/write"`
-	Debug     bool   `json:"debug" doc:"if true, verbose debugging information is displayed"`
-	Tail      bool   `json:"tail" doc:"if true, the RethinkDB table will be monitored for changes after copying the namespace"`
+	adaptor.BaseConfig
+	Tail bool `json:"tail" doc:"if true, the RethinkDB table will be monitored for changes after copying the namespace"`
 }
 
 type rethinkDbChangeNotification struct {

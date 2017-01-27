@@ -44,10 +44,9 @@ type Etcd struct {
 // Config provides configuration options for a postgres adaptor
 // the notable difference between this and dbConfig is the presence of the Tail option
 type Config struct {
-	URI       string `json:"uri" doc:"the uri to connect to, in the form TODO"`
-	Namespace string `json:"namespace" doc:"mongo namespace to read/write"`
-	Timeout   string `json:"timeout" doc:"timeout for establishing connection, format must be parsable by time.ParseDuration and defaults to 10s"`
-	Tail      bool   `json:"tail" doc:"if tail is true, then the etcd source will track changes after copying the namespace"`
+	adaptor.BaseConfig
+	Timeout string `json:"timeout" doc:"timeout for establishing connection, format must be parsable by time.ParseDuration and defaults to 10s"`
+	Tail    bool   `json:"tail" doc:"if tail is true, then the etcd source will track changes after copying the namespace"`
 }
 
 func init() {

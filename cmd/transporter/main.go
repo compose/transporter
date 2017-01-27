@@ -51,6 +51,8 @@ func main() {
 		run = runEval
 	case "about":
 		run = runAbout
+	case "migrate":
+		run = runMigrate
 	default:
 		usage()
 		os.Exit(1)

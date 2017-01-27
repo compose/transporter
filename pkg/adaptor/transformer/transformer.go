@@ -6,13 +6,13 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/compose/mejson"
 	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/message"
 	"github.com/compose/transporter/pkg/message/adaptor/transformer"
 	"github.com/compose/transporter/pkg/message/data"
 	"github.com/compose/transporter/pkg/message/ops"
 	"github.com/compose/transporter/pkg/pipe"
-	"github.com/compose/mejson"
 	"github.com/robertkrimen/otto"
 	_ "github.com/robertkrimen/otto/underscore" // enable underscore
 )
@@ -274,11 +274,8 @@ func (t *Transformer) transformerError(lvl adaptor.ErrorLevel, err error, msg me
 
 // Config holds config options for a transformer adaptor
 type Config struct {
+	adaptor.BaseConfig
 	// file containing transformer javascript
 	// must define a module.exports = function(doc) { .....; return doc }
-	Filename  string `json:"filename" doc:"the filename containing the javascript transform fn"`
-	Namespace string `json:"namespace" doc:"namespace to transform"`
-
-	// verbose output
-	Debug bool `json:"debug" doc:"display debug information"` // debug mode
+	Filename string `json:"filename" doc:"the filename containing the javascript transform fn"`
 }

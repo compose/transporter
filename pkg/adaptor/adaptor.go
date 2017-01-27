@@ -44,6 +44,11 @@ type Describable interface {
 	Description() string
 }
 
+// Migrateable describes the interface for an adaptor to have their schema migrated using the "schema" config directive.
+type Migrateable interface {
+	Migrate() error
+}
+
 // CreateAdaptor instantiates an adaptor given the adaptor type and the Config.
 // An Adaptor is expected to add themselves to the Adaptors map in the init() func
 //   func init() {
@@ -133,9 +138,10 @@ func (c *Config) CompileNamespace() (string, *regexp.Regexp, error) {
 	return field0, compiledNs, err
 }
 
-// DbConfig is a standard typed config struct to use for as general purpose config for most databases.
-type DbConfig struct {
+// BaseConfig is a standard typed config struct to use for as general purpose config for most databases.
+type BaseConfig struct {
 	URI       string `json:"uri" doc:"the uri to connect to, in the form mongo://user:password@host.com:8080/database"` // the database uri
 	Namespace string `json:"namespace" doc:"mongo namespace to read/write"`                                             // namespace
 	Debug     bool   `json:"debug" doc:"display debug information"`                                                     // debug mode
+	Schema    string `json:"schema" doc:"the schema to apply before start"`
 }

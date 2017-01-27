@@ -124,6 +124,5 @@ func (f *File) dumpMessage(msg message.Msg) (message.Msg, error) {
 
 // Config is used to configure the File Adaptor
 type Config struct {
-	// URI pointing to the resource.  We only recognize file:// and stdout:// currently
-	URI string `json:"uri" doc:"the uri to connect to, ie stdout://, file:///tmp/output"`
+	adaptor.BaseConfig
 }

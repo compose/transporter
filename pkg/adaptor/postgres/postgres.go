@@ -50,10 +50,8 @@ type Postgres struct {
 // Config provides configuration options for a postgres adaptor
 // the notable difference between this and dbConfig is the presence of the Tail option
 type Config struct {
-	URI             string `json:"uri" doc:"the uri to connect to, in the form 'user=my-user password=my-password dbname=dbname sslmode=require'"`
-	Namespace       string `json:"namespace" doc:"mongo namespace to read/write"`
+	adaptor.BaseConfig
 	Timeout         string `json:"timeout" doc:"timeout for establishing connection, format must be parsable by time.ParseDuration and defaults to 10s"`
-	Debug           bool   `json:"debug" doc:"display debug information"`
 	Tail            bool   `json:"tail" doc:"if tail is true, then the postgres source will tail the oplog after copying the namespace"`
 	ReplicationSlot string `json:"replication_slot" doc:"required if tail is true; sets the replication slot to use for logical decoding"`
 	Wc              int    `json:"wc" doc:"The write concern to use for writes, Int, indicating the minimum number of servers to write to before returning success/failure"`

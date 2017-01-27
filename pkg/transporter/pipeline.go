@@ -12,7 +12,7 @@ import (
 // A Pipeline is a the end to end description of a transporter data flow.
 // including the source, sink, and all the transformers along the way
 type Pipeline struct {
-	source        *Node
+	Source        *Node
 	emitter       events.Emitter
 	sessionStore  state.SessionStore
 	metricsTicker *time.Ticker
@@ -55,7 +55,7 @@ func NewDefaultPipeline(source *Node, uri, key, pid, version string, interval ti
 func NewPipeline(version string, source *Node, emit events.EmitFunc, interval time.Duration, sessionStore state.SessionStore, sessionInterval time.Duration) (*Pipeline, error) {
 
 	pipeline := &Pipeline{
-		source:        source,
+		Source:        source,
 		metricsTicker: time.NewTicker(interval),
 	}
 
@@ -65,7 +65,7 @@ func NewPipeline(version string, source *Node, emit events.EmitFunc, interval ti
 	}
 
 	// init the pipeline
-	err := pipeline.source.Init(interval)
+	err := pipeline.Source.Init(interval)
 	if err != nil {
 		return pipeline, err
 	}
@@ -87,22 +87,22 @@ func NewPipeline(version string, source *Node, emit events.EmitFunc, interval ti
 }
 
 func (pipeline *Pipeline) String() string {
-	return pipeline.source.String()
+	return pipeline.Source.String()
 }
 
 // Stop sends a stop signal to the emitter and all the nodes, whether they are running or not.
 // the node's database adaptors are expected to clean up after themselves, and stop will block until
 // all nodes have stopped successfully
 func (pipeline *Pipeline) Stop() {
-	endpoints := pipeline.source.Endpoints()
-	pipeline.source.Stop()
+	endpoints := pipeline.Source.Endpoints()
+	pipeline.Source.Stop()
 	if pipeline.sessionStore != nil {
 		pipeline.sessionTicker.Stop()
 	}
 
 	// pipeline has stopped, emit one last round of metrics and send the exit event
 	pipeline.emitMetrics()
-	pipeline.source.pipe.Event <- events.NewExitEvent(time.Now().UnixNano(), pipeline.version, endpoints)
+	pipeline.Source.pipe.Event <- events.NewExitEvent(time.Now().UnixNano(), pipeline.version, endpoints)
 	pipeline.emitter.Stop()
 
 	pipeline.metricsTicker.Stop()
@@ -110,16 +110,16 @@ func (pipeline *Pipeline) Stop() {
 
 // Run the pipeline
 func (pipeline *Pipeline) Run() error {
-	endpoints := pipeline.source.Endpoints()
+	endpoints := pipeline.Source.Endpoints()
 	// send a boot event
-	pipeline.source.pipe.Event <- events.NewBootEvent(time.Now().UnixNano(), pipeline.version, endpoints)
+	pipeline.Source.pipe.Event <- events.NewBootEvent(time.Now().UnixNano(), pipeline.version, endpoints)
 
 	if pipeline.sessionStore != nil {
 		pipeline.setState()
 	}
 
 	// start the source
-	err := pipeline.source.Start()
+	err := pipeline.Source.Start()
 	if err != nil && pipeline.Err == nil {
 		pipeline.Err = err // only set it if it hasn't been set already.
 	}
@@ -132,7 +132,7 @@ func (pipeline *Pipeline) Run() error {
 func (pipeline *Pipeline) startErrorListener(cherr chan error) {
 	for err := range cherr {
 		if aerr, ok := err.(adaptor.Error); ok {
-			pipeline.source.pipe.Event <- events.NewErrorEvent(time.Now().UnixNano(), aerr.Path, aerr.Record, aerr.Error())
+			pipeline.Source.pipe.Event <- events.NewErrorEvent(time.Now().UnixNano(), aerr.Path, aerr.Record, aerr.Error())
 			if aerr.Lvl == adaptor.ERROR || aerr.Lvl == adaptor.CRITICAL {
 				log.With("path", aerr.Path).Errorln(aerr)
 			}
@@ -154,7 +154,7 @@ func (pipeline *Pipeline) startMetricsGatherer() {
 // emit the metrics
 func (pipeline *Pipeline) emitMetrics() {
 	pipeline.apply(func(node *Node) {
-		pipeline.source.pipe.Event <- events.NewMetricsEvent(time.Now().UnixNano(), node.Path(), node.pipe.MessageCount)
+		pipeline.Source.pipe.Event <- events.NewMetricsEvent(time.Now().UnixNano(), node.Path(), node.pipe.MessageCount)
 	})
 }
 
@@ -186,10 +186,10 @@ func (pipeline *Pipeline) initState() {
 
 // apply maps a function f across all nodes of a pipeline
 func (pipeline *Pipeline) apply(f func(*Node)) {
-	if pipeline.source == nil {
+	if pipeline.Source == nil {
 		return
 	}
-	head := pipeline.source
+	head := pipeline.Source
 	nodes := []*Node{head}
 	for len(nodes) > 0 {
 		head, nodes = nodes[0], nodes[1:]

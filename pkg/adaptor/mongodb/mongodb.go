@@ -131,6 +131,12 @@ func (m *MongoDB) Connect() error {
 	return err
 }
 
+// Migrate migrates a mongo based on the schema directive
+func (m *MongoDB) Migrate() error {
+	log.Infoln("migrating mongodb... %s", m.conf.Schema)
+	return nil
+}
+
 // Start the adaptor as a source
 func (m *MongoDB) Start() (err error) {
 	log.With("path", m.path).Infoln("adaptor Starting...")
@@ -203,13 +209,12 @@ func (m *MongoDB) computeNamespace(collection string) string {
 // Config provides configuration options for a mongodb adaptor
 // the notable difference between this and dbConfig is the presence of the Tail option
 type Config struct {
-	URI       string   `json:"uri" doc:"the uri to connect to, in the form mongodb://user:password@host.com:27017/auth_database"`
-	Namespace string   `json:"namespace" doc:"mongo namespace to read/write"`
-	SSL       bool     `json:"ssl" doc:"ssl options for connection"`
-	CACerts   []string `json:"cacerts" doc:"array of root CAs to use in order to verify the server certificates"`
-	Timeout   string   `json:"timeout" doc:"timeout for establishing connection, format must be parsable by time.ParseDuration and defaults to 10s"`
-	Tail      bool     `json:"tail" doc:"if tail is true, then the mongodb source will tail the oplog after copying the namespace"`
-	Wc        int      `json:"wc" doc:"The write concern to use for writes, Int, indicating the minimum number of servers to write to before returning success/failure"`
-	FSync     bool     `json:"fsync" doc:"When writing, should we flush to disk before returning success"`
-	Bulk      bool     `json:"bulk" doc:"use a buffer to bulk insert documents"`
+	adaptor.BaseConfig
+	SSL     bool     `json:"ssl" doc:"ssl options for connection"`
+	CACerts []string `json:"cacerts" doc:"array of root CAs to use in order to verify the server certificates"`
+	Timeout string   `json:"timeout" doc:"timeout for establishing connection, format must be parsable by time.ParseDuration and defaults to 10s"`
+	Tail    bool     `json:"tail" doc:"if tail is true, then the mongodb source will tail the oplog after copying the namespace"`
+	Wc      int      `json:"wc" doc:"The write concern to use for writes, Int, indicating the minimum number of servers to write to before returning success/failure"`
+	FSync   bool     `json:"fsync" doc:"When writing, should we flush to disk before returning success"`
+	Bulk    bool     `json:"bulk" doc:"use a buffer to bulk insert documents"`
 }
