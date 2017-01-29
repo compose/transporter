@@ -30,7 +30,7 @@ api:
   uri: "http://requestb.in/1a0zlf11"
 nodes:
   localmongo:
-    type: mongo
+    type: mongodb
     uri: mongodb://localhost/boom
   supernick:
     type: elasticsearch
