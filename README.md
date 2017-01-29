@@ -30,7 +30,7 @@ api:
   uri: "http://requestb.in/1a0zlf11"
 nodes:
   localmongo:
-    type: mongodb
+    type: mongo
     uri: mongodb://localhost/boom
   supernick:
     type: elasticsearch
@@ -118,10 +118,6 @@ Contributing to Transporter
 
 Want to help out with Transporter? Great! There are instructions to get you
 started [here](CONTRIBUTING.md).
-
-IRC
-=========
-Want to talk about Transporter? Join us in #compose on irc.freenode.net!
 
 Licensing
 =========
