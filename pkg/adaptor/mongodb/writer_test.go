@@ -27,7 +27,7 @@ var optests = []struct {
 }
 
 func TestOpFunc(t *testing.T) {
-	w := newWriter()
+	w := newWriter("test")
 	for _, ot := range optests {
 		if _, ok := w.writeMap[ot.op]; ok != ot.registered {
 			t.Errorf("op (%s) registration incorrect, expected %+v, got %+v\n", ot.op.String(), ot.registered, ok)
@@ -81,7 +81,7 @@ func TestInsert(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping Insert in short mode")
 	}
-	w := newWriter()
+	w := newWriter(writerTestData.DB)
 	for _, it := range inserttests {
 		for _, data := range it.data {
 			msg := message.From(ops.Insert, fmt.Sprintf("%s.%s", writerTestData.DB, it.collection), data)
@@ -130,7 +130,7 @@ func TestUpdate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping Update in short mode")
 	}
-	w := newWriter()
+	w := newWriter(writerTestData.DB)
 	for _, ut := range updatetests {
 		ns := fmt.Sprintf("%s.%s", writerTestData.DB, ut.collection)
 		// Insert data
@@ -176,7 +176,7 @@ func TestDelete(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping Update in short mode")
 	}
-	w := newWriter()
+	w := newWriter(writerTestData.DB)
 	for _, dt := range deletetests {
 		ns := fmt.Sprintf("%s.%s", writerTestData.DB, dt.collection)
 		// Insert data
@@ -224,7 +224,7 @@ func TestRestartWrites(t *testing.T) {
 		log.Errorf("failed to drop database (%s), may affect tests!, %s", writerTestData.DB, dropErr)
 	}
 
-	w := newWriter()
+	w := newWriter(writerTestData.DB)
 	done := make(chan struct{})
 	go func() {
 		for {

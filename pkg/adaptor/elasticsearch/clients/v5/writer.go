@@ -23,6 +23,7 @@ var (
 // Writer implements client.Writer and client.Session for sending requests to an elasticsearch
 // cluster via its _bulk API.
 type Writer struct {
+	index  string
 	bp     *elastic.BulkProcessor
 	logger log.Logger
 }
@@ -46,6 +47,7 @@ func init() {
 			return nil, err
 		}
 		w := &Writer{
+			index:  opts.Index,
 			logger: log.With("writer", "elasticsearch").With("version", 5).With("path", opts.Path),
 		}
 		p, err := esClient.BulkProcessor().
@@ -68,7 +70,7 @@ func init() {
 
 func (w *Writer) Write(msg message.Msg) func(client.Session) error {
 	return func(s client.Session) error {
-		i, t, _ := message.SplitNamespace(msg)
+		indexType := msg.Namespace()
 		var id string
 		if _, ok := msg.Data()["_id"]; ok {
 			id = msg.ID()
@@ -81,11 +83,11 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) error {
 			// we need to flush any pending writes here or this could fail because we're using
 			// more than 1 worker
 			w.bp.Flush()
-			br = elastic.NewBulkDeleteRequest().Index(i).Type(t).Id(id)
+			br = elastic.NewBulkDeleteRequest().Index(w.index).Type(indexType).Id(id)
 		case ops.Insert:
-			br = elastic.NewBulkIndexRequest().Index(i).Type(t).Id(id).Doc(msg.Data())
+			br = elastic.NewBulkIndexRequest().Index(w.index).Type(indexType).Id(id).Doc(msg.Data())
 		case ops.Update:
-			br = elastic.NewBulkUpdateRequest().Index(i).Type(t).Id(id).Doc(msg.Data())
+			br = elastic.NewBulkUpdateRequest().Index(w.index).Type(indexType).Id(id).Doc(msg.Data())
 		}
 		w.bp.Add(br)
 		return nil

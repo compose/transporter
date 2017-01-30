@@ -18,6 +18,7 @@ import (
 const (
 	defaultURL   = "http://127.0.0.1:9200"
 	defaultIndex = "test_v5"
+	testType     = "test"
 )
 
 var (
@@ -26,10 +27,6 @@ var (
 
 func fullURL(suffix string) string {
 	return fmt.Sprintf("%s/%s%s", testURL, defaultIndex, suffix)
-}
-
-func testNS() string {
-	return fmt.Sprintf("%s.%s", defaultIndex, "test")
 }
 
 func setup() error {
@@ -75,13 +72,14 @@ func TestWriter(t *testing.T) {
 		URLs:       []string{testURL},
 		HTTPClient: http.DefaultClient,
 		Path:       defaultIndex,
+		Index:      defaultIndex,
 	}
 	vc := clients.Clients["v5"]
 	w, _ := vc.Creator(done, &wg, opts)
-	w.Write(message.From(ops.Insert, testNS(), map[string]interface{}{"hello": "world"}))(nil)
-	w.Write(message.From(ops.Insert, testNS(), map[string]interface{}{"_id": "booya", "hello": "world"}))(nil)
-	w.Write(message.From(ops.Update, testNS(), map[string]interface{}{"_id": "booya", "hello": "goodbye"}))(nil)
-	w.Write(message.From(ops.Delete, testNS(), map[string]interface{}{"_id": "booya", "hello": "goodbye"}))(nil)
+	w.Write(message.From(ops.Insert, testType, map[string]interface{}{"hello": "world"}))(nil)
+	w.Write(message.From(ops.Insert, testType, map[string]interface{}{"_id": "booya", "hello": "world"}))(nil)
+	w.Write(message.From(ops.Update, testType, map[string]interface{}{"_id": "booya", "hello": "goodbye"}))(nil)
+	w.Write(message.From(ops.Delete, testType, map[string]interface{}{"_id": "booya", "hello": "goodbye"}))(nil)
 	close(done)
 	wg.Wait()
 

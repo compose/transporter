@@ -71,15 +71,6 @@ func (e VersionError) Error() string {
 	return fmt.Sprintf("%s running %s, %s", e.uri, e.v, e.err)
 }
 
-// InvalidTimeoutError wraps the underlying error when the provided is not parsable time.ParseDuration
-// type InvalidTimeoutError struct {
-// 	timeout string
-// }
-//
-// func (e InvalidTimeoutError) Error() string {
-// 	return fmt.Sprintf("Invalid Timeout, %s", e.timeout)
-// }
-
 // Elasticsearch is an adaptor to connect a pipeline to
 // an elasticsearch cluster.
 type Elasticsearch struct {
@@ -164,22 +155,17 @@ func (e *Elasticsearch) Stop() error {
 }
 
 func (e *Elasticsearch) applyOp(msg message.Msg) (message.Msg, error) {
-	_, msgColl, _ := message.SplitNamespace(msg)
 	msgCopy := make(map[string]interface{})
 	// Copy from the original map to the target map
 	for key, value := range msg.Data() {
 		msgCopy[key] = value
 	}
-	err := e.client.Write(message.From(msg.OP(), e.computeNamespace(msgColl), msgCopy))(nil)
+	err := e.client.Write(message.From(msg.OP(), msg.Namespace(), msgCopy))(nil)
 
 	if err != nil {
 		e.pipe.Err <- adaptor.NewError(adaptor.ERROR, e.path, fmt.Sprintf("write message error (%s)", err), msg.Data)
 	}
 	return msg, err
-}
-
-func (e *Elasticsearch) computeNamespace(Type string) string {
-	return fmt.Sprintf("%s.%s", e.index, Type)
 }
 
 func (e *Elasticsearch) setupClient(conf Config) error {
@@ -221,6 +207,7 @@ func (e *Elasticsearch) setupClient(conf Config) error {
 				UserInfo:   uri.User,
 				HTTPClient: httpClient,
 				Path:       e.path,
+				Index:      e.index,
 			}
 			versionedClient, _ := vc.Creator(e.doneChannel, &e.wg, opts)
 			e.client = versionedClient

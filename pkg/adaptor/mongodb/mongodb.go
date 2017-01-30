@@ -75,13 +75,13 @@ func init() {
 			pipe:            p,
 			path:            path,
 			conf:            conf,
-			writer:          newWriter(),
+			writer:          newWriter(db),
 			reader:          newReader(db),
 			doneChannel:     make(chan struct{}),
 		}
 
 		if conf.Bulk {
-			m.writer = newBulker(m.doneChannel, &m.wg)
+			m.writer = newBulker(db, m.doneChannel, &m.wg)
 		}
 
 		if conf.Tail {
@@ -180,8 +180,7 @@ func (m *MongoDB) Stop() error {
 
 // writeMessage writes one message to the destination mongo, or sends an error down the pipe
 func (m *MongoDB) writeMessage(msg message.Msg) (message.Msg, error) {
-	_, msgColl, _ := message.SplitNamespace(msg)
-	err := client.Write(m.client, m.writer, message.From(msg.OP(), m.computeNamespace(msgColl), msg.Data()))
+	err := client.Write(m.client, m.writer, message.From(msg.OP(), msg.Namespace(), msg.Data()))
 
 	if err != nil {
 		m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("write message error (%s)", err), msg.Data)
@@ -194,10 +193,6 @@ func (m *MongoDB) collectionFilter(collection string) bool {
 		return false
 	}
 	return m.collectionMatch.MatchString(collection)
-}
-
-func (m *MongoDB) computeNamespace(collection string) string {
-	return fmt.Sprintf("%s.%s", m.database, collection)
 }
 
 // Config provides configuration options for a mongodb adaptor

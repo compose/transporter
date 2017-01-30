@@ -39,31 +39,19 @@ func (r Adaptor) From(op ops.Op, namespace string, d data.Data) message.Msg {
 }
 
 func (r Adaptor) Insert(m message.Msg) error {
-	_, msgTable, err := message.SplitNamespace(m)
-	if err != nil {
-		return err
-	}
-	resp, err := gorethink.Table(msgTable).Insert(m.Data()).RunWrite(r.conn)
+	resp, err := gorethink.Table(m.Namespace()).Insert(m.Data()).RunWrite(r.conn)
 	err = handleResponse(&resp)
 	return err
 }
 
 func (r Adaptor) Delete(m message.Msg) error {
-	_, msgTable, err := message.SplitNamespace(m)
-	if err != nil {
-		return err
-	}
-	resp, err := gorethink.Table(msgTable).Get(m.ID()).Delete().RunWrite(r.conn)
+	resp, err := gorethink.Table(m.Namespace()).Get(m.ID()).Delete().RunWrite(r.conn)
 	err = handleResponse(&resp)
 	return err
 }
 
 func (r Adaptor) Update(m message.Msg) error {
-	_, msgTable, err := message.SplitNamespace(m)
-	if err != nil {
-		return err
-	}
-	resp, err := gorethink.Table(msgTable).Insert(m.Data(), gorethink.InsertOpts{Conflict: "replace"}).RunWrite(r.conn)
+	resp, err := gorethink.Table(m.Namespace()).Insert(m.Data(), gorethink.InsertOpts{Conflict: "replace"}).RunWrite(r.conn)
 	err = handleResponse(&resp)
 	return err
 }

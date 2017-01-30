@@ -42,7 +42,7 @@ func checkBulkCount(c string, countQuery bson.M, expectedCount int, t *testing.T
 func TestBulkWrite(t *testing.T) {
 	var wg sync.WaitGroup
 	done := make(chan struct{})
-	b := newBulker(done, &wg)
+	b := newBulker(bulkTestData.DB, done, &wg)
 
 	ns := fmt.Sprintf("%s.%s", bulkTestData.DB, bulkTestData.C)
 	for _, bt := range bulkTests {
@@ -62,7 +62,7 @@ func TestBulkWrite(t *testing.T) {
 func TestBulkWriteMixedOps(t *testing.T) {
 	var wg sync.WaitGroup
 	done := make(chan struct{})
-	b := newBulker(done, &wg)
+	b := newBulker(bulkTestData.DB, done, &wg)
 
 	mixedModeC := "mixed_mode"
 	ns := fmt.Sprintf("%s.%s", bulkTestData.DB, mixedModeC)
@@ -89,7 +89,7 @@ func TestBulkWriteMixedOps(t *testing.T) {
 func TestBulkOpCount(t *testing.T) {
 	var wg sync.WaitGroup
 	done := make(chan struct{})
-	b := newBulker(done, &wg)
+	b := newBulker(bulkTestData.DB, done, &wg)
 
 	ns := fmt.Sprintf("%s.%s", bulkTestData.DB, "bar")
 	for i := 0; i < maxObjSize; i++ {
@@ -104,7 +104,7 @@ func TestBulkOpCount(t *testing.T) {
 func TestFlushOnDone(t *testing.T) {
 	var wg sync.WaitGroup
 	done := make(chan struct{})
-	b := newBulker(done, &wg)
+	b := newBulker(bulkTestData.DB, done, &wg)
 
 	ns := fmt.Sprintf("%s.%s", bulkTestData.DB, "baz")
 	for i := 0; i < testBulkMsgCount; i++ {
@@ -119,7 +119,7 @@ func TestFlushOnDone(t *testing.T) {
 func TestBulkMulitpleCollections(t *testing.T) {
 	var wg sync.WaitGroup
 	done := make(chan struct{})
-	b := newBulker(done, &wg)
+	b := newBulker(bulkTestData.DB, done, &wg)
 
 	ns1 := fmt.Sprintf("%s.%s", bulkTestData.DB, "multi_a")
 	ns2 := fmt.Sprintf("%s.%s", bulkTestData.DB, "multi_b")
@@ -142,10 +142,10 @@ func TestBulkMulitpleCollections(t *testing.T) {
 
 func TestBulkSize(t *testing.T) {
 	b := &Bulk{
+		db:      bulkTestData.DB,
 		bulkMap: make(map[string]*bulkOperation),
 		RWMutex: &sync.RWMutex{},
 	}
-	ns := fmt.Sprintf("%s.%s", bulkTestData.DB, "size")
 	var bsonSize int
 	for i := 0; i < (maxObjSize - 1); i++ {
 		doc := map[string]interface{}{"i": randStr(2), "rand": randStr(16)}
@@ -156,7 +156,7 @@ func TestBulkSize(t *testing.T) {
 		}
 		bsonSize += (len(bs) + 4)
 
-		msg := message.From(ops.Insert, ns, doc)
+		msg := message.From(ops.Insert, "size", doc)
 		b.Write(msg)(defaultSession)
 	}
 	bOp := b.bulkMap["size"]
