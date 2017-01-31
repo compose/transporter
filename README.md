@@ -119,10 +119,6 @@ Contributing to Transporter
 Want to help out with Transporter? Great! There are instructions to get you
 started [here](CONTRIBUTING.md).
 
-IRC
-=========
-Want to talk about Transporter? Join us in #compose on irc.freenode.net!
-
 Licensing
 =========
 Transporter is licensed under the New BSD License. See LICENSE for full license text.
