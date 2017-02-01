@@ -22,7 +22,7 @@ echo
 set DISTDIR dist/v$VERSION
 mkdir -p $DISTDIR
 
-for pair in linux/amd64 darwin/amd64 dragonfly/amd64 freebsd/amd64 netbsd/amd64 openbsd/amd64
+for pair in linux/amd64 darwin/amd64 dragonfly/amd64 freebsd/amd64 netbsd/amd64 openbsd/amd64 windows/amd64
 	set GOOS   (echo $pair | cut -d'/' -f1)
 	set GOARCH (echo $pair | cut -d'/' -f2)
 	set BIN    $DISTDIR/transporter-$VERSION-$GOOS-$GOARCH
