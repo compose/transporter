@@ -10,7 +10,6 @@ import (
 )
 
 var (
-	defaultTestURI    = DefaultURI
 	defaultTestClient = &Client{
 		uri:            DefaultURI,
 		db:             DefaultDatabase,

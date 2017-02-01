@@ -22,6 +22,7 @@ type counter struct {
 
 func (c *counter) countEmitter() EmitFunc {
 	return EmitFunc(func(event Event) error {
+		time.Sleep(100 * time.Millisecond)
 		atomic.AddInt64(&c.emitCount, 1)
 		return nil
 	})

@@ -17,7 +17,7 @@ type Client interface {
 type Session interface {
 }
 
-// Closer represents the ability to Close an underlying connection.
+// Closer provides a standard interface for closing a client or session
 type Closer interface {
 	Close()
 }
