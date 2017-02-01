@@ -3,55 +3,42 @@ package etcd
 import (
 	"fmt"
 	"regexp"
-	"strings"
-	"time"
-
-	log "github.com/Sirupsen/logrus"
-	"golang.org/x/net/context"
+	"sync"
 
 	"github.com/compose/transporter/pkg/adaptor"
+	"github.com/compose/transporter/pkg/client"
+	"github.com/compose/transporter/pkg/log"
 	"github.com/compose/transporter/pkg/message"
-	"github.com/compose/transporter/pkg/message/adaptor/etcd"
-	"github.com/compose/transporter/pkg/message/data"
-	"github.com/compose/transporter/pkg/message/ops"
 	"github.com/compose/transporter/pkg/pipe"
-	"github.com/coreos/etcd/client"
+)
+
+var (
+	_ adaptor.Describable = &Etcd{}
 )
 
 // Etcd is an adaptor to read / write to Etcd.
 // it works as a source by copying files, and then optionally watching all keys
 type Etcd struct {
+	client client.Client
+	reader client.Reader
+	writer client.Writer
+
 	// pull these in from the node
-	uri  string
 	tail bool // run the tail oplog
 
 	// save time by setting these once
-	tableMatch *regexp.Regexp
-	database   string
+	rootKey     string
+	subKeyMatch *regexp.Regexp
 
-	//
 	pipe *pipe.Pipe
 	path string
 
-	//
-	stopped bool
-
-	// etcd connection and options
-	session        client.Client
-	sessionTimeout time.Duration
-}
-
-// Config provides configuration options for a postgres adaptor
-// the notable difference between this and dbConfig is the presence of the Tail option
-type Config struct {
-	URI       string `json:"uri" doc:"the uri to connect to, in the form TODO"`
-	Namespace string `json:"namespace" doc:"mongo namespace to read/write"`
-	Timeout   string `json:"timeout" doc:"timeout for establishing connection, format must be parsable by time.ParseDuration and defaults to 10s"`
-	Tail      bool   `json:"tail" doc:"if tail is true, then the etcd source will track changes after copying the namespace"`
+	doneChannel chan struct{}
+	wg          sync.WaitGroup
 }
 
 func init() {
-	adaptor.Add("etcd", func(ppipe *pipe.Pipe, path string, extra adaptor.Config) (adaptor.Adaptor, error) {
+	adaptor.Add("etcd", func(pipe *pipe.Pipe, path string, extra adaptor.Config) (adaptor.Adaptor, error) {
 		var (
 			conf Config
 			err  error
@@ -64,24 +51,28 @@ func init() {
 			return nil, fmt.Errorf("both endpoints and namespace required, but missing ")
 		}
 		e := &Etcd{
-			sessionTimeout: time.Second * 10,
-			pipe:           ppipe,
-			uri:            conf.URI,
-			tail:           conf.Tail,
-			path:           path,
+			pipe:        pipe,
+			tail:        conf.Tail,
+			path:        path,
+			doneChannel: make(chan struct{}),
 		}
-		e.database, e.tableMatch, err = extra.CompileNamespace()
+
+		e.rootKey, e.subKeyMatch, err = extra.CompileNamespace()
 		if err != nil {
-			return e, err
+			return nil, err
 		}
-		if conf.Timeout != "" {
-			t, err := time.ParseDuration(conf.Timeout)
-			if err != nil {
-				log.Printf("error parsing timeout, defaulting to 10s, %v", err)
-			} else {
-				e.sessionTimeout = t
-			}
+
+		e.client, err = NewClient(
+			WithURI(conf.URI),
+			WithTimeout(conf.Timeout),
+		)
+		if err != nil {
+			return nil, err
 		}
+
+		e.reader = newReader(e.rootKey)
+		e.writer = newWriter(e.rootKey)
+
 		return e, nil
 	})
 }
@@ -102,107 +93,81 @@ func (e *Etcd) SampleConfig() string {
 	return sampleConfig
 }
 
+// Connect fulfills the Connectable interface
 func (e *Etcd) Connect() error {
-	cfg := client.Config{
-		Endpoints: strings.Split(e.uri, ","),
-		Transport: client.DefaultTransport,
-		// set timeout per request to fail fast when the target endpoint is unavailable
-		HeaderTimeoutPerRequest: time.Second * 5,
-	}
-	var err error
-	e.session, err = client.New(cfg)
-	if err != nil {
-		return fmt.Errorf("unable to make etcd session (%v), %v\n", e.uri, err)
-	}
-	return nil
+	_, err := e.client.Connect()
+	return err
 }
 
 // Start the adaptor as a source
 func (e *Etcd) Start() (err error) {
+	log.With("path", e.path).Infoln("adaptor Starting...")
 	defer func() {
 		e.pipe.Stop()
 	}()
 
-	err = e.catData()
+	s, err := e.client.Connect()
 	if err != nil {
-		e.pipe.Err <- err
-		return fmt.Errorf("Error connecting to etcd: %v", err)
+		return err
 	}
-	if e.tail {
-		err = e.tailData()
-		if err != nil {
-			e.pipe.Err <- err
-			return err
-		}
+	readFunc := e.reader.Read(e.keyFilter)
+	msgChan, err := readFunc(s, e.doneChannel)
+	if err != nil {
+		return err
 	}
-	return
+	for msg := range msgChan {
+		e.pipe.Send(msg)
+	}
+
+	log.With("path", e.path).Infoln("adaptor Start finished...")
+	return nil
 }
 
 // Listen starts the pipe's listener
 func (e *Etcd) Listen() (err error) {
+	log.With("path", e.path).Infoln("adaptor Listening...")
 	defer func() {
+		log.With("path", e.path).Infoln("adaptor Listen closing...")
 		e.pipe.Stop()
 	}()
 
-	return e.pipe.Listen(e.writeMessage, e.tableMatch)
+	return e.pipe.Listen(e.writeMessage, e.subKeyMatch)
 }
 
 // Stop the adaptor
 func (e *Etcd) Stop() error {
+	log.With("path", e.path).Infoln("adaptor Stopping...")
 	e.pipe.Stop()
-	e.stopped = true
+
+	close(e.doneChannel)
+	e.wg.Wait()
+
+	log.With("path", e.path).Infoln("adaptor Stopped")
 	return nil
+}
+
+func (e *Etcd) keyFilter(key string) bool {
+	return e.subKeyMatch.MatchString(key)
 }
 
 // writeMessage writes one message to the destination Postgres, or sends an error down the pipe
 // TODO this can be cleaned up.  I'm not sure whether this should pipe the error, or whether the
-//   caller should pipe the error
+// caller should pipe the error
 func (e *Etcd) writeMessage(msg message.Msg) (message.Msg, error) {
-	m, err := message.Exec(message.MustUseAdaptor("etcd").(etcd.Adaptor).UseClient(e.session), msg)
+	_, ns, _ := message.SplitNamespace(msg)
+	err := client.Write(e.client, e.writer, message.From(msg.OP(), fmt.Sprintf(".%s", ns), msg.Data()))
+
 	if err != nil {
-		e.pipe.Err <- adaptor.NewError(adaptor.ERROR, e.path, fmt.Sprintf("etcd error (%v)", err), msg.Data())
+		e.pipe.Err <- adaptor.NewError(adaptor.ERROR, e.path, fmt.Sprintf("write message error (%s)", err), msg.Data)
 	}
-
-	return m, err
+	return msg, err
 }
 
-// catdata pulls down the original tables
-func (e *Etcd) catData() error {
-	kc := client.NewKeysAPI(e.session)
-	resp, err := kc.Get(context.Background(), "/", &client.GetOptions{Recursive: true})
-	if err != nil {
-		return err
-	}
-	err = e.copyNode(resp.Node)
-	return err
-}
-
-func (e *Etcd) copyNode(n *client.Node) error {
-	_, err := e.writeMessage(message.MustUseAdaptor("etcd").From(ops.Insert, fmt.Sprintf("%s.%s", n.Key, n.String()), data.Data{n.Key: n.String()}))
-	for _, node := range n.Nodes {
-		err = e.copyNode(node)
-		if err != nil {
-			return err
-		}
-	}
-	return err
-}
-
-// tail the logical data
-func (e *Etcd) tailData() error {
-	kc := client.NewKeysAPI(e.session)
-	watcher := kc.Watcher("/", &client.WatcherOptions{Recursive: true})
-	for {
-		if e.stopped {
-			return nil
-		}
-		resp, err := watcher.Next(context.Background())
-		if err != nil {
-			return err
-		}
-		err = e.copyNode(resp.Node)
-		if err != nil {
-			return err
-		}
-	}
+// Config provides configuration options for a postgres adaptor
+// the notable difference between this and dbConfig is the presence of the Tail option
+type Config struct {
+	URI       string `json:"uri" doc:"the uri to connect to, in the form TODO"`
+	Namespace string `json:"namespace" doc:"etcd namespace to read/write"`
+	Timeout   string `json:"timeout" doc:"timeout for sending requests, format must be parsable by time.ParseDuration and defaults to 5s"`
+	Tail      bool   `json:"tail" doc:"if tail is true, then the etcd source will track changes after copying the namespace"`
 }

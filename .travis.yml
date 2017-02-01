@@ -10,6 +10,8 @@ env:
     - ES_V2_URL=http://127.0.0.1:9202
     - ES_V1_URL=http://127.0.0.1:9201
     - EASYRSA_VARS_FILE=$HOME/gopath/src/github.com/compose/transporter/scripts/vars
+    - ETCD_VER=v3.1.0
+    - ETCD_DOWNLOAD_URL=https://github.com/coreos/etcd/releases/download
 before_install:
   - go get github.com/mattn/goveralls
   - pip install "mongo-orchestration>=0.6.7,<1.0"
@@ -17,6 +19,9 @@ before_install:
   - tar xfz mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION.tgz
   - export PATH=`pwd`/mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION/bin:$PATH
   - mongod --version
+  - curl -L ${ETCD_DOWNLOAD_URL}/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz -o /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz
+  - mkdir -p /tmp/test-etcd && tar xzvf /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz -C /tmp/test-etcd --strip-components=1
+  - /tmp/test-etcd/etcd --version
 cache:
   directories:
     - $HOME/.cache/pip
@@ -49,6 +54,9 @@ before_script:
   - cp -r config/mongodb/certs/* /tmp/mongodb/
   - mongo-orchestration start -p 20000 -b 127.0.0.1
   - ./scripts/setup_mongodb.sh
+  - /tmp/test-etcd/etcd >& /dev/null &
+  - sleep 5
+  - curl -sS http://127.0.0.1:2379/version
 after_script:
   - mongo-orchestration stop
 install: true
