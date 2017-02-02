@@ -17,18 +17,15 @@ import (
 const (
 	description = "a mongodb adaptor that functions as both a source and a sink"
 
-	sampleConfig = `
-	- localmongo:
-	    type: mongodb
-	    uri: mongodb://127.0.0.1:27017/test
-      # timeout: 30s
-      # tail: false
-      # ssl: false
-      # cacerts: ["/path/to/cert.pem"]
-      # wc: 1
-      # fsync: false
-      # bulk: false
-	`
+	sampleConfig = `    type: mongodb
+    uri: ${MONGODB_URI} 
+    # timeout: 30s
+    # tail: false
+    # ssl: false
+    # cacerts: ["/path/to/cert.pem"]
+    # wc: 1
+    # fsync: false
+    # bulk: false`
 )
 
 // Config provides configuration options for a mongodb adaptor

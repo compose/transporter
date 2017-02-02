@@ -13,15 +13,12 @@ import (
 )
 
 const (
-	sampleConfig = `
-	- rethink:
-	    type: rethinkdb
-	    uri: rethink://127.0.0.1:28015
-			# timeout: 30s
-      # tail: false
-      # ssl: false
-      # cacerts: ["/path/to/cert.pem"]
-	`
+	sampleConfig = `    type: rethinkdb
+    uri: ${RETHINKDB_URI}
+    # timeout: 30s
+    # tail: false
+    # ssl: false
+    # cacerts: ["/path/to/cert.pem"]`
 
 	description = "a rethinkdb adaptor that functions as both a source and a sink"
 )
@@ -139,6 +136,11 @@ func (r *RethinkDB) Start() error {
 
 // Listen start's the adaptor's listener
 func (r *RethinkDB) Listen() (err error) {
+	log.With("path", r.path).Infoln("adaptor Listening...")
+	defer func() {
+		log.With("path", r.path).Infoln("adaptor Listen closing...")
+		r.pipe.Stop()
+	}()
 	return r.pipe.Listen(r.applyOp, r.tableMatch)
 }
 

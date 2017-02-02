@@ -236,7 +236,7 @@ func TestRestartWrites(t *testing.T) {
 
 	for i := 0; i < restartCount; i++ {
 		time.Sleep(100 * time.Millisecond)
-		msg := message.From(ops.Insert, fmt.Sprintf("%s.%s", writerTestData.DB, restartColl), map[string]interface{}{"i": i})
+		msg := message.From(ops.Insert, restartColl, map[string]interface{}{"i": i})
 		if wErr := w.Write(msg)(session); wErr != nil {
 			t.Errorf("unexpected Insert error, %s\n", wErr)
 		}

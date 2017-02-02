@@ -27,6 +27,7 @@ func usage() {
 	fmt.Fprintf(os.Stderr, "  test      display the compiled nodes without starting a pipeline\n")
 	fmt.Fprintf(os.Stderr, "  eval      eval javascript to build and run a transporter application\n")
 	fmt.Fprintf(os.Stderr, "  about     show information about available adaptors\n")
+	fmt.Fprintf(os.Stderr, "  init      initialize a config and pipeline file based from provided adaptors\n")
 	fmt.Fprintf(os.Stderr, "\n")
 	fmt.Fprintf(os.Stderr, "VERSION\n")
 	fmt.Fprintf(os.Stderr, "  %s\n", version)
@@ -51,6 +52,8 @@ func main() {
 		run = runEval
 	case "about":
 		run = runAbout
+	case "init":
+		run = runInit
 	default:
 		usage()
 		os.Exit(1)

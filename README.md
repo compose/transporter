@@ -71,6 +71,7 @@ Run
 - run `transporter run --config ./test/config.yaml ./test/application.js`
 - eval `transporter eval --config ./test/config.yaml 'Source({name:"localmongo", namespace: "boom.foo"}).save({name:"tofile"})' `
 - test `transporter test --config ./test/config.yaml test/application.js `
+- init `transporter init mongodb mongodb`
 
 Complete beginners guide
 ---

@@ -4,6 +4,7 @@
 
 ### Features
 - RethinkDB SSL support added in [#268](https://github.com/compose/transporter/pull/268)
+- `transporter init [source] [sink]` command added in [#279](https://github.com/compose/transporter/pull/279)
 
 ### Bugfixes
 
