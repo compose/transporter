@@ -2,6 +2,7 @@ package etcd
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"golang.org/x/net/context"
@@ -40,11 +41,8 @@ func (r Adaptor) From(op ops.Op, namespace string, d data.Data) message.Msg {
 }
 
 func genKey(m message.Msg, dataKey string) (string, error) {
-	key, ns, err := message.SplitNamespace(m)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("/%s/%s/%s", key, ns, dataKey), nil
+	keyAndNs := strings.Split(m.Namespace(), ".")
+	return fmt.Sprintf("/%s/%s/%s", keyAndNs[0], keyAndNs[1], dataKey), nil
 }
 
 func (r Adaptor) Insert(m message.Msg) error {

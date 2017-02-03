@@ -57,6 +57,9 @@ func (m *Base) Timestamp() int64 {
 
 // Namespace returns the combination of database/table/colleciton for the underlying adaptor.
 func (m *Base) Namespace() string {
+	if strings.Contains(m.NS, ".") {
+		return strings.Split(m.NS, ".")[1]
+	}
 	return m.NS
 }
 
@@ -85,14 +88,4 @@ func (m *Base) ID() string {
 // MarshalData attempts to call json.Marshal on the Msg.
 func MarshalData(m Msg) ([]byte, error) {
 	return json.Marshal(m.Data())
-}
-
-// SplitNamespace splits the nessage namespace into its constituent fields
-func SplitNamespace(m Msg) (string, string, error) {
-	fields := strings.SplitN(m.Namespace(), ".", 2)
-
-	if len(fields) != 2 {
-		return "", "", fmt.Errorf("malformed msg namespace")
-	}
-	return fields[0], fields[1], nil
 }

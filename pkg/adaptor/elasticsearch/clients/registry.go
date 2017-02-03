@@ -33,4 +33,5 @@ type ClientOptions struct {
 	UserInfo   *url.Userinfo
 	HTTPClient *http.Client
 	Path       string
+	Index      string
 }

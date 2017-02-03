@@ -22,6 +22,7 @@ var (
 // Writer implements client.Writer and client.Session for sending requests to an elasticsearch
 // cluster in individual requests.
 type Writer struct {
+	index    string
 	esClient *elastic.Client
 	logger   log.Logger
 }
@@ -45,6 +46,7 @@ func init() {
 			return nil, err
 		}
 		w := &Writer{
+			index:    opts.Index,
 			esClient: esClient,
 			logger:   log.With("path", opts.Path).With("writer", "elasticsearch").With("version", 1),
 		}
@@ -56,7 +58,7 @@ func init() {
 
 func (w *Writer) Write(msg message.Msg) func(client.Session) error {
 	return func(s client.Session) error {
-		i, t, _ := message.SplitNamespace(msg)
+		indexType := msg.Namespace()
 		var id string
 		if _, ok := msg.Data()["_id"]; ok {
 			id = msg.ID()
@@ -65,11 +67,11 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) error {
 		var err error
 		switch msg.OP() {
 		case ops.Delete:
-			_, err = w.esClient.Delete().Index(i).Type(t).Id(id).Do(context.TODO())
+			_, err = w.esClient.Delete().Index(w.index).Type(indexType).Id(id).Do(context.TODO())
 		case ops.Insert:
-			_, err = w.esClient.Index().Index(i).Type(t).Id(id).BodyJson(msg.Data()).Do(context.TODO())
+			_, err = w.esClient.Index().Index(w.index).Type(indexType).Id(id).BodyJson(msg.Data()).Do(context.TODO())
 		case ops.Update:
-			_, err = w.esClient.Index().Index(i).Type(t).BodyJson(msg.Data()).Id(id).Do(context.TODO())
+			_, err = w.esClient.Index().Index(w.index).Type(indexType).BodyJson(msg.Data()).Id(id).Do(context.TODO())
 		}
 		return err
 	}

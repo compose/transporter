@@ -67,11 +67,7 @@ func NewPipe(pipe *Pipe, path string) *Pipe {
 
 // matchNamespace tests the message's namespace against the provided Regexp
 func matchNamespace(m message.Msg, nsFilter *regexp.Regexp) (bool, error) {
-	_, ns, err := message.SplitNamespace(m)
-	if err != nil {
-		return false, err
-	}
-	return nsFilter.MatchString(ns), nil
+	return nsFilter.MatchString(m.Namespace()), nil
 }
 
 // Listen starts a listening loop that pulls messages from the In chan, applies fn(msg), a `func(message.Msg) error`, and emits them on the Out channel.

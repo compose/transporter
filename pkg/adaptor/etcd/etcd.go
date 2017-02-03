@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"golang.org/x/net/context"
 
 	"github.com/compose/transporter/pkg/adaptor"
+	"github.com/compose/transporter/pkg/log"
 	"github.com/compose/transporter/pkg/message"
 	"github.com/compose/transporter/pkg/message/adaptor/etcd"
 	"github.com/compose/transporter/pkg/message/data"
@@ -77,7 +77,7 @@ func init() {
 		if conf.Timeout != "" {
 			t, err := time.ParseDuration(conf.Timeout)
 			if err != nil {
-				log.Printf("error parsing timeout, defaulting to 10s, %v", err)
+				log.Errorf("error parsing timeout, defaulting to 10s, %v", err)
 			} else {
 				e.sessionTimeout = t
 			}
