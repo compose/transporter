@@ -102,7 +102,7 @@ func TestTransformOne(t *testing.T) {
 			"we should be able to skip a nil message",
 			"module.exports=function(doc) { return false }",
 			message.MustUseAdaptor("transformer").From(ops.Insert, "database.collection", data.Data{"id": bsonID1, "name": "nick"}),
-			message.MustUseAdaptor("transformer").From(ops.Noop, "database.collection", data.Data{"id": bsonID1, "name": "nick"}),
+			nil,
 			false,
 		},
 		{
@@ -138,6 +138,9 @@ func TestTransformOne(t *testing.T) {
 }
 
 func isEqual(m1 message.Msg, m2 message.Msg) bool {
+	if m1 == nil && m2 == nil {
+		return true
+	}
 	if m1.ID() != m2.ID() {
 		return false
 	}
