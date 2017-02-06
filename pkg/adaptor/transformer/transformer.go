@@ -6,13 +6,13 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/compose/mejson"
 	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/message"
 	"github.com/compose/transporter/pkg/message/adaptor/transformer"
 	"github.com/compose/transporter/pkg/message/data"
 	"github.com/compose/transporter/pkg/message/ops"
 	"github.com/compose/transporter/pkg/pipe"
-	"github.com/compose/mejson"
 	"github.com/robertkrimen/otto"
 	_ "github.com/robertkrimen/otto/underscore" // enable underscore
 )
@@ -236,7 +236,7 @@ func (t *Transformer) toMsg(origMsg message.Msg, incoming interface{}) (message.
 		}
 	case bool: // skip this doc if we're a bool and we're false
 		if !newMsg {
-			op = ops.Noop
+			return nil, nil
 		}
 	default: // something went wrong
 		return nil, fmt.Errorf("returned doc was not a map[string]interface{}: was %T", newMsg)
