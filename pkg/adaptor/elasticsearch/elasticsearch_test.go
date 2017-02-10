@@ -195,12 +195,11 @@ func TestListen(t *testing.T) {
 	mockWriter := &MockWriter{}
 
 	e := &Elasticsearch{
-		index:       "listen_db",
-		typeMatch:   regexp.MustCompile(".*"),
-		client:      mockWriter,
-		path:        "test/listen",
-		pipe:        sinkPipe,
-		doneChannel: make(chan struct{}),
+		index:     "listen_db",
+		typeMatch: regexp.MustCompile(".*"),
+		client:    mockWriter,
+		path:      "test/listen",
+		pipe:      sinkPipe,
 	}
 	go e.Listen()
 

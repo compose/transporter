@@ -174,6 +174,10 @@ func (m *MongoDB) Stop() error {
 	close(m.doneChannel)
 	m.wg.Wait()
 
+	if c, ok := m.client.(client.Closer); ok {
+		c.Close()
+	}
+
 	log.With("path", m.path).Infoln("adaptor Stopped")
 	return nil
 }

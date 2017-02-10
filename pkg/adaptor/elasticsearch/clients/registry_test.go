@@ -2,7 +2,6 @@ package clients
 
 import (
 	"reflect"
-	"sync"
 	"testing"
 
 	"github.com/compose/transporter/pkg/client"
@@ -34,9 +33,7 @@ func TestAdd(t *testing.T) {
 		t.Errorf("wrong Constraint, expected %+v, got %+v", vc.Constraint, actual.Constraint)
 	}
 
-	done := make(chan struct{})
-	var wg sync.WaitGroup
-	actualClient, err := actual.Creator(done, &wg, nil)
+	actualClient, err := actual.Creator(nil)
 	if err != nil {
 		t.Fatalf("call to actual.Creator failed, %s", err)
 	}
@@ -45,6 +42,6 @@ func TestAdd(t *testing.T) {
 	}
 }
 
-func mockCreator(done chan struct{}, wg *sync.WaitGroup, opts *ClientOptions) (client.Writer, error) {
+func mockCreator(opts *ClientOptions) (client.Writer, error) {
 	return mock, nil
 }

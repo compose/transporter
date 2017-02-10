@@ -2,7 +2,6 @@ package v1
 
 import (
 	"context"
-	"sync"
 
 	elastic "gopkg.in/olivere/elastic.v2"
 
@@ -15,8 +14,7 @@ import (
 )
 
 var (
-	_ client.Writer  = &Writer{}
-	_ client.Session = &Writer{}
+	_ client.Writer = &Writer{}
 )
 
 // Writer implements client.Writer and client.Session for sending requests to an elasticsearch
@@ -29,7 +27,7 @@ type Writer struct {
 
 func init() {
 	constraint, _ := version.NewConstraint(">= 1.4, < 2.0")
-	clients.Add("v1", constraint, func(done chan struct{}, wg *sync.WaitGroup, opts *clients.ClientOptions) (client.Writer, error) {
+	clients.Add("v1", constraint, func(opts *clients.ClientOptions) (client.Writer, error) {
 		esOptions := []elastic.ClientOptionFunc{
 			elastic.SetURL(opts.URLs...),
 			elastic.SetSniff(false),
@@ -50,8 +48,6 @@ func init() {
 			esClient: esClient,
 			logger:   log.With("path", opts.Path).With("writer", "elasticsearch").With("version", 1),
 		}
-		wg.Add(1)
-		go clients.Close(done, wg, w)
 		return w, nil
 	})
 }
@@ -75,9 +71,4 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) error {
 		}
 		return err
 	}
-}
-
-// Close is called by clients.Close() when it receives on the done channel.
-func (w *Writer) Close() {
-	// no op
 }

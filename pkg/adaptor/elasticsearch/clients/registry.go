@@ -3,7 +3,6 @@ package clients
 import (
 	"net/http"
 	"net/url"
-	"sync"
 
 	"github.com/compose/transporter/pkg/client"
 	"github.com/hashicorp/go-version"
@@ -17,7 +16,7 @@ type VersionedClient struct {
 }
 
 // Creator defines the func signature expected for any implementing client.Writer
-type Creator func(chan struct{}, *sync.WaitGroup, *ClientOptions) (client.Writer, error)
+type Creator func(*ClientOptions) (client.Writer, error)
 
 // Clients contains the map of versioned clients
 var Clients = map[string]*VersionedClient{}

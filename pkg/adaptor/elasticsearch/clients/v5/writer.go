@@ -2,7 +2,6 @@ package v5
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	elastic "gopkg.in/olivere/elastic.v5"
@@ -16,8 +15,8 @@ import (
 )
 
 var (
-	_ client.Writer  = &Writer{}
-	_ client.Session = &Writer{}
+	_ client.Writer = &Writer{}
+	_ client.Closer = &Writer{}
 )
 
 // Writer implements client.Writer and client.Session for sending requests to an elasticsearch
@@ -30,7 +29,7 @@ type Writer struct {
 
 func init() {
 	constraint, _ := version.NewConstraint(">= 5.0")
-	clients.Add("v5", constraint, func(done chan struct{}, wg *sync.WaitGroup, opts *clients.ClientOptions) (client.Writer, error) {
+	clients.Add("v5", constraint, func(opts *clients.ClientOptions) (client.Writer, error) {
 		esOptions := []elastic.ClientOptionFunc{
 			elastic.SetURL(opts.URLs...),
 			elastic.SetSniff(false),
@@ -62,8 +61,6 @@ func init() {
 			return nil, err
 		}
 		w.bp = p
-		wg.Add(1)
-		go clients.Close(done, wg, w)
 		return w, nil
 	})
 }

@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/compose/transporter/pkg/adaptor"
@@ -81,9 +80,6 @@ type Elasticsearch struct {
 
 	pipe *pipe.Pipe
 	path string
-
-	doneChannel chan struct{}
-	wg          sync.WaitGroup
 }
 
 // Description for the Elasticsearcb adaptor
@@ -108,9 +104,8 @@ func init() {
 		log.With("path", path).Debugf("adaptor config: %+v", conf)
 
 		e := &Elasticsearch{
-			pipe:        p,
-			path:        path,
-			doneChannel: make(chan struct{}),
+			pipe: p,
+			path: path,
 		}
 
 		e.index, e.typeMatch, err = extra.CompileNamespace()
@@ -147,8 +142,9 @@ func (e *Elasticsearch) Stop() error {
 	log.With("path", e.path).Infoln("adaptor Stopping...")
 	e.pipe.Stop()
 
-	close(e.doneChannel)
-	e.wg.Wait()
+	if c, ok := e.client.(client.Closer); ok {
+		c.Close()
+	}
 
 	log.With("path", e.path).Infoln("adaptor Stopped")
 	return nil
@@ -209,7 +205,7 @@ func (e *Elasticsearch) setupClient(conf Config) error {
 				Path:       e.path,
 				Index:      e.index,
 			}
-			versionedClient, _ := vc.Creator(e.doneChannel, &e.wg, opts)
+			versionedClient, _ := vc.Creator(opts)
 			e.client = versionedClient
 			return nil
 		}
