@@ -12,12 +12,10 @@ nodes:
     type: mongo
     uri: mongodb://localhost/boom
     namespace: boom.foo
-    debug: true
   localmongo2:
     type: mongo
     uri: mongodb://localhost/boom
     namespace: boom.baz
-    debug: true
   es:
     type: elasticsearch
     uri: https://nick:darling@haproxy1.dblayer.com:10291/thisgetsignored

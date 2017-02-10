@@ -14,6 +14,15 @@ docker run --rm --privileged=true -p 127.0.0.1:9202:9202 -v "/tmp/elasticsearch/
 docker run --rm --privileged=true -p 127.0.0.1:9201:9201 -v "/tmp/elasticsearch/config/v1:/usr/share/elasticsearch/config" -e ES_JAVA_OPTS='-Xms1g -Xmx1g' elasticsearch:1.7.6 elasticsearch >& /dev/null &
 sleep 15
 
+mkdir -p /tmp/rethinkdb
+cp -r config/rethinkdb/certs/* /tmp/rethinkdb/
+
+mkdir -p /tmp/rethinkdb_ssl
+rethinkdb --config-file config/rethinkdb/configurations/ssl.conf >& /dev/null &
+
+mkdir -p /tmp/rethinkdb_auth
+rethinkdb --initial-password admin123 --config-file config/rethinkdb/configurations/auth.conf >& /dev/null &
+
 mkdir -p /tmp/mongodb
 cp -r config/mongodb/certs/* /tmp/mongodb/
 mongo-orchestration start -p 20000 -b 127.0.0.1

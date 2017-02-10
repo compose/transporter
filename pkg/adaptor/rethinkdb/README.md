@@ -8,4 +8,8 @@ receiving data for inserts.
 - rethink:
     type: rethinkdb
     uri: rethink://127.0.0.1:28015/
+    # timeout: 30s
+    # tail: false
+    # ssl: false
+    # cacerts: ["/path/to/cert.pem"]
 ```

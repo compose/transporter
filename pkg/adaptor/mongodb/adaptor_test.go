@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/compose/transporter/pkg/log"
@@ -52,6 +53,7 @@ func setupData(data *TestData) {
 
 func TestMain(m *testing.M) {
 	setup()
+	mgo.SetLogger(nil)
 	code := m.Run()
 	shutdown()
 	os.Exit(code)

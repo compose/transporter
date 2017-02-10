@@ -17,8 +17,8 @@ import:
 - package: golang.org/x/net
   subpackages:
   - context
-- package: gopkg.in/gorethink/gorethink.v1
-  version: ^3.0.0
+- package: gopkg.in/gorethink/gorethink.v3
+  version: ^3.0.1
 - package: gopkg.in/mgo.v2
   subpackages:
   - bson
@@ -28,9 +28,9 @@ import:
   subpackages:
   - pkg/group
 - package: gopkg.in/olivere/elastic.v5
-  version: ^5.0.13
+  version: ^5.0.24
 - package: gopkg.in/olivere/elastic.v3
-  version: ^5.0.13
+  version: ^5.0.24
 - package: gopkg.in/olivere/elastic.v2
-  version: ^5.0.18
+  version: ^5.0.24
 - package: github.com/smartystreets/go-aws-auth

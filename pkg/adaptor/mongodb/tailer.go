@@ -18,7 +18,7 @@ var (
 	_ client.Reader = &Tailer{}
 )
 
-// Tailer implements the behavior defined by client.Tailer for interfacing with the MongoDB oplog.
+// Tailer implements the behavior defined by client.Reader for interfacing with the MongoDB oplog.
 type Tailer struct {
 	reader client.Reader
 	db     string

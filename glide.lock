@@ -1,11 +1,9 @@
-hash: d792c491fe81c20166e7eda4c5e816a4b2407de17e70cce5f1fd38b85e9f34e3
-updated: 2017-01-23T10:23:38.912616992-06:00
+hash: ad66193eb5021bf02d011465fdd9fa52be40e3a14f2a5edf5d7bdceff6fa4c72
+updated: 2017-02-10T10:58:32.611708947-06:00
 imports:
-- name: github.com/armon/go-radix
-  version: 4239b77079c7b5d1243b7b4736304ce8ddb6f0f2
-- name: github.com/bgentry/speakeasy
-  version: 675b82c74c0ed12283ee81ba8a534c8982c07b85
 - name: github.com/cenk/backoff
+  version: b02f2bbce11d7ea6b97f282ef1771b0fe2f65ef3
+- name: github.com/cenkalti/backoff
   version: b02f2bbce11d7ea6b97f282ef1771b0fe2f65ef3
 - name: github.com/compose/mejson
   version: afcf51c7c640b1e09c17065d4e5b8de3259d6261
@@ -28,8 +26,6 @@ imports:
   version: 8df6253d1317616f36b0c3740eb30c239a7372cb
   subpackages:
   - oid
-- name: github.com/mattn/go-isatty
-  version: 30a891c33c7cde7b02a981314b4228ec99380cca
 - name: github.com/mitchellh/cli
   version: fa17b36f6c61f1ddbbb08c9f6fde94b3c065a09d
 - name: github.com/nu7hatch/gouuid
@@ -49,11 +45,11 @@ imports:
   - token
   - underscore
 - name: github.com/Sirupsen/logrus
-  version: d26492970760ca5d33129d2d799e34be5c4782eb
+  version: c078b1e43f58d563c74cebe63c85789e76ddb627
 - name: github.com/smartystreets/go-aws-auth
   version: 2043e6d0bb7e4c18464a7bba562acbe482e3cabd
 - name: github.com/ugorji/go
-  version: f1f1a805ed361a0e078bb537e4ea78cd37dcf065
+  version: ded73eae5db7e7a0ef6f55aace87a2873c5d2b74
   subpackages:
   - codec
 - name: golang.org/x/crypto
@@ -63,7 +59,7 @@ imports:
   - blowfish
   - pbkdf2
 - name: golang.org/x/net
-  version: 6acef71eb69611914f7a30939ea9f6e194c78172
+  version: f2499483f923065a842d38eb4c7f1927e6fc6e6d
   subpackages:
   - context
   - context/ctxhttp
@@ -81,6 +77,12 @@ imports:
   - encoding
   - ql2
   - types
+- name: gopkg.in/gorethink/gorethink.v3
+  version: 610fcc04c971a9fa42f1b6625c7c52b5bb472c51
+  subpackages:
+  - encoding
+  - ql2
+  - types
 - name: gopkg.in/mgo.v2
   version: 3f83fa5005286a7fe593b055f0d7771a7dce4655
   subpackages:
@@ -89,13 +91,12 @@ imports:
   - internal/sasl
   - internal/scram
 - name: gopkg.in/olivere/elastic.v2
-  version: f27a28dd68c359eb20ce5918a7d976f34c18cf03
+  version: 4f7c9774c6041d96b9c522cfcbb657a5a49dbbb2
 - name: gopkg.in/olivere/elastic.v3
-  version: f27a28dd68c359eb20ce5918a7d976f34c18cf03
+  version: 4f7c9774c6041d96b9c522cfcbb657a5a49dbbb2
 - name: gopkg.in/olivere/elastic.v5
-  version: f27a28dd68c359eb20ce5918a7d976f34c18cf03
+  version: 4f7c9774c6041d96b9c522cfcbb657a5a49dbbb2
   subpackages:
-  - backoff
   - uritemplates
 - name: gopkg.in/sourcemap.v1
   version: eef8f47ab679652a7d3a4ee34c34314d255d2536
