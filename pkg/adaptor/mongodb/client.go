@@ -30,6 +30,7 @@ var (
 	DefaultSafety = mgo.Safe{}
 
 	_ client.Client = &Client{}
+	_ client.Closer = &Client{}
 )
 
 // InvalidURIError wraps the underlying error when the provided URI is not parsable by mgo.
@@ -228,6 +229,11 @@ func (c *Client) Connect() (client.Session, error) {
 		}
 	}
 	return c.session(), nil
+}
+
+// Close satisfies the Closer interface and handles closing the initial mgo.Session.
+func (c Client) Close() {
+	c.mgoSession.Close()
 }
 
 func (c *Client) initConnection() error {

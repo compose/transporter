@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"sync"
 	"testing"
 	"time"
 
@@ -66,8 +65,6 @@ type countResponse struct {
 }
 
 func TestWriter(t *testing.T) {
-	done := make(chan struct{})
-	var wg sync.WaitGroup
 	opts := &clients.ClientOptions{
 		URLs:       []string{testURL},
 		HTTPClient: http.DefaultClient,
@@ -75,13 +72,11 @@ func TestWriter(t *testing.T) {
 		Index:      defaultIndex,
 	}
 	vc := clients.Clients["v1"]
-	w, _ := vc.Creator(done, &wg, opts)
+	w, _ := vc.Creator(opts)
 	w.Write(message.From(ops.Insert, testType, map[string]interface{}{"hello": "world"}))(nil)
 	w.Write(message.From(ops.Insert, testType, map[string]interface{}{"_id": "booya", "hello": "world"}))(nil)
 	w.Write(message.From(ops.Update, testType, map[string]interface{}{"_id": "booya", "hello": "goodbye"}))(nil)
 	w.Write(message.From(ops.Delete, testType, map[string]interface{}{"_id": "booya", "hello": "goodbye"}))(nil)
-	close(done)
-	wg.Wait()
 
 	if _, err := http.Get(fullURL("/_refresh")); err != nil {
 		t.Fatalf("_refresh request failed, %s", err)

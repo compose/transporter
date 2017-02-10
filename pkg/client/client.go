@@ -8,14 +8,18 @@ type MessageChanFunc func(Session, chan struct{}) (chan message.Msg, error)
 // NsFilterFunc represents the func signature needed to filter while Read()ing.
 type NsFilterFunc func(string) bool
 
-// Session represents the connection to the underlying service.
-type Session interface {
-	Close()
-}
-
 // Client provides a standard interface for interacting with the underlying sources/sinks.
 type Client interface {
 	Connect() (Session, error)
+}
+
+// Session represents the connection to the underlying service.
+type Session interface {
+}
+
+// Closer represents the ability to Close an underlying connection.
+type Closer interface {
+	Close()
 }
 
 // Reader represents the ability to send messages down the pipe and is only needed for
@@ -40,6 +44,8 @@ func sessionFunc(client Client, op func(Session) error) error {
 	if err != nil {
 		return err
 	}
-	defer sess.Close()
+	if s, ok := sess.(Closer); ok {
+		defer s.Close()
+	}
 	return op(sess)
 }
