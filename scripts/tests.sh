@@ -2,7 +2,7 @@
 
 set -e
 
-if [ "$TRAVIS_EVENT_TYPE" != "cron" ]; then
+if [ "$TRAVIS_EVENT_TYPE" == "cron" ]; then
   echo "running integration tests"
   go install ./cmd/transporter/...
 
