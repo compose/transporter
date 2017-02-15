@@ -11,7 +11,7 @@ env:
     - ES_V1_URL=http://127.0.0.1:9201
     - EASYRSA_VARS_FILE=$HOME/gopath/src/github.com/compose/transporter/scripts/vars
 before_install:
-  - if [[ $TRAVIS_EVENT_TYPE != 'cron' ]]; then ./scripts/before_install.sh fi
+  - if [[ $TRAVIS_EVENT_TYPE != 'cron' ]]; then ./scripts/before_install.sh; fi
 cache:
   directories:
     - $HOME/.cache/pip
