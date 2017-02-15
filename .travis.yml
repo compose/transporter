@@ -11,7 +11,10 @@ env:
   - ES_V1_URL=http://127.0.0.1:9201
   - EASYRSA_VARS_FILE=$HOME/gopath/src/github.com/compose/transporter/scripts/vars
 before_install:
-- openssl aes-256-cbc -K $encrypted_0967450889da_key -iv $encrypted_0967450889da_iv -in integration_tests/config.yml.enc -out integration_tests/config.yml -d
+- openssl aes-256-cbc -K $encrypted_0967450889da_key -iv $encrypted_0967450889da_iv
+  -in config.yml.enc -out integration_tests/config.yml -d
+- openssl aes-256-cbc -K $encrypted_0967450889da_key -iv $encrypted_0967450889da_iv
+  -in integration_tests/config.yml.enc -out integration_tests/config.yml -d
 - if [[ $TRAVIS_EVENT_TYPE != 'cron' ]]; then ./scripts/before_install.sh; fi
 cache:
   directories:
