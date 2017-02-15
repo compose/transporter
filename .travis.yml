@@ -2,37 +2,39 @@ sudo: required
 dist: trusty
 language: go
 go:
-  - 1.7.x
+- 1.7.x
 env:
   global:
-    - MONGODB_VERSION=3.2.11
-    - ES_V5_URL=http://127.0.0.1:9205
-    - ES_V2_URL=http://127.0.0.1:9202
-    - ES_V1_URL=http://127.0.0.1:9201
-    - EASYRSA_VARS_FILE=$HOME/gopath/src/github.com/compose/transporter/scripts/vars
+  - MONGODB_VERSION=3.2.11
+  - ES_V5_URL=http://127.0.0.1:9205
+  - ES_V2_URL=http://127.0.0.1:9202
+  - ES_V1_URL=http://127.0.0.1:9201
+  - EASYRSA_VARS_FILE=$HOME/gopath/src/github.com/compose/transporter/scripts/vars
 before_install:
-  - if [[ $TRAVIS_EVENT_TYPE != 'cron' ]]; then ./scripts/before_install.sh; fi
+- openssl aes-256-cbc -K $encrypted_0967450889da_key -iv $encrypted_0967450889da_iv
+  -in config.yml.enc -out integration_tests/config.yml -d
+- if [[ $TRAVIS_EVENT_TYPE != 'cron' ]]; then ./scripts/before_install.sh; fi
 cache:
   directories:
-    - $HOME/.cache/pip
+  - "$HOME/.cache/pip"
 before_cache:
-  - rm -f $HOME/.cache/pip/log/debug.log
+- rm -f $HOME/.cache/pip/log/debug.log
 script:
-  - ./scripts/tests.sh
+- "./scripts/tests.sh"
 after_success:
-  - $HOME/gopath/bin/goveralls -service=travis-ci -coverprofile=/tmp/coverage.out
+- "$HOME/gopath/bin/goveralls -service=travis-ci -coverprofile=/tmp/coverage.out"
 services:
-  - docker
-  - postgresql
+- docker
+- postgresql
 addons:
   postgresql: '9.4'
   apt:
     packages:
-      - oracle-java8-set-default
+    - oracle-java8-set-default
 before_script:
-  - if [[ $TRAVIS_EVENT_TYPE != 'cron' ]]; then ./scripts/before_script.sh; fi
+- if [[ $TRAVIS_EVENT_TYPE != 'cron' ]]; then ./scripts/before_script.sh; fi
 after_script:
-  - mongo-orchestration stop
+- mongo-orchestration stop
 install: true
 notifications:
   slack:

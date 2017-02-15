@@ -2,12 +2,14 @@
 
 set -e
 
-if [ "$TRAVIS_EVENT_TYPE" == "cron" ]; then
+if [ "$TRAVIS_EVENT_TYPE" != "cron" ]; then
   echo "running integration tests"
   go install ./cmd/transporter/...
+
+  transporter run -config integration_tests/config.yml integration_tests/mongo_to_mongo.js
 else
   echo "running default tests"
-  
+
   echo "mode: count" > /tmp/coverage.out
 
   for d in $(go list ./... | grep -v vendor); do
