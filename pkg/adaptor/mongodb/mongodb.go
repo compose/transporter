@@ -127,7 +127,10 @@ func (m *MongoDB) SampleConfig() string {
 
 // Connect tests the mongodb connection and initializes the mongo session
 func (m *MongoDB) Connect() error {
-	_, err := m.client.Connect()
+	s, err := m.client.Connect()
+	if s, ok := s.(client.Closer); ok {
+		s.Close()
+	}
 	return err
 }
 
@@ -141,6 +144,9 @@ func (m *MongoDB) Start() (err error) {
 	s, err := m.client.Connect()
 	if err != nil {
 		return err
+	}
+	if s, ok := s.(client.Closer); ok {
+		defer s.Close()
 	}
 	readFunc := m.reader.Read(m.collectionFilter)
 	msgChan, err := readFunc(s, m.doneChannel)
