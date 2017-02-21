@@ -356,5 +356,8 @@ func TestConnect(t *testing.T) {
 		if err != ct.expectedErr {
 			t.Fatalf("[%s] unexpected Connect error, expected %+v, got %+v\n", ct.name, ct.expectedErr, err)
 		}
+		if err != nil {
+			ct.client.Close()
+		}
 	}
 }
