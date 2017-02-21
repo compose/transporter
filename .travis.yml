@@ -13,20 +13,27 @@ env:
   - secure: hh/anQ6oOMmuPtyN1kVvjyKkupFotMZiiAFQx/f6u26oLC3vy5tUaJCg/m6SSZOilx9pwzp1oWz2TBGYfN5+u8UQQvqG83zwI3VqWnDE37f5fHdMNf4T8XGMRg3+nZX7Fd889uqJWUpsxV4xTcROVydfMWmLeiRv15c5EpetFqQ=
   - secure: rg+Pvi+1klCH4iGF7LqcNs0uDYmXEESxCkeM+8ro2mgOXNtKJL117XvIyUPFxG1cdlopIdTUty81VE1s0xjZXkp8hfIlAbcQcCCNoSAy2dCtBkvlzYVtmZSbe37/9vMSINGcKVYkB5JYIhMiefr11GKvr/lTvnoOAVONwDeYxA8=
   - secure: a9V/eJYdC5iucrV+VGiaY0YZIVsxHIrAN+/gu4we92v5EXmyBaxzbs8eGHFXNpcIgA2ih+y8vZzphrS87UNd9JFRpwyPRAc/v2CWFINka0YHvaIfvwXjAszthppixv2kJAh/u2Xssbk2qovlFVVkQJ3Rvc7esLw49rvzPGxJnzU=
+  - secure: KtiXAe/pzE+BqEXx8rbuorfmRdKkBPodsDP65kyacA2VEP2CWEz9qNSO4yqNPhfSEcQUXSht3LqLWcSSfH02dDy87kVJW0WY5DzpkYjPh1tVFsWUUrGY1DuWfGG78a9kPnrdQDRA0Wg2lAkG9XJ6/S5Ef7j/+OMfUaGeC8Sev9Q=
+  - secure: BsDN284CVUU2qdPhofXrdlfRqNKunrtXbdLi4+Qm03dSDo/LWlXdzpi7qyIvtbqQ2D2scHFqFEBi7F0qyfHJy6BvNVSjZsrld6ST1eIUwQo6cKmpA0ZRfdAXaKYxM+ZcsVLEa0tPibtIfVCYDErXvODjojJwqByPga/35QoN81E=
+  - secure: Or/M9O6+4gMlulMxnIQs+zh/yCEZ3YhP6Li4YjK1QTRO8qCiq1ODW3ocyW/840Wt/vHAx6UrhaAVJIpue1uQJWnCCIP1HlETOB8VvuKGDWvkicmWiKBH+IOfByX2COKcLJKJM1Q2rZ0wBSeM/+vERwYTL+NL8KCwvDA98ZOhV6o=
+  matrix:
+  - INTEGRATION_TESTS_DIR=mongo_to_es
+  - INTEGRATION_TESTS_DIR=mongo_to_mongo
+  - INTEGRATION_TESTS_DIR=default
 before_install:
 - openssl aes-256-cbc -K $encrypted_0967450889da_key -iv $encrypted_0967450889da_iv
   -in integration_tests/config.yml.enc -out integration_tests/config.yml -d
-- if [[ $TRAVIS_EVENT_TYPE != 'cron' ]]; then ./scripts/before_install.sh; fi
+- if [[ $INTEGRATION_TESTS_DIR == 'default' ]]; then ./scripts/before_install.sh; fi
 cache:
   directories:
   - "$HOME/.cache/pip"
 before_cache:
-- if [[ $TRAVIS_EVENT_TYPE != 'cron' ]]; then rm -f $HOME/.cache/pip/log/debug.log;
+- if [[ $INTEGRATION_TESTS_DIR == 'default' ]]; then rm -f $HOME/.cache/pip/log/debug.log;
   fi
 script:
 - "./scripts/tests.sh"
 after_success:
-- if [[ $TRAVIS_EVENT_TYPE != 'cron' ]]; then "$HOME/gopath/bin/goveralls -service=travis-ci
+- if [[ $INTEGRATION_TESTS_DIR == 'default' ]]; then "$HOME/gopath/bin/goveralls -service=travis-ci
   -coverprofile=/tmp/coverage.out"; fi
 services:
 - docker
@@ -37,9 +44,9 @@ addons:
     packages:
     - oracle-java8-set-default
 before_script:
-- if [[ $TRAVIS_EVENT_TYPE != 'cron' ]]; then ./scripts/before_script.sh; fi
+- if [[ $INTEGRATION_TESTS_DIR == 'default' ]]; then ./scripts/before_script.sh; fi
 after_script:
-- if [[ $TRAVIS_EVENT_TYPE != 'cron' ]]; then mongo-orchestration stop; fi
+- if [[ $INTEGRATION_TESTS_DIR == 'default' ]]; then mongo-orchestration stop; fi
 install: true
 notifications:
   slack:
