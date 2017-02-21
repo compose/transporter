@@ -7,6 +7,8 @@ if [ "$TRAVIS_EVENT_TYPE" == "cron" ]; then
   go install ./cmd/transporter/...
 
   transporter run -config integration_tests/config.yml integration_tests/mongo_to_mongo.js
+
+  go test -v ./integration_tests/...
 else
   echo "running default tests"
 
