@@ -2,6 +2,7 @@ package integration
 
 import (
 	"crypto/tls"
+	"flag"
 	"fmt"
 	"net"
 	"os"
@@ -15,6 +16,7 @@ import (
 
 var (
 	mongodbSinkSession *mgo.Session
+	cleanup            = flag.Bool("cleanup", false, "used to determien whether or not to run cleanup function")
 )
 
 func setup() {
@@ -33,11 +35,22 @@ func setup() {
 		log.Errorf("DialWithInfo failed, %s", err)
 	}
 	mongodbSinkSession = mgoSession
+}
+
+func cleanupData() {
+	log.Infoln("cleaning up data")
 	mongodbSinkSession.DB("enron").C("emails").DropCollection()
 }
 
 func TestMain(m *testing.M) {
+	flag.Parse()
 	setup()
+	if *cleanup {
+		cleanupData()
+		shutdown()
+		os.Exit(0)
+		return
+	}
 	code := m.Run()
 	shutdown()
 	os.Exit(code)
