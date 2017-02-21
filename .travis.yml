@@ -13,18 +13,16 @@ env:
 before_install:
 - openssl aes-256-cbc -K $encrypted_0967450889da_key -iv $encrypted_0967450889da_iv
   -in integration_tests/config.yml.enc -out integration_tests/config.yml -d
-- openssl aes-256-cbc -K $encrypted_0967450889da_key -iv $encrypted_0967450889da_iv
-  -in integration_tests/config.yml.enc -out integration_tests/config.yml -d
 - if [[ $TRAVIS_EVENT_TYPE != 'cron' ]]; then ./scripts/before_install.sh; fi
 cache:
   directories:
   - "$HOME/.cache/pip"
 before_cache:
-- rm -f $HOME/.cache/pip/log/debug.log
+- if [[ $TRAVIS_EVENT_TYPE != 'cron' ]]; then rm -f $HOME/.cache/pip/log/debug.log; fi
 script:
 - "./scripts/tests.sh"
 after_success:
-- "$HOME/gopath/bin/goveralls -service=travis-ci -coverprofile=/tmp/coverage.out"
+- if [[ $TRAVIS_EVENT_TYPE != 'cron' ]]; then "$HOME/gopath/bin/goveralls -service=travis-ci -coverprofile=/tmp/coverage.out"; fi
 services:
 - docker
 - postgresql
@@ -36,7 +34,7 @@ addons:
 before_script:
 - if [[ $TRAVIS_EVENT_TYPE != 'cron' ]]; then ./scripts/before_script.sh; fi
 after_script:
-- mongo-orchestration stop
+- if [[ $TRAVIS_EVENT_TYPE != 'cron' ]]; then mongo-orchestration stop; fi
 install: true
 notifications:
   slack:
