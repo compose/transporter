@@ -1,6 +1,7 @@
 package v5
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -56,7 +57,7 @@ func init() {
 			BulkSize(2 << 20).               // commit if size of requests >= 2 MB
 			FlushInterval(30 * time.Second). // commit every 30s
 			After(w.postBulkProcessor).
-			Do()
+			Do(context.TODO())
 		if err != nil {
 			return nil, err
 		}

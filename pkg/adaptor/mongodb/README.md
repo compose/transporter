@@ -8,6 +8,11 @@ receiving data for inserts.
 - mongodb:
     type: mongo
     uri: mongodb://127.0.0.1:27017/test
-    namespace: test.data
-    tail: false
+    # timeout: 30s
+    # tail: false
+    # ssl: false
+    # cacerts: ["/path/to/cert.pem"]
+    # wc: 1
+    # fsync: false
+    # bulk: false
 ```

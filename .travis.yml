@@ -9,7 +9,6 @@ env:
   - ES_V5_URL=http://127.0.0.1:9205
   - ES_V2_URL=http://127.0.0.1:9202
   - ES_V1_URL=http://127.0.0.1:9201
-  - EASYRSA_VARS_FILE=$HOME/gopath/src/github.com/compose/transporter/scripts/vars
   - secure: hh/anQ6oOMmuPtyN1kVvjyKkupFotMZiiAFQx/f6u26oLC3vy5tUaJCg/m6SSZOilx9pwzp1oWz2TBGYfN5+u8UQQvqG83zwI3VqWnDE37f5fHdMNf4T8XGMRg3+nZX7Fd889uqJWUpsxV4xTcROVydfMWmLeiRv15c5EpetFqQ=
   - secure: rg+Pvi+1klCH4iGF7LqcNs0uDYmXEESxCkeM+8ro2mgOXNtKJL117XvIyUPFxG1cdlopIdTUty81VE1s0xjZXkp8hfIlAbcQcCCNoSAy2dCtBkvlzYVtmZSbe37/9vMSINGcKVYkB5JYIhMiefr11GKvr/lTvnoOAVONwDeYxA8=
   - secure: a9V/eJYdC5iucrV+VGiaY0YZIVsxHIrAN+/gu4we92v5EXmyBaxzbs8eGHFXNpcIgA2ih+y8vZzphrS87UNd9JFRpwyPRAc/v2CWFINka0YHvaIfvwXjAszthppixv2kJAh/u2Xssbk2qovlFVVkQJ3Rvc7esLw49rvzPGxJnzU=
@@ -21,9 +20,9 @@ env:
   - INTEGRATION_TESTS_DIR=mongo_to_mongo
   - INTEGRATION_TESTS_DIR=default
 before_install:
-- openssl aes-256-cbc -K $encrypted_0967450889da_key -iv $encrypted_0967450889da_iv
-  -in integration_tests/config.yml.enc -out integration_tests/config.yml -d
-- if [[ $INTEGRATION_TESTS_DIR == 'default' ]]; then ./scripts/before_install.sh; fi
+- if [[ $TRAVIS_EVENT_TYPE == 'cron' ]]; then openssl aes-256-cbc -K $encrypted_0967450889da_key -iv $encrypted_0967450889da_iv
+  -in integration_tests/config.yml.enc -out integration_tests/config.yml -d; fi
+- if [[ $TRAVIS_EVENT_TYPE != 'cron' ]]; then ./scripts/before_install.sh; fi
 cache:
   directories:
   - "$HOME/.cache/pip"
@@ -36,10 +35,12 @@ after_success:
 - if [[ $INTEGRATION_TESTS_DIR == 'default' ]]; then "$HOME/gopath/bin/goveralls -service=travis-ci
   -coverprofile=/tmp/coverage.out"; fi
 services:
-- docker
-- postgresql
+  - docker
+  - postgresql
+  - rethinkdb
 addons:
   postgresql: '9.4'
+  rethinkdb: '2.3.5'
   apt:
     packages:
     - oracle-java8-set-default

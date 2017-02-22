@@ -1,6 +1,15 @@
+## v0.2.0 [UNRELEASED]
+
+### Breaking changes
+
+### Features
+- RethinkDB SSL support added in [#268](https://github.com/compose/transporter/pull/268)
+
+### Bugfixes
+
 ## v0.1.3 [2017-02-09]
 
-### Breaking changes:
+### Breaking changes
 - namespace processing no longer expects their the be a "db" portion (i.e. "database.collection")
 but an attempt to maintain backwards compatibility is still there for the time being.
 [#258](https://github.com/compose/transporter/pull/258)
@@ -13,7 +22,7 @@ but an attempt to maintain backwards compatibility is still there for the time b
 This release is primarily aimed at getting the MongoDB and Elasticsearch adaptors into a
 stable/reliable state.
 
-### Breaking changes:
+### Breaking changes
 - MongoDB adaptor SSL configuration is now defined as:
 ```yaml
 nodes:

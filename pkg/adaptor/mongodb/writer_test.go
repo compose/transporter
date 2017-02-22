@@ -174,7 +174,7 @@ var deletetests = []struct {
 
 func TestDelete(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping Update in short mode")
+		t.Skip("skipping Delete in short mode")
 	}
 	w := newWriter(writerTestData.DB)
 	for _, dt := range deletetests {

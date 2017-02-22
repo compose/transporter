@@ -21,8 +21,29 @@ const (
 	- localmongo:
 	    type: mongodb
 	    uri: mongodb://127.0.0.1:27017/test
+      # timeout: 30s
+      # tail: false
+      # ssl: false
+      # cacerts: ["/path/to/cert.pem"]
+      # wc: 1
+      # fsync: false
+      # bulk: false
 	`
 )
+
+// Config provides configuration options for a mongodb adaptor
+// the notable difference between this and dbConfig is the presence of the Tail option
+type Config struct {
+	URI       string   `json:"uri" doc:"the uri to connect to, in the form mongodb://user:password@host.com:27017/auth_database"`
+	Namespace string   `json:"namespace" doc:"mongo namespace to read/write"`
+	SSL       bool     `json:"ssl" doc:"ssl options for connection"`
+	CACerts   []string `json:"cacerts" doc:"array of root CAs to use in order to verify the server certificates"`
+	Timeout   string   `json:"timeout" doc:"timeout for establishing connection, format must be parsable by time.ParseDuration and defaults to 10s"`
+	Tail      bool     `json:"tail" doc:"if tail is true, then the mongodb source will tail the oplog after copying the namespace"`
+	Wc        int      `json:"wc" doc:"The write concern to use for writes, Int, indicating the minimum number of servers to write to before returning success/failure"`
+	FSync     bool     `json:"fsync" doc:"When writing, should we flush to disk before returning success"`
+	Bulk      bool     `json:"bulk" doc:"use a buffer to bulk insert documents"`
+}
 
 // MongoDB is an adaptor to read / write to mongodb.
 // it works as a source by copying files, and then optionally tailing the oplog
@@ -203,18 +224,4 @@ func (m *MongoDB) collectionFilter(collection string) bool {
 		return false
 	}
 	return m.collectionMatch.MatchString(collection)
-}
-
-// Config provides configuration options for a mongodb adaptor
-// the notable difference between this and dbConfig is the presence of the Tail option
-type Config struct {
-	URI       string   `json:"uri" doc:"the uri to connect to, in the form mongodb://user:password@host.com:27017/auth_database"`
-	Namespace string   `json:"namespace" doc:"mongo namespace to read/write"`
-	SSL       bool     `json:"ssl" doc:"ssl options for connection"`
-	CACerts   []string `json:"cacerts" doc:"array of root CAs to use in order to verify the server certificates"`
-	Timeout   string   `json:"timeout" doc:"timeout for establishing connection, format must be parsable by time.ParseDuration and defaults to 10s"`
-	Tail      bool     `json:"tail" doc:"if tail is true, then the mongodb source will tail the oplog after copying the namespace"`
-	Wc        int      `json:"wc" doc:"The write concern to use for writes, Int, indicating the minimum number of servers to write to before returning success/failure"`
-	FSync     bool     `json:"fsync" doc:"When writing, should we flush to disk before returning success"`
-	Bulk      bool     `json:"bulk" doc:"use a buffer to bulk insert documents"`
 }

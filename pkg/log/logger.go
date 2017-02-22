@@ -106,6 +106,11 @@ func (l logger) Errorf(format string, args ...interface{}) {
 var origLogger = logrus.New()
 var baseLogger = logger{entry: logrus.NewEntry(origLogger)}
 
+// Orig provides access to the underlying *logrus.Logger
+func Orig() *logrus.Logger {
+	return origLogger
+}
+
 // Base returns the default Logger logging to
 func Base() Logger {
 	return baseLogger
