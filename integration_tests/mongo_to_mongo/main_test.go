@@ -1,4 +1,6 @@
-package integration
+// +build integration
+
+package integration_test
 
 import (
 	"crypto/tls"

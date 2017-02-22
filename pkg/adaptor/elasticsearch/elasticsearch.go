@@ -171,7 +171,7 @@ func (e *Elasticsearch) setupClient(conf Config) error {
 	}
 
 	hostsAndPorts := strings.Split(uri.Host, ",")
-	stringVersion, err := determineVersion(fmt.Sprintf("%s://%s", uri.Scheme, hostsAndPorts[0]))
+	stringVersion, err := determineVersion(fmt.Sprintf("%s://%s", uri.Scheme, hostsAndPorts[0]), uri.User)
 	if err != nil {
 		return err
 	}
@@ -214,8 +214,14 @@ func (e *Elasticsearch) setupClient(conf Config) error {
 	return VersionError{conf.URI, stringVersion, "unsupported client"}
 }
 
-func determineVersion(uri string) (string, error) {
-	resp, err := http.DefaultClient.Get(uri)
+func determineVersion(uri string, user *url.Userinfo) (string, error) {
+	req, _ := http.NewRequest(http.MethodGet, uri, nil)
+	if user != nil {
+		if pwd, ok := user.Password(); ok {
+			req.SetBasicAuth(user.Username(), pwd)
+		}
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", ConnectionError{uri}
 	}
@@ -229,6 +235,9 @@ func determineVersion(uri string) (string, error) {
 		Version struct {
 			Number string `json:"number"`
 		} `json:"version"`
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", VersionError{uri, "", fmt.Sprintf("bad status code: %d", resp.StatusCode)}
 	}
 	err = json.Unmarshal(body, &r)
 	if err != nil {
