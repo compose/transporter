@@ -9,45 +9,34 @@ env:
   - ES_V5_URL=http://127.0.0.1:9205
   - ES_V2_URL=http://127.0.0.1:9202
   - ES_V1_URL=http://127.0.0.1:9201
-  - secure: hh/anQ6oOMmuPtyN1kVvjyKkupFotMZiiAFQx/f6u26oLC3vy5tUaJCg/m6SSZOilx9pwzp1oWz2TBGYfN5+u8UQQvqG83zwI3VqWnDE37f5fHdMNf4T8XGMRg3+nZX7Fd889uqJWUpsxV4xTcROVydfMWmLeiRv15c5EpetFqQ=
-  - secure: rg+Pvi+1klCH4iGF7LqcNs0uDYmXEESxCkeM+8ro2mgOXNtKJL117XvIyUPFxG1cdlopIdTUty81VE1s0xjZXkp8hfIlAbcQcCCNoSAy2dCtBkvlzYVtmZSbe37/9vMSINGcKVYkB5JYIhMiefr11GKvr/lTvnoOAVONwDeYxA8=
-  - secure: a9V/eJYdC5iucrV+VGiaY0YZIVsxHIrAN+/gu4we92v5EXmyBaxzbs8eGHFXNpcIgA2ih+y8vZzphrS87UNd9JFRpwyPRAc/v2CWFINka0YHvaIfvwXjAszthppixv2kJAh/u2Xssbk2qovlFVVkQJ3Rvc7esLw49rvzPGxJnzU=
-  - secure: KtiXAe/pzE+BqEXx8rbuorfmRdKkBPodsDP65kyacA2VEP2CWEz9qNSO4yqNPhfSEcQUXSht3LqLWcSSfH02dDy87kVJW0WY5DzpkYjPh1tVFsWUUrGY1DuWfGG78a9kPnrdQDRA0Wg2lAkG9XJ6/S5Ef7j/+OMfUaGeC8Sev9Q=
-  - secure: BsDN284CVUU2qdPhofXrdlfRqNKunrtXbdLi4+Qm03dSDo/LWlXdzpi7qyIvtbqQ2D2scHFqFEBi7F0qyfHJy6BvNVSjZsrld6ST1eIUwQo6cKmpA0ZRfdAXaKYxM+ZcsVLEa0tPibtIfVCYDErXvODjojJwqByPga/35QoN81E=
-  - secure: Or/M9O6+4gMlulMxnIQs+zh/yCEZ3YhP6Li4YjK1QTRO8qCiq1ODW3ocyW/840Wt/vHAx6UrhaAVJIpue1uQJWnCCIP1HlETOB8VvuKGDWvkicmWiKBH+IOfByX2COKcLJKJM1Q2rZ0wBSeM/+vERwYTL+NL8KCwvDA98ZOhV6o=
   matrix:
-  - INTEGRATION_TESTS_DIR=mongo_to_es
-  - INTEGRATION_TESTS_DIR=mongo_to_mongo
-  - INTEGRATION_TESTS_DIR=default
+  - TESTDIR=pkg/adaptor/elasticsearch/...
+  - TESTDIR=pkg/adaptor/mongodb/...
+  - TESTDIR=pkg/adaptor/etcd/...
+  - TESTDIR=pkg/adaptor/postgres/...
+  - TESTDIR=pkg/adaptor/rethinkdb/...
+  - TESTDIR="pkg/adaptor, pkg/adaptor/all, pkg/adaptor/file/..., pkg/adaptor/transformer/..., pkg/client/..., pkg/events/..., pkg/log/..., pkg/message/..., pkg/pipe/..., pkg/state/..., pkg/transporter/..."
+  - TESTDIR=integration_tests/mongo_to_mongo
+  - TESTDIR=integration_tests/mongo_to_es
+  - TESTDIR=integration_tests/mongo_to_rethink
 before_install:
-- if [[ $TRAVIS_EVENT_TYPE == 'cron' ]]; then openssl aes-256-cbc -K $encrypted_0967450889da_key -iv $encrypted_0967450889da_iv
-  -in integration_tests/config.yml.enc -out integration_tests/config.yml -d; fi
-- if [[ $TRAVIS_EVENT_TYPE != 'cron' ]]; then ./scripts/before_install.sh; fi
+- "./scripts/before_install.sh"
 cache:
   directories:
   - "$HOME/.cache/pip"
 before_cache:
-- if [[ $INTEGRATION_TESTS_DIR == 'default' ]]; then rm -f $HOME/.cache/pip/log/debug.log;
-  fi
+- if [[ $TESTDIR == pkg* ]]; then rm -f $HOME/.cache/pip/log/debug.log; fi
 script:
 - "./scripts/tests.sh"
 after_success:
-- if [[ $INTEGRATION_TESTS_DIR == 'default' ]]; then "$HOME/gopath/bin/goveralls -service=travis-ci
-  -coverprofile=/tmp/coverage.out"; fi
-services:
-  - docker
-  - postgresql
-  - rethinkdb
+- if [[ $TESTDIR == pkg* ]]; then bash <(curl -s https://codecov.io/bash); fi
 addons:
   postgresql: '9.4'
   rethinkdb: '2.3.5'
-  apt:
-    packages:
-    - oracle-java8-set-default
 before_script:
-- if [[ $INTEGRATION_TESTS_DIR == 'default' ]]; then ./scripts/before_script.sh; fi
+- "./scripts/before_script.sh"
 after_script:
-- if [[ $INTEGRATION_TESTS_DIR == 'default' ]]; then mongo-orchestration stop; fi
+- "./scripts/after_script.sh"
 install: true
 notifications:
   slack:

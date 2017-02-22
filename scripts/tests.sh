@@ -2,28 +2,32 @@
 
 set -e
 
-if [[ "$TRAVIS_EVENT_TYPE" == "cron" && "$INTEGRATION_TESTS_DIR" != "default" ]]; then
-  echo "running integration tests in $INTEGRATION_TESTS_DIR"
+if [[ "$TRAVIS_EVENT_TYPE" == "cron" && "$TESTDIR" == integration_tests* ]]; then
+  echo "running integration tests in $TESTDIR"
 
   go install ./cmd/transporter/...
 
-  go test -v ./integration_tests/$INTEGRATION_TESTS_DIR/... -cleanup=true -tags=integration
+  go test -v ./$TESTDIR/... -cleanup=true -tags=integration
 
-  transporter run -config integration_tests/config.yml -log.level=error integration_tests/$INTEGRATION_TESTS_DIR/app.js 
+  transporter run -config integration_tests/config.yml $TESTDIR/app.js
 
-  go test -v ./integration_tests/$INTEGRATION_TESTS_DIR/... -tags=integration -log.level=error
-elif [[ "$INTEGRATION_TESTS_DIR" == "default" ]]; then
-  echo "running default tests"
+  go test -v ./$TESTDIR/... -tags=integration -log.level=error
+elif [[ "$TRAVIS_EVENT_TYPE" != "cron" && "$TESTDIR" == pkg* ]]; then
+  echo "running tests in $TESTDIR"
 
-  echo "mode: count" > /tmp/coverage.out
+  echo "" > coverage.txt
 
-  for d in $(go list ./... | grep -v vendor); do
-      go test -v -coverprofile=profile.out -covermode=count $d
-      if [ -f profile.out ]; then
-          cat profile.out | grep -v "mode: count" >> /tmp/coverage.out
-          rm profile.out
-      fi
+  IFS=', ' read -r -a test_dir <<< "$TESTDIR"
+  for t in "${test_dir[@]}"; do
+    echo "testing $t"
+    for d in $(go list ./$t); do
+        go test -v -coverprofile=profile.out -covermode=atomic $d
+        if [ -f profile.out ]; then
+            cat profile.out >> coverage.txt
+            rm profile.out
+        fi
+    done
   done
 else
-  echo "skipping integration tests in $INTEGRATION_TESTS_DIR"
+  echo "skipping $TESTDIR"
 fi
