@@ -11,7 +11,6 @@ import (
 )
 
 var (
-	defaultTestURI    = DefaultURI
 	defaultTestClient = &Client{
 		uri:            DefaultURI,
 		sessionTimeout: DefaultSessionTimeout,

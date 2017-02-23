@@ -84,7 +84,7 @@ func TestInsert(t *testing.T) {
 	w := newWriter(writerTestData.DB)
 	for _, it := range inserttests {
 		for _, data := range it.data {
-			msg := message.From(ops.Insert, fmt.Sprintf("%s.%s", writerTestData.DB, it.collection), data)
+			msg := message.From(ops.Insert, it.collection, data)
 			if err := w.Write(msg)(defaultSession); err != nil {
 				t.Errorf("unexpected Insert error, %s\n", err)
 			}
@@ -132,16 +132,15 @@ func TestUpdate(t *testing.T) {
 	}
 	w := newWriter(writerTestData.DB)
 	for _, ut := range updatetests {
-		ns := fmt.Sprintf("%s.%s", writerTestData.DB, ut.collection)
 		// Insert data
 		ut.originalDoc.Set("_id", ut.id)
-		msg := message.From(ops.Insert, ns, ut.originalDoc)
+		msg := message.From(ops.Insert, ut.collection, ut.originalDoc)
 		if err := w.Write(msg)(defaultSession); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
 		}
 		// Update data
 		ut.updatedDoc.Set("_id", ut.id)
-		msg = message.From(ops.Update, ns, ut.updatedDoc)
+		msg = message.From(ops.Update, ut.collection, ut.updatedDoc)
 		if err := w.Write(msg)(defaultSession); err != nil {
 			t.Errorf("unexpected Update error, %s\n", err)
 		}
@@ -178,15 +177,14 @@ func TestDelete(t *testing.T) {
 	}
 	w := newWriter(writerTestData.DB)
 	for _, dt := range deletetests {
-		ns := fmt.Sprintf("%s.%s", writerTestData.DB, dt.collection)
 		// Insert data
 		dt.originalDoc.Set("_id", dt.id)
-		msg := message.From(ops.Insert, ns, dt.originalDoc)
+		msg := message.From(ops.Insert, dt.collection, dt.originalDoc)
 		if err := w.Write(msg)(defaultSession); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
 		}
 		// Delete data
-		msg = message.From(ops.Delete, ns, dt.originalDoc)
+		msg = message.From(ops.Delete, dt.collection, dt.originalDoc)
 		if err := w.Write(msg)(defaultSession); err != nil {
 			t.Errorf("unexpected Delete error, %s\n", err)
 		}
