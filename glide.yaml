@@ -3,10 +3,6 @@ import:
 - package: github.com/Sirupsen/logrus
   version: ^0.11.0
 - package: github.com/compose/mejson
-- package: github.com/coreos/etcd
-  version: ^3.1.0-rc.1
-  subpackages:
-  - client
 - package: github.com/hashicorp/go-version
 - package: github.com/lib/pq
 - package: github.com/mitchellh/cli

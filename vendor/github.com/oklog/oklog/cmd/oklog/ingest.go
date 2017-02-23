@@ -50,7 +50,7 @@ func runIngest(args []string) error {
 		segmentFlushAge       = flagset.Duration("ingest.segment-flush-age", defaultIngestSegmentFlushAge, "flush segments after they are active for this long")
 		segmentPendingTimeout = flagset.Duration("ingest.segment-pending-timeout", defaultIngestSegmentPendingTimeout, "claimed but uncommitted pending segments are failed after this long")
 		filesystem            = flagset.String("filesystem", defaultFilesystem, "real, real-mmap, virtual, nop")
-		clusterPeers          = stringset{}
+		clusterPeers          = stringslice{}
 	)
 	flagset.Var(&clusterPeers, "peer", "cluster peer host:port (repeatable)")
 	flagset.Usage = usageFor(flagset, "oklog ingest [flags]")
@@ -76,7 +76,7 @@ func runIngest(args []string) error {
 	var logger log.Logger
 	logger = log.NewLogfmtLogger(os.Stderr)
 	logger = log.NewContext(logger).With("ts", log.DefaultTimestampUTC)
-	logger = level.New(logger, level.Config{Allowed: level.AllowAll()})
+	logger = level.New(logger, level.Allowed(level.AllowAll()))
 
 	// Instrumentation.
 	connectedClients := prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -174,6 +174,13 @@ func runIngest(args []string) error {
 	}
 	level.Info(logger).Log("cluster", fmt.Sprintf("%s:%d", clusterHost, clusterPort))
 
+	// Safety warning.
+	if hasNonlocal(clusterPeers) && isUnroutable(clusterHost) {
+		level.Warn(logger).Log("err", "this node advertises itself on an unroutable address", "addr", clusterHost)
+		level.Warn(logger).Log("err", "this node will be unreachable in the cluster")
+		level.Warn(logger).Log("err", "provide -cluster as a routable IP address or hostname")
+	}
+
 	// Bind listeners.
 	fastListener, err := net.Listen(fastNetwork, fastAddress)
 	if err != nil {
@@ -224,7 +231,7 @@ func runIngest(args []string) error {
 	// Create peer.
 	peer, err := cluster.NewPeer(
 		clusterHost, clusterPort,
-		clusterPeers.slice(),
+		clusterPeers,
 		cluster.PeerTypeIngest, apiPort,
 		log.NewContext(logger).With("component", "cluster"),
 	)

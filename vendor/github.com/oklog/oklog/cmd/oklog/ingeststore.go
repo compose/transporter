@@ -42,7 +42,7 @@ func runIngestStore(args []string) error {
 		segmentRetain            = flagset.Duration("store.segment-retain", defaultStoreSegmentRetain, "retention period for segment files")
 		segmentPurge             = flagset.Duration("store.segment-purge", defaultStoreSegmentPurge, "purge deleted segment files after this long")
 		filesystem               = flagset.String("filesystem", defaultFilesystem, "real, real-mmap, virtual, nop")
-		clusterPeers             = stringset{}
+		clusterPeers             = stringslice{}
 	)
 	flagset.Var(&clusterPeers, "peer", "cluster peer host:port (repeatable)")
 	flagset.Usage = usageFor(flagset, "oklog ingeststore [flags]")
@@ -79,7 +79,7 @@ func runIngestStore(args []string) error {
 	var logger log.Logger
 	logger = log.NewLogfmtLogger(os.Stderr)
 	logger = log.NewContext(logger).With("ts", log.DefaultTimestampUTC)
-	logger = level.New(logger, level.Config{Allowed: level.AllowAll()})
+	logger = level.New(logger, level.Allowed(level.AllowAll()))
 
 	// Instrumentation.
 	connectedClients := prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -220,6 +220,13 @@ func runIngestStore(args []string) error {
 	}
 	level.Info(logger).Log("cluster", fmt.Sprintf("%s:%d", clusterHost, clusterPort))
 
+	// Safety warning.
+	if hasNonlocal(clusterPeers) && isUnroutable(clusterHost) {
+		level.Warn(logger).Log("err", "this node advertises itself on an unroutable address", "addr", clusterHost)
+		level.Warn(logger).Log("err", "this node will be unreachable in the cluster")
+		level.Warn(logger).Log("err", "provide -cluster as a routable IP address or hostname")
+	}
+
 	// Bind listeners.
 	fastListener, err := net.Listen(fastNetwork, fastAddress)
 	if err != nil {
@@ -282,7 +289,7 @@ func runIngestStore(args []string) error {
 	// Create peer.
 	peer, err := cluster.NewPeer(
 		clusterHost, clusterPort,
-		clusterPeers.slice(),
+		clusterPeers,
 		cluster.PeerTypeIngestStore, apiPort,
 		log.NewContext(logger).With("component", "cluster"),
 	)
@@ -295,7 +302,8 @@ func runIngestStore(args []string) error {
 		Help:      "Number of peers in the cluster from this node's perspective.",
 	}, func() float64 { return float64(peer.ClusterSize()) }))
 
-	// Create the HTTP client we'll use to consume segments.
+	// Create the HTTP client we'll use for various purposes.
+	// TODO(pb): audit to see if we need purpose-built clients
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			Proxy: http.ProxyFromEnvironment,
@@ -415,9 +423,11 @@ func runIngestStore(args []string) error {
 			mux.Handle("/store/", http.StripPrefix("/store", store.NewAPI(
 				peer,
 				storeLog,
+				httpClient,
 				replicatedSegments.WithLabelValues("ingress"),
 				replicatedBytes.WithLabelValues("ingress"),
 				apiDuration,
+				logger,
 			)))
 			registerMetrics(mux)
 			registerProfile(mux)

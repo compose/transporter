@@ -1,22 +1,13 @@
-hash: ad66193eb5021bf02d011465fdd9fa52be40e3a14f2a5edf5d7bdceff6fa4c72
-updated: 2017-02-10T10:58:32.611708947-06:00
+hash: 2d87ad14a79851a1ce0606268dce0870b17e06b74e048f37993d28be7a576f65
+updated: 2017-02-23T11:32:38.398922679-06:00
 imports:
-- name: github.com/cenk/backoff
-  version: b02f2bbce11d7ea6b97f282ef1771b0fe2f65ef3
 - name: github.com/cenkalti/backoff
   version: b02f2bbce11d7ea6b97f282ef1771b0fe2f65ef3
 - name: github.com/compose/mejson
   version: afcf51c7c640b1e09c17065d4e5b8de3259d6261
-- name: github.com/coreos/etcd
-  version: 8ba2897a21e4fc51b298ca553d251318425f93ae
-  subpackages:
-  - client
-  - pkg/pathutil
-  - pkg/types
 - name: github.com/golang/protobuf
   version: 4bd1920723d7b7c925de087aa32e2187708897f7
   subpackages:
-  - jsonpb
   - proto
 - name: github.com/hailocab/go-hostpool
   version: e80d13ce29ede4452c43dea11e79b9bc8a15b478
@@ -31,7 +22,7 @@ imports:
 - name: github.com/nu7hatch/gouuid
   version: 179d4d0c4d8d407a32af483c2354df1d2c91e6c3
 - name: github.com/oklog/oklog
-  version: 80e7a2e6798623eff8d39b329efad2353154523a
+  version: 6494692aa2958adeb2e12c5d9d9c1646acd332ea
   subpackages:
   - pkg/group
 - name: github.com/robertkrimen/otto
@@ -48,15 +39,9 @@ imports:
   version: c078b1e43f58d563c74cebe63c85789e76ddb627
 - name: github.com/smartystreets/go-aws-auth
   version: 2043e6d0bb7e4c18464a7bba562acbe482e3cabd
-- name: github.com/ugorji/go
-  version: ded73eae5db7e7a0ef6f55aace87a2873c5d2b74
-  subpackages:
-  - codec
 - name: golang.org/x/crypto
   version: 1351f936d976c60a0a48d728281922cf63eafb8d
   subpackages:
-  - bcrypt
-  - blowfish
   - pbkdf2
 - name: golang.org/x/net
   version: f2499483f923065a842d38eb4c7f1927e6fc6e6d
@@ -69,14 +54,6 @@ imports:
   - unix
 - name: gopkg.in/fatih/pool.v2
   version: 20a0a429c5f93de45c90f5f09ea297c25e0929b3
-- name: gopkg.in/gorethink/gorethink.v1
-  version: 417badecf1ab14d0d6e38ad82397da2a59e2f6ca
-- name: gopkg.in/gorethink/gorethink.v2
-  version: 016a1d3b4d15951ab2e39bd3596718ba94d298ba
-  subpackages:
-  - encoding
-  - ql2
-  - types
 - name: gopkg.in/gorethink/gorethink.v3
   version: 610fcc04c971a9fa42f1b6625c7c52b5bb472c51
   subpackages:
@@ -91,11 +68,11 @@ imports:
   - internal/sasl
   - internal/scram
 - name: gopkg.in/olivere/elastic.v2
-  version: 4f7c9774c6041d96b9c522cfcbb657a5a49dbbb2
+  version: 4133648a0323dccefeb03f127e920cc15c595308
 - name: gopkg.in/olivere/elastic.v3
-  version: 4f7c9774c6041d96b9c522cfcbb657a5a49dbbb2
+  version: 4133648a0323dccefeb03f127e920cc15c595308
 - name: gopkg.in/olivere/elastic.v5
-  version: 4f7c9774c6041d96b9c522cfcbb657a5a49dbbb2
+  version: 4133648a0323dccefeb03f127e920cc15c595308
   subpackages:
   - uritemplates
 - name: gopkg.in/sourcemap.v1
