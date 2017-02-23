@@ -80,6 +80,7 @@ func init() {
 			tableMatch:  tableMatch,
 			doneChannel: make(chan struct{}),
 		}
+		r.writer = newWriter(db, r.doneChannel, &r.wg)
 
 		r.client, err = NewClient(
 			WithURI(conf.URI),

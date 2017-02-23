@@ -3,6 +3,8 @@ package rethinkdb
 import (
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/compose/transporter/pkg/client"
 	"github.com/compose/transporter/pkg/log"
@@ -12,61 +14,118 @@ import (
 	r "gopkg.in/gorethink/gorethink.v3"
 )
 
+const (
+	maxObjSize int = 1000
+)
+
 var (
 	_ client.Writer = &Writer{}
 )
 
 // Writer implements client.Writer for use with RethinkDB
 type Writer struct {
-	db       string
-	writeMap map[ops.Op]func(message.Msg, r.Term, *r.Session) error
+	db      string
+	bulkMap map[string]*bulkOperation
+	*sync.Mutex
+	opCounter int
 }
 
-func newWriter(db string) *Writer {
-	w := &Writer{db: db}
-	w.writeMap = map[ops.Op]func(message.Msg, r.Term, *r.Session) error{
-		ops.Insert: insertMsg,
-		ops.Update: updateMsg,
-		ops.Delete: deleteMsg,
+type bulkOperation struct {
+	s    *r.Session
+	docs []map[string]interface{}
+}
+
+func newWriter(db string, done chan struct{}, wg *sync.WaitGroup) *Writer {
+	w := &Writer{
+		db:      db,
+		bulkMap: make(map[string]*bulkOperation),
+		Mutex:   &sync.Mutex{},
 	}
+	wg.Add(1)
+	go w.run(done, wg)
 	return w
 }
 
 func (w *Writer) Write(msg message.Msg) func(client.Session) error {
 	return func(s client.Session) error {
-		writeFunc, ok := w.writeMap[msg.OP()]
-		if !ok {
-			log.Infof("no function registered for operation, %s\n", msg.OP())
-			return nil
+		table := msg.Namespace()
+		rSession := s.(*Session).session
+		switch msg.OP() {
+		case ops.Delete:
+			w.flushAll()
+			return do(r.DB(w.db).Table(table).Get(prepareDocument(msg)["id"]).Delete(), rSession)
+		case ops.Insert:
+			w.Lock()
+			bOp, ok := w.bulkMap[table]
+			if !ok {
+				bOp = &bulkOperation{
+					s:    rSession,
+					docs: make([]map[string]interface{}, 0),
+				}
+				w.bulkMap[table] = bOp
+			}
+			bOp.docs = append(bOp.docs, prepareDocument(msg))
+			w.Unlock()
+			w.opCounter++
+			if w.opCounter >= maxObjSize {
+				w.flushAll()
+			}
+		case ops.Update:
+			w.flushAll()
+			return do(r.DB(w.db).Table(table).Insert(prepareDocument(msg), r.InsertOpts{Conflict: "replace"}), rSession)
 		}
-		tableTerm, session := msgTable(w.db, msg, s)
-		return writeFunc(msg, tableTerm, session)
+		return nil
 	}
-}
-
-func msgTable(db string, msg message.Msg, s client.Session) (r.Term, *r.Session) {
-	return r.DB(db).Table(msg.Namespace()), s.(*Session).session
-}
-
-func insertMsg(msg message.Msg, t r.Term, s *r.Session) error {
-	return do(t.Insert(prepareDocument(msg.Data()), r.InsertOpts{Conflict: "replace"}), s)
-}
-
-func updateMsg(msg message.Msg, t r.Term, s *r.Session) error {
-	return do(t.Insert(prepareDocument(msg.Data()), r.InsertOpts{Conflict: "replace"}), s)
-}
-
-func deleteMsg(msg message.Msg, t r.Term, s *r.Session) error {
-	return do(t.Get(prepareDocument(msg.Data())["id"]).Delete(), s)
 }
 
 // prepareDocument checks for an `_id` field and moves it to `id`.
-func prepareDocument(doc map[string]interface{}) map[string]interface{} {
-	if id, ok := doc["_id"]; ok {
-		doc["id"] = id
-		delete(doc, "_id")
+func prepareDocument(msg message.Msg) map[string]interface{} {
+	if _, ok := msg.Data()["id"]; ok {
+		return msg.Data()
 	}
-	return doc
+
+	if _, ok := msg.Data()["_id"]; ok {
+		msg.Data().Set("id", msg.ID())
+		msg.Data().Delete("_id")
+	}
+	return msg.Data()
+}
+
+func (w *Writer) run(done chan struct{}, wg *sync.WaitGroup) {
+	for {
+		select {
+		case <-time.After(2 * time.Second):
+			if err := w.flushAll(); err != nil {
+				log.Errorf("flush error, %s", err)
+				return
+			}
+		case <-done:
+			log.Debugln("received done channel")
+			w.flushAll()
+			wg.Done()
+			return
+		}
+	}
+}
+
+func (w *Writer) flushAll() error {
+	w.Lock()
+	defer func() {
+		w.opCounter = 0
+		w.Unlock()
+	}()
+	for t, bOp := range w.bulkMap {
+		log.With("db", w.db).With("table", t).With("op_counter", w.opCounter).With("doc_count", len(bOp.docs)).Infoln("flushing bulk messages")
+		resp, err := r.DB(w.db).Table(t).Insert(bOp.docs, r.InsertOpts{Conflict: "replace"}).RunWrite(bOp.s)
+		if err != nil {
+			return err
+		}
+		if err := handleResponse(&resp); err != nil {
+			return err
+		}
+	}
+	w.bulkMap = make(map[string]*bulkOperation)
+	return nil
 }
 
 func do(t r.Term, s *r.Session) error {

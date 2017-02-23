@@ -1,8 +1,8 @@
 package rethinkdb
 
 import (
-	"fmt"
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/compose/transporter/pkg/log"
@@ -12,26 +12,6 @@ import (
 
 	r "gopkg.in/gorethink/gorethink.v3"
 )
-
-var optests = []struct {
-	op         ops.Op
-	registered bool
-}{
-	{ops.Insert, true},
-	{ops.Update, true},
-	{ops.Delete, true},
-	{ops.Command, false},
-	{ops.Noop, false},
-}
-
-func TestOpFunc(t *testing.T) {
-	w := newWriter("test")
-	for _, ot := range optests {
-		if _, ok := w.writeMap[ot.op]; ok != ot.registered {
-			t.Errorf("op (%s) registration incorrect, expected %+v, got %+v\n", ot.op.String(), ot.registered, ok)
-		}
-	}
-}
 
 var (
 	writerTestData = &TestData{"writer_test", "test", 0}
@@ -80,19 +60,23 @@ func TestInsert(t *testing.T) {
 		t.Skip("skipping Insert in short mode")
 	}
 
-	w := newWriter(writerTestData.DB)
 	for _, it := range inserttests {
+		var wg sync.WaitGroup
+		done := make(chan struct{})
+		w := newWriter(writerTestData.DB, done, &wg)
 
 		if _, err := r.DB(writerTestData.DB).TableCreate(it.table).RunWrite(defaultSession.session); err != nil {
 			log.Errorf("failed to create table (%s) in %s, may affect tests!, %s", it.table, writerTestData.DB, err)
 		}
 
 		for _, data := range it.data {
-			msg := message.From(ops.Insert, fmt.Sprintf("%s.%s", writerTestData.DB, it.table), data)
+			msg := message.From(ops.Insert, it.table, data)
 			if err := w.Write(msg)(defaultSession); err != nil {
 				t.Errorf("unexpected Insert error, %s\n", err)
 			}
 		}
+		close(done)
+		wg.Wait()
 		countResp, err := r.DB(writerTestData.DB).Table(it.table).Count().Run(defaultSession.session)
 		if err != nil {
 			t.Errorf("unable to determine table count, %s\n", err)
@@ -101,7 +85,7 @@ func TestInsert(t *testing.T) {
 		countResp.One(&count)
 		countResp.Close()
 		if count != it.docCount {
-			t.Errorf("mismatched doc count, expected %d, got %d\n", it.docCount, count)
+			t.Errorf("[%s] mismatched doc count, expected %d, got %d\n", it.table, it.docCount, count)
 		}
 		if it.verifyLastInsert {
 			var result map[string]interface{}
@@ -113,7 +97,7 @@ func TestInsert(t *testing.T) {
 			cursor.One(&result)
 			cursor.Close()
 			if !reflect.DeepEqual(lastDoc.AsMap(), result) {
-				t.Errorf("mismatched document, expected %+v (%T), got %+v (%T)\n", lastDoc.AsMap(), lastDoc.AsMap(), result, result)
+				t.Errorf("[%s] mismatched document, expected %+v (%T), got %+v (%T)\n", it.table, lastDoc.AsMap(), lastDoc.AsMap(), result, result)
 			}
 		}
 	}
@@ -121,15 +105,13 @@ func TestInsert(t *testing.T) {
 
 var updatetests = []struct {
 	table       string
-	id          string
 	originalDoc data.Data
 	updatedDoc  data.Data
 }{
 	{
 		"updatesimple",
-		"4e9e5bc2-9b11-4143-9aa1-75c10e7a193a",
-		map[string]interface{}{"hello": "world"},
-		map[string]interface{}{"hello": "again"},
+		map[string]interface{}{"id": "4e9e5bc2-9b11-4143-9aa1-75c10e7a193a", "hello": "world"},
+		map[string]interface{}{"id": "4e9e5bc2-9b11-4143-9aa1-75c10e7a193a", "hello": "again"},
 	},
 }
 
@@ -137,32 +119,34 @@ func TestUpdate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping Update in short mode")
 	}
-	w := newWriter(writerTestData.DB)
+
 	for _, ut := range updatetests {
+		var wg sync.WaitGroup
+		done := make(chan struct{})
+		w := newWriter(writerTestData.DB, done, &wg)
 		if _, err := r.DB(writerTestData.DB).TableCreate(ut.table).RunWrite(defaultSession.session); err != nil {
 			log.Errorf("failed to create table (%s) in %s, may affect tests!, %s", ut.table, writerTestData.DB, err)
 		}
 
-		ns := fmt.Sprintf("%s.%s", writerTestData.DB, ut.table)
 		// Insert data
-		ut.originalDoc.Set("id", ut.id)
-		msg := message.From(ops.Insert, ns, ut.originalDoc)
+		msg := message.From(ops.Insert, ut.table, ut.originalDoc)
 		if err := w.Write(msg)(defaultSession); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
 		}
 		// Update data
-		ut.updatedDoc.Set("id", ut.id)
-		msg = message.From(ops.Update, ns, ut.updatedDoc)
+		msg = message.From(ops.Update, ut.table, ut.updatedDoc)
 		if err := w.Write(msg)(defaultSession); err != nil {
 			t.Errorf("unexpected Update error, %s\n", err)
 		}
+		close(done)
+		wg.Wait()
 		// Validate update
-		expectedDoc := map[string]interface{}{"id": ut.id}
+		expectedDoc := map[string]interface{}{}
 		for k, v := range ut.updatedDoc {
 			expectedDoc[k] = v
 		}
 		var result map[string]interface{}
-		cursor, err := r.DB(writerTestData.DB).Table(ut.table).Get(ut.id).Run(defaultSession.session)
+		cursor, err := r.DB(writerTestData.DB).Table(ut.table).Get(ut.updatedDoc["id"]).Run(defaultSession.session)
 		if err != nil {
 			t.Fatalf("unexpected Get error, %s\n", err)
 		}
@@ -190,24 +174,27 @@ func TestDelete(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping Delete in short mode")
 	}
-	w := newWriter(writerTestData.DB)
 	for _, dt := range deletetests {
+		var wg sync.WaitGroup
+		done := make(chan struct{})
+		w := newWriter(writerTestData.DB, done, &wg)
 		if _, err := r.DB(writerTestData.DB).TableCreate(dt.table).RunWrite(defaultSession.session); err != nil {
 			log.Errorf("failed to create table (%s) in %s, may affect tests!, %s", dt.table, writerTestData.DB, err)
 		}
 
-		ns := fmt.Sprintf("%s.%s", writerTestData.DB, dt.table)
 		// Insert data
 		dt.originalDoc.Set("_id", dt.id)
-		msg := message.From(ops.Insert, ns, dt.originalDoc)
+		msg := message.From(ops.Insert, dt.table, dt.originalDoc)
 		if err := w.Write(msg)(defaultSession); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
 		}
 		// Delete data
-		msg = message.From(ops.Delete, ns, dt.originalDoc)
+		msg = message.From(ops.Delete, dt.table, dt.originalDoc)
 		if err := w.Write(msg)(defaultSession); err != nil {
 			t.Errorf("unexpected Delete error, %s\n", err)
 		}
+		close(done)
+		wg.Wait()
 		// Validate delete
 		var result map[string]interface{}
 		cursor, _ := r.DB(writerTestData.DB).Table(dt.table).Get(dt.id).Run(defaultSession.session)

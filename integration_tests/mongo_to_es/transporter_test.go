@@ -7,13 +7,27 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 )
 
 func TestMongoToElasticsearchDocCount(t *testing.T) {
-	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/enron/emails/_count", os.Getenv("ES_ENRON_SINK_URI")), nil)
+	req, _ := http.NewRequest(
+		http.MethodGet,
+		fmt.Sprintf("https://%s/enron/emails/_refresh", strings.Split(os.Getenv("ES_ENRON_SINK_URI"), ",")[0]),
+		nil)
 	req.SetBasicAuth(os.Getenv("ES_ENRON_SINK_USER"), os.Getenv("ES_ENRON_SINK_PASSWORD"))
 	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("unexpected error, %s", err)
+	}
+
+	req, _ = http.NewRequest(
+		http.MethodGet,
+		fmt.Sprintf("https://%s/enron/emails/_count", strings.Split(os.Getenv("ES_ENRON_SINK_URI"), ",")[0]),
+		nil)
+	req.SetBasicAuth(os.Getenv("ES_ENRON_SINK_USER"), os.Getenv("ES_ENRON_SINK_PASSWORD"))
+	resp, err = http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("unexpected error, %s", err)
 	}

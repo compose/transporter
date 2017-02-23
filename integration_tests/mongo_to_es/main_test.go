@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/compose/transporter/pkg/log"
@@ -22,7 +23,10 @@ func setup() {
 
 func cleanupData() {
 	log.Infoln("cleaning up data")
-	req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/enron", os.Getenv("ES_ENRON_SINK_URI")), nil)
+	req, _ := http.NewRequest(
+		http.MethodDelete,
+		fmt.Sprintf("https://%s/enron", strings.Split(os.Getenv("ES_ENRON_SINK_URI"), ",")[0]),
+		nil)
 	req.SetBasicAuth(os.Getenv("ES_ENRON_SINK_USER"), os.Getenv("ES_ENRON_SINK_PASSWORD"))
 	if _, err := http.DefaultClient.Do(req); err != nil {
 		log.Errorf("delete request errored, %s", err)

@@ -2,18 +2,20 @@
 
 set -ev
 
-go get github.com/mattn/goveralls
+if [[ $TRAVIS_EVENT_TYPE != 'cron' ]]; then
+  if [[ $TESTDIR == pkg/adaptor/mongodb* ]]; then
+    pip install "mongo-orchestration>=0.6.7,<1.0"
 
-pip install "mongo-orchestration>=0.6.7,<1.0"
+    wget https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION.tgz
 
-wget https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION.tgz
+    mkdir -p /tmp/mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION
 
-mkdir -p /tmp/mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION
+    tar xfz mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION.tgz -C /tmp
 
-tar xfz mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION.tgz -C /tmp
+    rm mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION.tgz
 
-rm mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION.tgz
+    export PATH=/tmp/mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION/bin:$PATH
 
-export PATH=/tmp/mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION/bin:$PATH
-
-mongod --version
+    mongod --version
+  fi
+fi
