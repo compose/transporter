@@ -14,7 +14,6 @@ go build ./cmd/transporter/...
 Adaptors
 --------
 * [elasticsearch](./pkg/adaptor/elasticsearch)
-* [etcd](./pkg/adaptor/etcd)
 * [file](./pkg/adaptor/file)
 * [mongodb](./pkg/adaptor/mongodb)
 * [postgresql](./pkg/adaptor/postgres)

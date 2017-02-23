@@ -79,26 +79,18 @@ var (
 	defaultClusterAddr = fmt.Sprintf("tcp://0.0.0.0:%d", defaultClusterPort)
 )
 
-type stringset map[string]struct{}
+type stringslice []string
 
-func (ss stringset) Set(s string) error {
-	ss[s] = struct{}{}
+func (ss *stringslice) Set(s string) error {
+	(*ss) = append(*ss, s)
 	return nil
 }
 
-func (ss stringset) String() string {
-	if len(ss) <= 0 {
-		return "<addr>"
+func (ss *stringslice) String() string {
+	if len(*ss) <= 0 {
+		return "..."
 	}
-	return strings.Join(ss.slice(), ", ")
-}
-
-func (ss stringset) slice() (res []string) {
-	res = make([]string, 0, len(ss))
-	for s := range ss {
-		res = append(res, s)
-	}
-	return res
+	return strings.Join(*ss, ", ")
 }
 
 func interrupt(cancel <-chan struct{}) error {
@@ -175,4 +167,30 @@ func usageFor(fs *flag.FlagSet, short string) func() {
 		w.Flush()
 		fmt.Fprintf(os.Stderr, "\n")
 	}
+}
+
+func hasNonlocal(clusterPeers stringslice) bool {
+	for _, peer := range clusterPeers {
+		if host, _, err := net.SplitHostPort(peer); err == nil {
+			peer = host
+		}
+		if ip := net.ParseIP(peer); ip != nil && !ip.IsLoopback() {
+			return true
+		} else if ip == nil && strings.ToLower(peer) != "localhost" {
+			return true
+		}
+	}
+	return false
+}
+
+func isUnroutable(clusterHost string) bool {
+	if host, _, err := net.SplitHostPort(clusterHost); err == nil {
+		clusterHost = host
+	}
+	if ip := net.ParseIP(clusterHost); ip != nil && (ip.IsUnspecified() || ip.IsLoopback()) {
+		return true // typically 0.0.0.0 or localhost
+	} else if ip == nil && strings.ToLower(clusterHost) == "localhost" {
+		return true
+	}
+	return false
 }

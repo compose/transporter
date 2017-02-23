@@ -1,6 +1,19 @@
 package main
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+func TestStringSlice(t *testing.T) {
+	var ss stringslice
+	ss.Set("a")
+	ss.Set("a")
+	ss.Set("b")
+	if want, have := "a a b", strings.Join(ss, " "); want != have {
+		t.Errorf("want %q, have %q", want, have)
+	}
+}
 
 func TestParseAddr(t *testing.T) {
 	for _, testcase := range []struct {
@@ -36,5 +49,111 @@ func TestParseAddr(t *testing.T) {
 			)
 			continue
 		}
+	}
+}
+
+func TestHasNonlocal(t *testing.T) {
+	makeslice := func(a ...string) stringslice {
+		ss := stringslice{}
+		for _, s := range a {
+			ss.Set(s)
+		}
+		return ss
+	}
+	for _, testcase := range []struct {
+		name  string
+		input stringslice
+		want  bool
+	}{
+		{
+			"empty",
+			makeslice(),
+			false,
+		},
+		{
+			"127",
+			makeslice("127.0.0.9"),
+			false,
+		},
+		{
+			"127 with port",
+			makeslice("127.0.0.1:1234"),
+			false,
+		},
+		{
+			"nonlocal IP",
+			makeslice("1.2.3.4"),
+			true,
+		},
+		{
+			"nonlocal IP with port",
+			makeslice("1.2.3.4:5678"),
+			true,
+		},
+		{
+			"nonlocal host",
+			makeslice("foo.corp"),
+			true,
+		},
+		{
+			"nonlocal host with port",
+			makeslice("foo.corp:7659"),
+			true,
+		},
+		{
+			"localhost",
+			makeslice("localhost"),
+			false,
+		},
+		{
+			"localhost with port",
+			makeslice("localhost:1234"),
+			false,
+		},
+		{
+			"multiple IP",
+			makeslice("127.0.0.1", "1.2.3.4"),
+			true,
+		},
+		{
+			"multiple hostname",
+			makeslice("localhost", "otherhost"),
+			true,
+		},
+		{
+			"multiple local",
+			makeslice("localhost", "127.0.0.1", "127.128.129.130:4321", "localhost:10001", "localhost:10002"),
+			false,
+		},
+		{
+			"multiple mixed",
+			makeslice("localhost", "127.0.0.1", "129.128.129.130:4321", "localhost:10001", "localhost:10002"),
+			true,
+		},
+	} {
+		t.Run(testcase.name, func(t *testing.T) {
+			if want, have := testcase.want, hasNonlocal(testcase.input); want != have {
+				t.Errorf("want %v, have %v", want, have)
+			}
+		})
+	}
+}
+
+func TestIsUnroutable(t *testing.T) {
+	for _, testcase := range []struct {
+		input string
+		want  bool
+	}{
+		{"0.0.0.0", true},
+		{"127.0.0.1", true},
+		{"127.128.129.130", true},
+		{"localhost", true},
+		{"foo", false},
+	} {
+		t.Run(testcase.input, func(t *testing.T) {
+			if want, have := testcase.want, isUnroutable(testcase.input); want != have {
+				t.Errorf("want %v, have %v", want, have)
+			}
+		})
 	}
 }
