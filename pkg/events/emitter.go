@@ -53,7 +53,9 @@ func (e *emitter) Start() {
 
 // Stop sends a stop signal and waits for the inflight posts to complete before exiting
 func (e *emitter) Stop() {
-	close(e.stop)
+	if e.stop != nil {
+		close(e.stop)
+	}
 	e.wg.Wait()
 	e.started = false
 }
