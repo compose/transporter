@@ -103,12 +103,11 @@ func (pipeline *Pipeline) Stop() {
 	}
 
 	// pipeline has stopped, emit one last round of metrics and send the exit event
+	close(pipeline.done)
 	pipeline.emitMetrics()
 	pipeline.source.pipe.Event <- events.NewExitEvent(time.Now().UnixNano(), pipeline.version, endpoints)
 	pipeline.emitter.Stop()
 
-	pipeline.metricsTicker.Stop()
-	close(pipeline.done)
 }
 
 // Run the pipeline
@@ -145,7 +144,9 @@ func (pipeline *Pipeline) startErrorListener(cherr chan error) {
 				if pipeline.Err == nil {
 					pipeline.Err = err
 				}
-				pipeline.Stop()
+				if pipeline.Err != nil {
+					pipeline.Stop()
+				}
 			}
 		case <-pipeline.done:
 			return

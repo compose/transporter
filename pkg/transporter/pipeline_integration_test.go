@@ -1,6 +1,8 @@
 package transporter
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -26,7 +28,14 @@ func setupFiles(in, out string) {
 func TestFileToFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping FileToFile in short mode")
+
 	}
+
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	}))
+	defer ts.Close()
+	ts.Start()
+
 	var (
 		tempDir = os.TempDir()
 		inFile  = filepath.Join(tempDir, "in")
@@ -40,7 +49,7 @@ func TestFileToFile(t *testing.T) {
 		Add(NewNode("localfilein", "file", adaptor.Config{"uri": "file://" + inFile}))
 
 	// create the pipeline
-	p, err := NewDefaultPipeline(outNode, "", "", "", "test", 100*time.Millisecond)
+	p, err := NewDefaultPipeline(outNode, ts.URL, "", "", "test", 100*time.Millisecond)
 	if err != nil {
 		t.Errorf("can't create pipeline, got %s", err.Error())
 		t.FailNow()
