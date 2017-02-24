@@ -23,6 +23,7 @@ type Pipeline struct {
 	// the transporter is running
 	Err           error
 	sessionTicker *time.Ticker
+	done          chan struct{}
 }
 
 // NewDefaultPipeline returns a new Transporter Pipeline with the given node tree, and
@@ -57,6 +58,7 @@ func NewPipeline(version string, source *Node, emit events.EmitFunc, interval ti
 	pipeline := &Pipeline{
 		source:        source,
 		metricsTicker: time.NewTicker(interval),
+		done:          make(chan struct{}),
 	}
 
 	if sessionStore != nil {
@@ -106,6 +108,7 @@ func (pipeline *Pipeline) Stop() {
 	pipeline.emitter.Stop()
 
 	pipeline.metricsTicker.Stop()
+	close(pipeline.done)
 }
 
 // Run the pipeline
@@ -130,24 +133,34 @@ func (pipeline *Pipeline) Run() error {
 // start error listener consumes all the events on the pipe's Err channel, and stops the pipeline
 // when it receives one
 func (pipeline *Pipeline) startErrorListener(cherr chan error) {
-	for err := range cherr {
-		if aerr, ok := err.(adaptor.Error); ok {
-			pipeline.source.pipe.Event <- events.NewErrorEvent(time.Now().UnixNano(), aerr.Path, aerr.Record, aerr.Error())
-			if aerr.Lvl == adaptor.ERROR || aerr.Lvl == adaptor.CRITICAL {
-				log.With("path", aerr.Path).Errorln(aerr)
+	for {
+		select {
+		case err := <-cherr:
+			if aerr, ok := err.(adaptor.Error); ok {
+				pipeline.source.pipe.Event <- events.NewErrorEvent(time.Now().UnixNano(), aerr.Path, aerr.Record, aerr.Error())
+				if aerr.Lvl == adaptor.ERROR || aerr.Lvl == adaptor.CRITICAL {
+					log.With("path", aerr.Path).Errorln(aerr)
+				}
+			} else {
+				if pipeline.Err == nil {
+					pipeline.Err = err
+				}
+				pipeline.Stop()
 			}
-		} else {
-			if pipeline.Err == nil {
-				pipeline.Err = err
-			}
-			pipeline.Stop()
+		case <-pipeline.done:
+			return
 		}
 	}
 }
 
 func (pipeline *Pipeline) startMetricsGatherer() {
-	for range pipeline.metricsTicker.C {
-		pipeline.emitMetrics()
+	for {
+		select {
+		case <-pipeline.metricsTicker.C:
+			pipeline.emitMetrics()
+		case <-pipeline.done:
+			return
+		}
 	}
 }
 

@@ -130,6 +130,7 @@ func (m *Pipe) Stop() {
 			c := make(chan bool)
 			m.chStop <- c
 			<-c
+			close(m.Err)
 		}
 	}
 }
