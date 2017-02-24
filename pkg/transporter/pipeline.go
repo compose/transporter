@@ -107,7 +107,6 @@ func (pipeline *Pipeline) Stop() {
 	pipeline.emitMetrics()
 	pipeline.source.pipe.Event <- events.NewExitEvent(time.Now().UnixNano(), pipeline.version, endpoints)
 	pipeline.emitter.Stop()
-
 }
 
 // Run the pipeline
@@ -140,13 +139,11 @@ func (pipeline *Pipeline) startErrorListener(cherr chan error) {
 				if aerr.Lvl == adaptor.ERROR || aerr.Lvl == adaptor.CRITICAL {
 					log.With("path", aerr.Path).Errorln(aerr)
 				}
-			} else {
+			} else if err != nil {
 				if pipeline.Err == nil {
 					pipeline.Err = err
 				}
-				if pipeline.Err != nil {
-					pipeline.Stop()
-				}
+				pipeline.Stop()
 			}
 		case <-pipeline.done:
 			return
