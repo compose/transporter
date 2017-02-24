@@ -133,13 +133,16 @@ func (pipeline *Pipeline) Run() error {
 func (pipeline *Pipeline) startErrorListener(cherr chan error) {
 	for {
 		select {
-		case err := <-cherr:
+		case err, ok := <-cherr:
+			if !ok {
+				return
+			}
 			if aerr, ok := err.(adaptor.Error); ok {
 				pipeline.source.pipe.Event <- events.NewErrorEvent(time.Now().UnixNano(), aerr.Path, aerr.Record, aerr.Error())
 				if aerr.Lvl == adaptor.ERROR || aerr.Lvl == adaptor.CRITICAL {
 					log.With("path", aerr.Path).Errorln(aerr)
 				}
-			} else if err != nil {
+			} else {
 				if pipeline.Err == nil {
 					pipeline.Err = err
 				}
