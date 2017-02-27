@@ -24,14 +24,11 @@ import (
 
 const (
 	description  = "an elasticsearch sink adaptor"
-	sampleConfig = `
-- es:
-		type: elasticsearch
+	sampleConfig = `    type: elasticsearch
     uri: https://username:password@hostname:port
-		timeout: 10s # optional, defaults to 30s
-		aws_access_key: XXX # optional, used for signing requests to AWS Elasticsearch service
-		aws_access_secret: XXX # optional, used for signing requests to AWS Elasticsearch service
-`
+    # timeout: 10s # defaults to 30s
+    # aws_access_key: XXX # used for signing requests to AWS Elasticsearch service
+    # aws_access_secret: XXX # used for signing requests to AWS Elasticsearch service`
 )
 
 var (
@@ -113,11 +110,8 @@ func init() {
 			return e, adaptor.NewError(adaptor.CRITICAL, path, fmt.Sprintf("can't split namespace into index and typeMatch (%s)", err.Error()), nil)
 		}
 
-		if err := e.setupClient(conf); err != nil {
-			return nil, err
-		}
-
-		return e, nil
+		err = e.setupClient(conf)
+		return e, err
 	})
 }
 
@@ -215,7 +209,10 @@ func (e *Elasticsearch) setupClient(conf Config) error {
 }
 
 func determineVersion(uri string, user *url.Userinfo) (string, error) {
-	req, _ := http.NewRequest(http.MethodGet, uri, nil)
+	req, err := http.NewRequest(http.MethodGet, uri, nil)
+	if err != nil {
+		return "", err
+	}
 	if user != nil {
 		if pwd, ok := user.Password(); ok {
 			req.SetBasicAuth(user.Username(), pwd)

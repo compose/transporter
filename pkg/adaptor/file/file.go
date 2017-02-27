@@ -12,11 +12,9 @@ import (
 )
 
 const (
-	sampleConfig = `
-- stdout:
-    type: file
-    uri: stdout://
-`
+	sampleConfig = `    type: file
+    uri: stdout://`
+
 	description = "an adaptor that reads / writes files"
 )
 

@@ -21,6 +21,16 @@ import (
 	_ "github.com/lib/pq" // import pq driver
 )
 
+const (
+	sampleConfig = `    type: postgres
+    uri: ${POSTGRESQL_URI}
+    # debug: false
+    # tail: false
+    # replication_slot: slot`
+
+	description = "a postgres adaptor that functions as both a source and a sink"
+)
+
 // Postgres is an adaptor to read / write to postgres.
 // it works as a source by copying files, and then optionally tailing the oplog
 type Postgres struct {
@@ -52,13 +62,9 @@ type Postgres struct {
 type Config struct {
 	URI             string `json:"uri" doc:"the uri to connect to, in the form 'user=my-user password=my-password dbname=dbname sslmode=require'"`
 	Namespace       string `json:"namespace" doc:"mongo namespace to read/write"`
-	Timeout         string `json:"timeout" doc:"timeout for establishing connection, format must be parsable by time.ParseDuration and defaults to 10s"`
 	Debug           bool   `json:"debug" doc:"display debug information"`
 	Tail            bool   `json:"tail" doc:"if tail is true, then the postgres source will tail the oplog after copying the namespace"`
 	ReplicationSlot string `json:"replication_slot" doc:"required if tail is true; sets the replication slot to use for logical decoding"`
-	Wc              int    `json:"wc" doc:"The write concern to use for writes, Int, indicating the minimum number of servers to write to before returning success/failure"`
-	FSync           bool   `json:"fsync" doc:"When writing, should we flush to disk before returning success"`
-	Bulk            bool   `json:"bulk" doc:"use a buffer to bulk insert documents"`
 }
 
 func init() {
@@ -100,14 +106,8 @@ func init() {
 
 // Description for postgres adaptor
 func (p *Postgres) Description() string {
-	return "a postgres adaptor that functions as both a source and a sink"
+	return description
 }
-
-const sampleConfig = `
-- localpostgres:
-    type: postgres
-    uri: postgres://127.0.0.1:5432/test
-`
 
 // SampleConfig for postgres adaptor
 func (p *Postgres) SampleConfig() string {
