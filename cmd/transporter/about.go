@@ -23,10 +23,7 @@ func runAbout(args []string) error {
 	}
 
 	for name, creator := range adaptor.Adaptors {
-		dummyAdaptor, err := creator(nil, "", adaptor.Config{"uri": "test", "namespace": "test.test"})
-		if err != nil {
-			return fmt.Errorf("unable to create adaptor '%s', %s", name, err)
-		}
+		dummyAdaptor, _ := creator(nil, "", adaptor.Config{"uri": "test", "namespace": "test.test"})
 		if d, ok := dummyAdaptor.(adaptor.Describable); ok {
 			fmt.Printf("%s - %s\n", name, d.Description())
 		} else {
