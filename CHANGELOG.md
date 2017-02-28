@@ -1,12 +1,20 @@
 ## v0.2.0 [UNRELEASED]
 
 ### Breaking changes
+- The etcd adaptor was removed
 
 ### Features
+- Integration tests are run weekly for the following pipelines:
+  1. MongoDB -> MongoDB
+  2. MongoDB -> Elasticsearch
+  3. MongoDB -> RethinkDB
 - RethinkDB SSL support added in [#268](https://github.com/compose/transporter/pull/268)
+- RethinkDB performs bulk inserts now, [#276](https://github.com/compose/transporter/pull/276)
 - `transporter init [source] [sink]` command added in [#279](https://github.com/compose/transporter/pull/279)
 
 ### Bugfixes
+- MongoDB adaptor could cause the pipeline to stop due to a concurrent flush operation, fixed via [#271](https://github.com/compose/transporter/pull/271)
+- When being used as a library, several goroutines were leaking after the pipeline had stopped. Reported by @cognusion in [#265](https://github.com/compose/transporter/issues/265) and addressed via [#268](https://github.com/compose/transporter/pull/268) and [#280](https://github.com/compose/transporter/pull/280)
 
 ## v0.1.3 [2017-02-09]
 
