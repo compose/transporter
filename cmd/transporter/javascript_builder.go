@@ -9,9 +9,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/compose/transporter/pkg/events"
-	"github.com/compose/transporter/pkg/state"
-	"github.com/compose/transporter/pkg/transporter"
+	"github.com/compose/transporter/events"
+	"github.com/compose/transporter/pipeline"
+	"github.com/compose/transporter/state"
 
 	"github.com/nu7hatch/gouuid"
 	"github.com/oklog/oklog/pkg/group"
@@ -27,7 +27,7 @@ type JavascriptBuilder struct {
 	vm     *otto.Otto
 
 	nodes     map[string]Node
-	pipelines []*transporter.Pipeline
+	pipelines []*pipeline.Pipeline
 
 	err    error
 	config Config
@@ -41,7 +41,7 @@ func NewJavascriptBuilder(config Config, file, src string) (*JavascriptBuilder, 
 		path:      filepath.Dir(file),
 		config:    config,
 		nodes:     make(map[string]Node),
-		pipelines: make([]*transporter.Pipeline, 0),
+		pipelines: make([]*pipeline.Pipeline, 0),
 	}
 
 	var (
@@ -289,7 +289,7 @@ func (js *JavascriptBuilder) Build() error {
 	// build each pipeline
 	for _, node := range js.nodes {
 		n := node.CreateTransporterNode()
-		pipeline, err := transporter.NewPipeline(version, n, js.emitfunc(), interval, sessionStore, sessionInterval)
+		pipeline, err := pipeline.NewPipeline(version, n, js.emitfunc(), interval, sessionStore, sessionInterval)
 		if err != nil {
 			return err
 		}

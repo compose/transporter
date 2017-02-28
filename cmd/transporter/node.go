@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/compose/transporter/pkg/adaptor"
-	"github.com/compose/transporter/pkg/transporter"
+	"github.com/compose/transporter/adaptor"
+	"github.com/compose/transporter/pipeline"
 	"github.com/nu7hatch/gouuid"
 	"github.com/robertkrimen/otto"
 )
@@ -85,8 +85,8 @@ func (n *Node) Find(childUUID string) (node *Node, err error) {
 
 // CreateTransporterNode will turn this node into a transporter.Node.
 // will recurse down the tree and transform each child
-func (n *Node) CreateTransporterNode() *transporter.Node {
-	self := transporter.NewNode(n.Name, n.Type, n.Extra)
+func (n *Node) CreateTransporterNode() *pipeline.Node {
+	self := pipeline.NewNode(n.Name, n.Type, n.Extra)
 
 	for _, child := range n.Children {
 		self.Add(child.CreateTransporterNode())

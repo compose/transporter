@@ -4,13 +4,13 @@ set -e
 
 if [[ $TRAVIS_EVENT_TYPE != 'cron' ]]; then
   case "$TESTDIR" in
-  'pkg/adaptor/postgres/...')
+  'adaptor/postgres/...')
     echo "Configuring postgresql"
     psql -c "ALTER SYSTEM SET max_replication_slots = 4"
     psql -c "ALTER SYSTEM SET wal_level = logical"
     sudo /etc/init.d/postgresql restart; sleep 1
   ;;
-  'pkg/adaptor/elasticsearch/...')
+  'adaptor/elasticsearch/...')
     echo "Configuring elasticsearch"
     mkdir -p /tmp/elasticsearch/config
     cp -r config/elasticsearch/* /tmp/elasticsearch/config/
@@ -20,7 +20,7 @@ if [[ $TRAVIS_EVENT_TYPE != 'cron' ]]; then
     docker run --rm --privileged=true -p 127.0.0.1:9201:9201 -v "/tmp/elasticsearch/config/v1:/usr/share/elasticsearch/config" -e ES_JAVA_OPTS='-Xms1g -Xmx1g' elasticsearch:1.7.6 elasticsearch >& /dev/null &
     sleep 15
   ;;
-  'pkg/adaptor/rethinkdb/...')
+  'adaptor/rethinkdb/...')
     echo "Configuring rethinkdb"
     mkdir -p /tmp/rethinkdb
     cp -r config/rethinkdb/certs/* /tmp/rethinkdb/
@@ -31,7 +31,7 @@ if [[ $TRAVIS_EVENT_TYPE != 'cron' ]]; then
     mkdir -p /tmp/rethinkdb_auth
     rethinkdb --initial-password admin123 --config-file config/rethinkdb/configurations/auth.conf >& /dev/null &
   ;;
-  'pkg/adaptor/mongodb/...')
+  'adaptor/mongodb/...')
     echo "Configuring mongodb"
     mkdir -p /tmp/mongodb
     cp -r config/mongodb/certs/* /tmp/mongodb/
