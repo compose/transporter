@@ -7,7 +7,6 @@
 package message
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -71,6 +70,9 @@ func (m *Base) Data() data.Data {
 
 // ID will attempt to convert the _id field into a string representation
 func (m *Base) ID() string {
+	if _, ok := m.MapData["_id"]; !ok {
+		return ""
+	}
 	switch id := m.MapData["_id"].(type) {
 	case string:
 		return id
@@ -79,9 +81,4 @@ func (m *Base) ID() string {
 	default:
 		return fmt.Sprintf("%v", id)
 	}
-}
-
-// MarshalData attempts to call json.Marshal on the Msg.
-func MarshalData(m Msg) ([]byte, error) {
-	return json.Marshal(m.Data())
 }

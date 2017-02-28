@@ -9,7 +9,6 @@ import (
 	"github.com/compose/mejson"
 	"github.com/compose/transporter/pkg/adaptor"
 	"github.com/compose/transporter/pkg/message"
-	"github.com/compose/transporter/pkg/message/adaptor/transformer"
 	"github.com/compose/transporter/pkg/message/data"
 	"github.com/compose/transporter/pkg/message/ops"
 	"github.com/compose/transporter/pkg/pipe"
@@ -241,9 +240,9 @@ func (t *Transformer) toMsg(origMsg message.Msg, incoming interface{}) (message.
 	default: // something went wrong
 		return nil, fmt.Errorf("returned doc was not a map[string]interface{}: was %T", newMsg)
 	}
-	newMsg := message.MustUseAdaptor("transformer").From(op, ns, mapData)
-	newMsg.(*transformer.Message).TS = ts
-	return newMsg, nil
+	msg := message.From(op, ns, mapData).(*message.Base)
+	msg.TS = ts
+	return msg, nil
 }
 
 func resolveValues(m data.Data) (data.Data, error) {

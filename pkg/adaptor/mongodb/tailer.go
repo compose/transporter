@@ -96,7 +96,7 @@ func (t *Tailer) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
 								}
 							}
 
-							msg := message.From(op, fmt.Sprintf("%s.%s", t.db, c), data.Data(doc)).(*message.Base)
+							msg := message.From(op, c, data.Data(doc)).(*message.Base)
 							msg.TS = int64(result.Ts) >> 32
 
 							out <- msg
