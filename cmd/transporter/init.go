@@ -45,6 +45,7 @@ func runInit(args []string) error {
 		return err
 	}
 	defer appFileHandle.Close()
-	appFileHandle.WriteString(`Source({name:"source", namespace:"test./.*/"}).save({name:"sink", namespace:"test./.*/"})\n`)
+	appFileHandle.WriteString(`Source({name:"source", namespace:"test./.*/"}).save({name:"sink", namespace:"test./.*/"})`)
+	appFileHandle.WriteString("\n")
 	return nil
 }
