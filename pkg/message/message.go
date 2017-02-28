@@ -9,7 +9,6 @@ package message
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"gopkg.in/mgo.v2/bson"
@@ -57,9 +56,6 @@ func (m *Base) Timestamp() int64 {
 
 // Namespace returns the combination of database/table/colleciton for the underlying adaptor.
 func (m *Base) Namespace() string {
-	if strings.Contains(m.NS, ".") {
-		return strings.Split(m.NS, ".")[1]
-	}
 	return m.NS
 }
 

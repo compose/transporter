@@ -136,6 +136,11 @@ func (r *RethinkDB) Start() error {
 
 // Listen start's the adaptor's listener
 func (r *RethinkDB) Listen() (err error) {
+	log.With("path", r.path).Infoln("adaptor Listening...")
+	defer func() {
+		log.With("path", r.path).Infoln("adaptor Listen closing...")
+		r.pipe.Stop()
+	}()
 	return r.pipe.Listen(r.applyOp, r.tableMatch)
 }
 

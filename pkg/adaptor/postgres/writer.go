@@ -5,42 +5,44 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
+	"github.com/compose/transporter/pkg/client"
+	"github.com/compose/transporter/pkg/log"
 	"github.com/compose/transporter/pkg/message"
-	"github.com/compose/transporter/pkg/message/data"
 	"github.com/compose/transporter/pkg/message/ops"
 )
 
-type Adaptor struct {
-	session *sql.DB
+var _ client.Writer = &Writer{}
+
+// Writer implements client.Writer for use with MongoDB
+type Writer struct {
+	db       string
+	writeMap map[ops.Op]func(message.Msg, *sql.DB) error
 }
 
-var _ message.Adaptor = Adaptor{}
-var _ message.Insertable = Adaptor{}
-var _ message.Deletable = Adaptor{}
-var _ message.Updatable = Adaptor{}
-
-func init() {
-	a := Adaptor{}
-	message.Register(a.Name(), a)
+func newWriter(db string) *Writer {
+	w := &Writer{db: db}
+	w.writeMap = map[ops.Op]func(message.Msg, *sql.DB) error{
+		ops.Insert: insertMsg,
+		ops.Update: updateMsg,
+		ops.Delete: deleteMsg,
+	}
+	return w
 }
 
-func (r Adaptor) Name() string {
-	return "postgres"
-}
-
-func (r Adaptor) From(op ops.Op, namespace string, d data.Data) message.Msg {
-	return &Message{
-		Operation: op,
-		TS:        time.Now().Unix(),
-		NS:        namespace,
-		MapData:   d,
+func (w *Writer) Write(msg message.Msg) func(client.Session) error {
+	return func(s client.Session) error {
+		writeFunc, ok := w.writeMap[msg.OP()]
+		if !ok {
+			log.Infof("no function registered for operation, %s\n", msg.OP())
+			return nil
+		}
+		return writeFunc(msg, s.(*Session).pqSession)
 	}
 }
 
-func (r Adaptor) Insert(m message.Msg) error {
-	fmt.Printf("Write INSERT to Postgres %v\n", m.Namespace())
+func insertMsg(m message.Msg, s *sql.DB) error {
+	log.Infof("Write INSERT to Postgres %v", m.Namespace())
 	var (
 		keys         []string
 		placeholders []string
@@ -64,17 +66,17 @@ func (r Adaptor) Insert(m message.Msg) error {
 	}
 
 	query := fmt.Sprintf("INSERT INTO %v (%v) VALUES (%v);", m.Namespace(), strings.Join(keys, ", "), strings.Join(placeholders, ", "))
-	_, err := r.session.Exec(query, data...)
+	_, err := s.Exec(query, data...)
 	return err
 }
 
-func (r Adaptor) Delete(m message.Msg) error {
+func deleteMsg(m message.Msg, s *sql.DB) error {
 	fmt.Printf("Write DELETE to Postgres %v values %v\n", m.Namespace(), m.Data())
 	var (
 		ckeys []string
 		vals  []interface{}
 	)
-	pkeys, err := r.primaryKeys(m.Namespace())
+	pkeys, err := primaryKeys(m.Namespace(), s)
 	if err != nil {
 		return err
 	}
@@ -96,11 +98,11 @@ func (r Adaptor) Delete(m message.Msg) error {
 	}
 
 	query := fmt.Sprintf("DELETE FROM %v WHERE %v;", m.Namespace(), strings.Join(ckeys, " AND "))
-	_, err = r.session.Exec(query, vals...)
+	_, err = s.Exec(query, vals...)
 	return err
 }
 
-func (r Adaptor) Update(m message.Msg) error {
+func updateMsg(m message.Msg, s *sql.DB) error {
 	fmt.Printf("Write UPDATE to Postgres %v\n", m.Namespace())
 	var (
 		ckeys []string
@@ -108,7 +110,7 @@ func (r Adaptor) Update(m message.Msg) error {
 		vals  []interface{}
 	)
 
-	pkeys, err := r.primaryKeys(m.Namespace())
+	pkeys, err := primaryKeys(m.Namespace(), s)
 	if err != nil {
 		return err
 	}
@@ -138,16 +140,11 @@ func (r Adaptor) Update(m message.Msg) error {
 	}
 
 	query := fmt.Sprintf("UPDATE %v SET %v WHERE %v;", m.Namespace(), strings.Join(ukeys, ", "), strings.Join(ckeys, " AND "))
-	_, err = r.session.Exec(query, vals...)
+	_, err = s.Exec(query, vals...)
 	return err
 }
 
-func (r Adaptor) UseSession(session *sql.DB) Adaptor {
-	r.session = session
-	return r
-}
-
-func (r Adaptor) primaryKeys(namespace string) (primaryKeys map[string]bool, err error) {
+func primaryKeys(namespace string, db *sql.DB) (primaryKeys map[string]bool, err error) {
 	primaryKeys = map[string]bool{}
 	namespaceArray := strings.SplitN(namespace, ".", 2)
 	var (
@@ -163,7 +160,7 @@ func (r Adaptor) primaryKeys(namespace string) (primaryKeys map[string]bool, err
 		tableName = namespaceArray[1]
 	}
 
-	tablesResult, err := r.session.Query(fmt.Sprintf(`
+	tablesResult, err := db.Query(fmt.Sprintf(`
 		SELECT
 			column_name
 		FROM information_schema.table_constraints constraints

@@ -2,7 +2,6 @@ package mongodb
 
 import (
 	"crypto/rand"
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -44,14 +43,13 @@ func TestBulkWrite(t *testing.T) {
 	done := make(chan struct{})
 	b := newBulker(bulkTestData.DB, done, &wg)
 
-	ns := fmt.Sprintf("%s.%s", bulkTestData.DB, bulkTestData.C)
 	for _, bt := range bulkTests {
 		for i := 0; i < testBulkMsgCount; i++ {
 			data := map[string]interface{}{"_id": i, "i": i}
 			for k, v := range bt.extraData {
 				data[k] = v
 			}
-			b.Write(message.From(bt.op, ns, data))(defaultSession)
+			b.Write(message.From(bt.op, bulkTestData.C, data))(defaultSession)
 		}
 		time.Sleep(3 * time.Second)
 		checkBulkCount(bulkTestData.C, bt.countQuery, bt.expectedCount, t)
@@ -65,17 +63,16 @@ func TestBulkWriteMixedOps(t *testing.T) {
 	b := newBulker(bulkTestData.DB, done, &wg)
 
 	mixedModeC := "mixed_mode"
-	ns := fmt.Sprintf("%s.%s", bulkTestData.DB, mixedModeC)
-	b.Write(message.From(ops.Insert, ns, map[string]interface{}{"_id": 0}))(defaultSession)
-	b.Write(message.From(ops.Insert, ns, map[string]interface{}{"_id": 1}))(defaultSession)
-	b.Write(message.From(ops.Insert, ns, map[string]interface{}{"_id": 2}))(defaultSession)
-	b.Write(message.From(ops.Update, ns, map[string]interface{}{"_id": 2, "hello": "world"}))(defaultSession)
-	b.Write(message.From(ops.Insert, ns, map[string]interface{}{"_id": 3}))(defaultSession)
-	b.Write(message.From(ops.Update, ns, map[string]interface{}{"_id": 1, "moar": "tests"}))(defaultSession)
-	b.Write(message.From(ops.Insert, ns, map[string]interface{}{"_id": 4, "say": "goodbye"}))(defaultSession)
-	b.Write(message.From(ops.Delete, ns, map[string]interface{}{"_id": 1, "moar": "tests"}))(defaultSession)
-	b.Write(message.From(ops.Delete, ns, map[string]interface{}{"_id": 3}))(defaultSession)
-	b.Write(message.From(ops.Insert, ns, map[string]interface{}{"_id": 5}))(defaultSession)
+	b.Write(message.From(ops.Insert, mixedModeC, map[string]interface{}{"_id": 0}))(defaultSession)
+	b.Write(message.From(ops.Insert, mixedModeC, map[string]interface{}{"_id": 1}))(defaultSession)
+	b.Write(message.From(ops.Insert, mixedModeC, map[string]interface{}{"_id": 2}))(defaultSession)
+	b.Write(message.From(ops.Update, mixedModeC, map[string]interface{}{"_id": 2, "hello": "world"}))(defaultSession)
+	b.Write(message.From(ops.Insert, mixedModeC, map[string]interface{}{"_id": 3}))(defaultSession)
+	b.Write(message.From(ops.Update, mixedModeC, map[string]interface{}{"_id": 1, "moar": "tests"}))(defaultSession)
+	b.Write(message.From(ops.Insert, mixedModeC, map[string]interface{}{"_id": 4, "say": "goodbye"}))(defaultSession)
+	b.Write(message.From(ops.Delete, mixedModeC, map[string]interface{}{"_id": 1, "moar": "tests"}))(defaultSession)
+	b.Write(message.From(ops.Delete, mixedModeC, map[string]interface{}{"_id": 3}))(defaultSession)
+	b.Write(message.From(ops.Insert, mixedModeC, map[string]interface{}{"_id": 5}))(defaultSession)
 
 	// so... after the ops get flushed we should have the following:
 	// 4 docs left
@@ -91,9 +88,8 @@ func TestBulkOpCount(t *testing.T) {
 	done := make(chan struct{})
 	b := newBulker(bulkTestData.DB, done, &wg)
 
-	ns := fmt.Sprintf("%s.%s", bulkTestData.DB, "bar")
 	for i := 0; i < maxObjSize; i++ {
-		msg := message.From(ops.Insert, ns, map[string]interface{}{"i": i})
+		msg := message.From(ops.Insert, "bar", map[string]interface{}{"i": i})
 		b.Write(msg)(defaultSession)
 	}
 	close(done)
@@ -106,9 +102,8 @@ func TestFlushOnDone(t *testing.T) {
 	done := make(chan struct{})
 	b := newBulker(bulkTestData.DB, done, &wg)
 
-	ns := fmt.Sprintf("%s.%s", bulkTestData.DB, "baz")
 	for i := 0; i < testBulkMsgCount; i++ {
-		msg := message.From(ops.Insert, ns, map[string]interface{}{"i": i})
+		msg := message.From(ops.Insert, "baz", map[string]interface{}{"i": i})
 		b.Write(msg)(defaultSession)
 	}
 	close(done)
@@ -121,15 +116,12 @@ func TestBulkMulitpleCollections(t *testing.T) {
 	done := make(chan struct{})
 	b := newBulker(bulkTestData.DB, done, &wg)
 
-	ns1 := fmt.Sprintf("%s.%s", bulkTestData.DB, "multi_a")
-	ns2 := fmt.Sprintf("%s.%s", bulkTestData.DB, "multi_b")
-	ns3 := fmt.Sprintf("%s.%s", bulkTestData.DB, "multi_c")
 	for i := 0; i < (maxObjSize + 1); i++ {
-		b.Write(message.From(ops.Insert, ns3, map[string]interface{}{"i": i}))(defaultSession)
+		b.Write(message.From(ops.Insert, "multi_c", map[string]interface{}{"i": i}))(defaultSession)
 	}
 	for i := 0; i < testBulkMsgCount; i++ {
-		b.Write(message.From(ops.Insert, ns1, map[string]interface{}{"i": i}))(defaultSession)
-		b.Write(message.From(ops.Insert, ns2, map[string]interface{}{"i": i}))(defaultSession)
+		b.Write(message.From(ops.Insert, "multi_a", map[string]interface{}{"i": i}))(defaultSession)
+		b.Write(message.From(ops.Insert, "multi_b", map[string]interface{}{"i": i}))(defaultSession)
 	}
 	checkBulkCount("multi_a", bson.M{}, 0, t)
 	checkBulkCount("multi_b", bson.M{}, 0, t)
