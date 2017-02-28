@@ -1,4 +1,4 @@
-## v0.2.0 [UNRELEASED]
+## v0.2.0 [2017-02-28]
 
 ### Breaking changes
 - The etcd adaptor was removed
