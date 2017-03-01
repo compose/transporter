@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/compose/transporter/pkg/log"
+	"github.com/compose/transporter/log"
 )
 
 var (

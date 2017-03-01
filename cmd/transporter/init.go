@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/compose/transporter/pkg/adaptor"
+	"github.com/compose/transporter/adaptor"
 )
 
 func runInit(args []string) error {

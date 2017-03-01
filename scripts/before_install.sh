@@ -3,7 +3,7 @@
 set -ev
 
 if [[ $TRAVIS_EVENT_TYPE != 'cron' ]]; then
-  if [[ $TESTDIR == pkg/adaptor/mongodb* ]]; then
+  if [[ $TESTDIR == adaptor/mongodb* ]]; then
     pip install "mongo-orchestration>=0.6.7,<1.0"
 
     wget https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION.tgz

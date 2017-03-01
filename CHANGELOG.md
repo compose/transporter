@@ -1,3 +1,13 @@
+## v0.3.0 [UNRELEASED]
+
+### Breaking changes
+- if using transporter as a library, all packages have been moved out of `pkg` to the top-level
+
+### Features
+
+### Bugfixes
+
+
 ## v0.2.0 [2017-02-28]
 
 ### Breaking changes

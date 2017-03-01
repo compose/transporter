@@ -13,12 +13,12 @@ go build ./cmd/transporter/...
 
 Adaptors
 --------
-* [elasticsearch](./pkg/adaptor/elasticsearch)
-* [file](./pkg/adaptor/file)
-* [mongodb](./pkg/adaptor/mongodb)
-* [postgresql](./pkg/adaptor/postgres)
-* [rethinkdb](./pkg/adaptor/rethinkdb)
-* [transformer](./pkg/adaptor/transformer)
+* [elasticsearch](./adaptor/elasticsearch)
+* [file](./adaptor/file)
+* [mongodb](./adaptor/mongodb)
+* [postgresql](./adaptor/postgres)
+* [rethinkdb](./adaptor/rethinkdb)
+* [transformer](./adaptor/transformer)
 
 Configure
 ---------
