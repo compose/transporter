@@ -1,2 +1,4 @@
 /transporter
 .vagrant
+/transporter.yaml
+/pipeline.js
