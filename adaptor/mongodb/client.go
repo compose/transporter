@@ -155,7 +155,9 @@ func WithCACerts(certs []string) ClientOptionFunc {
 // WithWriteConcern configures the write concern option for the session (Default: 0).
 func WithWriteConcern(wc int) ClientOptionFunc {
 	return func(c *Client) error {
-		c.safety.W = wc
+		if wc > 0 {
+			c.safety.W = wc
+		}
 		return nil
 	}
 }

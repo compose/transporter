@@ -2,6 +2,7 @@ package mongodb
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/compose/transporter/client"
@@ -77,7 +78,7 @@ func (r *Reader) listCollections(mgoSession *mgo.Session, filterFn func(name str
 	go func() {
 		defer close(out)
 		for _, c := range collections {
-			if filterFn(c) {
+			if filterFn(c) && !strings.HasPrefix(c, "system.") {
 				log.With("db", r.db).With("collection", c).Infoln("sending for iteration...")
 				out <- c
 			} else {

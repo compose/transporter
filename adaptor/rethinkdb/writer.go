@@ -46,14 +46,14 @@ func newWriter(db string, done chan struct{}, wg *sync.WaitGroup) *Writer {
 	return w
 }
 
-func (w *Writer) Write(msg message.Msg) func(client.Session) error {
-	return func(s client.Session) error {
+func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error) {
+	return func(s client.Session) (message.Msg, error) {
 		table := msg.Namespace()
 		rSession := s.(*Session).session
 		switch msg.OP() {
 		case ops.Delete:
 			w.flushAll()
-			return do(r.DB(w.db).Table(table).Get(prepareDocument(msg)["id"]).Delete(), rSession)
+			return msg, do(r.DB(w.db).Table(table).Get(prepareDocument(msg)["id"]).Delete(), rSession)
 		case ops.Insert:
 			w.Lock()
 			bOp, ok := w.bulkMap[table]
@@ -72,9 +72,9 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) error {
 			}
 		case ops.Update:
 			w.flushAll()
-			return do(r.DB(w.db).Table(table).Insert(prepareDocument(msg), r.InsertOpts{Conflict: "replace"}), rSession)
+			return msg, do(r.DB(w.db).Table(table).Insert(prepareDocument(msg), r.InsertOpts{Conflict: "replace"}), rSession)
 		}
-		return nil
+		return msg, nil
 	}
 }
 

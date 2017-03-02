@@ -48,7 +48,7 @@ func init() {
 		}
 		w := &Writer{
 			index:  opts.Index,
-			logger: log.With("writer", "elasticsearch").With("version", 5).With("path", opts.Path),
+			logger: log.With("writer", "elasticsearch").With("version", 5),
 		}
 		p, err := esClient.BulkProcessor().
 			Name("TransporterWorker-1").
@@ -66,8 +66,8 @@ func init() {
 	})
 }
 
-func (w *Writer) Write(msg message.Msg) func(client.Session) error {
-	return func(s client.Session) error {
+func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error) {
+	return func(s client.Session) (message.Msg, error) {
 		indexType := msg.Namespace()
 		var id string
 		if _, ok := msg.Data()["_id"]; ok {
@@ -88,7 +88,7 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) error {
 			br = elastic.NewBulkUpdateRequest().Index(w.index).Type(indexType).Id(id).Doc(msg.Data())
 		}
 		w.bp.Add(br)
-		return nil
+		return msg, nil
 	}
 }
 

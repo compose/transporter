@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 
-	"github.com/compose/transporter/pipe"
+	"github.com/compose/transporter/client"
 )
 
 // ErrNamespaceMalformed represents the error to be returned when an invalid namespace is given.
@@ -22,14 +23,22 @@ func (a ErrNotFound) Error() string {
 	return fmt.Sprintf("adaptor '%s' not found in registry", a.Name)
 }
 
-// Adaptor defines the interface that all database connectors and nodes must follow.
-// Start() consumes data from the interface,
-// Listen() listens on a pipe, processes data, and then emits it.
-// Stop() shuts down the adaptor
+// ErrFuncNotSupported should be used for adaptors that do not support a given function defined
+// by the interface.
+type ErrFuncNotSupported struct {
+	Name string
+	Func string
+}
+
+func (a ErrFuncNotSupported) Error() string {
+	return fmt.Sprintf("'%s' does not support '%s' function", a.Name, a.Func)
+}
+
+// Adaptor defines the interface which provides functions to create client interfaces
 type Adaptor interface {
-	Start() error
-	Listen() error
-	Stop() error
+	Client() (client.Client, error)
+	Reader() (client.Reader, error)
+	Writer(chan struct{}, *sync.WaitGroup) (client.Writer, error)
 }
 
 // Connectable defines the interface that adapters should follow to have their connections set
@@ -46,38 +55,6 @@ type Connectable interface {
 type Describable interface {
 	SampleConfig() string
 	Description() string
-}
-
-// CreateAdaptor instantiates an adaptor given the adaptor type and the Config.
-// An Adaptor is expected to add themselves to the Adaptors map in the init() func
-//   func init() {
-//     adaptors.Add("TYPE", func(p *pipe.Pipe, path string, extra adaptors.Config) (adaptors.StopStartListener, error) {
-//     })
-//   }
-// and are expected to confirm to the Adaptor interface
-func CreateAdaptor(kind, path string, extra Config, p *pipe.Pipe) (adaptor Adaptor, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("cannot create node [%s]: %v", kind, r)
-		}
-	}()
-
-	creator, ok := Adaptors[kind]
-	if !ok {
-		return nil, ErrNotFound{kind}
-	}
-
-	adaptor, err = creator(p, path, extra)
-	if err != nil {
-		return nil, err
-	}
-	if c, ok := adaptor.(Connectable); ok {
-		if err := c.Connect(); err != nil {
-			return nil, err
-		}
-	}
-
-	return adaptor, nil
 }
 
 // Config is an alias to map[string]interface{} and helps us
@@ -116,8 +93,8 @@ func (c Config) GetString(key string) string {
 // split a namespace into it's elements
 // this covers a few standard cases, elasticsearch, mongo, rethink, but it's
 // expected to be all inclusive.
-func (c *Config) splitNamespace() (string, string, error) {
-	fields := strings.SplitN(c.GetString("namespace"), ".", 2)
+func splitNamespace(ns string) (string, string, error) {
+	fields := strings.SplitN(ns, ".", 2)
 
 	if len(fields) != 2 {
 		return "", "", ErrNamespaceMalformed
@@ -126,8 +103,8 @@ func (c *Config) splitNamespace() (string, string, error) {
 }
 
 // CompileNamespace split's on the first '.' and then compiles the second portion to use as the msg filter
-func (c *Config) CompileNamespace() (string, *regexp.Regexp, error) {
-	field0, field1, err := c.splitNamespace()
+func CompileNamespace(ns string) (string, *regexp.Regexp, error) {
+	field0, field1, err := splitNamespace(ns)
 
 	if err != nil {
 		return "", nil, err
@@ -137,9 +114,9 @@ func (c *Config) CompileNamespace() (string, *regexp.Regexp, error) {
 	return field0, compiledNs, err
 }
 
-// DbConfig is a standard typed config struct to use for as general purpose config for most databases.
-type DbConfig struct {
-	URI       string `json:"uri" doc:"the uri to connect to, in the form mongo://user:password@host.com:8080/database"` // the database uri
-	Namespace string `json:"namespace" doc:"mongo namespace to read/write"`                                             // namespace
-	Debug     bool   `json:"debug" doc:"display debug information"`                                                     // debug mode
+// BaseConfig is a standard typed config struct to use for as general purpose config for most databases.
+type BaseConfig struct {
+	URI       string `json:"uri"`
+	Namespace string `json:"namespace"`
+	Timeout   string `json:"timeout"`
 }

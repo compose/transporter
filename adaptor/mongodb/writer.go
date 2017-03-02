@@ -27,14 +27,14 @@ func newWriter(db string) *Writer {
 	return w
 }
 
-func (w *Writer) Write(msg message.Msg) func(client.Session) error {
-	return func(s client.Session) error {
+func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error) {
+	return func(s client.Session) (message.Msg, error) {
 		writeFunc, ok := w.writeMap[msg.OP()]
 		if !ok {
 			log.Infof("no function registered for operation, %s\n", msg.OP())
-			return nil
+			return msg, nil
 		}
-		return writeFunc(msg, msgCollection(w.db, msg, s))
+		return msg, writeFunc(msg, msgCollection(w.db, msg, s))
 	}
 }
 
