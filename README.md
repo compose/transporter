@@ -10,7 +10,7 @@ About
 
 Transporter allows the user to configure a number of data adaptors as sources or sinks. These can be databases, files or other resources. Data is read from the sources, converted into a message format, and then send down to the sink where the message is converted into a writable format for its destination. The user can also create data transformations in JavaScript which can sit between the source and sink and manipulate or filter the message flow. 
 
-Adapters may be able to track changes as they happen in source data. This "tail" capability allows a Transporter to stay running and keep the sinks in sync.
+Adaptors may be able to track changes as they happen in source data. This "tail" capability allows a Transporter to stay running and keep the sinks in sync.
 
 Downloading Transporter
 -----------------------
@@ -35,7 +35,7 @@ Commands
 ### init
 
 ```
-transporter init [source adapter name] [sink adapter name]
+transporter init [source adaptor name] [sink adaptor name]
 ```
 
 Generates a basic `transporter.yaml` and `pipeline.js` file in the current directory.
@@ -82,6 +82,22 @@ _Example_
 Name                 Type            URI
 sink                 elasticsearch   https://username:password@hostname:port
 source               mongodb         
+```
+
+### About
+
+`transporter about`
+
+Lists all the adaptors currently available.
+
+_Example_
+```
+elasticsearch - an elasticsearch sink adaptor
+file - an adaptor that reads / writes files
+mongodb - a mongodb adaptor that functions as both a source and a sink
+postgres - a postgres adaptor that functions as both a source and a sink
+rethinkdb - a rethinkdb adaptor that functions as both a source and a sink
+transformer - an adaptor that transforms documents using a javascript function
 ```
 
 ### run
