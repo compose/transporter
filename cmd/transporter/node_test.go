@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/compose/transporter/pkg/adaptor"
+	"github.com/compose/transporter/adaptor"
 )
 
 func TestFind(t *testing.T) {

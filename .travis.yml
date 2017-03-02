@@ -10,11 +10,11 @@ env:
   - ES_V2_URL=http://127.0.0.1:9202
   - ES_V1_URL=http://127.0.0.1:9201
   matrix:
-  - TESTDIR=pkg/adaptor/elasticsearch/...
-  - TESTDIR=pkg/adaptor/mongodb/...
-  - TESTDIR=pkg/adaptor/postgres/...
-  - TESTDIR=pkg/adaptor/rethinkdb/...
-  - TESTDIR="pkg/adaptor, pkg/adaptor/all, pkg/adaptor/file/..., pkg/adaptor/transformer/..., pkg/client/..., pkg/events/..., pkg/log/..., pkg/message/..., pkg/pipe/..., pkg/state/..., pkg/transporter/..."
+  - TESTDIR=adaptor/elasticsearch/...
+  - TESTDIR=adaptor/mongodb/...
+  - TESTDIR=adaptor/postgres/...
+  - TESTDIR=adaptor/rethinkdb/...
+  - TESTDIR="adaptor, adaptor/all, adaptor/file/..., adaptor/transformer/..., client/..., events/..., log/..., message/..., pipe/..., state/..., pipeline/..."
   - TESTDIR=integration_tests/mongo_to_mongo
   - TESTDIR=integration_tests/mongo_to_es
   - TESTDIR=integration_tests/mongo_to_rethink
@@ -24,11 +24,11 @@ cache:
   directories:
   - "$HOME/.cache/pip"
 before_cache:
-- if [[ $TESTDIR == pkg* ]]; then rm -f $HOME/.cache/pip/log/debug.log; fi
+- if [[ $TESTDIR != integration* ]]; then rm -f $HOME/.cache/pip/log/debug.log; fi
 script:
 - "./scripts/tests.sh"
 after_success:
-- if [[ $TESTDIR == pkg* ]]; then bash <(curl -s https://codecov.io/bash); fi
+- if [[ $TESTDIR != integration* ]]; then bash <(curl -s https://codecov.io/bash); fi
 addons:
   postgresql: '9.4'
   rethinkdb: '2.3.5'

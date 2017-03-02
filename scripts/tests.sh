@@ -12,7 +12,7 @@ if [[ "$TRAVIS_EVENT_TYPE" == "cron" && "$TESTDIR" == integration_tests* ]]; the
   transporter run -config integration_tests/config.yml $TESTDIR/app.js
 
   go test -v ./$TESTDIR/... -tags=integration -log.level=error
-elif [[ "$TRAVIS_EVENT_TYPE" != "cron" && "$TESTDIR" == pkg* ]]; then
+elif [[ "$TRAVIS_EVENT_TYPE" != "cron" && "$TESTDIR" != integration_tests* ]]; then
   echo "running tests in $TESTDIR"
 
   echo "" > coverage.txt
