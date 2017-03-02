@@ -1,4 +1,4 @@
-## Building Transporter on Windows
+# Building Transporter on Windows
 
 1) Install Go
 

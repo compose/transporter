@@ -1,18 +1,27 @@
 [![Build Status](https://travis-ci.org/compose/transporter.svg?branch=master)](https://travis-ci.org/compose/transporter) [![Go Report Card](https://goreportcard.com/badge/github.com/compose/transporter)](https://goreportcard.com/report/github.com/compose/transporter) [![codecov](https://codecov.io/gh/compose/transporter/branch/master/graph/badge.svg)](https://codecov.io/gh/compose/transporter) [![Docker Repository on Quay](https://quay.io/repository/compose/transporter/status "Docker Repository on Quay")](https://quay.io/repository/compose/transporter)
 
-Compose helps with database transformations from one store to another.  It can also sync from one to another or several stores.
+Compose Transporter helps with database transformations from one store to another.  It can also sync from one to another or several stores.
 
 Transporter
 ===========
 
-Build
+About
 -----
-```
-go build ./cmd/transporter/...
-```
+
+Transporter allows the user to configure a number of data adaptors as sources or sinks. These can be databases, files or other resources. Data is read from the sources, converted into a message format, and then send down to the sink where the message is converted into a writable format for its destination. The user can also create data transformations in JavaScript which can sit between the source and sink and manipulate or filter the message flow. 
+
+Adapters may be able to track changes as they happen in source data. This "tail" capability allows a Transporter to stay running and keep the sinks in sync.
+
+Downloading Transporter
+-----------------------
+
+The latest binary releases are available from the [Github Repository](https://github.com/compose/transporter/releases/latest)
 
 Adaptors
 --------
+
+Each adaptor has its own README page with details on configuration and capabilities.
+
 * [elasticsearch](./adaptor/elasticsearch)
 * [file](./adaptor/file)
 * [mongodb](./adaptor/mongodb)
@@ -20,101 +29,116 @@ Adaptors
 * [rethinkdb](./adaptor/rethinkdb)
 * [transformer](./adaptor/transformer)
 
-Configure
----------
-There is a sample config in test/config.yaml.  The config defines the endpoints, (either sources or sinks) that are available to the application.
-```yaml
-api:
-  interval: 60s # time interval between metrics posts to the api endpoint
-  uri: "http://requestb.in/1a0zlf11"
+Commands
+--------
+
+### init
+
+```
+transporter init [source adapter name] [sink adapter name]
+```
+
+Generates a basic `transporter.yaml` and `pipeline.js` file in the current directory.
+
+_Example_ 
+```
+$ transporter init mongodb elasticsearch
+$ cat transporter.yaml
 nodes:
-  localmongo:
+  source:
     type: mongodb
-    uri: mongodb://localhost/boom
-  supernick:
+    uri: ${MONGODB_URI} 
+    # timeout: 30s
+    # tail: false
+    # ssl: false
+    # cacerts: ["/path/to/cert.pem"]
+    # wc: 1
+    # fsync: false
+    # bulk: false
+  sink:
     type: elasticsearch
-    uri: http://10.0.0.1,10.0.0.2:9200/indexname
-  debug:
-    type: file
-    uri: stdout://
-  foofile:
-    type: file
-    uri: file:///tmp/foo
-  stdout:
-    type: file
-    uri: stdout://
+    uri: https://username:password@hostname:port
+    # timeout: 10s # defaults to 30s
+    # aws_access_key: XXX # used for signing requests to AWS Elasticsearch service
+    # aws_access_secret: XXX # used for signing requests to AWS Elasticsearch service
+$ cat pipeline.js`
+Source({name:"source", namespace:"test./.*/"}).save({name:"sink", namespace:"test./.*/"})
+$
 ```
 
-There is also a sample 'application.js' in test/application.js.  The application is responsible for building transporter pipelines.
-Given the above config, this Transporter application.js will copy from a file (in /tmp/foo) to stdout.
-```js
-Source({name:"foofile"}).save({name:"stdout"})
+Edit the `transporter.yaml` file to configure the source and sink nodes. The `pipeline.js` file will
+also need to be edited to set the namespace.
+
+### list
 
 ```
-
-This application.js will copy from the local mongo to a file on the local disk
-```js
-Source({name:"localmongo", namespace: "boom.foo"}).save({name:"tofile"})
+transporter list [--config transporterconfig.yaml]
 ```
 
-Transformers can also be configured in the application.js as follows
-```js
-var pipeline = Source({name:"mongodb-production", namespace: "compose.milestones2"})
-pipeline = pipeline.transform("transformers/transform1.js").transform("transformers/transform2.js")
-pipeline.save({name:"supernick", namespace: "something/posts2"});
+List prints the currently configured nodes in the transporter.yaml file.
 
+_Example_
 ```
-Run
----
-
-- list `transporter list --config ./test/config.yaml`
-- run `transporter run --config ./test/config.yaml ./test/application.js`
-- eval `transporter eval --config ./test/config.yaml 'Source({name:"localmongo", namespace: "boom.foo"}).save({name:"tofile"})' `
-- test `transporter test --config ./test/config.yaml test/application.js `
-- init `transporter init mongodb mongodb`
-
-Complete beginners guide
----
-
-### OS X
-
-- follow instructions on http://golang.org/doc/install
-- VERY IMPORTANT: Go has a required directory structure which the GOPATH needs to point to. Instructions can be found on http://golang.org/doc/code.html or by typing `go help gopath` in terminal.
-- setup the directory structure in $GOPATH
-    - `cd $GOPATH; mkdir src pkg bin`
-    - create the github.com path and compose `mkdir -p src/github.com/compose; cd src/github.com/compose`
-    - clone transporter `git clone https://github.com/compose/transporter; cd transporter`
-    - now you can build with `go build ./cmd/transporter/...`
-
-At this point you should be able to run transporter via `$GOPATH/bin/transporter`,  you may need to add $GOPATH to your PATH environment variable. Something along the lines of `export PATH="$GOPATH/bin:$PATH"` should work.
-
-### Vagrant
-
-* ensure [vagrant](https://www.vagrantup.com/) is installed
-* ensure [ansible](http://www.ansible.com/) is installed
-* ensure either [virtual box](https://www.virtualbox.org/wiki/Downloads) or [VMWare fusion](http://www.vmware.com/products/fusion) or [VMWare Workstation](http://www.vmware.com/products/workstation) is installed
-
-```bash
-> cd transporter
-> vagrant up
-...
-> vagrant ssh
-...
-vagrant> ./run-test
-
+Name                 Type            URI
+sink                 elasticsearch   https://username:password@hostname:port
+source               mongodb         
 ```
 
-### Windows
+### run
 
-See [READMEWINDOWS.md](https://github.com/compose/transporter/blob/master/READMEWINDOWS.md)
+```
+transporter run [--config transporterconfig.yaml] [-log.level "info"] <application.js>
+```
 
-Transporter in the Media
-===
+Runs the pipeline script file which has its name given as the final parameter. 
 
+### test
+
+```
+transporter test [--config transporterconfig.yaml] [-log.level "info"] <application.js>
+```
+
+Evaluates and connects the pipeline, sources and sinks. Establishes connections but does not run.
+Prints out the state of connections at the end. Useful for debugging new configurations.
+
+### eval
+
+```
+transporter test [--config transporterconfig.yaml] [-log.level "info"] 'JavaScript'
+```
+
+Runs the pipeline script found in the final parameter string. It needs to be a single string and properly escaped.
+
+
+#### switches
+
+`-config transporterconfig.yaml` - overrides the `transporter.yaml` default for the configuration file.
+
+`-log.level "info"` - sets the logging level. Default is info; can be debug or error.
+
+Building Transporter
+--------------------
+
+### Essentials
+
+```
+go build ./cmd/transporter/...
+```
+
+### Building guides
+
+[macOS](https://github.com/compose/transporter/blob/master/READMEMACOS.md)
+[Windows](https://github.com/compose/transporter/blob/master/READMEWINDOWS.md)
+[Vagrant](https://github.com/compose/transporter/blob/master/READMEVAGRANT.md)
+
+Transporter Resources
+=====================
+
+* [Transporter Wiki](https://github.com/compose/transporter/wiki)
 * [Compose's articles](https://www.compose.io/articles/search/?s=transporter)
 
 Contributing to Transporter
-======================
+===========================
 
 Want to help out with Transporter? Great! There are instructions to get you
 started [here](CONTRIBUTING.md).
@@ -124,5 +148,5 @@ Licensing
 Transporter is licensed under the New BSD License. See LICENSE for full license text.
 
 Support and Guarantees
-=========
+======================
 Compose does not provide support nor guarantee stability or functionality of this tool. Please take adequate caution when using Transporter to ensure that it's the right tool for the job. Transporter may not account for failure scenarios that could lead to unexpected behavior. Always take backups, always test in dev, and always feel free to submit a PR with enhancements, features, and bug fixes.
