@@ -31,3 +31,6 @@ import:
   version: ^5.0.24
 - package: github.com/smartystreets/go-aws-auth
 - package: github.com/streadway/amqp
+- package: github.com/dop251/goja
+- package: github.com/dlclark/regexp2
+  version: ^1.1.3

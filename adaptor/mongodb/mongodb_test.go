@@ -1,6 +1,7 @@
 package mongodb
 
 import (
+	"reflect"
 	"sync"
 	"testing"
 
@@ -22,25 +23,60 @@ func TestSampleConfig(t *testing.T) {
 }
 
 var initTests = []struct {
+	name      string
 	cfg       map[string]interface{}
+	mongodb   *MongoDB
 	clientErr error
 	readerErr error
 	writerErr error
 }{
 	{
-		map[string]interface{}{"uri": DefaultURI, "namespace": "test.test"}, nil, nil, nil,
+		"base",
+		map[string]interface{}{"uri": DefaultURI, "namespace": "test.test"},
+		&MongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI, Namespace: "test.test"}},
+		nil, nil, nil,
 	},
 	{
-		map[string]interface{}{"uri": DefaultURI, "namespace": "test.test", "tail": true}, nil, nil, nil,
+		"with timeout",
+		map[string]interface{}{"uri": DefaultURI, "namespace": "test.test", "timeout": "60s"},
+		&MongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI, Namespace: "test.test", Timeout: "60s"}},
+		nil, nil, nil,
 	},
 	{
-		map[string]interface{}{"uri": DefaultURI, "namespace": "test.test", "bulk": true}, nil, nil, nil,
+		"with tail",
+		map[string]interface{}{"uri": DefaultURI, "namespace": "test.test", "tail": true},
+		&MongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI, Namespace: "test.test"}, Tail: true},
+		nil, nil, nil,
 	},
 	{
-		map[string]interface{}{"uri": DefaultURI, "namespace": "test.test", "collection_filters": `{"foo":{"i":{"$gt":10}}}`}, nil, nil, nil,
+		"with bulk",
+		map[string]interface{}{"uri": DefaultURI, "namespace": "test.test", "bulk": true},
+		&MongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI, Namespace: "test.test"}, Bulk: true},
+		nil, nil, nil,
 	},
 	{
-		map[string]interface{}{"uri": DefaultURI, "namespace": "test.test", "collection_filters": `{"foo":{"i":{"$gt":10}}`}, nil, ErrCollectionFilter, nil,
+		"with collection filters",
+		map[string]interface{}{"uri": DefaultURI, "namespace": "test.test", "collection_filters": `{"foo":{"i":{"$gt":10}}}`},
+		&MongoDB{
+			BaseConfig: adaptor.BaseConfig{
+				URI:       DefaultURI,
+				Namespace: "test.test",
+			},
+			CollectionFilters: `{"foo":{"i":{"$gt":10}}}`,
+		},
+		nil, nil, nil,
+	},
+	{
+		"bad collection filter",
+		map[string]interface{}{"uri": DefaultURI, "namespace": "test.test", "collection_filters": `{"foo":{"i":{"$gt":10}}`},
+		&MongoDB{
+			BaseConfig: adaptor.BaseConfig{
+				URI:       DefaultURI,
+				Namespace: "test.test",
+			},
+			CollectionFilters: `{"foo":{"i":{"$gt":10}}`,
+		},
+		nil, ErrCollectionFilter, nil,
 	},
 }
 
@@ -48,18 +84,21 @@ func TestInit(t *testing.T) {
 	for _, it := range initTests {
 		a, err := adaptor.GetAdaptor("mongodb", it.cfg)
 		if err != nil {
-			t.Fatalf("unexpected GetV2() error, %s", err)
+			t.Fatalf("[%s] unexpected GetV2() error, %s", it.name, err)
+		}
+		if !reflect.DeepEqual(a, it.mongodb) {
+			t.Errorf("[%s] wrong struct, expected %+v, got %+v", it.name, it.mongodb, a)
 		}
 		if _, err := a.Client(); err != it.clientErr {
-			t.Errorf("unexpected Client() error, %s", err)
+			t.Errorf("[%s] unexpected Client() error, %s", it.name, err)
 		}
 		if _, err := a.Reader(); err != it.readerErr {
-			t.Errorf("unexpected Reader() error, %s", err)
+			t.Errorf("[%s] unexpected Reader() error, %s", it.name, err)
 		}
 		done := make(chan struct{})
 		var wg sync.WaitGroup
 		if _, err := a.Writer(done, &wg); err != it.writerErr {
-			t.Errorf("unexpected Writer() error, %s", err)
+			t.Errorf("[%s] unexpected Writer() error, %s", it.name, err)
 		}
 		close(done)
 		wg.Wait()

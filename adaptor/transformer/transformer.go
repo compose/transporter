@@ -5,14 +5,20 @@ import (
 
 	"github.com/compose/transporter/adaptor"
 	"github.com/compose/transporter/client"
-	_ "github.com/robertkrimen/otto/underscore" // enable underscore
+
+	goja "github.com/compose/transporter/adaptor/transformer/gojajs"
+	otto "github.com/compose/transporter/adaptor/transformer/ottojs"
 )
 
 const (
-	sampleConfig = `    filename: test/transformers/passthrough_and_log.js
-    type: transformer`
+	sampleConfig = `    filename: transformer.js
+    type: transformer
+    # vm: otto`
 
 	description = "an adaptor that transforms documents using a javascript function"
+
+	// DefaultVM defines the javascript interpreter to be used if one is not specified
+	DefaultVM = "otto"
 )
 
 var (
@@ -24,19 +30,25 @@ var (
 // and is called by calling the defined module.exports function
 type Transformer struct {
 	Filename string `json:"filename"`
+	VM       string `json:"vm"`
 }
 
 func init() {
 	adaptor.Add(
 		"transformer",
 		func() adaptor.Adaptor {
-			return &Transformer{}
+			return &Transformer{
+				VM: DefaultVM,
+			}
 		},
 	)
 }
 
 func (t *Transformer) Client() (client.Client, error) {
-	return NewClient(WithFilename(t.Filename))
+	if t.VM == DefaultVM {
+		return otto.NewClient(otto.WithFilename(t.Filename))
+	}
+	return goja.NewClient(goja.WithFilename(t.Filename))
 }
 
 func (t *Transformer) Reader() (client.Reader, error) {
@@ -44,7 +56,10 @@ func (t *Transformer) Reader() (client.Reader, error) {
 }
 
 func (t *Transformer) Writer(chan struct{}, *sync.WaitGroup) (client.Writer, error) {
-	return &Writer{}, nil
+	if t.VM == DefaultVM {
+		return &otto.Writer{}, nil
+	}
+	return &goja.Writer{}, nil
 }
 
 // Description for transformer adaptor

@@ -1,0 +1,183 @@
+package gojajs
+
+import (
+	"reflect"
+	"testing"
+
+	"github.com/compose/transporter/message"
+	"github.com/compose/transporter/message/data"
+	"github.com/compose/transporter/message/ops"
+	"gopkg.in/mgo.v2/bson"
+)
+
+var (
+	bsonID1    = bson.NewObjectId()
+	bsonID2    = bson.ObjectIdHex("54a4420502a14b9641000001")
+	writeTests = []struct {
+		name string
+		fn   string
+		in   message.Msg
+		out  message.Msg
+		err  error
+	}{
+		{
+			"just pass through",
+			"function transform(doc) { return doc }",
+			message.From(ops.Insert, "collection", data.Data{"id": "id1", "name": "nick"}),
+			message.From(ops.Insert, "collection", data.Data{"id": "id1", "name": "nick"}),
+			nil,
+		},
+		{
+			"delete the 'name' property",
+			"function transform(doc) { delete doc['data']['name']; return doc }",
+			message.From(ops.Insert, "collection", data.Data{"id": "id2", "name": "nick"}),
+			message.From(ops.Insert, "collection", data.Data{"id": "id2"}),
+			nil,
+		},
+		{
+			"delete's should be processed the same",
+			"function transform(doc) { delete doc['data']['name']; return doc }",
+			message.From(ops.Delete, "collection", data.Data{"id": "id2", "name": "nick"}),
+			message.From(ops.Delete, "collection", data.Data{"id": "id2"}),
+			nil,
+		},
+		{
+			"delete's and commands should pass through, and the transformer fn shouldn't run",
+			"function transform(doc) { delete doc['data']['name']; return doc }",
+			message.From(ops.Command, "collection", data.Data{"id": "id2", "name": "nick"}),
+			message.From(ops.Command, "collection", data.Data{"id": "id2", "name": "nick"}),
+			nil,
+		},
+		{
+			"bson should marshal and unmarshal properly",
+			"function transform(doc) { return doc }",
+			message.From(ops.Insert, "collection", data.Data{"id": bsonID1, "name": "nick"}),
+			message.From(ops.Insert, "collection", data.Data{"id": bsonID1, "name": "nick"}),
+			nil,
+		},
+		{
+			"we should be able to change the bson",
+			"function transform(doc) { doc['data']['id']['$oid'] = '54a4420502a14b9641000001'; return doc }",
+			message.From(ops.Insert, "collection", data.Data{"id": bsonID1, "name": "nick"}),
+			message.From(ops.Insert, "collection", data.Data{"id": bsonID2, "name": "nick"}),
+			nil,
+		},
+		{
+			"we should be able to skip a message",
+			"function transform(doc) { doc['op'] = 's'; return doc }",
+			message.From(ops.Insert, "collection", data.Data{"id": bsonID1, "name": "nick"}),
+			nil,
+			nil,
+		},
+		{
+			"we should be able to change the namespace",
+			"function transform(doc) { doc['ns'] = 'table'; return doc }",
+			message.From(ops.Insert, "collection", data.Data{"id": bsonID1, "name": "nick"}),
+			message.From(ops.Insert, "table", data.Data{"id": bsonID1, "name": "nick"}),
+			nil,
+		}, {
+			"we should be able to add an object to the bson",
+			`function transform(doc) { doc['data']['added'] = {"name":"batman","villain":"joker"}; return doc }`,
+			message.From(ops.Insert, "collection", data.Data{"name": "nick"}),
+			message.From(ops.Insert, "collection", data.Data{"name": "nick", "added": bson.M{"name": "batman", "villain": "joker"}}),
+			nil,
+		},
+		{
+			"Invalid data returned",
+			`function transform(doc) { doc["data"] = "not a map";return doc }`,
+			message.From(ops.Insert, "collection", data.Data{"id": "id1", "name": "nick"}),
+			nil,
+			ErrInvalidMessageType,
+		},
+	}
+)
+
+func TestWrite(t *testing.T) {
+	for _, v := range writeTests {
+		c, err := NewClient(WithFunction(v.fn))
+		if err != nil {
+			t.Fatalf("[%s] NewClient() error, %s", v.name, err)
+		}
+		s, err := c.Connect()
+		if err != nil {
+			t.Fatalf("[%s] unexpected Connect() error, %s", v.name, err)
+		}
+		w := Writer{}
+		msg, err := w.Write(v.in)(s)
+		if err != v.err {
+			t.Errorf("[%s] wrong error, expected: %+v, got; %v", v.name, v.err, err)
+		}
+		if !isEqual(msg, v.out) {
+			t.Errorf("[%s] expected:\n(%T) %+v\ngot:\n(%T) %+v with error (%v)\n", v.name, v.out, v.out, msg, msg, err)
+		}
+	}
+}
+
+func isEqual(m1 message.Msg, m2 message.Msg) bool {
+	if m1 == nil && m2 != nil {
+		return false
+	}
+	if m1 != nil && m2 == nil {
+		return false
+	}
+	if m1 == nil && m2 == nil {
+		return true
+	}
+	if m1.ID() != m2.ID() {
+		return false
+	}
+	if m1.Namespace() != m2.Namespace() {
+		return false
+	}
+	if m1.OP() != m2.OP() {
+		return false
+	}
+	if m1.Timestamp() != m2.Timestamp() {
+		return false
+	}
+	if reflect.TypeOf(m1.Data()) != reflect.TypeOf(m2.Data()) {
+		return false
+	}
+	return isEqualBSON(m1.Data(), m2.Data())
+}
+
+func isEqualBSON(m1 map[string]interface{}, m2 map[string]interface{}) bool {
+	for k, v := range m1 {
+		m2Val := m2[k]
+		if reflect.TypeOf(v) != reflect.TypeOf(m2Val) {
+			return false
+		}
+		switch v.(type) {
+		case map[string]interface{}, bson.M, data.Data:
+			eq := isEqualBSON(v.(bson.M), m2Val.(bson.M))
+			if !eq {
+				return false
+			}
+		default:
+			eq := reflect.DeepEqual(v, m2Val)
+			if !eq {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func BenchmarkTransformOne(b *testing.B) {
+	c, err := NewClient(WithFunction("function f(doc) { return doc }"))
+	if err != nil {
+		panic(err)
+	}
+	s, err := c.Connect()
+	if err != nil {
+		panic(err)
+	}
+	w := Writer{}
+	msg := message.From(ops.Insert, "collection", map[string]interface{}{"id": bson.NewObjectId(), "name": "nick"})
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		w.Write(msg)(s)
+	}
+}
