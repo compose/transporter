@@ -61,8 +61,11 @@ func (c *Client) Close() {
 
 // Connect initializes the Postgres connection
 func (c *Client) Connect() (client.Session, error) {
-	// there's really no way for this to error because we know the driver we're passing is
-	// available.
-	c.pqSession, _ = sql.Open("postgres", c.uri)
-	return &Session{c.pqSession}, nil
+	if c.pqSession == nil {
+		// there's really no way for this to error because we know the driver we're passing is
+		// available.
+		c.pqSession, _ = sql.Open("postgres", c.uri)
+	}
+	err := c.pqSession.Ping()
+	return &Session{c.pqSession}, err
 }

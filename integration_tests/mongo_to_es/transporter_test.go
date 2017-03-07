@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestMongoToElasticsearchDocCount(t *testing.T) {
@@ -21,6 +22,9 @@ func TestMongoToElasticsearchDocCount(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error, %s", err)
 	}
+
+	// give the cluster a bit to breathe
+	time.Sleep(30 * time.Second)
 
 	req, _ = http.NewRequest(
 		http.MethodGet,
