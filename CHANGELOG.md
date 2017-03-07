@@ -7,6 +7,13 @@
 
 ### Bugfixes
 
+## v0.2.1 [2017-03-07]
+
+### Features
+- added RethinkDB -> PostgreSQL integration test
+
+### Bugfixes
+- fixed connection leak in PostgreSQL client
 
 ## v0.2.0 [2017-02-28]
 

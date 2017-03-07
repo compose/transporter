@@ -13,7 +13,14 @@ nodes:
   enron_sink_es:
     type: elasticsearch
     uri: https://${ES_ENRON_SINK_USER}:${ES_ENRON_SINK_PASSWORD}@${ES_ENRON_SINK_URI}
+  enron_source_rethink:
+    type: rethinkdb
+    uri: rethink://admin:${RETHINKDB_ENRON_SOURCE_PASSWORD}@${RETHINKDB_ENRON_SOURCE_URI}/enron
+    ssl: true
   enron_sink_rethink:
     type: rethinkdb
-    uri: rethink://${RETHINKDB_ENRON_SINK_USER}:${RETHINKDB_ENRON_SINK_PASSWORD}@${RETHINKDB_ENRON_SINK_URI}/enron
+    uri: rethink://admin:${RETHINKDB_ENRON_SINK_PASSWORD}@${RETHINKDB_ENRON_SINK_URI}/enron
     ssl: true
+  enron_sink_postgres:
+    type: postgres
+    uri: postgres://${POSTGRES_ENRON_SINK_USER}:${POSTGRES_ENRON_SINK_PASSWORD}@${POSTGRES_ENRON_SINK_URI}

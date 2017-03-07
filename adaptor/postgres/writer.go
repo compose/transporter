@@ -42,7 +42,7 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) error {
 }
 
 func insertMsg(m message.Msg, s *sql.DB) error {
-	log.Infof("Write INSERT to Postgres %v", m.Namespace())
+	log.With("table", m.Namespace()).Debugln("INSERT")
 	var (
 		keys         []string
 		placeholders []string
@@ -71,7 +71,7 @@ func insertMsg(m message.Msg, s *sql.DB) error {
 }
 
 func deleteMsg(m message.Msg, s *sql.DB) error {
-	fmt.Printf("Write DELETE to Postgres %v values %v\n", m.Namespace(), m.Data())
+	log.With("table", m.Namespace()).With("values", m.Data()).Debugln("DELETE")
 	var (
 		ckeys []string
 		vals  []interface{}
@@ -103,7 +103,7 @@ func deleteMsg(m message.Msg, s *sql.DB) error {
 }
 
 func updateMsg(m message.Msg, s *sql.DB) error {
-	fmt.Printf("Write UPDATE to Postgres %v\n", m.Namespace())
+	log.With("table", m.Namespace()).Debugln("UPDATE")
 	var (
 		ckeys []string
 		ukeys []string
