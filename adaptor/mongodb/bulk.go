@@ -51,8 +51,8 @@ func newBulker(db string, done chan struct{}, wg *sync.WaitGroup) *Bulk {
 	return b
 }
 
-func (b *Bulk) Write(msg message.Msg) func(client.Session) error {
-	return func(s client.Session) error {
+func (b *Bulk) Write(msg message.Msg) func(client.Session) (message.Msg, error) {
+	return func(s client.Session) (message.Msg, error) {
 		coll := msg.Namespace()
 		b.Lock()
 		bOp, ok := b.bulkMap[coll]
@@ -83,7 +83,7 @@ func (b *Bulk) Write(msg message.Msg) func(client.Session) error {
 			err = b.flush(coll, bOp)
 		}
 		b.Unlock()
-		return err
+		return msg, err
 	}
 }
 

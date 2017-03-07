@@ -71,7 +71,7 @@ func TestInsert(t *testing.T) {
 
 		for _, data := range it.data {
 			msg := message.From(ops.Insert, it.table, data)
-			if err := w.Write(msg)(defaultSession); err != nil {
+			if _, err := w.Write(msg)(defaultSession); err != nil {
 				t.Errorf("unexpected Insert error, %s\n", err)
 			}
 		}
@@ -130,12 +130,12 @@ func TestUpdate(t *testing.T) {
 
 		// Insert data
 		msg := message.From(ops.Insert, ut.table, ut.originalDoc)
-		if err := w.Write(msg)(defaultSession); err != nil {
+		if _, err := w.Write(msg)(defaultSession); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
 		}
 		// Update data
 		msg = message.From(ops.Update, ut.table, ut.updatedDoc)
-		if err := w.Write(msg)(defaultSession); err != nil {
+		if _, err := w.Write(msg)(defaultSession); err != nil {
 			t.Errorf("unexpected Update error, %s\n", err)
 		}
 		close(done)
@@ -185,12 +185,12 @@ func TestDelete(t *testing.T) {
 		// Insert data
 		dt.originalDoc.Set("_id", dt.id)
 		msg := message.From(ops.Insert, dt.table, dt.originalDoc)
-		if err := w.Write(msg)(defaultSession); err != nil {
+		if _, err := w.Write(msg)(defaultSession); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
 		}
 		// Delete data
 		msg = message.From(ops.Delete, dt.table, dt.originalDoc)
-		if err := w.Write(msg)(defaultSession); err != nil {
+		if _, err := w.Write(msg)(defaultSession); err != nil {
 			t.Errorf("unexpected Delete error, %s\n", err)
 		}
 		close(done)

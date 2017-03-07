@@ -1,117 +1,71 @@
 package adaptor_test
 
 import (
-	"errors"
-	"fmt"
 	"reflect"
 	"regexp"
 	"testing"
 
 	"github.com/compose/transporter/adaptor"
-	"github.com/compose/transporter/client"
-	"github.com/compose/transporter/pipe"
 )
 
-// a random type that adaptor implements the adaptor interface
-type TestAdaptor struct {
-	value string
-}
-
-type TestConf struct {
-}
-
-var errTest = errors.New("this is an error")
-
 func init() {
-	adaptor.Add("testadaptor", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.Adaptor, error) {
-		val, ok := extra["value"]
-		if !ok {
-			return nil, errTest
-		}
-		var conf TestConf
-		if err := extra.Construct(&conf); err != nil {
-			return nil, adaptor.Error{adaptor.CRITICAL, path, fmt.Sprintf("bad config (%s)", err.Error()), nil}
-		}
-		return &TestAdaptor{value: val.(string)}, nil
-	})
-
-	adaptor.Add("connectfail", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.Adaptor, error) {
-		return &ConnectFailAdaptor{}, nil
-	})
+	adaptor.Add("mock", func() adaptor.Adaptor { return &adaptor.Mock{} })
+	adaptor.Add("unsupported", func() adaptor.Adaptor { return &adaptor.UnsupportedMock{} })
 }
 
-func (s *TestAdaptor) Description() string {
-	return "this is a test adaptor"
+func TestMocks(t *testing.T) {
+	m, err := adaptor.GetAdaptor("mock", map[string]interface{}{"uri": "uri", "namespace": "namespace"})
+	if err != nil {
+		t.Errorf("unexpected GetV2() error, %s", err)
+	}
+	if _, err := m.Client(); err != nil {
+		t.Errorf("unexpected Client() error, %s", err)
+	}
+	if _, err := m.Reader(); err != nil {
+		t.Errorf("unexpected Reader() error, %s", err)
+	}
+	if _, err := m.Writer(nil, nil); err != nil {
+		t.Errorf("unexpected Writer() error, %s", err)
+	}
+
+	_, err = adaptor.GetAdaptor("notfound", map[string]interface{}{})
+	aerr := adaptor.ErrNotFound{Name: "notfound"}
+	if !reflect.DeepEqual(err.Error(), aerr.Error()) {
+		t.Errorf("err mismatch, expected %+v, got %+v", aerr, err)
+	}
 }
 
-func (s *TestAdaptor) SampleConfig() string {
-	return ""
+func TestUnsupportedMock(t *testing.T) {
+	aName := "unsupported"
+	m, err := adaptor.GetAdaptor(aName, map[string]interface{}{})
+	if err != nil {
+		t.Errorf("unexpected GetV2() error, %s", err)
+	}
+	uerr := adaptor.ErrFuncNotSupported{Name: aName, Func: "Client()"}
+	if _, err := m.Client(); !reflect.DeepEqual(err.Error(), uerr.Error()) {
+		t.Errorf("wrong Client() error, expected %s, got %s", uerr, err)
+	}
+	uerr = adaptor.ErrFuncNotSupported{Name: aName, Func: "Reader()"}
+	if _, err := m.Reader(); !reflect.DeepEqual(err.Error(), uerr.Error()) {
+		t.Errorf("wrong Reader() error, expected %s, got %s", uerr, err)
+	}
+	uerr = adaptor.ErrFuncNotSupported{Name: aName, Func: "Writer()"}
+	if _, err := m.Writer(nil, nil); !reflect.DeepEqual(err.Error(), uerr.Error()) {
+		t.Errorf("wrong Writer() error, expected %s, got %s", uerr, err)
+	}
 }
 
-func (s *TestAdaptor) Connect() error {
-	return nil
+func TestRegisteredAdaptors(t *testing.T) {
+	all := adaptor.RegisteredAdaptors()
+	if len(all) != 2 {
+		t.Error("wrong number of registered adaptors, expected 2, got %d", len(all))
+	}
 }
 
-func (s *TestAdaptor) Start() error {
-	return nil
-}
-
-func (s *TestAdaptor) Stop() error {
-	return nil
-}
-
-func (s *TestAdaptor) Listen() error {
-	return nil
-}
-
-type ConnectFailAdaptor struct {
-}
-
-func (a *ConnectFailAdaptor) Connect() error {
-	return client.ConnectError{Reason: "I am a test"}
-}
-
-func (a *ConnectFailAdaptor) Start() error {
-	return nil
-}
-
-func (a *ConnectFailAdaptor) Stop() error {
-	return nil
-}
-
-func (a *ConnectFailAdaptor) Listen() error {
-	return nil
-}
-
-var data = []struct {
-	kind  string
-	extra adaptor.Config
-	out   adaptor.Adaptor
-	err   error
-}{
-	{"testadaptor", adaptor.Config{"value": "rockettes"}, &TestAdaptor{value: "rockettes"}, nil},
-	{"testadaptor", adaptor.Config{"blah": "rockettes"}, &TestAdaptor{}, errTest},
-	{"notasource", adaptor.Config{"blah": "rockettes"}, nil, adaptor.ErrNotFound{"notasource"}},
-	{"connectfail", adaptor.Config{}, &ConnectFailAdaptor{}, client.ConnectError{Reason: "I am a test"}},
-}
-
-func TestCreateAdaptor(t *testing.T) {
-	for _, v := range data {
-		adaptor, err := adaptor.CreateAdaptor(v.kind, "a/b/c", v.extra, pipe.NewPipe(nil, "some name"))
-
-		if !reflect.DeepEqual(err, v.err) {
-			t.Errorf("[%s] wrong error, expected: %v got: %v", v.kind, v.err, err)
-		}
-
-		if v.err != nil {
-			if !reflect.DeepEqual(err.Error(), v.err.Error()) {
-				t.Errorf("[%s] wrong Error(), expected: %s got: %s", v.kind, v.err.Error(), err.Error())
-			}
-		}
-
-		if !reflect.DeepEqual(v.out, adaptor) && err == nil {
-			t.Errorf("[%s] wrong adaptor, expected: %+v got: %+v", v.kind, v.out, adaptor)
-		}
+func TestAdaptors(t *testing.T) {
+	all := adaptor.Adaptors()
+	if len(all) != 2 {
+		t.Error("wrong number of registered adaptors, expected 2, got %d", len(all))
 	}
 }
 
@@ -173,7 +127,7 @@ var compileNamespaceTests = []struct {
 
 func TestCompileNamespace(t *testing.T) {
 	for _, ct := range compileNamespaceTests {
-		out, r, err := ct.cfg.CompileNamespace()
+		out, r, err := adaptor.CompileNamespace(ct.cfg.GetString("namespace"))
 		if !reflect.DeepEqual(out, ct.partOne) {
 			t.Errorf("[%s] wrong value returned, expected %s, got %s", ct.name, ct.partOne, out)
 		}

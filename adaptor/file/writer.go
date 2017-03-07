@@ -18,9 +18,9 @@ func newWriter() *Writer {
 	return w
 }
 
-func (w *Writer) Write(msg message.Msg) func(client.Session) error {
-	return func(s client.Session) error {
-		return dumpMessage(msg, s.(*Session).file)
+func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error) {
+	return func(s client.Session) (message.Msg, error) {
+		return msg, dumpMessage(msg, s.(*Session).file)
 	}
 }
 

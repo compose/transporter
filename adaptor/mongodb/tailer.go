@@ -66,10 +66,7 @@ func (t *Tailer) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
 					for iter.Next(&result) {
 						if result.validOp() {
 							db, c, _ := splitNamespace(result.Ns)
-							if db != t.db {
-								continue
-							}
-							if !filterFn(c) {
+							if db != t.db || !filterFn(c) || strings.HasPrefix(c, "system.") {
 								continue
 							}
 

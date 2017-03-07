@@ -14,22 +14,18 @@ func runAbout(args []string) error {
 	}
 
 	args = flagset.Args()
+	var adaptors = adaptor.Adaptors()
 	if len(args) > 0 {
-		creator, ok := adaptor.Adaptors[args[0]]
-		if !ok {
-			return fmt.Errorf("no adaptor named '%s' exists", args[0])
-		}
-		adaptor.Adaptors = map[string]adaptor.Creator{args[0]: creator}
+		a, _ := adaptor.GetAdaptor(args[0], map[string]interface{}{})
+		adaptors = map[string]adaptor.Adaptor{args[0]: a}
 	}
 
-	for name, creator := range adaptor.Adaptors {
-		dummyAdaptor, _ := creator(nil, "", adaptor.Config{"uri": "test", "namespace": "test.test"})
-		if d, ok := dummyAdaptor.(adaptor.Describable); ok {
+	for name, a := range adaptors {
+		if d, ok := a.(adaptor.Describable); ok {
 			fmt.Printf("%s - %s\n", name, d.Description())
 		} else {
 			fmt.Printf("%s - %s\n", name, "no description available")
 		}
 	}
-
 	return nil
 }

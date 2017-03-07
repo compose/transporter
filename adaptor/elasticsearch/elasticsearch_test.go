@@ -4,14 +4,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"regexp"
+	"net/url"
 	"testing"
 
 	"github.com/compose/transporter/adaptor"
 	"github.com/compose/transporter/client"
 	"github.com/compose/transporter/message"
-	"github.com/compose/transporter/message/ops"
-	"github.com/compose/transporter/pipe"
 )
 
 var (
@@ -34,46 +32,23 @@ var goodVersionServer = httptest.NewServer(http.HandlerFunc(func(w http.Response
 	fmt.Fprint(w, "{\"version\":{\"number\":\"5.0.0\"}}")
 }))
 
-var initTests = []struct {
-	name string
-	cfg  adaptor.Config
-	err  error
-}{
-	{
-		"base config",
-		adaptor.Config{"uri": goodVersionServer.URL, "namespace": "test.test"},
-		nil,
-	},
-	{
-		"timeout config",
-		adaptor.Config{"uri": goodVersionServer.URL, "namespace": "test.test", "timeout": "60s"},
-		nil,
-	},
-	{
-		"bad namespace",
-		adaptor.Config{"uri": goodVersionServer.URL, "namespace": "badNs"},
-		adaptor.Error{
-			Lvl:    adaptor.CRITICAL,
-			Path:   "test",
-			Err:    "can't split namespace into index and typeMatch (malformed namespace, expected a '.' deliminated string)",
-			Record: nil,
-		},
-	},
-}
-
-func TestInit(t *testing.T) {
-	defer goodVersionServer.Close()
-	for _, it := range initTests {
-		if _, err := adaptor.CreateAdaptor(
-			"elasticsearch",
-			"test",
-			it.cfg,
-			pipe.NewPipe(nil, "test"),
-		); err != it.err {
-			t.Errorf("[%s] bad error, expected %q, got %q", it.name, it.err, err)
-		}
+var (
+	testUser = "user"
+	testPwd  = "pwd"
+	authURI  = func() string {
+		uri, _ := url.Parse(authedServer.URL)
+		uri.User = url.UserPassword(testUser, testPwd)
+		return uri.String()
 	}
-}
+)
+var authedServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	u, p, ok := r.BasicAuth()
+	if !ok || u != testUser || p != testPwd {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+	fmt.Fprint(w, "{\"version\":{\"number\":\"5.0.0\"}}")
+}))
 
 var emptyBodyServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "{}")
@@ -91,98 +66,82 @@ var unsupportedVersionServer = httptest.NewServer(http.HandlerFunc(func(w http.R
 	fmt.Fprint(w, "{\"version\":{\"number\":\"0.9.2\"}}")
 }))
 
-var badClientTests = []struct {
-	name    string
-	cfg     adaptor.Config
-	err     error
-	cleanup func()
+var clientTests = []struct {
+	name string
+	cfg  adaptor.Config
+	err  error
 }{
+	{
+		"base config",
+		adaptor.Config{"uri": goodVersionServer.URL, "namespace": "test.test"},
+		nil,
+	},
+	{
+		"timeout config",
+		adaptor.Config{"uri": goodVersionServer.URL, "namespace": "test.test", "timeout": "60s"},
+		nil,
+	},
+	{
+		"authed URI",
+		adaptor.Config{"uri": authURI(), "namespace": "test.test"},
+		nil,
+	},
 	{
 		"bad URI",
 		adaptor.Config{"uri": "%gh&%ij", "namespace": "test.test"},
 		client.InvalidURIError{URI: "%gh&%ij", Err: `parse %gh&%ij: invalid URL escape "%gh"`},
-		func() {},
 	},
 	{
 		"no connection",
 		adaptor.Config{"uri": "http://localhost:7200", "namespace": "test.test"},
 		client.ConnectError{Reason: "http://localhost:7200"},
-		func() {},
 	},
 	{
 		"empty body",
 		adaptor.Config{"uri": emptyBodyServer.URL, "namespace": "test.test"},
 		client.VersionError{URI: emptyBodyServer.URL, V: "", Err: "missing version: {}"},
-		func() { emptyBodyServer.Close() },
 	},
 	{
 		"malformed JSON",
 		adaptor.Config{"uri": badJSONServer.URL, "namespace": "test.test"},
 		client.VersionError{URI: badJSONServer.URL, V: "", Err: "malformed JSON: Hello, client"},
-		func() { badJSONServer.Close() },
 	},
 	{
 		"bad version",
 		adaptor.Config{"uri": badVersionServer.URL, "namespace": "test.test"},
 		client.VersionError{URI: badVersionServer.URL, V: "not a version", Err: "Malformed version: not a version"},
-		func() { badVersionServer.Close() },
 	},
 	{
 		"unsupported version",
 		adaptor.Config{"uri": unsupportedVersionServer.URL, "namespace": "test.test"},
 		client.VersionError{URI: unsupportedVersionServer.URL, V: "0.9.2", Err: "unsupported client"},
-		func() { unsupportedVersionServer.Close() },
 	},
 }
 
-func TestFailedClient(t *testing.T) {
-	for _, ct := range badClientTests {
-		if _, err := adaptor.CreateAdaptor(
-			"elasticsearch",
-			"test",
-			ct.cfg,
-			pipe.NewPipe(nil, "test"),
-		); err == nil {
-			t.Fatal("no error received but expected one")
-		} else if err != (ct.err) {
+func TestInit(t *testing.T) {
+	defer func() {
+		goodVersionServer.Close()
+		authedServer.Close()
+		emptyBodyServer.Close()
+		badJSONServer.Close()
+		badVersionServer.Close()
+		unsupportedVersionServer.Close()
+	}()
+	for _, ct := range clientTests {
+		c, err := adaptor.GetAdaptor("elasticsearch", ct.cfg)
+		if err != nil {
+			t.Errorf("[%s] unexpected error: %q", ct.name, err)
+		}
+		if _, err := c.Client(); err != nil {
+			t.Errorf("unexpected Client() error, %s", err)
+		}
+		rerr := adaptor.ErrFuncNotSupported{Name: "Reader()", Func: "elasticsearch"}
+		if _, err := c.Reader(); err != rerr {
+			t.Errorf("wrong Reader() error, expected %s, got %s", rerr, err)
+		}
+		if _, err := c.Writer(nil, nil); err != ct.err {
 			t.Errorf("[%s] wrong error\nexpected: %q\ngot: %q", ct.name, ct.err, err)
 		}
-		ct.cleanup()
-	}
-}
-
-func TestStart(t *testing.T) {
-	if err := mockElasticsearch.Start(); err == nil {
-		t.Fatal("no error returned from Start but expected one")
-	} else if err.Error() != "Start is unsupported for elasticsearch" {
-		t.Errorf("unknown error message, got %s", err.Error())
-	}
-}
-
-func TestListen(t *testing.T) {
-	sourcePipe := pipe.NewPipe(nil, "test")
-	sinkPipe := pipe.NewPipe(sourcePipe, "test/listen")
-	mockWriter := &MockWriter{}
-
-	e := &Elasticsearch{
-		index:     "listen_db",
-		typeMatch: regexp.MustCompile(".*"),
-		client:    mockWriter,
-		path:      "test/listen",
-		pipe:      sinkPipe,
-	}
-	go e.Listen()
-
-	mockMsg := map[string]interface{}{"_id": "NO_TOUCHING", "hello": "world"}
-	sourcePipe.Send(message.From(ops.Insert, "source.test", mockMsg))
-
-	e.Stop()
-	if mockWriter.msgCount != 1 {
-		t.Errorf("unexpected message count, expected %d, got %d\n", 1, mockWriter.msgCount)
-	}
-
-	if _, ok := mockMsg["_id"]; !ok {
-		t.Error("_id should still exist in mockMsg but does not")
 	}
 }
 

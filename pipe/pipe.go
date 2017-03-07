@@ -65,11 +65,6 @@ func NewPipe(pipe *Pipe, path string) *Pipe {
 	return p
 }
 
-// matchNamespace tests the message's namespace against the provided Regexp
-func matchNamespace(m message.Msg, nsFilter *regexp.Regexp) (bool, error) {
-	return nsFilter.MatchString(m.Namespace()), nil
-}
-
 // Listen starts a listening loop that pulls messages from the In chan, applies fn(msg), a `func(message.Msg) error`, and emits them on the Out channel.
 // Errors will be emitted to the Pipe's Err chan, and will terminate the loop.
 // The listening loop can be interrupted by calls to Stop().
@@ -92,13 +87,7 @@ func (m *Pipe) Listen(fn func(message.Msg) (message.Msg, error), nsFilter *regex
 
 		select {
 		case msg := <-m.In:
-			if match, err := matchNamespace(msg, nsFilter); !match || err != nil {
-				if err != nil {
-					m.Err <- err
-					return err
-				}
-
-			} else {
+			if nsFilter.MatchString(msg.Namespace()) {
 				outmsg, err := fn(msg)
 				if err != nil {
 					m.Err <- err
@@ -112,8 +101,8 @@ func (m *Pipe) Listen(fn func(message.Msg) (message.Msg, error), nsFilter *regex
 				} else {
 					m.MessageCount++ // update the count anyway
 				}
+				m.LastMsg = msg
 			}
-			m.LastMsg = msg
 		case <-time.After(100 * time.Millisecond):
 			// NOP, just breath
 		}

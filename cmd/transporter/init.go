@@ -27,12 +27,8 @@ func runInit(args []string) error {
 	cfgFileHandle.WriteString("nodes:\n")
 	nodeName := "source"
 	for _, name := range args {
-		creator, ok := adaptor.Adaptors[name]
-		if !ok {
-			return fmt.Errorf("no adaptor named '%s' exists", name)
-		}
-		dummyAdaptor, _ := creator(nil, "", adaptor.Config{"uri": "test", "namespace": "test.test"})
-		if d, ok := dummyAdaptor.(adaptor.Describable); ok {
+		a, _ := adaptor.GetAdaptor(name, map[string]interface{}{})
+		if d, ok := a.(adaptor.Describable); ok {
 			cfgFileHandle.WriteString(fmt.Sprintf("  %s:\n%s\n", nodeName, d.SampleConfig()))
 			nodeName = "sink"
 		} else {

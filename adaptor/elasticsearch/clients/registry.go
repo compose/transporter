@@ -31,6 +31,5 @@ type ClientOptions struct {
 	URLs       []string
 	UserInfo   *url.Userinfo
 	HTTPClient *http.Client
-	Path       string
 	Index      string
 }

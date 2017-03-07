@@ -45,8 +45,8 @@ func TestFileToFile(t *testing.T) {
 	setupFiles(inFile, outFile)
 
 	// create the source node and attach our sink
-	outNode := NewNode("localfileout", "file", adaptor.Config{"uri": "file://" + outFile}).
-		Add(NewNode("localfilein", "file", adaptor.Config{"uri": "file://" + inFile}))
+	outNode := NewNode("localfileout", "file", adaptor.Config{"uri": "file://" + outFile, "namespace": "a./.*/"}).
+		Add(NewNode("localfilein", "file", adaptor.Config{"uri": "file://" + inFile, "namespace": "a./.*/"}))
 
 	// create the pipeline
 	p, err := NewDefaultPipeline(outNode, ts.URL, "", "", "test", 100*time.Millisecond)

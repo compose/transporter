@@ -69,7 +69,6 @@ func TestWriter(t *testing.T) {
 	opts := &clients.ClientOptions{
 		URLs:       []string{testURL},
 		HTTPClient: http.DefaultClient,
-		Path:       defaultIndex,
 		Index:      defaultIndex,
 	}
 	vc := clients.Clients["v5"]
