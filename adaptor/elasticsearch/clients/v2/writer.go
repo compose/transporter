@@ -99,12 +99,14 @@ func (w *Writer) Close() {
 }
 
 func (w *Writer) postBulkProcessor(executionID int64, reqs []elastic.BulkableRequest, resp *elastic.BulkResponse, err error) {
-	ctxLog := w.logger.
-		With("executionID", executionID).
-		With("took", fmt.Sprintf("%dms", resp.Took)).
-		With("succeeeded", len(resp.Succeeded()))
+	ctxLog := w.logger.With("executionID", executionID)
+	if resp != nil {
+		ctxLog.With("took", fmt.Sprintf("%dms", resp.Took)).
+			With("succeeeded", len(resp.Succeeded())).
+			With("failed", len(resp.Failed()))
+	}
 	if err != nil {
-		ctxLog.With("failed", len(resp.Failed())).Errorln(err)
+		ctxLog.Errorln(err)
 		return
 	}
 	ctxLog.Infoln("_bulk flush completed")
