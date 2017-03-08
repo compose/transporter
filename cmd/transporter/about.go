@@ -23,6 +23,10 @@ func runAbout(args []string) error {
 	for name, a := range adaptors {
 		if d, ok := a.(adaptor.Describable); ok {
 			fmt.Printf("%s - %s\n", name, d.Description())
+			if len(args) > 0 {
+				// We were asked specifically about this
+				fmt.Printf("\n Sample configuration:\n%s\n", d.SampleConfig())
+			}
 		} else {
 			fmt.Printf("%s - %s\n", name, "no description available")
 		}
