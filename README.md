@@ -100,6 +100,21 @@ rethinkdb - a rethinkdb adaptor that functions as both a source and a sink
 transformer - an adaptor that transforms documents using a javascript function
 ```
 
+Giving the name of an adaptor produces more detail, such as the sample configuration.
+
+_Example_
+```
+./transporter about postgres
+postgres - a postgres adaptor that functions as both a source and a sink
+
+ Sample configuration:
+    type: postgres
+    uri: ${POSTGRESQL_URI}
+    # debug: false
+    # tail: false
+    # replication_slot: slot
+```
+
 ### run
 
 ```
