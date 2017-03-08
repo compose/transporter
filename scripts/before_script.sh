@@ -20,6 +20,24 @@ if [[ $TRAVIS_EVENT_TYPE != 'cron' ]]; then
     docker run --rm --privileged=true -p 127.0.0.1:9201:9201 -v "/tmp/elasticsearch/config/v1:/usr/share/elasticsearch/config" -e ES_JAVA_OPTS='-Xms1g -Xmx1g' elasticsearch:1.7.6 elasticsearch >& /dev/null &
     sleep 15
   ;;
+  'adaptor/rabbitmq/...')
+    echo "Configuring rabbitmq"
+    mkdir -p /tmp/rabbitmq
+    cp -r config/rabbitmq/certs/* /tmp/rabbitmq/
+
+    mkdir -p /tmp/rabbitmq_bad_cert
+    cp -r config/rethinkdb/certs/* /tmp/rabbitmq_bad_cert/
+
+    sudo apt-get update -qq
+    sudo apt-get install -y python-software-properties ssh
+    # Install haproxy-1.5
+    sudo add-apt-repository -y ppa:vbernat/haproxy-1.5
+    sudo apt-get update -qq
+    sudo apt-get install haproxy
+    sudo service rabbitmq-server start
+    sleep 10
+    sudo haproxy -f config/rabbitmq/haproxy.cfg -db &
+  ;;
   'adaptor/rethinkdb/...')
     echo "Configuring rethinkdb"
     mkdir -p /tmp/rethinkdb

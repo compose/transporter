@@ -8,7 +8,7 @@ Transporter
 About
 -----
 
-Transporter allows the user to configure a number of data adaptors as sources or sinks. These can be databases, files or other resources. Data is read from the sources, converted into a message format, and then send down to the sink where the message is converted into a writable format for its destination. The user can also create data transformations in JavaScript which can sit between the source and sink and manipulate or filter the message flow. 
+Transporter allows the user to configure a number of data adaptors as sources or sinks. These can be databases, files or other resources. Data is read from the sources, converted into a message format, and then send down to the sink where the message is converted into a writable format for its destination. The user can also create data transformations in JavaScript which can sit between the source and sink and manipulate or filter the message flow.
 
 Adaptors may be able to track changes as they happen in source data. This "tail" capability allows a Transporter to stay running and keep the sinks in sync.
 
@@ -26,6 +26,7 @@ Each adaptor has its own README page with details on configuration and capabilit
 * [file](./adaptor/file)
 * [mongodb](./adaptor/mongodb)
 * [postgresql](./adaptor/postgres)
+* [rabbitmq](./adaptor/rabbitmq)
 * [rethinkdb](./adaptor/rethinkdb)
 * [transformer](./adaptor/transformer)
 
@@ -40,14 +41,14 @@ transporter init [source adaptor name] [sink adaptor name]
 
 Generates a basic `transporter.yaml` and `pipeline.js` file in the current directory.
 
-_Example_ 
+_Example_
 ```
 $ transporter init mongodb elasticsearch
 $ cat transporter.yaml
 nodes:
   source:
     type: mongodb
-    uri: ${MONGODB_URI} 
+    uri: ${MONGODB_URI}
     # timeout: 30s
     # tail: false
     # ssl: false
@@ -96,6 +97,7 @@ elasticsearch - an elasticsearch sink adaptor
 file - an adaptor that reads / writes files
 mongodb - a mongodb adaptor that functions as both a source and a sink
 postgres - a postgres adaptor that functions as both a source and a sink
+rabbitmq - an adaptor that handles publish/subscribe messaging with RabbitMQ 
 rethinkdb - a rethinkdb adaptor that functions as both a source and a sink
 transformer - an adaptor that transforms documents using a javascript function
 ```
@@ -121,7 +123,7 @@ postgres - a postgres adaptor that functions as both a source and a sink
 transporter run [--config transporterconfig.yaml] [-log.level "info"] <application.js>
 ```
 
-Runs the pipeline script file which has its name given as the final parameter. 
+Runs the pipeline script file which has its name given as the final parameter.
 
 ### test
 

@@ -30,3 +30,4 @@ import:
 - package: gopkg.in/olivere/elastic.v2
   version: ^5.0.24
 - package: github.com/smartystreets/go-aws-auth
+- package: github.com/streadway/amqp

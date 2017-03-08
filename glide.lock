@@ -1,5 +1,5 @@
-hash: 2d87ad14a79851a1ce0606268dce0870b17e06b74e048f37993d28be7a576f65
-updated: 2017-02-23T11:32:38.398922679-06:00
+hash: 7c94d53de9134ea9acb2a0a48dc53fd8cf4763de55ce0045461ed5de65255c9d
+updated: 2017-03-07T15:27:17.049990505-06:00
 imports:
 - name: github.com/cenkalti/backoff
   version: b02f2bbce11d7ea6b97f282ef1771b0fe2f65ef3
@@ -22,7 +22,7 @@ imports:
 - name: github.com/nu7hatch/gouuid
   version: 179d4d0c4d8d407a32af483c2354df1d2c91e6c3
 - name: github.com/oklog/oklog
-  version: 6494692aa2958adeb2e12c5d9d9c1646acd332ea
+  version: f4b80d08ceca8e16456441aa3d68531ba40afa53
   subpackages:
   - pkg/group
 - name: github.com/robertkrimen/otto
@@ -36,9 +36,11 @@ imports:
   - token
   - underscore
 - name: github.com/Sirupsen/logrus
-  version: c078b1e43f58d563c74cebe63c85789e76ddb627
+  version: 0208149b40d863d2c1a2f8fe5753096a9cf2cc8b
 - name: github.com/smartystreets/go-aws-auth
   version: 2043e6d0bb7e4c18464a7bba562acbe482e3cabd
+- name: github.com/streadway/amqp
+  version: ce1c69d94c3efdb1f287015f851b17db8fa205b1
 - name: golang.org/x/crypto
   version: 1351f936d976c60a0a48d728281922cf63eafb8d
   subpackages:
@@ -68,11 +70,11 @@ imports:
   - internal/sasl
   - internal/scram
 - name: gopkg.in/olivere/elastic.v2
-  version: 4133648a0323dccefeb03f127e920cc15c595308
+  version: 89b2f0f27bbe09ff5ee27cb6f4422cb2d89c6be8
 - name: gopkg.in/olivere/elastic.v3
-  version: 4133648a0323dccefeb03f127e920cc15c595308
+  version: 89b2f0f27bbe09ff5ee27cb6f4422cb2d89c6be8
 - name: gopkg.in/olivere/elastic.v5
-  version: 4133648a0323dccefeb03f127e920cc15c595308
+  version: 89b2f0f27bbe09ff5ee27cb6f4422cb2d89c6be8
   subpackages:
   - uritemplates
 - name: gopkg.in/sourcemap.v1
