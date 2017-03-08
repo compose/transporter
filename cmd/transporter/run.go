@@ -1,7 +1,5 @@
 package main
 
-import "errors"
-
 func runRun(args []string) error {
 	var configFilename string
 	flagset := baseFlagSet("run", &configFilename)
@@ -17,7 +15,8 @@ func runRun(args []string) error {
 
 	args = flagset.Args()
 	if len(args) <= 0 {
-		return errors.New("name of a file to run is required")
+		// Make pipeline.js the default argument
+		args = []string{"pipeline.js"}
 	}
 
 	builder, err := NewJavascriptBuilder(config, args[0], "")
