@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	defaultConfigFile = "transporter.yaml"
+	defaultPipelineFile = "pipeline.js"
+	defaultConfigFile   = "transporter.yaml"
 )
 
 var version = "dev" // set by release script

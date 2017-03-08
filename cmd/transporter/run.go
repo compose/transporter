@@ -15,8 +15,8 @@ func runRun(args []string) error {
 
 	args = flagset.Args()
 	if len(args) <= 0 {
-		// Make pipeline.js the default argument
-		args = []string{"pipeline.js"}
+		// Set to default argument
+		args = []string{defaultPipelineFile}
 	}
 
 	builder, err := NewJavascriptBuilder(config, args[0], "")
