@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -19,8 +20,7 @@ func runTest(args []string) error {
 
 	args = flagset.Args()
 	if len(args) <= 0 {
-		// Default name to pipeline.js
-		args = []string{"pipeline.js"}
+		return errors.New("name of a file to run is required")
 	}
 
 	builder, err := NewJavascriptBuilder(config, args[0], "")
