@@ -42,7 +42,7 @@ func TestInsert(t *testing.T) {
 			ops.Insert,
 			fmt.Sprintf("public.%s", writerTestData.Table),
 			data.Data{"id": i, "colvar": "hello world", "coltimestamp": time.Now().UTC()})
-		if err := w.Write(msg)(defaultSession); err != nil {
+		if _, err := w.Write(msg)(defaultSession); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
 		}
 	}
@@ -84,7 +84,7 @@ func TestUpdate(t *testing.T) {
 			ops.Insert,
 			fmt.Sprintf("public.%s", writerUpdateTestData.Table),
 			data.Data{"id": i, "colvar": "hello world", "coltimestamp": time.Now().UTC()})
-		if err := w.Write(msg)(defaultSession); err != nil {
+		if _, err := w.Write(msg)(defaultSession); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
 		}
 	}
@@ -92,7 +92,7 @@ func TestUpdate(t *testing.T) {
 		ops.Update,
 		fmt.Sprintf("public.%s", writerUpdateTestData.Table),
 		data.Data{"id": 1, "colvar": "robin", "coltimestamp": time.Now().UTC()})
-	if err := w.Write(msg)(defaultSession); err != nil {
+	if _, err := w.Write(msg)(defaultSession); err != nil {
 		t.Errorf("unexpected Update error, %s\n", err)
 	}
 
@@ -167,7 +167,7 @@ func TestComplexUpdate(t *testing.T) {
 		"coluuid":            "f0a0da24-4068-4be4-961d-7c295117ccca",
 		"colxml":             "<person><name>Batman</name></person>",
 	})
-	if err := w.Write(msg)(defaultSession); err != nil {
+	if _, err := w.Write(msg)(defaultSession); err != nil {
 		t.Errorf("unexpected Update error, %s\n", err)
 	}
 
@@ -209,12 +209,12 @@ func TestDelete(t *testing.T) {
 			ops.Insert,
 			fmt.Sprintf("public.%s", writerDeleteTestData.Table),
 			data.Data{"id": i, "colvar": "hello world", "coltimestamp": time.Now().UTC()})
-		if err := w.Write(msg)(defaultSession); err != nil {
+		if _, err := w.Write(msg)(defaultSession); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
 		}
 	}
 	msg := message.From(ops.Delete, fmt.Sprintf("public.%s", writerDeleteTestData.Table), data.Data{"id": 1})
-	if err := w.Write(msg)(defaultSession); err != nil {
+	if _, err := w.Write(msg)(defaultSession); err != nil {
 		t.Errorf("unexpected Update error, %s\n", err)
 	}
 
@@ -248,7 +248,7 @@ func TestComplexDelete(t *testing.T) {
 		ops.Delete,
 		fmt.Sprintf("public.%s", writerComplexDeleteTestData.Table),
 		data.Data{"id": ranInt, "colvar": randomHeros[ranInt]})
-	if err := w.Write(msg)(defaultSession); err != nil {
+	if _, err := w.Write(msg)(defaultSession); err != nil {
 		t.Errorf("unexpected Delete error, %s\n", err)
 	}
 
@@ -269,7 +269,7 @@ func TestComplexDeleteWithoutAllPrimarykeys(t *testing.T) {
 	w := newWriter(writerComplexDeletePkTestData.DB)
 
 	msg := message.From(ops.Delete, fmt.Sprintf("public.%s", writerComplexDeletePkTestData.Table), data.Data{"id": ranInt})
-	if err := w.Write(msg)(defaultSession); err == nil {
+	if _, err := w.Write(msg)(defaultSession); err == nil {
 		t.Fatalf("Did not receive anticipated error from postgres.writeMessage")
 	}
 

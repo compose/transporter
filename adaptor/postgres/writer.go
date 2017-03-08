@@ -30,19 +30,19 @@ func newWriter(db string) *Writer {
 	return w
 }
 
-func (w *Writer) Write(msg message.Msg) func(client.Session) error {
-	return func(s client.Session) error {
+func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error) {
+	return func(s client.Session) (message.Msg, error) {
 		writeFunc, ok := w.writeMap[msg.OP()]
 		if !ok {
 			log.Infof("no function registered for operation, %s\n", msg.OP())
-			return nil
+			return msg, nil
 		}
-		return writeFunc(msg, s.(*Session).pqSession)
+		return msg, writeFunc(msg, s.(*Session).pqSession)
 	}
 }
 
 func insertMsg(m message.Msg, s *sql.DB) error {
-	log.Infof("Write INSERT to Postgres %v", m.Namespace())
+	log.With("table", m.Namespace()).Debugln("INSERT")
 	var (
 		keys         []string
 		placeholders []string
@@ -71,7 +71,7 @@ func insertMsg(m message.Msg, s *sql.DB) error {
 }
 
 func deleteMsg(m message.Msg, s *sql.DB) error {
-	fmt.Printf("Write DELETE to Postgres %v values %v\n", m.Namespace(), m.Data())
+	log.With("table", m.Namespace()).With("values", m.Data()).Debugln("DELETE")
 	var (
 		ckeys []string
 		vals  []interface{}
@@ -103,7 +103,7 @@ func deleteMsg(m message.Msg, s *sql.DB) error {
 }
 
 func updateMsg(m message.Msg, s *sql.DB) error {
-	fmt.Printf("Write UPDATE to Postgres %v\n", m.Namespace())
+	log.With("table", m.Namespace()).Debugln("UPDATE")
 	var (
 		ckeys []string
 		ukeys []string

@@ -76,7 +76,7 @@ func (r *Reader) listTables(session *sql.DB, filterFn func(name string) bool) (<
 				continue
 			}
 			name := fmt.Sprintf("%s.%s", schema, tname)
-			if filterFn(name) {
+			if filterFn(name) && matchFunc(name) {
 				log.With("db", r.db).With("table", name).Infoln("sending for iteration...")
 				out <- name
 			} else {
@@ -86,6 +86,13 @@ func (r *Reader) listTables(session *sql.DB, filterFn func(name string) bool) (<
 		log.With("db", r.db).Infoln("done iterating collections")
 	}()
 	return out, nil
+}
+
+func matchFunc(table string) bool {
+	if strings.HasPrefix(table, "information_schema.") || strings.HasPrefix(table, "pg_catalog.") {
+		return false
+	}
+	return true
 }
 
 type doc struct {

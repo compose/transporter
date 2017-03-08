@@ -30,19 +30,19 @@ type Reader interface {
 
 // Writer represents all possible functions needing to be implemented to handle messages.
 type Writer interface {
-	Write(message.Msg) func(Session) error
+	Write(message.Msg) func(Session) (message.Msg, error)
 }
 
 // Write encapsulates the function of determining which function to call based on the msg.OP() and
 // also wraps the function call with a Session.
-func Write(client Client, writer Writer, msg message.Msg) error {
+func Write(client Client, writer Writer, msg message.Msg) (message.Msg, error) {
 	return sessionFunc(client, writer.Write(msg))
 }
 
-func sessionFunc(client Client, op func(Session) error) error {
+func sessionFunc(client Client, op func(Session) (message.Msg, error)) (message.Msg, error) {
 	sess, err := client.Connect()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if s, ok := sess.(Closer); ok {
 		defer s.Close()

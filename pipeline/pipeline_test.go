@@ -1,18 +1,16 @@
 package pipeline
 
 import (
-	"errors"
 	"testing"
 	"time"
 
 	"github.com/compose/transporter/adaptor"
 	_ "github.com/compose/transporter/adaptor/file"
-	"github.com/compose/transporter/pipe"
 )
 
 var (
-	fakesourceCN = NewNode("source1", "source", adaptor.Config{"value": "rockettes"})
-	fileNode     = NewNode("localfile", "file", adaptor.Config{"uri": "file:///tmp/foo"})
+	fakesourceCN = NewNode("source1", "source", adaptor.Config{"value": "rockettes", "namespace": "a./.*/"})
+	fileNode     = NewNode("localfile", "file", adaptor.Config{"uri": "file:///tmp/foo", "namespace": "a./.*/"})
 )
 
 // a noop node adaptor to help test
@@ -21,13 +19,12 @@ type Testadaptor struct {
 }
 
 func init() {
-	adaptor.Add("source", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.Adaptor, error) {
-		val, ok := extra["value"]
-		if !ok {
-			return nil, errors.New("this is an error")
-		}
-		return &Testadaptor{value: val.(string)}, nil
-	})
+	adaptor.Add(
+		"source",
+		func() adaptor.Adaptor {
+			return &adaptor.Mock{}
+		},
+	)
 }
 
 func (s *Testadaptor) Description() string {
@@ -36,22 +33,6 @@ func (s *Testadaptor) Description() string {
 
 func (s *Testadaptor) SampleConfig() string {
 	return ""
-}
-
-func (s *Testadaptor) Connect() error {
-	return nil
-}
-
-func (s *Testadaptor) Stop() error {
-	return nil
-}
-
-func (s *Testadaptor) Start() error {
-	return nil
-}
-
-func (s *Testadaptor) Listen() error {
-	return nil
 }
 
 func TestPipelineString(t *testing.T) {
@@ -63,12 +44,12 @@ func TestPipelineString(t *testing.T) {
 		{
 			fakesourceCN,
 			nil,
-			" - Source:         source1                                  source                                         ",
+			" - Source:         source1                                  source          a./.*/                         ",
 		},
 		{
 			fakesourceCN,
 			fileNode,
-			" - Source:         source1                                  source                                         \n  - Sink:          localfile                                file                                           file:///tmp/foo",
+			" - Source:         source1                                  source          a./.*/                         \n  - Sink:          localfile                                file            a./.*/                         file:///tmp/foo",
 		},
 	}
 

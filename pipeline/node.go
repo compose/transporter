@@ -2,15 +2,20 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package transporter provides all adaptoremented functionality to move
+// Package pipeline provides all adaptoremented functionality to move
 // data through transporter.
 package pipeline
 
 import (
 	"fmt"
+	"regexp"
+	"sync"
 	"time"
 
 	"github.com/compose/transporter/adaptor"
+	"github.com/compose/transporter/client"
+	"github.com/compose/transporter/log"
+	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/pipe"
 )
 
@@ -35,8 +40,14 @@ type Node struct {
 	Children []*Node        `json:"children"` // the nodes are set up as a tree, this is an array of this nodes children
 	Parent   *Node          `json:"parent"`   // this node's parent node, if this is nil, this is a 'source' node
 
-	adaptor adaptor.Adaptor
-	pipe    *pipe.Pipe
+	nsFilter *regexp.Regexp
+	c        client.Client
+	r        client.Reader
+	w        client.Writer
+	done     chan struct{}
+	wg       sync.WaitGroup
+	l        log.Logger
+	pipe     *pipe.Pipe
 }
 
 // NewNode creates a new Node struct
@@ -46,6 +57,7 @@ func NewNode(name, kind string, extra adaptor.Config) *Node {
 		Type:     kind,
 		Extra:    extra,
 		Children: make([]*Node, 0),
+		done:     make(chan struct{}),
 	}
 }
 
@@ -118,15 +130,37 @@ func (n *Node) Add(node *Node) *Node {
 // and then recurses down the tree calling Init on each child
 func (n *Node) Init(interval time.Duration) (err error) {
 	path := n.Path()
-	if n.Parent == nil { // we don't have a parent, we're the source
-		n.pipe = pipe.NewPipe(nil, path)
-	} else { // we have a parent, so pass in the parent's pipe here
-		n.pipe = pipe.NewPipe(n.Parent.pipe, path)
-	}
 
-	n.adaptor, err = adaptor.CreateAdaptor(n.Type, path, n.Extra, n.pipe)
+	n.l = log.With("name", n.Name).With("type", n.Type).With("path", path)
+
+	_, nsFilter, err := adaptor.CompileNamespace(n.Extra.GetString("namespace"))
 	if err != nil {
 		return err
+	}
+	n.nsFilter = nsFilter
+
+	a, err := adaptor.GetAdaptor(n.Type, n.Extra)
+	if err != nil {
+		return err
+	}
+
+	n.c, err = a.Client()
+	if err != nil {
+		return err
+	}
+
+	if n.Parent == nil { // we don't have a parent, we're the source
+		n.pipe = pipe.NewPipe(nil, path)
+		n.r, err = a.Reader()
+		if err != nil {
+			return err
+		}
+	} else { // we have a parent, so pass in the parent's pipe here
+		n.pipe = pipe.NewPipe(n.Parent.pipe, path)
+		n.w, err = a.Writer(n.done, &n.wg)
+		if err != nil {
+			return err
+		}
 	}
 
 	for _, child := range n.Children {
@@ -137,14 +171,6 @@ func (n *Node) Init(interval time.Duration) (err error) {
 	}
 
 	return nil
-}
-
-// Stop this node's adaptor, and sends a stop to each child of this node
-func (n *Node) Stop() {
-	n.adaptor.Stop()
-	for _, node := range n.Children {
-		node.Stop()
-	}
 }
 
 // Start starts the nodes children in a go routine, and then runs either Start() or Listen()
@@ -159,10 +185,93 @@ func (n *Node) Start() error {
 	}
 
 	if n.Parent == nil {
-		return n.adaptor.Start()
+		return n.start()
 	}
 
-	return n.adaptor.Listen()
+	return n.listen()
+}
+
+// Start the adaptor as a source
+func (n *Node) start() (err error) {
+	n.l.Infoln("node Starting...")
+	defer func() {
+		n.pipe.Stop()
+	}()
+
+	s, err := n.c.Connect()
+	if err != nil {
+		return err
+	}
+	if closer, ok := s.(client.Closer); ok {
+		defer closer.Close()
+	}
+	readFunc := n.r.Read(func(c string) bool { return true })
+	msgChan, err := readFunc(s, n.done)
+	if err != nil {
+		return err
+	}
+	for msg := range msgChan {
+		n.pipe.Send(msg)
+	}
+
+	n.l.Infoln("adaptor Start finished...")
+	return nil
+}
+
+func (n *Node) listen() (err error) {
+	n.l.Infoln("adaptor Listening...")
+	defer func() {
+		n.l.Infoln("adaptor Listen closing...")
+		n.pipe.Stop()
+	}()
+
+	return n.pipe.Listen(n.write, n.nsFilter)
+}
+
+func (n *Node) write(msg message.Msg) (message.Msg, error) {
+	sess, err := n.c.Connect()
+	if err != nil {
+		return msg, err
+	}
+	defer func() {
+		if s, ok := sess.(client.Closer); ok {
+			s.Close()
+		}
+	}()
+	msg, err = n.w.Write(message.From(msg.OP(), msg.Namespace(), msg.Data()))(sess)
+
+	if err != nil {
+		n.pipe.Err <- adaptor.Error{
+			Lvl:    adaptor.ERROR,
+			Path:   n.Path(),
+			Err:    fmt.Sprintf("write message error (%s)", err),
+			Record: msg.Data,
+		}
+	}
+	return msg, err
+}
+
+// Stop this node's adaptor, and sends a stop to each child of this node
+func (n *Node) Stop() {
+	n.stop()
+	for _, node := range n.Children {
+		node.Stop()
+	}
+}
+
+func (n *Node) stop() error {
+	n.l.Infoln("adaptor Stopping...")
+	n.pipe.Stop()
+
+	close(n.done)
+	n.wg.Wait()
+
+	if closer, ok := n.c.(client.Closer); ok {
+		closer.Close()
+	}
+
+	n.l.Infoln("adaptor Stopped")
+	return nil
 }
 
 // Validate ensures that the node tree conforms to a proper structure.

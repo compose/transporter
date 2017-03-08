@@ -18,6 +18,7 @@ env:
   - TESTDIR=integration_tests/mongo_to_mongo
   - TESTDIR=integration_tests/mongo_to_es
   - TESTDIR=integration_tests/mongo_to_rethink
+  - TESTDIR=integration_tests/rethink_to_postgres
 before_install:
 - "./scripts/before_install.sh"
 cache:

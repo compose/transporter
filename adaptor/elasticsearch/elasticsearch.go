@@ -2,13 +2,12 @@ package elasticsearch
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/compose/transporter/adaptor"
@@ -17,8 +16,6 @@ import (
 	_ "github.com/compose/transporter/adaptor/elasticsearch/clients/all"
 	"github.com/compose/transporter/client"
 	"github.com/compose/transporter/log"
-	"github.com/compose/transporter/message"
-	"github.com/compose/transporter/pipe"
 	version "github.com/hashicorp/go-version"
 )
 
@@ -38,13 +35,9 @@ var (
 // Elasticsearch is an adaptor to connect a pipeline to
 // an elasticsearch cluster.
 type Elasticsearch struct {
-	client client.Writer
-
-	index     string
-	typeMatch *regexp.Regexp
-
-	pipe *pipe.Pipe
-	path string
+	adaptor.BaseConfig
+	AWSAccessKeyID  string `json:"aws_access_key" doc:"credentials for use with AWS Elasticsearch service"`
+	AWSAccessSecret string `json:"aws_access_secret" doc:"credentials for use with AWS Elasticsearch service"`
 }
 
 // Description for the Elasticsearcb adaptor
@@ -58,104 +51,45 @@ func (e *Elasticsearch) SampleConfig() string {
 }
 
 func init() {
-	adaptor.Add("elasticsearch", func(p *pipe.Pipe, path string, extra adaptor.Config) (adaptor.Adaptor, error) {
-		var (
-			conf Config
-			err  error
-		)
-		if err = extra.Construct(&conf); err != nil {
-			return nil, adaptor.Error{
-				Lvl:    adaptor.CRITICAL,
-				Path:   path,
-				Err:    fmt.Sprintf("bad config (%s)", err.Error()),
-				Record: nil,
-			}
-		}
-		log.With("path", path).Debugf("adaptor config: %+v", conf)
-
-		e := &Elasticsearch{
-			pipe: p,
-			path: path,
-		}
-
-		e.index, e.typeMatch, err = extra.CompileNamespace()
-		if err != nil {
-			return e, adaptor.Error{
-				Lvl:    adaptor.CRITICAL,
-				Path:   path,
-				Err:    fmt.Sprintf("can't split namespace into index and typeMatch (%s)", err.Error()),
-				Record: nil,
-			}
-		}
-
-		err = e.setupClient(conf)
-		return e, err
-	})
+	adaptor.Add(
+		"elasticsearch",
+		func() adaptor.Adaptor {
+			return &Elasticsearch{}
+		},
+	)
 }
 
-// Start the adaptor as a source (not implemented)
-func (e *Elasticsearch) Start() error {
-	return errors.New("Start is unsupported for elasticsearch")
+// Client returns a client that doesn't do anything other than fulfill the client.Client interface.
+func (e *Elasticsearch) Client() (client.Client, error) {
+	return &client.Mock{}, nil
 }
 
-// Listen starts the listener
-func (e *Elasticsearch) Listen() error {
-	log.With("path", e.path).Infoln("adaptor Listening...")
-	defer func() {
-		log.With("path", e.path).Infoln("adaptor Listen closing...")
-		e.pipe.Stop()
-	}()
-
-	return e.pipe.Listen(e.applyOp, e.typeMatch)
+// Reader returns an error because this adaptor is currently not supported as a Source.
+func (e *Elasticsearch) Reader() (client.Reader, error) {
+	return nil, adaptor.ErrFuncNotSupported{Name: "Reader()", Func: "elasticsearch"}
 }
 
-// Stop the adaptor
-func (e *Elasticsearch) Stop() error {
-	log.With("path", e.path).Infoln("adaptor Stopping...")
-	e.pipe.Stop()
-
-	if c, ok := e.client.(client.Closer); ok {
-		c.Close()
-	}
-
-	log.With("path", e.path).Infoln("adaptor Stopped")
-	return nil
+// Writer determines the which underlying writer to used based on the cluster's version.
+func (e *Elasticsearch) Writer(done chan struct{}, wg *sync.WaitGroup) (client.Writer, error) {
+	index, _, _ := adaptor.CompileNamespace(e.Namespace)
+	return setupWriter(index, e)
 }
 
-func (e *Elasticsearch) applyOp(msg message.Msg) (message.Msg, error) {
-	msgCopy := make(map[string]interface{})
-	// Copy from the original map to the target map
-	for key, value := range msg.Data() {
-		msgCopy[key] = value
-	}
-	err := e.client.Write(message.From(msg.OP(), msg.Namespace(), msgCopy))(nil)
-
-	if err != nil {
-		e.pipe.Err <- adaptor.Error{
-			Lvl:    adaptor.ERROR,
-			Path:   e.path,
-			Err:    fmt.Sprintf("write message error (%s)", err),
-			Record: msg.Data,
-		}
-	}
-	return msg, err
-}
-
-func (e *Elasticsearch) setupClient(conf Config) error {
+func setupWriter(index string, conf *Elasticsearch) (client.Writer, error) {
 	uri, err := url.Parse(conf.URI)
 	if err != nil {
-		return client.InvalidURIError{URI: conf.URI, Err: err.Error()}
+		return nil, client.InvalidURIError{URI: conf.URI, Err: err.Error()}
 	}
 
 	hostsAndPorts := strings.Split(uri.Host, ",")
 	stringVersion, err := determineVersion(fmt.Sprintf("%s://%s", uri.Scheme, hostsAndPorts[0]), uri.User)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	v, err := version.NewVersion(stringVersion)
 	if err != nil {
-		return client.VersionError{URI: conf.URI, V: stringVersion, Err: err.Error()}
+		return nil, client.VersionError{URI: conf.URI, V: stringVersion, Err: err.Error()}
 	}
 
 	timeout, err := time.ParseDuration(conf.Timeout)
@@ -179,16 +113,14 @@ func (e *Elasticsearch) setupClient(conf Config) error {
 				URLs:       urls,
 				UserInfo:   uri.User,
 				HTTPClient: httpClient,
-				Path:       e.path,
-				Index:      e.index,
+				Index:      index,
 			}
 			versionedClient, _ := vc.Creator(opts)
-			e.client = versionedClient
-			return nil
+			return versionedClient, nil
 		}
 	}
 
-	return client.VersionError{URI: conf.URI, V: stringVersion, Err: "unsupported client"}
+	return nil, client.VersionError{URI: conf.URI, V: stringVersion, Err: "unsupported client"}
 }
 
 func determineVersion(uri string, user *url.Userinfo) (string, error) {
@@ -226,14 +158,4 @@ func determineVersion(uri string, user *url.Userinfo) (string, error) {
 		return "", client.VersionError{URI: uri, V: "", Err: fmt.Sprintf("missing version: %s", body)}
 	}
 	return r.Version.Number, nil
-}
-
-// Config provides configuration options for an elasticsearch adaptor
-// the notable difference between this and dbConfig is the presence of the Timeout option
-type Config struct {
-	URI             string `json:"uri" doc:"the uri to connect to, in the form mongodb://user:password@host.com:27017/auth_database"`
-	Namespace       string `json:"namespace" doc:"mongo namespace to read/write"`
-	Timeout         string `json:"timeout" doc:"timeout for establishing connection, format must be parsable by time.ParseDuration and defaults to 10s"`
-	AWSAccessKeyID  string `json:"aws_access_key" doc:"credentials for use with AWS Elasticsearch service"`
-	AWSAccessSecret string `json:"aws_access_secret" doc:"credentials for use with AWS Elasticsearch service"`
 }

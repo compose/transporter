@@ -46,14 +46,14 @@ func init() {
 		w := &Writer{
 			index:    opts.Index,
 			esClient: esClient,
-			logger:   log.With("path", opts.Path).With("writer", "elasticsearch").With("version", 1),
+			logger:   log.With("writer", "elasticsearch").With("version", 1),
 		}
 		return w, nil
 	})
 }
 
-func (w *Writer) Write(msg message.Msg) func(client.Session) error {
-	return func(s client.Session) error {
+func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error) {
+	return func(s client.Session) (message.Msg, error) {
 		indexType := msg.Namespace()
 		var id string
 		if _, ok := msg.Data()["_id"]; ok {
@@ -69,6 +69,6 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) error {
 		case ops.Update:
 			_, err = w.esClient.Index().Index(w.index).Type(indexType).BodyJson(msg.Data()).Id(id).Do(context.TODO())
 		}
-		return err
+		return msg, err
 	}
 }

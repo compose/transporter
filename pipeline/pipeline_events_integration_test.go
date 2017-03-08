@@ -63,8 +63,8 @@ func TestEventsBroadcast(t *testing.T) {
 	setupFiles(inFile, outFile)
 
 	// set up the nodes
-	dummyOutNode := NewNode("dummyFileOut", "file", adaptor.Config{"uri": "file://" + outFile})
-	dummyOutNode.Add(NewNode("dummyFileIn", "file", adaptor.Config{"uri": "file://" + inFile}))
+	dummyOutNode := NewNode("dummyFileOut", "file", adaptor.Config{"uri": "file://" + outFile, "namespace": "a./.*/"})
+	dummyOutNode.Add(NewNode("dummyFileIn", "file", adaptor.Config{"uri": "file://" + inFile, "namespace": "a./.*/"}))
 
 	p, err := NewDefaultPipeline(dummyOutNode, ts.URL, "asdf", "jklm", "test", 1*time.Second)
 	if err != nil {

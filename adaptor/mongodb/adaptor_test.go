@@ -18,7 +18,7 @@ var (
 	}
 	defaultSession *Session
 
-	dbsToTest = []*TestData{startTestData, listenTestData, bulkTestData, readerTestData, writerTestData, tailTestData}
+	dbsToTest = []*TestData{bulkTestData, readerTestData, writerTestData, tailTestData}
 )
 
 type TestData struct {
