@@ -4,6 +4,7 @@
 - if using transporter as a library, all packages have been moved out of `pkg` to the top-level
 
 ### Features
+- NEW RabbitMQ adaptor [#298](https://github.com/compose/transporter/pull/298)
 
 ### Bugfixes
 

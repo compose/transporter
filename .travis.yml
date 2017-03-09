@@ -2,7 +2,7 @@ sudo: required
 dist: trusty
 language: go
 go:
-- 1.7.x
+- 1.8.x
 env:
   global:
   - MONGODB_VERSION=3.2.11
@@ -13,6 +13,7 @@ env:
   - TESTDIR=adaptor/elasticsearch/...
   - TESTDIR=adaptor/mongodb/...
   - TESTDIR=adaptor/postgres/...
+  - TESTDIR=adaptor/rabbitmq/...
   - TESTDIR=adaptor/rethinkdb/...
   - TESTDIR="adaptor, adaptor/all, adaptor/file/..., adaptor/transformer/..., client/..., events/..., log/..., message/..., pipe/..., state/..., pipeline/..."
   - TESTDIR=integration_tests/mongo_to_mongo

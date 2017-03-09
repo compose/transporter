@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -29,20 +30,34 @@ type QueryParams struct {
 	Regex bool      `json:"regex"`
 }
 
+type rangeBehavior int
+
+const (
+	rangeRequired rangeBehavior = iota
+	rangeNotRequired
+)
+
 // DecodeFrom populates a QueryParams from a URL.
-func (qp *QueryParams) DecodeFrom(u *url.URL) error {
+func (qp *QueryParams) DecodeFrom(u *url.URL, rb rangeBehavior) error {
 	from, err := time.Parse(time.RFC3339Nano, u.Query().Get("from"))
-	if err != nil {
+	if err != nil && rb == rangeRequired {
 		return errors.Wrap(err, "parsing 'from'")
 	}
 	to, err := time.Parse(time.RFC3339Nano, u.Query().Get("to"))
-	if err != nil {
+	if err != nil && rb == rangeRequired {
 		return errors.Wrap(err, "parsing 'to'")
 	}
 	qp.From = from
 	qp.To = to
 	qp.Q = u.Query().Get("q")
 	_, qp.Regex = u.Query()["regex"]
+
+	if qp.Regex {
+		if _, err := regexp.Compile(qp.Q); err != nil {
+			return errors.Wrap(err, "compiling regex")
+		}
+	}
+
 	return nil
 }
 

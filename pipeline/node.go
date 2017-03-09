@@ -203,9 +203,13 @@ func (n *Node) start() (err error) {
 		return err
 	}
 	if closer, ok := s.(client.Closer); ok {
-		defer closer.Close()
+		defer func() {
+			n.l.Infoln("closing session...")
+			closer.Close()
+			n.l.Infoln("session closed...")
+		}()
 	}
-	readFunc := n.r.Read(func(c string) bool { return true })
+	readFunc := n.r.Read(func(check string) bool { return n.nsFilter.MatchString(check) })
 	msgChan, err := readFunc(s, n.done)
 	if err != nil {
 		return err
@@ -223,6 +227,7 @@ func (n *Node) listen() (err error) {
 	defer func() {
 		n.l.Infoln("adaptor Listen closing...")
 		n.pipe.Stop()
+		n.l.Infoln("adaptor Listen closed...")
 	}()
 
 	return n.pipe.Listen(n.write, n.nsFilter)
@@ -267,7 +272,11 @@ func (n *Node) stop() error {
 	n.wg.Wait()
 
 	if closer, ok := n.c.(client.Closer); ok {
-		closer.Close()
+		defer func() {
+			n.l.Infoln("closing connection...")
+			closer.Close()
+			n.l.Infoln("connection closed...")
+		}()
 	}
 
 	n.l.Infoln("adaptor Stopped")

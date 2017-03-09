@@ -280,7 +280,7 @@ func TestConcurrentFilteringReadCloser(t *testing.T) {
 		t.Run(testcase.name, func(t *testing.T) {
 			in := bytes.NewReader(input.Bytes())
 			re := regexp.MustCompile(testcase.q)
-			pass := recordFilterRegex(testcase.from, testcase.to, re)
+			pass := recordFilterBoundedRegex(testcase.from, testcase.to, re)
 			rc := newConcurrentFilteringReadCloser(ioutil.NopCloser(in), pass, 1024)
 			if want, have := testcase.want, records(rc); !reflect.DeepEqual(want, have) {
 				t.Errorf("want %v, have %v", want, have)
@@ -293,8 +293,8 @@ func TestIssue23(t *testing.T) {
 	var (
 		readerBufSize   = 4096 // bufio.go defaultBufSz
 		bigRecordLength = readerBufSize * 2
-		bigRecord       = bytes.Repeat([]byte{'A'}, bigRecordLength)
-		input           = fmt.Sprintf("%s\n%s\n%s\n", "Alpha", bigRecord, "Beta")
+		bigRecord       = fmt.Sprintf("%s %s", "01B7FTVBVH4CVXC39RBF486QKN", bytes.Repeat([]byte{'A'}, bigRecordLength))
+		input           = fmt.Sprintf("%s\n%s\n%s\n", "01B7FTVBVHZK5GCKXK65JSY4CA Alpha", bigRecord, "01B7FTVBVHYDQC5JDEKC76J0QT Beta")
 		src             = ioutil.NopCloser(strings.NewReader(input))
 		pass            = func([]byte) bool { return true }
 		pipeBufSz       = 1024 * 1024 // different than bufio.Reader bufsz
