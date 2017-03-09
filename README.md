@@ -134,15 +134,6 @@ transporter test [--config transporterconfig.yaml] [-log.level "info"] <applicat
 Evaluates and connects the pipeline, sources and sinks. Establishes connections but does not run.
 Prints out the state of connections at the end. Useful for debugging new configurations.
 
-### eval
-
-```
-transporter test [--config transporterconfig.yaml] [-log.level "info"] 'JavaScript'
-```
-
-Runs the pipeline script found in the final parameter string. It needs to be a single string and properly escaped.
-
-
 #### switches
 
 `-config transporterconfig.yaml` - overrides the `transporter.yaml` default for the configuration file.

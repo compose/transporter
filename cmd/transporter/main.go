@@ -26,7 +26,6 @@ func usage() {
 	fmt.Fprintf(os.Stderr, "  list      list all configured nodes\n")
 	fmt.Fprintf(os.Stderr, "  run       run pipeline loaded from a file\n")
 	fmt.Fprintf(os.Stderr, "  test      display the compiled nodes without starting a pipeline\n")
-	fmt.Fprintf(os.Stderr, "  eval      eval javascript to build and run a transporter application\n")
 	fmt.Fprintf(os.Stderr, "  about     show information about available adaptors\n")
 	fmt.Fprintf(os.Stderr, "  init      initialize a config and pipeline file based from provided adaptors\n")
 	fmt.Fprintf(os.Stderr, "\n")
@@ -49,8 +48,6 @@ func main() {
 		run = runRun
 	case "test":
 		run = runTest
-	case "eval":
-		run = runEval
 	case "about":
 		run = runAbout
 	case "init":

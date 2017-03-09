@@ -2,6 +2,7 @@
 
 ### Breaking changes
 - if using transporter as a library, all packages have been moved out of `pkg` to the top-level
+- "eval" command removed
 
 ### Features
 - NEW RabbitMQ adaptor [#298](https://github.com/compose/transporter/pull/298)
