@@ -21,27 +21,44 @@ func TestSampleConfig(t *testing.T) {
 	}
 }
 
-var initTests = []map[string]interface{}{
-	{"uri": DefaultURI, "namespace": "test.test"},
-	{"uri": DefaultURI, "namespace": "test.test", "tail": true},
-	{"uri": DefaultURI, "namespace": "test.test", "bulk": true},
+var initTests = []struct {
+	cfg       map[string]interface{}
+	clientErr error
+	readerErr error
+	writerErr error
+}{
+	{
+		map[string]interface{}{"uri": DefaultURI, "namespace": "test.test"}, nil, nil, nil,
+	},
+	{
+		map[string]interface{}{"uri": DefaultURI, "namespace": "test.test", "tail": true}, nil, nil, nil,
+	},
+	{
+		map[string]interface{}{"uri": DefaultURI, "namespace": "test.test", "bulk": true}, nil, nil, nil,
+	},
+	{
+		map[string]interface{}{"uri": DefaultURI, "namespace": "test.test", "collection_filters": `{"foo":{"i":{"$gt":10}}}`}, nil, nil, nil,
+	},
+	{
+		map[string]interface{}{"uri": DefaultURI, "namespace": "test.test", "collection_filters": `{"foo":{"i":{"$gt":10}}`}, nil, ErrCollectionFilter, nil,
+	},
 }
 
 func TestInit(t *testing.T) {
 	for _, it := range initTests {
-		a, err := adaptor.GetAdaptor("mongodb", it)
+		a, err := adaptor.GetAdaptor("mongodb", it.cfg)
 		if err != nil {
 			t.Fatalf("unexpected GetV2() error, %s", err)
 		}
-		if _, err := a.Client(); err != nil {
+		if _, err := a.Client(); err != it.clientErr {
 			t.Errorf("unexpected Client() error, %s", err)
 		}
-		if _, err := a.Reader(); err != nil {
+		if _, err := a.Reader(); err != it.readerErr {
 			t.Errorf("unexpected Reader() error, %s", err)
 		}
 		done := make(chan struct{})
 		var wg sync.WaitGroup
-		if _, err := a.Writer(done, &wg); err != nil {
+		if _, err := a.Writer(done, &wg); err != it.writerErr {
 			t.Errorf("unexpected Writer() error, %s", err)
 		}
 		close(done)

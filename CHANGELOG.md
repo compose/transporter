@@ -6,6 +6,7 @@
 
 ### Features
 - NEW RabbitMQ adaptor [#298](https://github.com/compose/transporter/pull/298)
+- MongoDB adaptor supports per collection query filter when needing to copy only a subset of data [#301](https://github.com/compose/transporter/pull/301)
 
 ### Bugfixes
 

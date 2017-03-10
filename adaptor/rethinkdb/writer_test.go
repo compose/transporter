@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/compose/transporter/log"
 	"github.com/compose/transporter/message"
@@ -54,6 +55,39 @@ var (
 		},
 	}
 )
+
+func TestBulkInsert(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping Insert in short mode")
+	}
+	var wg sync.WaitGroup
+	done := make(chan struct{})
+	w := newWriter(writerTestData.DB, done, &wg)
+
+	if _, err := r.DB(writerTestData.DB).TableCreate("bulk").RunWrite(defaultSession.session); err != nil {
+		log.Errorf("failed to create table (bulk) in %s, may affect tests!, %s", writerTestData.DB, err)
+	}
+
+	for i := 0; i < 999; i++ {
+		msg := message.From(ops.Insert, "bulk", map[string]interface{}{"i": i})
+		if _, err := w.Write(msg)(defaultSession); err != nil {
+			t.Errorf("unexpected Insert error, %s", err)
+		}
+	}
+	time.Sleep(3 * time.Second)
+	close(done)
+	wg.Wait()
+	countResp, err := r.DB(writerTestData.DB).Table("bulk").Count().Run(defaultSession.session)
+	if err != nil {
+		t.Errorf("unable to determine table count, %s", err)
+	}
+	var count int
+	countResp.One(&count)
+	countResp.Close()
+	if count != 999 {
+		t.Errorf("[bulk] mismatched doc count, expected 999, got %d", count)
+	}
+}
 
 func TestInsert(t *testing.T) {
 	if testing.Short() {

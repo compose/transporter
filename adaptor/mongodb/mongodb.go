@@ -1,6 +1,8 @@
 package mongodb
 
 import (
+	"encoding/json"
+	"errors"
 	"sync"
 
 	"github.com/compose/transporter/adaptor"
@@ -18,23 +20,28 @@ const (
     # cacerts: ["/path/to/cert.pem"]
     # wc: 1
     # fsync: false
-    # bulk: false`
+    # bulk: false
+    # collection_filters: '{"foo": {"i": {"$gt": 10}}}'`
 )
 
 var (
 	_ adaptor.Adaptor = &MongoDB{}
+
+	// ErrCollectionFilter is returned when an error occurs attempting to Unmarshal the string.
+	ErrCollectionFilter = errors.New("malformed collection_filters")
 )
 
 // MongoDB is an adaptor to read / write to mongodb.
 // it works as a source by copying files, and then optionally tailing the oplog
 type MongoDB struct {
 	adaptor.BaseConfig
-	SSL     bool     `json:"ssl"`
-	CACerts []string `json:"cacerts"`
-	Tail    bool     `json:"tail"`
-	Wc      int      `json:"wc"`
-	FSync   bool     `json:"fsync"`
-	Bulk    bool     `json:"bulk"`
+	SSL               bool     `json:"ssl"`
+	CACerts           []string `json:"cacerts"`
+	Tail              bool     `json:"tail"`
+	Wc                int      `json:"wc"`
+	FSync             bool     `json:"fsync"`
+	Bulk              bool     `json:"bulk"`
+	CollectionFilters string   `json:"collection_filters"`
 }
 
 func init() {
@@ -59,10 +66,13 @@ func (m *MongoDB) Client() (client.Client, error) {
 func (m *MongoDB) Reader() (client.Reader, error) {
 	// TODO: pull db from the URI
 	db, _, err := adaptor.CompileNamespace(m.Namespace)
-	if m.Tail {
-		return newTailer(db), err
+	var f map[string]CollectionFilter
+	if m.CollectionFilters != "" {
+		if jerr := json.Unmarshal([]byte(m.CollectionFilters), &f); jerr != nil {
+			return nil, ErrCollectionFilter
+		}
 	}
-	return newReader(db), err
+	return newReader(db, m.Tail, f), err
 }
 
 func (m *MongoDB) Writer(done chan struct{}, wg *sync.WaitGroup) (client.Writer, error) {
