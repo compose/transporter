@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"regexp"
 	"sync"
-	"time"
 
 	"github.com/compose/transporter/adaptor"
 	"github.com/compose/transporter/client"
@@ -128,7 +127,7 @@ func (n *Node) Add(node *Node) *Node {
 
 // Init sets up the node for action.  It creates a pipe and adaptor for this node,
 // and then recurses down the tree calling Init on each child
-func (n *Node) Init(interval time.Duration) (err error) {
+func (n *Node) Init() (err error) {
 	path := n.Path()
 
 	n.l = log.With("name", n.Name).With("type", n.Type).With("path", path)
@@ -164,7 +163,7 @@ func (n *Node) Init(interval time.Duration) (err error) {
 	}
 
 	for _, child := range n.Children {
-		err = child.Init(interval) // init each child
+		err = child.Init() // init each child
 		if err != nil {
 			return err
 		}
@@ -271,6 +270,13 @@ func (n *Node) stop() error {
 	close(n.done)
 	n.wg.Wait()
 
+	if closer, ok := n.w.(client.Closer); ok {
+		defer func() {
+			n.l.Infoln("closing writer...")
+			closer.Close()
+			n.l.Infoln("writer closed...")
+		}()
+	}
 	if closer, ok := n.c.(client.Closer); ok {
 		defer func() {
 			n.l.Infoln("closing connection...")

@@ -67,7 +67,7 @@ func NewPipeline(version string, source *Node, emit events.EmitFunc, interval ti
 	}
 
 	// init the pipeline
-	err := pipeline.source.Init(interval)
+	err := pipeline.source.Init()
 	if err != nil {
 		return pipeline, err
 	}

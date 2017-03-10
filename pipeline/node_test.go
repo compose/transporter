@@ -1,9 +1,12 @@
 package pipeline
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/compose/transporter/adaptor"
+	"github.com/compose/transporter/client"
+	"github.com/compose/transporter/message"
 )
 
 func TestNodeString(t *testing.T) {
@@ -89,6 +92,83 @@ func TestPath(t *testing.T) {
 		}
 		if path != v.out {
 			t.Errorf("%s: expected: %s got: %s", node.Name, v.out, path)
+		}
+	}
+}
+
+func init() {
+	adaptor.Add("stopWriter", func() adaptor.Adaptor {
+		return &StopWriter{}
+	})
+}
+
+type StopWriter struct {
+	Closed bool
+}
+
+func (s *StopWriter) Client() (client.Client, error) {
+	return &client.Mock{}, nil
+}
+
+func (s *StopWriter) Reader() (client.Reader, error) {
+	return &client.MockReader{}, nil
+}
+
+func (s *StopWriter) Writer(done chan struct{}, wg *sync.WaitGroup) (client.Writer, error) {
+	return s, nil
+}
+
+func (s *StopWriter) Write(msg message.Msg) func(client.Session) (message.Msg, error) {
+	return func(client.Session) (message.Msg, error) {
+		return msg, nil
+	}
+}
+
+func (s *StopWriter) Close() {
+	s.Closed = true
+}
+
+var stopTests = []struct {
+	node *Node
+}{
+	{
+		&Node{
+			Name:  "starter",
+			Type:  "stopWriter",
+			Extra: map[string]interface{}{"namespace": "test.test"},
+			Children: []*Node{
+				&Node{
+					Name:     "stopper",
+					Type:     "stopWriter",
+					Extra:    map[string]interface{}{"namespace": "test.test"},
+					Children: nil,
+					Parent:   nil,
+					done:     make(chan struct{}),
+				},
+			},
+			Parent: nil,
+			done:   make(chan struct{}),
+		},
+	},
+}
+
+func TestStop(t *testing.T) {
+	for _, st := range stopTests {
+		for _, child := range st.node.Children {
+			child.Parent = st.node
+		}
+
+		if err := st.node.Init(); err != nil {
+			t.Errorf("unexpected Init() error, %s", err)
+		}
+		if err := st.node.Start(); err != nil {
+			t.Errorf("unexpected Start() error, %s", err)
+		}
+		st.node.Stop()
+		for _, child := range st.node.Children {
+			if !child.w.(*StopWriter).Closed {
+				t.Errorf("[%s] child node was not closed but should have been", child.Name)
+			}
 		}
 	}
 }
