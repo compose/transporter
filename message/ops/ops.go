@@ -15,6 +15,7 @@ const (
 	Delete
 	Command
 	Noop
+	Skip
 	Unknown
 )
 
@@ -32,6 +33,8 @@ func (o Op) String() string {
 		return "command"
 	case Noop:
 		return "noop"
+	case Skip:
+		return "skip"
 	default:
 		return "unknown"
 	}
@@ -51,6 +54,8 @@ func OpTypeFromString(s string) Op {
 		return Command
 	case 'n':
 		return Noop
+	case 's':
+		return Skip
 	default:
 		return Unknown
 	}

@@ -22,6 +22,7 @@ func TestSampleConfig(t *testing.T) {
 
 var initTests = []map[string]interface{}{
 	{"filename": "testdata/transformer.js"},
+	{"filename": "testdata/goja-transformer.js", "vm": "goja"},
 }
 
 func TestInit(t *testing.T) {
