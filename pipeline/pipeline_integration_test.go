@@ -1,15 +1,15 @@
 package pipeline
 
 import (
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
 	"github.com/compose/transporter/adaptor"
 	_ "github.com/compose/transporter/adaptor/all"
+	"github.com/compose/transporter/events"
 )
 
 // set up some local files
@@ -30,12 +30,6 @@ func TestFileToFile(t *testing.T) {
 		t.Skip("skipping FileToFile in short mode")
 
 	}
-
-	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	}))
-	defer ts.Close()
-	ts.Start()
-
 	var (
 		tempDir = os.TempDir()
 		inFile  = filepath.Join(tempDir, "in")
@@ -44,12 +38,13 @@ func TestFileToFile(t *testing.T) {
 
 	setupFiles(inFile, outFile)
 
+	numgorosBefore := runtime.NumGoroutine()
 	// create the source node and attach our sink
 	outNode := NewNode("localfileout", "file", adaptor.Config{"uri": "file://" + outFile, "namespace": "a./.*/"}).
 		Add(NewNode("localfilein", "file", adaptor.Config{"uri": "file://" + inFile, "namespace": "a./.*/"}))
 
 	// create the pipeline
-	p, err := NewDefaultPipeline(outNode, ts.URL, "", "", "test", 100*time.Millisecond)
+	p, err := NewPipeline("test", outNode, events.LogEmitter(), 60*time.Second, nil, 10*time.Second)
 	if err != nil {
 		t.Errorf("can't create pipeline, got %s", err.Error())
 		t.FailNow()
@@ -63,6 +58,13 @@ func TestFileToFile(t *testing.T) {
 	}
 
 	p.Stop()
+	time.Sleep(1 * time.Second)
+	numgorosAfter := runtime.NumGoroutine()
+	if numgorosBefore != numgorosAfter {
+		trace := make([]byte, 10240)
+		runtime.Stack(trace, true)
+		t.Errorf("leaky goroutines detected, started with %d, ended with %d\n%s", numgorosBefore, numgorosAfter, trace)
+	}
 
 	// compare the files
 	sourceFile, err := os.Open(outFile)

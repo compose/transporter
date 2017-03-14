@@ -21,11 +21,12 @@ import (
 
 const (
 	description  = "an elasticsearch sink adaptor"
-	sampleConfig = `    type: elasticsearch
-    uri: ${ELASTICSEARCH_URI}
-    # timeout: 10s # defaults to 30s
-    # aws_access_key: XXX # used for signing requests to AWS Elasticsearch service
-    # aws_access_secret: XXX # used for signing requests to AWS Elasticsearch service`
+	sampleConfig = `{
+  "uri": "${ELASTICSEARCH_URI}"
+  // "timeout": "10s", // defaults to 30s
+  // "aws_access_key": "ABCDEF", // used for signing requests to AWS Elasticsearch service
+  // "aws_access_secret": "ABCDEF" // used for signing requests to AWS Elasticsearch service
+}`
 )
 
 var (

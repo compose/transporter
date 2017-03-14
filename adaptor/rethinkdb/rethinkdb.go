@@ -8,12 +8,13 @@ import (
 )
 
 const (
-	sampleConfig = `    type: rethinkdb
-    uri: ${RETHINKDB_URI}
-    # timeout: 30s
-    # tail: false
-    # ssl: false
-    # cacerts: ["/path/to/cert.pem"]`
+	sampleConfig = `{
+   "uri": "${RETHINKDB_URI}"
+  // "timeout": "30s",
+  // "tail": false,
+  // "ssl": false,
+  // "cacerts": ["/path/to/cert.pem"]
+}`
 
 	description = "a rethinkdb adaptor that functions as both a source and a sink"
 )

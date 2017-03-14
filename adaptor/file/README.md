@@ -7,8 +7,8 @@ The file adaptor reads/writes data to the defined locations.
 This adaptor is primarily used for testing purposes.
 
 ### Configuration:
-```yaml
-- stdout:
-    type: file
-    uri: stdout://
+```javascript
+f = file({
+  "uri": "stdout://"
+})
 ```

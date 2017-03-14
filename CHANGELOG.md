@@ -1,8 +1,14 @@
 ## v0.3.0 [UNRELEASED]
 
 ### Breaking changes
+
+***PLEASE READ***
+
+Transporter no longer requires a YAML file. All configuration is in the JS file where nodes are defined and a new DSL has been developed. Run the `init` command to see the new changes.
+
 - if using transporter as a library, all packages have been moved out of `pkg` to the top-level
-- "eval" command removed
+- `eval` command removed
+- `list` command removed
 
 ### Features
 - NEW RabbitMQ adaptor [#298](https://github.com/compose/transporter/pull/298)

@@ -1,0 +1,2 @@
+m = mongodb({name: "source", uri: "mongo://localhost:27017"})
+t.Source(m).Transform(transformer({name: "trans", filename: "pipeline.js"})).Save(elasticsearch({name: "sink", uri:"http://localhost:9200"}))

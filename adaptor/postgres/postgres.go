@@ -12,11 +12,12 @@ import (
 const (
 	description = "a postgres adaptor that functions as both a source and a sink"
 
-	sampleConfig = `    type: postgres
-    uri: ${POSTGRESQL_URI}
-    # debug: false
-    # tail: false
-    # replication_slot: slot`
+	sampleConfig = `{
+  "uri": "${POSTGRESQL_URI}"
+  // "debug": false,
+  // "tail": false,
+  // "replication_slot": "slot"
+}`
 )
 
 var (

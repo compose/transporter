@@ -73,20 +73,17 @@ func (m *Pipe) Listen(fn func(message.Msg) (message.Msg, error), nsFilter *regex
 		return nil
 	}
 	m.listening = true
-	defer func() {
-		m.Stopped = true
-	}()
 	for {
 		// check for stop
 		select {
 		case c := <-m.chStop:
+			m.Stopped = true
 			c <- true
 			return nil
-		default:
-		}
-
-		select {
-		case msg := <-m.In:
+		case msg, ok := <-m.In:
+			if !ok {
+				break
+			}
 			if nsFilter.MatchString(msg.Namespace()) {
 				outmsg, err := fn(msg)
 				if err != nil {
@@ -103,8 +100,6 @@ func (m *Pipe) Listen(fn func(message.Msg) (message.Msg, error), nsFilter *regex
 				}
 				m.LastMsg = msg
 			}
-		case <-time.After(100 * time.Millisecond):
-			// NOP, just breath
 		}
 	}
 }
@@ -116,10 +111,13 @@ func (m *Pipe) Stop() {
 
 		// we only worry about the stop channel if we're in a listening loop
 		if m.listening {
+			close(m.In)
+			if len(m.Out) > 0 {
+				close(m.Err)
+			}
 			c := make(chan bool)
 			m.chStop <- c
 			<-c
-			close(m.Err)
 		}
 	}
 }

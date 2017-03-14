@@ -12,16 +12,17 @@ import (
 const (
 	description = "a mongodb adaptor that functions as both a source and a sink"
 
-	sampleConfig = `    type: mongodb
-    uri: ${MONGODB_URI}
-    # timeout: 30s
-    # tail: false
-    # ssl: false
-    # cacerts: ["/path/to/cert.pem"]
-    # wc: 1
-    # fsync: false
-    # bulk: false
-    # collection_filters: '{"foo": {"i": {"$gt": 10}}}'`
+	sampleConfig = `{
+  "uri": "${MONGODB_URI}"
+  // "timeout": "30s",
+  // "tail": false,
+  // "ssl": false,
+  // "cacerts": ["/path/to/cert.pem"],
+  // "wc": 1,
+  // "fsync": false,
+  // "bulk": false,
+  // "collection_filters": "{}"
+}`
 )
 
 var (

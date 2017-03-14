@@ -8,8 +8,9 @@ import (
 )
 
 const (
-	sampleConfig = `    type: file
-    uri: stdout://`
+	sampleConfig = `{
+  "uri": "stdout://"
+}`
 
 	description = "an adaptor that reads / writes files"
 )

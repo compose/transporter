@@ -1,15 +1,9 @@
 package main
 
 func runRun(args []string) error {
-	var configFilename string
-	flagset := baseFlagSet("run", &configFilename)
+	flagset := baseFlagSet("run")
 	flagset.Usage = usageFor(flagset, "transporter run [flags] <pipeline>")
 	if err := flagset.Parse(args); err != nil {
-		return err
-	}
-
-	config, err := LoadConfig(configFilename)
-	if err != nil {
 		return err
 	}
 
@@ -19,16 +13,12 @@ func runRun(args []string) error {
 		args = []string{defaultPipelineFile}
 	}
 
-	builder, err := NewJavascriptBuilder(config, args[0], "")
+	builder, err := NewBuilder(args[0])
 	if err != nil {
 		return err
 	}
 
-	if err = builder.Build(); err != nil {
-		return err
-	}
-
-	if err = builder.Run(); err != nil {
+	if err := builder.Run(); err != nil {
 		return err
 	}
 

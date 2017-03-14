@@ -50,7 +50,7 @@ type Connectable interface {
 
 // Describable defines the interface that all database connectors and nodes must follow in order to support
 // the help functions.
-// SampleConfig() returns an example YAML structure to configure the adaptor
+// SampleConfig() returns an example JSON structure to configure the adaptor
 // Description() provides contextual information for what the adaptor is for
 type Describable interface {
 	SampleConfig() string

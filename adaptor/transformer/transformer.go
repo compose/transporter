@@ -11,9 +11,10 @@ import (
 )
 
 const (
-	sampleConfig = `    filename: transformer.js
-    type: transformer
-    # vm: otto`
+	sampleConfig = `{
+  "filename": "transformer.js"
+  // "vm": "otto"
+}`
 
 	description = "an adaptor that transforms documents using a javascript function"
 
