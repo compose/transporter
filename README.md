@@ -30,6 +30,16 @@ Each adaptor has its own README page with details on configuration and capabilit
 * [rethinkdb](./adaptor/rethinkdb)
 * [transformer](./adaptor/transformer)
 
+Native Functions
+----------------
+
+Each native function can be used as part of a `Transform` step in the pipeline.
+
+* [omit](./adaptor/function/omit)
+* [pick](./adaptor/function/pick)
+* [pretty](./adaptor/function/pretty)
+* [skip](./adaptor/function/skip)
+
 Commands
 --------
 
