@@ -111,7 +111,6 @@ func (m *Pipe) Stop() {
 
 		// we only worry about the stop channel if we're in a listening loop
 		if m.listening {
-			close(m.In)
 			if len(m.Out) > 0 {
 				close(m.Err)
 			}

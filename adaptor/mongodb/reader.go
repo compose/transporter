@@ -1,6 +1,7 @@
 package mongodb
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -62,32 +63,27 @@ func (r *Reader) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
 				log.With("db", r.db).Errorf("unable to list collections, %s", err)
 				return
 			}
-			iterationComplete := r.iterateCollection(session.Copy(), collections, out, done)
 			var wg sync.WaitGroup
-			func() {
-				for {
-					select {
-					case <-done:
-						return
-					case i, ok := <-iterationComplete:
-						if !ok {
+			for _, c := range collections {
+				oplogTime := timeAsMongoTimestamp(time.Now())
+				if err := r.iterateCollection(session.Copy(), c, out, done); err != nil {
+					log.With("db", r.db).Errorln(err)
+					return
+				}
+				log.With("db", r.db).With("collection", c).Infoln("iterating complete")
+				if r.tail {
+					wg.Add(1)
+					log.With("collection", c).Infof("oplog start timestamp: %d", oplogTime)
+					go func(wg *sync.WaitGroup, c string, o bson.MongoTimestamp) {
+						defer wg.Done()
+						errc := r.tailCollection(c, session.Copy(), o, out, done)
+						for err := range errc {
+							log.With("db", r.db).With("collection", c).Errorln(err)
 							return
 						}
-						log.With("db", r.db).With("collection", i.c).Infoln("iterating complete")
-						if r.tail {
-							wg.Add(1)
-							go func(wg *sync.WaitGroup, c string, o bson.MongoTimestamp) {
-								defer wg.Done()
-								errc := r.tailCollection(c, session.Copy(), o, out, done)
-								for err := range errc {
-									log.With("db", r.db).With("collection", c).Errorln(err)
-									return
-								}
-							}(&wg, i.c, i.oplogTime)
-						}
-					}
+					}(&wg, c, oplogTime)
 				}
-			}()
+			}
 			log.With("db", r.db).Infoln("Read completed")
 			// this will block if we're tailing
 			wg.Wait()
@@ -98,82 +94,78 @@ func (r *Reader) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
 	}
 }
 
-func (r *Reader) listCollections(mgoSession *mgo.Session, filterFn func(name string) bool) (<-chan string, error) {
-	out := make(chan string)
+func (r *Reader) listCollections(mgoSession *mgo.Session, filterFn func(name string) bool) ([]string, error) {
+	defer mgoSession.Close()
+	var colls []string
 	collections, err := mgoSession.DB(r.db).CollectionNames()
 	if err != nil {
-		return out, err
+		return colls, err
 	}
 	log.With("db", r.db).With("num_collections", len(collections)).Infoln("collection count")
-	go func() {
-		defer func() {
-			mgoSession.Close()
-			close(out)
-		}()
-		for _, c := range collections {
-			if filterFn(c) && !strings.HasPrefix(c, "system.") {
-				log.With("db", r.db).With("collection", c).Infoln("sending for iteration...")
-				out <- c
-			} else {
-				log.With("db", r.db).With("collection", c).Infoln("skipping iteration...")
-			}
+	for _, c := range collections {
+		if filterFn(c) && !strings.HasPrefix(c, "system.") {
+			log.With("db", r.db).With("collection", c).Infoln("adding for iteration...")
+			colls = append(colls, c)
+		} else {
+			log.With("db", r.db).With("collection", c).Infoln("skipping iteration...")
 		}
-		log.With("db", r.db).Infoln("done iterating collections")
-	}()
-	return out, nil
+	}
+	log.With("db", r.db).Infoln("done iterating collections")
+	return colls, nil
 }
 
-func (r *Reader) iterateCollection(mgoSession *mgo.Session, in <-chan string, out chan<- message.Msg, done chan struct{}) <-chan iterationComplete {
-	collectionDone := make(chan iterationComplete)
+func (r *Reader) iterateCollection(s *mgo.Session, c string, out chan<- message.Msg, done chan struct{}) error {
+	iter := r.iterate(s, c)
+	for {
+		select {
+		case msg, ok := <-iter:
+			if !ok {
+				return nil
+			}
+			out <- msg
+		case <-done:
+			return errors.New("iteration cancelled")
+		}
+	}
+}
+
+func (r *Reader) iterate(s *mgo.Session, c string) <-chan message.Msg {
+	msgChan := make(chan message.Msg)
 	go func() {
 		defer func() {
-			mgoSession.Close()
-			close(collectionDone)
+			s.Close()
+			close(msgChan)
 		}()
+		canReissueQuery := r.requeryable(c, s)
+		var lastID interface{}
 		for {
-			select {
-			case c, ok := <-in:
-				if !ok {
-					return
+			log.With("collection", c).Infoln("iterating...")
+			session := s.Copy()
+			iter := r.catQuery(c, lastID, session).Iter()
+			var result bson.M
+			for iter.Next(&result) {
+				if id, ok := result["_id"]; ok {
+					lastID = id
 				}
-				log.With("collection", c).Infoln("iterating...")
-				canReissueQuery := r.requeryable(c, mgoSession)
-				var lastID interface{}
-				oplogTime := timeAsMongoTimestamp(time.Now())
-				log.With("collection", c).Infof("setting oplog start timestamp: %d", oplogTime)
-				for {
-					s := mgoSession.Copy()
-					iter := r.catQuery(c, lastID, s).Iter()
-					var result bson.M
-					for iter.Next(&result) {
-						if id, ok := result["_id"]; ok {
-							lastID = id
-						}
-						out <- message.From(ops.Insert, c, data.Data(result))
-						result = bson.M{}
-					}
-					if err := iter.Err(); err != nil {
-						log.With("database", r.db).With("collection", c).Errorf("error reading, %s", err)
-						s.Close()
-						if canReissueQuery {
-							log.With("database", r.db).With("collection", c).Errorln("attempting to reissue query")
-							time.Sleep(5 * time.Second)
-							continue
-						}
-						break
-					}
-					iter.Close()
-					s.Close()
-					break
+				msgChan <- message.From(ops.Insert, c, data.Data(result))
+				result = bson.M{}
+			}
+			if err := iter.Err(); err != nil {
+				log.With("database", r.db).With("collection", c).Errorf("error reading, %s", err)
+				session.Close()
+				if canReissueQuery {
+					log.With("database", r.db).With("collection", c).Errorln("attempting to reissue query")
+					time.Sleep(5 * time.Second)
+					continue
 				}
-				collectionDone <- iterationComplete{oplogTime, c}
-			case <-done:
-				log.With("db", r.db).Infoln("iterating no more")
 				return
 			}
+			iter.Close()
+			session.Close()
+			return
 		}
 	}()
-	return collectionDone
+	return msgChan
 }
 
 func (r *Reader) catQuery(c string, lastID interface{}, mgoSession *mgo.Session) *mgo.Query {
@@ -198,7 +190,7 @@ func (r *Reader) requeryable(c string, mgoSession *mgo.Session) bool {
 			var result bson.M
 			err := mgoSession.DB(r.db).C(c).Find(nil).Select(bson.M{"_id": 1}).One(&result)
 			if err != nil {
-				fmt.Printf("[ERROR] unable to sample document, %s", err)
+				log.With("database", r.db).With("collection", c).Errorf("unable to sample document, %s", err)
 				break
 			}
 			if id, ok := result["_id"]; ok && sortable(id) {

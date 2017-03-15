@@ -15,8 +15,9 @@ import (
 )
 
 var (
-	readerTestData         = &TestData{"reader_test", "foo", 10}
-	filteredReaderTestData = &TestData{"filtered_reader_test", "foo", 10}
+	readerTestData          = &TestData{"reader_test", "foo", 10}
+	filteredReaderTestData  = &TestData{"filtered_reader_test", "foo", 10}
+	cancelledReaderTestData = &TestData{"cancelled_reader_test", "foo", 100}
 )
 
 var filterFunc = func(c string) bool {
@@ -49,6 +50,10 @@ func TestRead(t *testing.T) {
 }
 
 func TestFilteredRead(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping TestFilteredRead in short mode")
+	}
+
 	reader := newReader(
 		filteredReaderTestData.DB,
 		false,
@@ -76,7 +81,37 @@ func TestFilteredRead(t *testing.T) {
 	close(done)
 }
 
+func TestCancelledRead(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping TestCancelledRead in short mode")
+	}
+
+	reader := newReader(cancelledReaderTestData.DB, false, DefaultCollectionFilter)
+	readFunc := reader.Read(filterFunc)
+	done := make(chan struct{})
+	msgChan, err := readFunc(defaultSession, done)
+	if err != nil {
+		t.Fatalf("unexpected Read error, %s\n", err)
+	}
+	go func() {
+		time.Sleep(1 * time.Second)
+		close(done)
+	}()
+	var numMsgs int
+	for _ = range msgChan {
+		time.Sleep(100 * time.Millisecond)
+		numMsgs++
+	}
+	if numMsgs == cancelledReaderTestData.InsertCount {
+		t.Errorf("bad message count, expected less than %d but got that", cancelledReaderTestData.InsertCount)
+	}
+}
+
 func TestReadRestart(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping TestReadRestart in short mode")
+	}
+
 	var db = "restart_read_test"
 
 	c := &Client{
