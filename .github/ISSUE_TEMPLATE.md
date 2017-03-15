@@ -10,7 +10,7 @@ Erase the other section and everything on and above this line.
 
 ## Bug report
 
-### Relevant config.yaml and application.js:
+### Relevant pipeline.js:
 
 ### System info:
 

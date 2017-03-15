@@ -32,16 +32,16 @@ The parameter passed to the function has been converted from a go `map[string]in
 }
 ```
 
-There are two types of JavaScript VMs available, `otto` and `goja`. You can configure which one to use via the YAML configration and each has its own JavaScript function signature. The `goja` VM has shown better performance in benchmarks but it does *NOT* include the underscore library.
+There are two types of JavaScript VMs available, `otto` and `goja`. You can configure which one to use via the JS configration and each has its own JavaScript function signature. The `goja` VM has shown better performance in benchmarks but it does *NOT* include the underscore library.
 
 The default JavaScript VM is `otto` as we are trying to maintain backwards compatability for users but that may change in the future.
 
 ### Configuration
-```yaml
-- logtransformer:
-    filename: transform.js
-    type: transformer
-    # vm: otto
+```javascript
+tx = transformer({
+  "filename": "transform.js",
+  // "vm": "otto"
+})
 ```
 
 ### otto VM

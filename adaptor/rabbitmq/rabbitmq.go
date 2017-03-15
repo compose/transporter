@@ -8,14 +8,15 @@ import (
 )
 
 const (
-	sampleConfig = `    type: rabbitmq
-    uri: ${RABBITMQ_URI}
-		routing_key: ""
-		key_in_field: false
-		# delivery_mode: 1 # non-persistent (1) or persistent (2)
-    # api_port: 15672
-    # ssl: false
-    # cacerts: ["/path/to/cert.pem"]`
+	sampleConfig = `{
+  "uri": "${RABBITMQ_URI}",
+  "routing_key": "",
+  "key_in_field": false
+  // "delivery_mode": 1, // non-persistent (1) or persistent (2)
+  // "api_port": 15672,
+  // "ssl": false,
+  // "cacerts": ["/path/to/cert.pem"]
+}`
 
 	description = "an adaptor that handles publish/subscribe messaging with RabbitMQ"
 )

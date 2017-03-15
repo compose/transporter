@@ -30,11 +30,11 @@ process update/delete operations. Future work is planned in [#39](https://github
 to address this problem.
 
 ### Configuration:
-```yaml
-- es:
-  type: elasticsearch
-  uri: https://username:password@hostname:port/thisgetsignored
-  timeout: 10s # optional, defaults to 30s
-  aws_access_key: XXX # optional, used for signing requests to AWS Elasticsearch service
-  aws_access_secret: XXX # optional, used for signing requests to AWS Elasticsearch service
+```javascript
+es = elasticsearch({
+  "uri": "https://username:password@hostname:port/thisgetsignored"
+  "timeout": "10s" // optional, defaults to 30s
+  "aws_access_key": "XXX" // optional, used for signing requests to AWS Elasticsearch service
+  "aws_access_secret": "XXX" // optional, used for signing requests to AWS Elasticsearch service
+})
 ```

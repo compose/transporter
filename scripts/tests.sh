@@ -9,7 +9,7 @@ if [[ "$TRAVIS_EVENT_TYPE" == "cron" && "$TESTDIR" == integration_tests* ]]; the
 
   go test -v ./$TESTDIR/... -cleanup=true -tags=integration
 
-  transporter run -config integration_tests/config.yml $TESTDIR/app.js
+  transporter run $TESTDIR/app.js
 
   go test -v ./$TESTDIR/... -tags=integration -log.level=error
 elif [[ "$TRAVIS_EVENT_TYPE" != "cron" && "$TESTDIR" != integration_tests* ]]; then

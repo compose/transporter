@@ -10,16 +10,16 @@ include documents where the `i` field had a value greater than `10`.
 ***NOTE*** You may want to check your collections to ensure the proper index(es) are in place or performance may suffer.
 
 ### Configuration:
-```yaml
-- mongodb:
-    type: mongo
-    uri: mongodb://127.0.0.1:27017/test
-    # timeout: 30s
-    # tail: false
-    # ssl: false
-    # cacerts: ["/path/to/cert.pem"]
-    # wc: 1
-    # fsync: false
-    # bulk: false
-    # collection_filters: '{"foo": {"i": {"$gt": 10}}}'`
+```javascript
+m = mongodb({
+  "uri": "mongodb://127.0.0.1:27017/test"
+  // "timeout": "30s",
+  // "tail": false,
+  // "ssl": false,
+  // "cacerts": ["/path/to/cert.pem"],
+  // "wc": 1,
+  // "fsync": false,
+  // "bulk": false,
+  // "collection_filters": "{\"foo\": {\"i\": {\"$gt\": 10}}}"
+})
 ```

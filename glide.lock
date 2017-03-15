@@ -103,6 +103,4 @@ imports:
   version: eef8f47ab679652a7d3a4ee34c34314d255d2536
   subpackages:
   - base64vlq
-- name: gopkg.in/yaml.v2
-  version: a5b47d31c556af34a302ce5d659e6fea44d90de0
 testImports: []

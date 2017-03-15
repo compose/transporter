@@ -79,7 +79,7 @@ func TestEventsBroadcast(t *testing.T) {
 
 	p.Stop()
 
-	time.Sleep(time.Duration(5) * time.Second)
+	time.Sleep(time.Duration(1) * time.Second)
 
 	if len(eh.rawEvents) != 4 {
 		t.Errorf("did not receive all events\nexp: %d\ngot: %d", 4, len(eh.rawEvents))

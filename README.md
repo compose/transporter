@@ -39,53 +39,38 @@ Commands
 transporter init [source adaptor name] [sink adaptor name]
 ```
 
-Generates a basic `transporter.yaml` and `pipeline.js` file in the current directory.
+Generates a basic `pipeline.js` file in the current directory.
 
 _Example_
 ```
 $ transporter init mongodb elasticsearch
-$ cat transporter.yaml
-nodes:
-  source:
-    type: mongodb
-    uri: ${MONGODB_URI}
-    # timeout: 30s
-    # tail: false
-    # ssl: false
-    # cacerts: ["/path/to/cert.pem"]
-    # wc: 1
-    # fsync: false
-    # bulk: false
-  sink:
-    type: elasticsearch
-    uri: https://username:password@hostname:port
-    # timeout: 10s # defaults to 30s
-    # aws_access_key: XXX # used for signing requests to AWS Elasticsearch service
-    # aws_access_secret: XXX # used for signing requests to AWS Elasticsearch service
-$ cat pipeline.js`
-Source({name:"source", namespace:"test./.*/"}).save({name:"sink", namespace:"test./.*/"})
+$ cat pipeline.js
+var source = mongodb({
+  "uri": "${MONGODB_URI}"
+  // "timeout": "30s",
+  // "tail": false,
+  // "ssl": false,
+  // "cacerts": ["/path/to/cert.pem"],
+  // "wc": 1,
+  // "fsync": false,
+  // "bulk": false,
+  // "collection_filters": "{}"
+})
+
+var sink = elasticsearch({
+  "uri": "${ELASTICSEARCH_URI}"
+  // "timeout": "10s", // defaults to 30s
+  // "aws_access_key": "ABCDEF", // used for signing requests to AWS Elasticsearch service
+  // "aws_access_secret": "ABCDEF" // used for signing requests to AWS Elasticsearch service
+})
+
+t.Source(source).Save(sink)
 $
 ```
 
-Edit the `transporter.yaml` file to configure the source and sink nodes. The `pipeline.js` file will
-also need to be edited to set the namespace.
+Edit the `pipeline.js` file to configure the source and sink nodes and also to set the namespace.
 
-### list
-
-```
-transporter list [--config transporterconfig.yaml]
-```
-
-List prints the currently configured nodes in the transporter.yaml file.
-
-_Example_
-```
-Name                 Type            URI
-sink                 elasticsearch   https://username:password@hostname:port
-source               mongodb         
-```
-
-### About
+### about
 
 `transporter about`
 
@@ -106,7 +91,7 @@ Giving the name of an adaptor produces more detail, such as the sample configura
 
 _Example_
 ```
-./transporter about postgres
+transporter about postgres
 postgres - a postgres adaptor that functions as both a source and a sink
 
  Sample configuration:
@@ -120,7 +105,7 @@ postgres - a postgres adaptor that functions as both a source and a sink
 ### run
 
 ```
-transporter run [--config transporterconfig.yaml] [-log.level "info"] <application.js>
+transporter run [-log.level "info"] <application.js>
 ```
 
 Runs the pipeline script file which has its name given as the final parameter.
@@ -128,15 +113,13 @@ Runs the pipeline script file which has its name given as the final parameter.
 ### test
 
 ```
-transporter test [--config transporterconfig.yaml] [-log.level "info"] <application.js>
+transporter test [-log.level "info"] <application.js>
 ```
 
 Evaluates and connects the pipeline, sources and sinks. Establishes connections but does not run.
 Prints out the state of connections at the end. Useful for debugging new configurations.
 
-#### switches
-
-`-config transporterconfig.yaml` - overrides the `transporter.yaml` default for the configuration file.
+#### flags
 
 `-log.level "info"` - sets the logging level. Default is info; can be debug or error.
 

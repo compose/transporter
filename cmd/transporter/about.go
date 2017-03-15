@@ -7,7 +7,7 @@ import (
 )
 
 func runAbout(args []string) error {
-	flagset := baseFlagSet("about", nil)
+	flagset := baseFlagSet("about")
 	flagset.Usage = usageFor(flagset, "transporter about [adaptor]")
 	if err := flagset.Parse(args); err != nil {
 		return err

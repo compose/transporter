@@ -192,10 +192,7 @@ func (n *Node) Start() error {
 
 // Start the adaptor as a source
 func (n *Node) start() (err error) {
-	n.l.Infoln("node Starting...")
-	defer func() {
-		n.pipe.Stop()
-	}()
+	n.l.Infoln("adaptor Starting...")
 
 	s, err := n.c.Connect()
 	if err != nil {
@@ -223,11 +220,7 @@ func (n *Node) start() (err error) {
 
 func (n *Node) listen() (err error) {
 	n.l.Infoln("adaptor Listening...")
-	defer func() {
-		n.l.Infoln("adaptor Listen closing...")
-		n.pipe.Stop()
-		n.l.Infoln("adaptor Listen closed...")
-	}()
+	defer n.l.Infoln("adaptor Listen closed...")
 
 	return n.pipe.Listen(n.write, n.nsFilter)
 }

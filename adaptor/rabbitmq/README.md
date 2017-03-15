@@ -11,14 +11,14 @@ transporter will use the field defined `routing_key` to lookup the value from th
 set `routing_key` to an empty string, no routing key will be set in the published message.
 
 ### Configuration:
-```yaml
-- rabbitmq:
-    type: rabbitmq
-    uri: amqp://127.0.0.1:5672/
-    routing_key: "test"
-    key_in_field: false
-    # delivery_mode: 1 # non-persistent (1) or persistent (2)
-    # api_port: 15672
-    # ssl: false
-    # cacerts: ["/path/to/cert.pem"]
+```javascript
+rmq = rabbitmq({
+  "uri": "amqp://127.0.0.1:5672/",
+  "routing_key": "test",
+  "key_in_field": false
+  // "delivery_mode": 1, // non-persistent (1) or persistent (2)
+  // "api_port": 15672,
+  // "ssl": false,
+  // "cacerts": ["/path/to/cert.pem"]
+})
 ```

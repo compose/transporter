@@ -1,5 +1,5 @@
 /transporter
 .vagrant
-/transporter.yaml
 /pipeline.js
+/transformer.js
 .vscode

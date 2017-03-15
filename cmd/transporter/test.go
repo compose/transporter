@@ -5,15 +5,9 @@ import (
 )
 
 func runTest(args []string) error {
-	var configFilename string
-	flagset := baseFlagSet("test", &configFilename)
+	flagset := baseFlagSet("test")
 	flagset.Usage = usageFor(flagset, "transporter test [flags] <pipeline>")
 	if err := flagset.Parse(args); err != nil {
-		return err
-	}
-
-	config, err := LoadConfig(configFilename)
-	if err != nil {
 		return err
 	}
 
@@ -23,12 +17,8 @@ func runTest(args []string) error {
 		args = []string{defaultPipelineFile}
 	}
 
-	builder, err := NewJavascriptBuilder(config, args[0], "")
+	builder, err := NewBuilder(args[0])
 	if err != nil {
-		return err
-	}
-
-	if err = builder.Build(); err != nil {
 		return err
 	}
 
