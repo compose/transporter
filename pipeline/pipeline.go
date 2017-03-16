@@ -107,6 +107,7 @@ func (pipeline *Pipeline) Stop() {
 	pipeline.emitMetrics()
 	pipeline.source.pipe.Event <- events.NewExitEvent(time.Now().UnixNano(), pipeline.version, endpoints)
 	pipeline.emitter.Stop()
+	close(pipeline.source.pipe.Err)
 }
 
 // Run the pipeline
