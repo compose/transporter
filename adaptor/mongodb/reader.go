@@ -28,14 +28,13 @@ type CollectionFilter map[string]interface{}
 
 // Reader implements the behavior defined by client.Reader for interfacing with MongoDB.
 type Reader struct {
-	db                string
 	tail              bool
 	collectionFilters map[string]CollectionFilter
 	oplogTimeout      time.Duration
 }
 
-func newReader(db string, tail bool, filters map[string]CollectionFilter) client.Reader {
-	return &Reader{db, tail, filters, 5 * time.Second}
+func newReader(tail bool, filters map[string]CollectionFilter) client.Reader {
+	return &Reader{tail, filters, 5 * time.Second}
 }
 
 type resultDoc struct {
@@ -57,20 +56,20 @@ func (r *Reader) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
 				session.Close()
 				close(out)
 			}()
-			log.With("db", r.db).Infoln("starting Read func")
+			log.With("db", session.DB("").Name).Infoln("starting Read func")
 			collections, err := r.listCollections(session.Copy(), filterFn)
 			if err != nil {
-				log.With("db", r.db).Errorf("unable to list collections, %s", err)
+				log.With("db", session.DB("").Name).Errorf("unable to list collections, %s", err)
 				return
 			}
 			var wg sync.WaitGroup
 			for _, c := range collections {
 				oplogTime := timeAsMongoTimestamp(time.Now())
 				if err := r.iterateCollection(session.Copy(), c, out, done); err != nil {
-					log.With("db", r.db).Errorln(err)
+					log.With("db", session.DB("").Name).Errorln(err)
 					return
 				}
-				log.With("db", r.db).With("collection", c).Infoln("iterating complete")
+				log.With("db", session.DB("").Name).With("collection", c).Infoln("iterating complete")
 				if r.tail {
 					wg.Add(1)
 					log.With("collection", c).Infof("oplog start timestamp: %d", oplogTime)
@@ -78,13 +77,13 @@ func (r *Reader) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
 						defer wg.Done()
 						errc := r.tailCollection(c, session.Copy(), o, out, done)
 						for err := range errc {
-							log.With("db", r.db).With("collection", c).Errorln(err)
+							log.With("db", session.DB("").Name).With("collection", c).Errorln(err)
 							return
 						}
 					}(&wg, c, oplogTime)
 				}
 			}
-			log.With("db", r.db).Infoln("Read completed")
+			log.With("db", session.DB("").Name).Infoln("Read completed")
 			// this will block if we're tailing
 			wg.Wait()
 			return
@@ -97,20 +96,21 @@ func (r *Reader) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
 func (r *Reader) listCollections(mgoSession *mgo.Session, filterFn func(name string) bool) ([]string, error) {
 	defer mgoSession.Close()
 	var colls []string
-	collections, err := mgoSession.DB(r.db).CollectionNames()
+	db := mgoSession.DB("")
+	collections, err := db.CollectionNames()
 	if err != nil {
 		return colls, err
 	}
-	log.With("db", r.db).With("num_collections", len(collections)).Infoln("collection count")
+	log.With("db", db.Name).With("num_collections", len(collections)).Infoln("collection count")
 	for _, c := range collections {
 		if filterFn(c) && !strings.HasPrefix(c, "system.") {
-			log.With("db", r.db).With("collection", c).Infoln("adding for iteration...")
+			log.With("db", db.Name).With("collection", c).Infoln("adding for iteration...")
 			colls = append(colls, c)
 		} else {
-			log.With("db", r.db).With("collection", c).Infoln("skipping iteration...")
+			log.With("db", db.Name).With("collection", c).Infoln("skipping iteration...")
 		}
 	}
-	log.With("db", r.db).Infoln("done iterating collections")
+	log.With("db", db.Name).Infoln("done iterating collections")
 	return colls, nil
 }
 
@@ -136,6 +136,7 @@ func (r *Reader) iterate(s *mgo.Session, c string) <-chan message.Msg {
 			s.Close()
 			close(msgChan)
 		}()
+		db := s.DB("").Name
 		canReissueQuery := r.requeryable(c, s)
 		var lastID interface{}
 		for {
@@ -151,10 +152,10 @@ func (r *Reader) iterate(s *mgo.Session, c string) <-chan message.Msg {
 				result = bson.M{}
 			}
 			if err := iter.Err(); err != nil {
-				log.With("database", r.db).With("collection", c).Errorf("error reading, %s", err)
+				log.With("database", db).With("collection", c).Errorf("error reading, %s", err)
 				session.Close()
 				if canReissueQuery {
-					log.With("database", r.db).With("collection", c).Errorln("attempting to reissue query")
+					log.With("database", db).With("collection", c).Errorln("attempting to reissue query")
 					time.Sleep(5 * time.Second)
 					continue
 				}
@@ -176,21 +177,22 @@ func (r *Reader) catQuery(c string, lastID interface{}, mgoSession *mgo.Session)
 	if lastID != nil {
 		query["_id"] = bson.M{"$gt": lastID}
 	}
-	return mgoSession.DB(r.db).C(c).Find(query).Sort("_id")
+	return mgoSession.DB("").C(c).Find(query).Sort("_id")
 }
 
 func (r *Reader) requeryable(c string, mgoSession *mgo.Session) bool {
-	indexes, err := mgoSession.DB(r.db).C(c).Indexes()
+	db := mgoSession.DB("")
+	indexes, err := db.C(c).Indexes()
 	if err != nil {
-		log.With("database", r.db).With("collection", c).Errorf("unable to list indexes, %s", err)
+		log.With("database", db.Name).With("collection", c).Errorf("unable to list indexes, %s", err)
 		return false
 	}
 	for _, index := range indexes {
 		if index.Key[0] == "_id" {
 			var result bson.M
-			err := mgoSession.DB(r.db).C(c).Find(nil).Select(bson.M{"_id": 1}).One(&result)
+			err := db.C(c).Find(nil).Select(bson.M{"_id": 1}).One(&result)
 			if err != nil {
-				log.With("database", r.db).With("collection", c).Errorf("unable to sample document, %s", err)
+				log.With("database", db.Name).With("collection", c).Errorf("unable to sample document, %s", err)
 				break
 			}
 			if id, ok := result["_id"]; ok && sortable(id) {
@@ -199,7 +201,7 @@ func (r *Reader) requeryable(c string, mgoSession *mgo.Session) bool {
 			break
 		}
 	}
-	log.With("database", r.db).With("collection", c).Infoln("invalid _id, any issues copying will be aborted")
+	log.With("database", db.Name).With("collection", c).Infoln("invalid _id, any issues copying will be aborted")
 	return false
 }
 
@@ -222,16 +224,17 @@ func (r *Reader) tailCollection(c string, mgoSession *mgo.Session, oplogTime bso
 		var (
 			collection = mgoSession.DB("local").C("oplog.rs")
 			result     oplogDoc // hold the document
-			query      = bson.M{"ns": fmt.Sprintf("%s.%s", r.db, c), "ts": bson.M{"$gte": oplogTime}}
+			db         = mgoSession.DB("").Name
+			query      = bson.M{"ns": fmt.Sprintf("%s.%s", db, c), "ts": bson.M{"$gte": oplogTime}}
 			iter       = collection.Find(query).LogReplay().Sort("$natural").Tail(r.oplogTimeout)
 		)
 		defer iter.Close()
 
 		for {
-			log.With("db", r.db).Infof("tailing oplog with query %+v", query)
+			log.With("db", db).Infof("tailing oplog with query %+v", query)
 			select {
 			case <-done:
-				log.With("db", r.db).Infoln("tailing stopping...")
+				log.With("db", db).Infoln("tailing stopping...")
 				return
 			default:
 				for iter.Next(&result) {
@@ -273,7 +276,7 @@ func (r *Reader) tailCollection(c string, mgoSession *mgo.Session, oplogTime bso
 				continue
 			}
 			if iter.Err() != nil {
-				log.With("path", r.db).Errorf("error tailing oplog, %s", iter.Err())
+				log.With("path", db).Errorf("error tailing oplog, %s", iter.Err())
 				// return adaptor.NewError(adaptor.CRITICAL, m.path, fmt.Sprintf("MongoDB error (error reading collection %s)", iter.Err()), nil)
 			}
 
@@ -300,9 +303,9 @@ func (r *Reader) getOriginalDoc(doc bson.M, c string, s *mgo.Session) (result bs
 	}
 	query["_id"] = id
 
-	err = s.DB(r.db).C(c).Find(query).One(&result)
+	err = s.DB("").C(c).Find(query).One(&result)
 	if err != nil {
-		err = fmt.Errorf("%s.%s %v %v", r.db, c, id, err)
+		err = fmt.Errorf("%s.%s %v %v", s.DB("").Name, c, id, err)
 	}
 	return
 }

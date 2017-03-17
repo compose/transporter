@@ -25,9 +25,6 @@ const (
 	// DefaultTimeout is the default time.Duration used if one is not provided for options
 	// that pertain to timeouts.
 	DefaultTimeout = 10 * time.Second
-
-	// DefaultDatabase used for the connection options
-	DefaultDatabase = "test"
 )
 
 var (
@@ -75,7 +72,6 @@ func NewClient(options ...ClientOptionFunc) (*Client, error) {
 	// Set up the client
 	c := &Client{
 		uri:            DefaultURI,
-		db:             DefaultDatabase,
 		sessionTimeout: DefaultTimeout,
 		tlsConfig:      nil,
 	}
@@ -97,17 +93,6 @@ func WithURI(uri string) ClientOptionFunc {
 			return client.InvalidURIError{URI: uri, Err: err.Error()}
 		}
 		c.uri = uri
-		return nil
-	}
-}
-
-// WithDatabase configures the database to use for the connection.
-func WithDatabase(db string) ClientOptionFunc {
-	return func(c *Client) error {
-		if db == "" {
-			db = DefaultDatabase
-		}
-		c.db = db
 		return nil
 	}
 }
@@ -216,6 +201,7 @@ func (c *Client) Close() {
 func (c *Client) initConnection() error {
 	uri, _ := url.Parse(c.uri)
 
+	c.db = uri.Path[1:]
 	opts := r.ConnectOpts{
 		Addresses:    strings.Split(uri.Host, ","),
 		Database:     c.db,

@@ -27,7 +27,7 @@ var optests = []struct {
 }
 
 func TestOpFunc(t *testing.T) {
-	w := newWriter("test")
+	w := newWriter()
 	for _, ot := range optests {
 		if _, ok := w.writeMap[ot.op]; ok != ot.registered {
 			t.Errorf("op (%s) registration incorrect, expected %+v, got %+v\n", ot.op.String(), ot.registered, ok)
@@ -81,11 +81,17 @@ func TestInsert(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping Insert in short mode")
 	}
-	w := newWriter(writerTestData.DB)
+	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://127.0.0.1:27017/%s", writerTestData.DB)))
+	s, err := c.Connect()
+	if err != nil {
+		t.Fatalf("unable to initialize connection to mongodb, %s", err)
+	}
+	defer s.(*Session).Close()
+	w := newWriter()
 	for _, it := range inserttests {
 		for _, data := range it.data {
 			msg := message.From(ops.Insert, it.collection, data)
-			if _, err := w.Write(msg)(defaultSession); err != nil {
+			if _, err := w.Write(msg)(s); err != nil {
 				t.Errorf("unexpected Insert error, %s\n", err)
 			}
 		}
@@ -130,18 +136,24 @@ func TestUpdate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping Update in short mode")
 	}
-	w := newWriter(writerTestData.DB)
+	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://127.0.0.1:27017/%s", writerTestData.DB)))
+	s, err := c.Connect()
+	if err != nil {
+		t.Fatalf("unable to initialize connection to mongodb, %s", err)
+	}
+	defer s.(*Session).Close()
+	w := newWriter()
 	for _, ut := range updatetests {
 		// Insert data
 		ut.originalDoc.Set("_id", ut.id)
 		msg := message.From(ops.Insert, ut.collection, ut.originalDoc)
-		if _, err := w.Write(msg)(defaultSession); err != nil {
+		if _, err := w.Write(msg)(s); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
 		}
 		// Update data
 		ut.updatedDoc.Set("_id", ut.id)
 		msg = message.From(ops.Update, ut.collection, ut.updatedDoc)
-		if _, err := w.Write(msg)(defaultSession); err != nil {
+		if _, err := w.Write(msg)(s); err != nil {
 			t.Errorf("unexpected Update error, %s\n", err)
 		}
 		// Validate update
@@ -175,17 +187,23 @@ func TestDelete(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping Delete in short mode")
 	}
-	w := newWriter(writerTestData.DB)
+	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://127.0.0.1:27017/%s", writerTestData.DB)))
+	s, err := c.Connect()
+	if err != nil {
+		t.Fatalf("unable to initialize connection to mongodb, %s", err)
+	}
+	defer s.(*Session).Close()
+	w := newWriter()
 	for _, dt := range deletetests {
 		// Insert data
 		dt.originalDoc.Set("_id", dt.id)
 		msg := message.From(ops.Insert, dt.collection, dt.originalDoc)
-		if _, err := w.Write(msg)(defaultSession); err != nil {
+		if _, err := w.Write(msg)(s); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
 		}
 		// Delete data
 		msg = message.From(ops.Delete, dt.collection, dt.originalDoc)
-		if _, err := w.Write(msg)(defaultSession); err != nil {
+		if _, err := w.Write(msg)(s); err != nil {
 			t.Errorf("unexpected Delete error, %s\n", err)
 		}
 		// Validate delete
@@ -222,7 +240,7 @@ func TestRestartWrites(t *testing.T) {
 		log.Errorf("failed to drop database (%s), may affect tests!, %s", writerTestData.DB, dropErr)
 	}
 
-	w := newWriter(writerTestData.DB)
+	w := newWriter()
 	done := make(chan struct{})
 	go func() {
 		for {

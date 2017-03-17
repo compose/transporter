@@ -32,10 +32,16 @@ func TestRead(t *testing.T) {
 		t.Skip("skipping Read in short mode")
 	}
 
-	reader := newReader(readerTestData.DB, false, DefaultCollectionFilter)
+	reader := newReader(false, DefaultCollectionFilter)
 	readFunc := reader.Read(filterFunc)
 	done := make(chan struct{})
-	msgChan, err := readFunc(defaultSession, done)
+	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://127.0.0.1:27017/%s", readerTestData.DB)))
+	s, err := c.Connect()
+	if err != nil {
+		t.Fatalf("unable to initialize connection to mongodb, %s", err)
+	}
+	defer s.(*Session).Close()
+	msgChan, err := readFunc(s, done)
 	if err != nil {
 		t.Fatalf("unexpected Read error, %s\n", err)
 	}
@@ -55,7 +61,6 @@ func TestFilteredRead(t *testing.T) {
 	}
 
 	reader := newReader(
-		filteredReaderTestData.DB,
 		false,
 		map[string]CollectionFilter{"foo": CollectionFilter{"i": map[string]interface{}{"$gt": filteredReaderTestData.InsertCount}}},
 	)
@@ -66,7 +71,13 @@ func TestFilteredRead(t *testing.T) {
 
 	readFunc := reader.Read(filterFunc)
 	done := make(chan struct{})
-	msgChan, err := readFunc(defaultSession, done)
+	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://127.0.0.1:27017/%s", filteredReaderTestData.DB)))
+	s, err := c.Connect()
+	if err != nil {
+		t.Fatalf("unable to initialize connection to mongodb, %s", err)
+	}
+	defer s.(*Session).Close()
+	msgChan, err := readFunc(s, done)
 	if err != nil {
 		t.Fatalf("unexpected Read error, %s\n", err)
 	}
@@ -86,10 +97,16 @@ func TestCancelledRead(t *testing.T) {
 		t.Skip("skipping TestCancelledRead in short mode")
 	}
 
-	reader := newReader(cancelledReaderTestData.DB, false, DefaultCollectionFilter)
+	reader := newReader(false, DefaultCollectionFilter)
 	readFunc := reader.Read(filterFunc)
 	done := make(chan struct{})
-	msgChan, err := readFunc(defaultSession, done)
+	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://127.0.0.1:27017/%s", cancelledReaderTestData.DB)))
+	s, err := c.Connect()
+	if err != nil {
+		t.Fatalf("unable to initialize connection to mongodb, %s", err)
+	}
+	defer s.(*Session).Close()
+	msgChan, err := readFunc(s, done)
 	if err != nil {
 		t.Fatalf("unexpected Read error, %s\n", err)
 	}
@@ -136,7 +153,7 @@ func TestReadRestart(t *testing.T) {
 		session.mgoSession.DB(db).C("lotsodata").Insert(bson.M{"i": i})
 	}
 
-	reader := newReader(db, false, DefaultCollectionFilter)
+	reader := newReader(false, DefaultCollectionFilter)
 	readFunc := reader.Read(filterFunc)
 	done := make(chan struct{})
 	msgChan, err := readFunc(s, done)
@@ -220,7 +237,7 @@ func TestTail(t *testing.T) {
 		t.Fatalf("unexpected insertMockTailData error, %s\n", err)
 	}
 
-	tail := newReader(tailTestData.DB, true, DefaultCollectionFilter)
+	tail := newReader(true, DefaultCollectionFilter)
 
 	time.Sleep(1 * time.Second)
 	tailFunc := tail.Read(func(c string) bool {
@@ -233,7 +250,13 @@ func TestTail(t *testing.T) {
 
 	})
 	done := make(chan struct{})
-	msgChan, err := tailFunc(defaultSession, done)
+	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://127.0.0.1:27017/%s", tailTestData.DB)))
+	s, err := c.Connect()
+	if err != nil {
+		t.Fatalf("unable to initialize connection to mongodb, %s", err)
+	}
+	defer s.(*Session).Close()
+	msgChan, err := tailFunc(s, done)
 	if err != nil {
 		t.Fatalf("unexpected Tail error, %s\n", err)
 	}

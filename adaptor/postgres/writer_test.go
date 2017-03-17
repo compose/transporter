@@ -23,7 +23,7 @@ var optests = []struct {
 }
 
 func TestOpFunc(t *testing.T) {
-	w := newWriter("test")
+	w := newWriter()
 	for _, ot := range optests {
 		if _, ok := w.writeMap[ot.op]; ok != ot.registered {
 			t.Errorf("op (%s) registration incorrect, expected %+v, got %+v\n", ot.op.String(), ot.registered, ok)
@@ -36,13 +36,22 @@ var (
 )
 
 func TestInsert(t *testing.T) {
-	w := newWriter(writerTestData.DB)
+	w := newWriter()
+	c, err := NewClient(WithURI(fmt.Sprintf("postgres://127.0.0.1:5432/%s?sslmode=disable", writerTestData.DB)))
+	if err != nil {
+		t.Fatalf("unable to initialize connection to postgres, %s", err)
+	}
+	defer c.Close()
+	s, err := c.Connect()
+	if err != nil {
+		t.Fatalf("unable to obtain session to postgres, %s", err)
+	}
 	for i := 0; i < 10; i++ {
 		msg := message.From(
 			ops.Insert,
 			fmt.Sprintf("public.%s", writerTestData.Table),
 			data.Data{"id": i, "colvar": "hello world", "coltimestamp": time.Now().UTC()})
-		if _, err := w.Write(msg)(defaultSession); err != nil {
+		if _, err := w.Write(msg)(s); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
 		}
 	}
@@ -52,7 +61,7 @@ func TestInsert(t *testing.T) {
 		stringValue string
 		timeValue   time.Time
 	)
-	if err := defaultSession.pqSession.
+	if err := s.(*Session).pqSession.
 		QueryRow(fmt.Sprintf("SELECT id, colvar, coltimestamp FROM %s WHERE id = 4", writerTestData.Table)).
 		Scan(&id, &stringValue, &timeValue); err != nil {
 		t.Fatalf("Error on test query: %v", err)
@@ -62,7 +71,7 @@ func TestInsert(t *testing.T) {
 	}
 
 	var count int
-	err := defaultSession.pqSession.
+	err = s.(*Session).pqSession.
 		QueryRow(fmt.Sprintf("SELECT COUNT(id) FROM %s;", writerTestData.Table)).
 		Scan(&count)
 	if err != nil {
@@ -78,13 +87,22 @@ var (
 )
 
 func TestUpdate(t *testing.T) {
-	w := newWriter(writerUpdateTestData.DB)
+	w := newWriter()
+	c, err := NewClient(WithURI(fmt.Sprintf("postgres://127.0.0.1:5432/%s?sslmode=disable", writerUpdateTestData.DB)))
+	if err != nil {
+		t.Fatalf("unable to initialize connection to postgres, %s", err)
+	}
+	defer c.Close()
+	s, err := c.Connect()
+	if err != nil {
+		t.Fatalf("unable to obtain session to postgres, %s", err)
+	}
 	for i := 0; i < 10; i++ {
 		msg := message.From(
 			ops.Insert,
 			fmt.Sprintf("public.%s", writerUpdateTestData.Table),
 			data.Data{"id": i, "colvar": "hello world", "coltimestamp": time.Now().UTC()})
-		if _, err := w.Write(msg)(defaultSession); err != nil {
+		if _, err := w.Write(msg)(s); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
 		}
 	}
@@ -92,7 +110,7 @@ func TestUpdate(t *testing.T) {
 		ops.Update,
 		fmt.Sprintf("public.%s", writerUpdateTestData.Table),
 		data.Data{"id": 1, "colvar": "robin", "coltimestamp": time.Now().UTC()})
-	if _, err := w.Write(msg)(defaultSession); err != nil {
+	if _, err := w.Write(msg)(s); err != nil {
 		t.Errorf("unexpected Update error, %s\n", err)
 	}
 
@@ -101,7 +119,7 @@ func TestUpdate(t *testing.T) {
 		stringValue string
 		timeValue   time.Time
 	)
-	if err := defaultSession.pqSession.
+	if err := s.(*Session).pqSession.
 		QueryRow(fmt.Sprintf("SELECT id, colvar, coltimestamp FROM %s WHERE id = 1", writerUpdateTestData.Table)).
 		Scan(&id, &stringValue, &timeValue); err != nil {
 		t.Fatalf("Error on test query: %v", err)
@@ -111,7 +129,7 @@ func TestUpdate(t *testing.T) {
 	}
 
 	var count int
-	err := defaultSession.pqSession.
+	err = s.(*Session).pqSession.
 		QueryRow(fmt.Sprintf("SELECT COUNT(id) FROM %s;", writerUpdateTestData.Table)).
 		Scan(&count)
 	if err != nil {
@@ -128,7 +146,16 @@ var (
 
 func TestComplexUpdate(t *testing.T) {
 	ranInt := rand.Intn(writerComplexUpdateTestData.InsertCount)
-	w := newWriter(writerComplexUpdateTestData.DB)
+	w := newWriter()
+	c, err := NewClient(WithURI(fmt.Sprintf("postgres://127.0.0.1:5432/%s?sslmode=disable", writerComplexUpdateTestData.DB)))
+	if err != nil {
+		t.Fatalf("unable to initialize connection to postgres, %s", err)
+	}
+	defer c.Close()
+	s, err := c.Connect()
+	if err != nil {
+		t.Fatalf("unable to obtain session to postgres, %s", err)
+	}
 	msg := message.From(ops.Update, fmt.Sprintf("public.%s", writerComplexUpdateTestData.Table), data.Data{
 		"id":                 ranInt,
 		"colvar":             randomHeros[ranInt],
@@ -167,7 +194,7 @@ func TestComplexUpdate(t *testing.T) {
 		"coluuid":            "f0a0da24-4068-4be4-961d-7c295117ccca",
 		"colxml":             "<person><name>Batman</name></person>",
 	})
-	if _, err := w.Write(msg)(defaultSession); err != nil {
+	if _, err := w.Write(msg)(s); err != nil {
 		t.Errorf("unexpected Update error, %s\n", err)
 	}
 
@@ -177,7 +204,7 @@ func TestComplexUpdate(t *testing.T) {
 		timeValue   time.Time
 		bigint      int64
 	)
-	if err := defaultSession.pqSession.
+	if err := s.(*Session).pqSession.
 		QueryRow(fmt.Sprintf("SELECT id, colvar, coltimestamp, colbigint FROM %s WHERE id = %d", writerComplexUpdateTestData.Table, ranInt)).
 		Scan(&id, &stringValue, &timeValue, &bigint); err != nil {
 		t.Fatalf("Error on test query: %v", err)
@@ -187,7 +214,7 @@ func TestComplexUpdate(t *testing.T) {
 	}
 
 	var count int
-	err := defaultSession.pqSession.
+	err = s.(*Session).pqSession.
 		QueryRow(fmt.Sprintf("SELECT COUNT(id) FROM %s;", writerComplexUpdateTestData.Table)).
 		Scan(&count)
 	if err != nil {
@@ -203,30 +230,39 @@ var (
 )
 
 func TestDelete(t *testing.T) {
-	w := newWriter(writerDeleteTestData.DB)
+	w := newWriter()
+	c, err := NewClient(WithURI(fmt.Sprintf("postgres://127.0.0.1:5432/%s?sslmode=disable", writerDeleteTestData.DB)))
+	if err != nil {
+		t.Fatalf("unable to initialize connection to postgres, %s", err)
+	}
+	defer c.Close()
+	s, err := c.Connect()
+	if err != nil {
+		t.Fatalf("unable to obtain session to postgres, %s", err)
+	}
 	for i := 0; i < 10; i++ {
 		msg := message.From(
 			ops.Insert,
 			fmt.Sprintf("public.%s", writerDeleteTestData.Table),
 			data.Data{"id": i, "colvar": "hello world", "coltimestamp": time.Now().UTC()})
-		if _, err := w.Write(msg)(defaultSession); err != nil {
+		if _, err := w.Write(msg)(s); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
 		}
 	}
 	msg := message.From(ops.Delete, fmt.Sprintf("public.%s", writerDeleteTestData.Table), data.Data{"id": 1})
-	if _, err := w.Write(msg)(defaultSession); err != nil {
+	if _, err := w.Write(msg)(s); err != nil {
 		t.Errorf("unexpected Update error, %s\n", err)
 	}
 
 	var id int
-	if err := defaultSession.pqSession.
+	if err := s.(*Session).pqSession.
 		QueryRow(fmt.Sprintf("SELECT id FROM %s WHERE id = 1", writerDeleteTestData.Table)).
 		Scan(&id); err == nil {
 		t.Fatalf("Values were found, but where not expected to be: %v", id)
 	}
 
 	var count int
-	err := defaultSession.pqSession.
+	err = s.(*Session).pqSession.
 		QueryRow(fmt.Sprintf("SELECT COUNT(id) FROM %s;", writerDeleteTestData.Table)).
 		Scan(&count)
 	if err != nil {
@@ -243,17 +279,26 @@ var (
 
 func TestComplexDelete(t *testing.T) {
 	ranInt := rand.Intn(writerComplexDeleteTestData.InsertCount)
-	w := newWriter(writerComplexDeleteTestData.DB)
+	w := newWriter()
+	c, err := NewClient(WithURI(fmt.Sprintf("postgres://127.0.0.1:5432/%s?sslmode=disable", writerComplexDeleteTestData.DB)))
+	if err != nil {
+		t.Fatalf("unable to initialize connection to postgres, %s", err)
+	}
+	defer c.Close()
+	s, err := c.Connect()
+	if err != nil {
+		t.Fatalf("unable to obtain session to postgres, %s", err)
+	}
 	msg := message.From(
 		ops.Delete,
 		fmt.Sprintf("public.%s", writerComplexDeleteTestData.Table),
 		data.Data{"id": ranInt, "colvar": randomHeros[ranInt]})
-	if _, err := w.Write(msg)(defaultSession); err != nil {
+	if _, err := w.Write(msg)(s); err != nil {
 		t.Errorf("unexpected Delete error, %s\n", err)
 	}
 
 	var id int
-	if err := defaultSession.pqSession.
+	if err := s.(*Session).pqSession.
 		QueryRow(fmt.Sprintf("SELECT id FROM %s WHERE id = %d AND colvar = '%s'", writerComplexDeleteTestData.Table, ranInt, randomHeros[ranInt])).
 		Scan(&id); err == nil {
 		t.Fatalf("Values were found, but where not expected to be: %v", id)
@@ -266,15 +311,23 @@ var (
 
 func TestComplexDeleteWithoutAllPrimarykeys(t *testing.T) {
 	ranInt := rand.Intn(writerComplexDeletePkTestData.InsertCount)
-	w := newWriter(writerComplexDeletePkTestData.DB)
-
+	w := newWriter()
+	c, err := NewClient(WithURI(fmt.Sprintf("postgres://127.0.0.1:5432/%s?sslmode=disable", writerComplexDeletePkTestData.DB)))
+	if err != nil {
+		t.Fatalf("unable to initialize connection to postgres, %s", err)
+	}
+	defer c.Close()
+	s, err := c.Connect()
+	if err != nil {
+		t.Fatalf("unable to obtain session to postgres, %s", err)
+	}
 	msg := message.From(ops.Delete, fmt.Sprintf("public.%s", writerComplexDeletePkTestData.Table), data.Data{"id": ranInt})
-	if _, err := w.Write(msg)(defaultSession); err == nil {
+	if _, err := w.Write(msg)(s); err == nil {
 		t.Fatalf("Did not receive anticipated error from postgres.writeMessage")
 	}
 
 	var id int
-	if err := defaultSession.pqSession.
+	if err := s.(*Session).pqSession.
 		QueryRow(fmt.Sprintf("SELECT id FROM %s WHERE id = %d AND colvar = '%s'", writerComplexDeletePkTestData.Table,
 			ranInt,
 			randomHeros[ranInt])).

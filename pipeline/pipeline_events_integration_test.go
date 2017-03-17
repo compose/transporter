@@ -63,8 +63,22 @@ func TestEventsBroadcast(t *testing.T) {
 	setupFiles(inFile, outFile)
 
 	// set up the nodes
-	dummyOutNode := NewNode("dummyFileOut", "file", adaptor.Config{"uri": "file://" + outFile, "namespace": "a./.*/"})
-	dummyOutNode.Add(NewNode("dummyFileIn", "file", adaptor.Config{"uri": "file://" + inFile, "namespace": "a./.*/"}))
+	f, err := adaptor.GetAdaptor("file", adaptor.Config{"uri": "file://" + outFile})
+	if err != nil {
+		t.Fatalf("can't create GetAdaptor, got %s", err)
+	}
+	dummyOutNode, err := NewNode("dummyFileOut", "file", "blah./.*/", f, nil)
+	if err != nil {
+		t.Fatalf("can't create NewNode, got %s", err)
+	}
+	f, err = adaptor.GetAdaptor("file", adaptor.Config{"uri": "file://" + inFile})
+	if err != nil {
+		t.Fatalf("can't create GetAdaptor, got %s", err)
+	}
+	_, err = NewNode("dummyFileIn", "file", "blah./.*/", f, dummyOutNode)
+	if err != nil {
+		t.Fatalf("can't create NewNode, got %s", err)
+	}
 
 	p, err := NewDefaultPipeline(dummyOutNode, ts.URL, "asdf", "jklm", "test", 1*time.Second)
 	if err != nil {

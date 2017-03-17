@@ -21,7 +21,7 @@ func TestSampleConfig(t *testing.T) {
 }
 
 var initTests = []map[string]interface{}{
-	{"uri": DefaultURI, "namespace": "test.test"},
+	{"uri": DefaultURI},
 }
 
 func TestInit(t *testing.T) {

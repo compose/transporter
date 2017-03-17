@@ -43,10 +43,8 @@ func init() {
 
 func (r *RethinkDB) Client() (client.Client, error) {
 	// TODO: pull db from the URI
-	db, _, _ := adaptor.CompileNamespace(r.Namespace)
 	return NewClient(
 		WithURI(r.URI),
-		WithDatabase(db),
 		WithSessionTimeout(r.Timeout),
 		WithSSL(r.SSL),
 		WithCACerts(r.CACerts),
@@ -54,15 +52,11 @@ func (r *RethinkDB) Client() (client.Client, error) {
 }
 
 func (r *RethinkDB) Reader() (client.Reader, error) {
-	// TODO: pull db from the URI
-	db, _, err := adaptor.CompileNamespace(r.Namespace)
-	return newReader(db, r.Tail), err
+	return newReader(r.Tail), nil
 }
 
 func (r *RethinkDB) Writer(done chan struct{}, wg *sync.WaitGroup) (client.Writer, error) {
-	// TODO: pull db from the URI
-	db, _, err := adaptor.CompileNamespace(r.Namespace)
-	return newWriter(db, done, wg), err
+	return newWriter(done, wg), nil
 }
 
 // Description for rethinkdb adaptor

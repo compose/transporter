@@ -19,12 +19,11 @@ var (
 // Reader fulfills the client.Reader interface for use with both copying and tailing a RethinkDB
 // database.
 type Reader struct {
-	db   string
 	tail bool
 }
 
-func newReader(db string, tail bool) client.Reader {
-	return &Reader{db, tail}
+func newReader(tail bool) client.Reader {
+	return &Reader{tail}
 }
 
 type iterationComplete struct {
@@ -38,10 +37,10 @@ func (r *Reader) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
 		session := s.(*Session).session
 		go func() {
 			defer close(out)
-			log.With("db", r.db).Infoln("starting Read func")
+			log.With("db", session.Database()).Infoln("starting Read func")
 			tables, err := r.listTables(session, filterFn)
 			if err != nil {
-				log.With("db", r.db).Errorf("unable to list tables, %s", err)
+				log.With("db", session.Database()).Errorf("unable to list tables, %s", err)
 				return
 			}
 			iterationComplete := r.iterateTable(session, tables, out, done)
@@ -55,14 +54,14 @@ func (r *Reader) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
 						if !ok {
 							return
 						}
-						log.With("db", r.db).With("table", i.table).Infoln("iterating complete")
+						log.With("db", session.Database()).With("table", i.table).Infoln("iterating complete")
 						if i.cursor != nil {
 							go func(wg *sync.WaitGroup, t string, c *re.Cursor) {
 								wg.Add(1)
 								defer wg.Done()
-								errc := r.sendChanges(t, c, out, done)
+								errc := r.sendChanges(session.Database(), t, c, out, done)
 								for err := range errc {
-									log.With("db", r.db).With("table", t).Errorln(err)
+									log.With("db", session.Database()).With("table", t).Errorln(err)
 									return
 								}
 							}(&wg, i.table, i.cursor)
@@ -70,7 +69,7 @@ func (r *Reader) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
 					}
 				}
 			}()
-			log.With("db", r.db).Infoln("Read completed")
+			log.With("db", session.Database()).Infoln("Read completed")
 			// this will block if we're tailing
 			wg.Wait()
 			return
@@ -81,7 +80,7 @@ func (r *Reader) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
 
 func (r *Reader) listTables(session *re.Session, filterFn func(name string) bool) (<-chan string, error) {
 	out := make(chan string)
-	tables, err := re.DB(r.db).TableList().Run(session)
+	tables, err := re.DB(session.Database()).TableList().Run(session)
 	if err != nil {
 		return nil, err
 	}
@@ -92,13 +91,13 @@ func (r *Reader) listTables(session *re.Session, filterFn func(name string) bool
 		var table string
 		for tables.Next(&table) {
 			if filterFn(table) {
-				log.With("db", r.db).With("table", table).Infoln("sending for iteration...")
+				log.With("db", session.Database()).With("table", table).Infoln("sending for iteration...")
 				out <- table
 			} else {
-				log.With("db", r.db).With("table", table).Infoln("skipping iteration...")
+				log.With("db", session.Database()).With("table", table).Infoln("skipping iteration...")
 			}
 		}
-		log.With("db", r.db).Infoln("done iterating tables")
+		log.With("db", session.Database()).Infoln("done iterating tables")
 	}()
 	return out, nil
 }
@@ -113,8 +112,8 @@ func (r *Reader) iterateTable(session *re.Session, in <-chan string, out chan<- 
 				if !ok {
 					return
 				}
-				log.With("db", r.db).With("table", t).Infoln("iterating...")
-				cursor, err := re.DB(r.db).Table(t).Run(session)
+				log.With("db", session.Database()).With("table", t).Infoln("iterating...")
+				cursor, err := re.DB(session.Database()).Table(t).Run(session)
 				if err != nil {
 					return
 				}
@@ -122,7 +121,7 @@ func (r *Reader) iterateTable(session *re.Session, in <-chan string, out chan<- 
 				var ccursor *re.Cursor
 				if r.tail {
 					var err error
-					ccursor, err = re.DB(r.db).Table(t).Changes(re.ChangesOpts{}).Run(session)
+					ccursor, err = re.DB(session.Database()).Table(t).Changes(re.ChangesOpts{}).Run(session)
 					if err != nil {
 						return
 					}
@@ -139,7 +138,7 @@ func (r *Reader) iterateTable(session *re.Session, in <-chan string, out chan<- 
 				}
 				tableDone <- iterationComplete{ccursor, t}
 			case <-done:
-				log.With("db", r.db).Infoln("iterating no more")
+				log.With("db", session.Database()).Infoln("iterating no more")
 				return
 			}
 		}
@@ -153,14 +152,14 @@ type rethinkDbChangeNotification struct {
 	NewVal map[string]interface{} `gorethink:"new_val"`
 }
 
-func (r *Reader) sendChanges(table string, ccursor *re.Cursor, out chan<- message.Msg, done chan struct{}) chan error {
+func (r *Reader) sendChanges(db, table string, ccursor *re.Cursor, out chan<- message.Msg, done chan struct{}) chan error {
 	errc := make(chan error)
 	go func() {
 		defer ccursor.Close()
 		defer close(errc)
 		changes := make(chan rethinkDbChangeNotification)
 		ccursor.Listen(changes)
-		log.With("db", r.db).With("table", table).Debugln("starting changes feed...")
+		log.With("db", db).With("table", table).Debugln("starting changes feed...")
 		for {
 			if err := ccursor.Err(); err != nil {
 				errc <- err
@@ -168,14 +167,14 @@ func (r *Reader) sendChanges(table string, ccursor *re.Cursor, out chan<- messag
 			}
 			select {
 			case <-done:
-				log.With("db", r.db).With("table", table).Infoln("stopping changes...")
+				log.With("db", db).With("table", table).Infoln("stopping changes...")
 				return
 			case change := <-changes:
 				if done == nil {
-					log.With("db", r.db).With("table", table).Infoln("stopping changes...")
+					log.With("db", db).With("table", table).Infoln("stopping changes...")
 					return
 				}
-				log.With("db", r.db).With("table", table).With("change", change).Debugln("received")
+				log.With("db", db).With("table", table).With("change", change).Debugln("received")
 
 				if change.Error != "" {
 					errc <- errors.New(change.Error)

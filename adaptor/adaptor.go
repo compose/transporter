@@ -116,7 +116,6 @@ func CompileNamespace(ns string) (string, *regexp.Regexp, error) {
 
 // BaseConfig is a standard typed config struct to use for as general purpose config for most databases.
 type BaseConfig struct {
-	URI       string `json:"uri"`
-	Namespace string `json:"namespace"`
-	Timeout   string `json:"timeout"`
+	URI     string `json:"uri"`
+	Timeout string `json:"timeout"`
 }

@@ -1,7 +1,6 @@
 enron_source_mongo = mongodb({
   "uri": "mongodb://${MONGODB_ENRON_SOURCE_USER}:${MONGODB_ENRON_SOURCE_PASSWORD}@${MONGODB_ENRON_SOURCE_URI}/enron",
-  "tail": false,
-  "namespace": "enron.emails"
+  "tail": false
 })
 
 enron_sink_mongo = mongodb({
@@ -9,8 +8,8 @@ enron_sink_mongo = mongodb({
   "ssl": true,
   "bulk": true,
   "wc": 2,
-  "fsync": true,
-  "namespace": "enron.emails"
+  "fsync": true
 })
 
-t.Source(enron_source_mongo).Save(enron_sink_mongo);
+t.Source("enron_source_mongo", enron_source_mongo, "enron.emails")
+  .Save("enron_sink_mongo", enron_sink_mongo, "enron.emails");

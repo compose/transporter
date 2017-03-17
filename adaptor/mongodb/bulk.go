@@ -25,7 +25,6 @@ var (
 // Bulk implements client.Writer for use with MongoDB and takes advantage of the Bulk API for
 // performance improvements.
 type Bulk struct {
-	db      string
 	bulkMap map[string]*bulkOperation
 	*sync.RWMutex
 }
@@ -40,9 +39,8 @@ type bulkOperation struct {
 	bsonOpSize int
 }
 
-func newBulker(db string, done chan struct{}, wg *sync.WaitGroup) *Bulk {
+func newBulker(done chan struct{}, wg *sync.WaitGroup) *Bulk {
 	b := &Bulk{
-		db:      db,
 		bulkMap: make(map[string]*bulkOperation),
 		RWMutex: &sync.RWMutex{},
 	}
@@ -60,7 +58,7 @@ func (b *Bulk) Write(msg message.Msg) func(client.Session) (message.Msg, error) 
 			s := s.(*Session).mgoSession.Copy()
 			bOp = &bulkOperation{
 				s:    s,
-				bulk: s.DB(b.db).C(coll).Bulk(),
+				bulk: s.DB("").C(coll).Bulk(),
 			}
 			b.bulkMap[coll] = bOp
 		}

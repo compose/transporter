@@ -98,33 +98,44 @@ func setup() {
 		os.Exit(1)
 	}
 	defaultSession = s.(*Session)
-	defaultSession.pqSession.Exec("CREATE TYPE mood AS ENUM('sad', 'ok', 'happy');")
 	for _, testData := range dbsToTest {
+		if _, err := defaultSession.pqSession.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s;", testData.DB)); err != nil {
+			log.Errorf("unable to drop database, could affect tests, %s", err)
+		}
+		if _, err := defaultSession.pqSession.Exec(fmt.Sprintf("CREATE DATABASE %s;", testData.DB)); err != nil {
+			log.Errorf("unable to create database, could affect tests, %s", err)
+		}
 		setupData(testData)
 	}
 }
 
 func setupData(data *TestData) {
-	if _, err := defaultSession.pqSession.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s;", data.DB)); err != nil {
-		log.Errorf("unable to drop database, could affect tests, %s", err)
+	c, err := NewClient(WithURI(fmt.Sprintf("postgres://127.0.0.1:5432/%s?sslmode=disable", data.DB)))
+	if err != nil {
+		log.Errorf("unable to initialize connection to postgres, %s", err)
+	}
+	defer c.Close()
+	s, err := c.Connect()
+	if err != nil {
+		log.Errorf("unable to obtain session to postgres, %s", err)
+	}
+	pqSession := s.(*Session).pqSession
+	if data.Schema == complexSchema {
+		pqSession.Exec("CREATE TYPE mood AS ENUM('sad', 'ok', 'happy');")
 	}
 
-	if _, err := defaultSession.pqSession.Exec(fmt.Sprintf("CREATE DATABASE %s;", data.DB)); err != nil {
-		log.Errorf("unable to create database, could affect tests, %s", err)
-	}
-
-	if _, err := defaultSession.pqSession.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s;", data.Table)); err != nil {
+	if _, err := pqSession.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s;", data.Table)); err != nil {
 		log.Errorf("unable to drop table, could affect tests, %s", err)
 	}
 
-	_, err := defaultSession.pqSession.Exec(fmt.Sprintf("CREATE TABLE %s ( %s );", data.Table, data.Schema))
+	_, err = pqSession.Exec(fmt.Sprintf("CREATE TABLE %s ( %s );", data.Table, data.Schema))
 	if err != nil {
 		log.Errorf("unable to create table, could affect tests, %s", err)
 	}
 
 	for i := 0; i < data.InsertCount; i++ {
 		if data.Schema == complexSchema {
-			if _, err := defaultSession.pqSession.Exec(fmt.Sprintf(`
+			if _, err := pqSession.Exec(fmt.Sprintf(`
 					 INSERT INTO %s VALUES (
 							%d,                  -- id
 							'%s',           -- colvar VARCHAR(255),
@@ -174,7 +185,7 @@ func setupData(data *TestData) {
 				log.Errorf("unexpected Insert error, %s\n", err)
 			}
 		} else if data.Schema == basicSchema {
-			if _, err := defaultSession.pqSession.Exec(fmt.Sprintf(`INSERT INTO %s VALUES (
+			if _, err := pqSession.Exec(fmt.Sprintf(`INSERT INTO %s VALUES (
 			  %d,            -- id
 				'%s',          -- colvar VARCHAR(255),
 				now() at time zone 'utc' -- coltimestamp TIMESTAMP,

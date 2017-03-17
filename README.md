@@ -28,16 +28,18 @@ Each adaptor has its own README page with details on configuration and capabilit
 * [postgresql](./adaptor/postgres)
 * [rabbitmq](./adaptor/rabbitmq)
 * [rethinkdb](./adaptor/rethinkdb)
-* [transformer](./adaptor/transformer)
 
 Native Functions
 ----------------
 
 Each native function can be used as part of a `Transform` step in the pipeline.
 
+* [goja](./adaptor/function/gojajs)
 * [omit](./adaptor/function/omit)
+* [otto](./adaptor/function/ottojs)
 * [pick](./adaptor/function/pick)
 * [pretty](./adaptor/function/pretty)
+* [rename](./adaptor/function/rename)
 * [skip](./adaptor/function/skip)
 
 Commands
@@ -94,7 +96,6 @@ mongodb - a mongodb adaptor that functions as both a source and a sink
 postgres - a postgres adaptor that functions as both a source and a sink
 rabbitmq - an adaptor that handles publish/subscribe messaging with RabbitMQ 
 rethinkdb - a rethinkdb adaptor that functions as both a source and a sink
-transformer - an adaptor that transforms documents using a javascript function
 ```
 
 Giving the name of an adaptor produces more detail, such as the sample configuration.

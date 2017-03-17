@@ -40,8 +40,22 @@ func TestFileToFile(t *testing.T) {
 
 	numgorosBefore := runtime.NumGoroutine()
 	// create the source node and attach our sink
-	outNode := NewNode("localfileout", "file", adaptor.Config{"uri": "file://" + outFile, "namespace": "a./.*/"}).
-		Add(NewNode("localfilein", "file", adaptor.Config{"uri": "file://" + inFile, "namespace": "a./.*/"}))
+	f, err := adaptor.GetAdaptor("file", adaptor.Config{"uri": "file://" + outFile})
+	if err != nil {
+		t.Fatalf("can't create GetAdaptor, got %s", err)
+	}
+	outNode, err := NewNode("localfileout", "file", "blah./.*/", f, nil)
+	if err != nil {
+		t.Fatalf("can't create newnode, got %s", err)
+	}
+	f, err = adaptor.GetAdaptor("file", adaptor.Config{"uri": "file://" + inFile})
+	if err != nil {
+		t.Fatalf("can't create GetAdaptor, got %s", err)
+	}
+	_, err = NewNode("localfilein", "file", "blah./.*/", f, outNode)
+	if err != nil {
+		t.Fatalf("can't create newnode, got %s", err)
+	}
 
 	// create the pipeline
 	p, err := NewPipeline("test", outNode, events.LogEmitter(), 60*time.Second, nil, 10*time.Second)

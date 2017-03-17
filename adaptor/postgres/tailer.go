@@ -23,12 +23,11 @@ var (
 // Tailer implements the behavior defined by client.Tailer for interfacing with the MongoDB oplog.
 type Tailer struct {
 	reader          client.Reader
-	db              string
 	replicationSlot string
 }
 
-func newTailer(db, replicationSlot string) client.Reader {
-	return &Tailer{newReader(db), db, replicationSlot}
+func newTailer(replicationSlot string) client.Reader {
+	return &Tailer{newReader(), replicationSlot}
 }
 
 // Tail does the things
@@ -39,6 +38,7 @@ func (t *Tailer) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
 		if err != nil {
 			return nil, err
 		}
+		session := s.(*Session)
 		out := make(chan message.Msg)
 		go func() {
 			defer close(out)
@@ -48,16 +48,16 @@ func (t *Tailer) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
 			}
 
 			// start tailing
-			log.With("db", t.db).With("logical_decoding_slot", t.replicationSlot).Infoln("Listening for changes...")
+			log.With("db", session.db).With("logical_decoding_slot", t.replicationSlot).Infoln("Listening for changes...")
 			for {
 				select {
 				case <-done:
-					log.With("db", t.db).Infoln("tailing stopping...")
+					log.With("db", session.db).Infoln("tailing stopping...")
 					return
 				case <-time.After(time.Second):
 					msgSlice, err := t.pluckFromLogicalDecoding(s.(*Session), filterFn)
 					if err != nil {
-						log.With("db", t.db).Errorf("error plucking from logical decoding %v", err)
+						log.With("db", session.db).Errorf("error plucking from logical decoding %v", err)
 						continue
 					}
 					for _, msg := range msgSlice {

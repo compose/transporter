@@ -1,6 +1,7 @@
 package rethinkdb
 
 import (
+	"fmt"
 	"reflect"
 	"sync"
 	"testing"
@@ -62,15 +63,23 @@ func TestBulkInsert(t *testing.T) {
 	}
 	var wg sync.WaitGroup
 	done := make(chan struct{})
-	w := newWriter(writerTestData.DB, done, &wg)
-
+	w := newWriter(done, &wg)
 	if _, err := r.DB(writerTestData.DB).TableCreate("bulk").RunWrite(defaultSession.session); err != nil {
 		log.Errorf("failed to create table (bulk) in %s, may affect tests!, %s", writerTestData.DB, err)
 	}
 
+	c, err := NewClient(WithURI(fmt.Sprintf("rethinkdb://127.0.0.1:28015/%s", writerTestData.DB)))
+	if err != nil {
+		t.Fatalf("unable to initialize connection to rethinkdb, %s", err)
+	}
+	defer c.Close()
+	s, err := c.Connect()
+	if err != nil {
+		t.Fatalf("unable to obtain session to rethinkdb, %s", err)
+	}
 	for i := 0; i < 999; i++ {
 		msg := message.From(ops.Insert, "bulk", map[string]interface{}{"i": i})
-		if _, err := w.Write(msg)(defaultSession); err != nil {
+		if _, err := w.Write(msg)(s); err != nil {
 			t.Errorf("unexpected Insert error, %s", err)
 		}
 	}
@@ -97,15 +106,24 @@ func TestInsert(t *testing.T) {
 	for _, it := range inserttests {
 		var wg sync.WaitGroup
 		done := make(chan struct{})
-		w := newWriter(writerTestData.DB, done, &wg)
+		w := newWriter(done, &wg)
 
 		if _, err := r.DB(writerTestData.DB).TableCreate(it.table).RunWrite(defaultSession.session); err != nil {
 			log.Errorf("failed to create table (%s) in %s, may affect tests!, %s", it.table, writerTestData.DB, err)
 		}
 
+		c, err := NewClient(WithURI(fmt.Sprintf("rethinkdb://127.0.0.1:28015/%s", writerTestData.DB)))
+		if err != nil {
+			t.Fatalf("unable to initialize connection to rethinkdb, %s", err)
+		}
+		defer c.Close()
+		s, err := c.Connect()
+		if err != nil {
+			t.Fatalf("unable to obtain session to rethinkdb, %s", err)
+		}
 		for _, data := range it.data {
 			msg := message.From(ops.Insert, it.table, data)
-			if _, err := w.Write(msg)(defaultSession); err != nil {
+			if _, err := w.Write(msg)(s); err != nil {
 				t.Errorf("unexpected Insert error, %s\n", err)
 			}
 		}
@@ -157,19 +175,28 @@ func TestUpdate(t *testing.T) {
 	for _, ut := range updatetests {
 		var wg sync.WaitGroup
 		done := make(chan struct{})
-		w := newWriter(writerTestData.DB, done, &wg)
+		w := newWriter(done, &wg)
 		if _, err := r.DB(writerTestData.DB).TableCreate(ut.table).RunWrite(defaultSession.session); err != nil {
 			log.Errorf("failed to create table (%s) in %s, may affect tests!, %s", ut.table, writerTestData.DB, err)
 		}
 
+		c, err := NewClient(WithURI(fmt.Sprintf("rethinkdb://127.0.0.1:28015/%s", writerTestData.DB)))
+		if err != nil {
+			t.Fatalf("unable to initialize connection to rethinkdb, %s", err)
+		}
+		defer c.Close()
+		s, err := c.Connect()
+		if err != nil {
+			t.Fatalf("unable to obtain session to rethinkdb, %s", err)
+		}
 		// Insert data
 		msg := message.From(ops.Insert, ut.table, ut.originalDoc)
-		if _, err := w.Write(msg)(defaultSession); err != nil {
+		if _, err := w.Write(msg)(s); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
 		}
 		// Update data
 		msg = message.From(ops.Update, ut.table, ut.updatedDoc)
-		if _, err := w.Write(msg)(defaultSession); err != nil {
+		if _, err := w.Write(msg)(s); err != nil {
 			t.Errorf("unexpected Update error, %s\n", err)
 		}
 		close(done)
@@ -211,20 +238,29 @@ func TestDelete(t *testing.T) {
 	for _, dt := range deletetests {
 		var wg sync.WaitGroup
 		done := make(chan struct{})
-		w := newWriter(writerTestData.DB, done, &wg)
+		w := newWriter(done, &wg)
 		if _, err := r.DB(writerTestData.DB).TableCreate(dt.table).RunWrite(defaultSession.session); err != nil {
 			log.Errorf("failed to create table (%s) in %s, may affect tests!, %s", dt.table, writerTestData.DB, err)
 		}
 
+		c, err := NewClient(WithURI(fmt.Sprintf("rethinkdb://127.0.0.1:28015/%s", writerTestData.DB)))
+		if err != nil {
+			t.Fatalf("unable to initialize connection to rethinkdb, %s", err)
+		}
+		defer c.Close()
+		s, err := c.Connect()
+		if err != nil {
+			t.Fatalf("unable to obtain session to rethinkdb, %s", err)
+		}
 		// Insert data
 		dt.originalDoc.Set("_id", dt.id)
 		msg := message.From(ops.Insert, dt.table, dt.originalDoc)
-		if _, err := w.Write(msg)(defaultSession); err != nil {
+		if _, err := w.Write(msg)(s); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
 		}
 		// Delete data
 		msg = message.From(ops.Delete, dt.table, dt.originalDoc)
-		if _, err := w.Write(msg)(defaultSession); err != nil {
+		if _, err := w.Write(msg)(s); err != nil {
 			t.Errorf("unexpected Delete error, %s\n", err)
 		}
 		close(done)

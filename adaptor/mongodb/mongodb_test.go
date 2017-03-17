@@ -32,50 +32,38 @@ var initTests = []struct {
 }{
 	{
 		"base",
-		map[string]interface{}{"uri": DefaultURI, "namespace": "test.test"},
-		&MongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI, Namespace: "test.test"}},
+		map[string]interface{}{"uri": DefaultURI},
+		&MongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI}},
 		nil, nil, nil,
 	},
 	{
 		"with timeout",
-		map[string]interface{}{"uri": DefaultURI, "namespace": "test.test", "timeout": "60s"},
-		&MongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI, Namespace: "test.test", Timeout: "60s"}},
+		map[string]interface{}{"uri": DefaultURI, "timeout": "60s"},
+		&MongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI, Timeout: "60s"}},
 		nil, nil, nil,
 	},
 	{
 		"with tail",
-		map[string]interface{}{"uri": DefaultURI, "namespace": "test.test", "tail": true},
-		&MongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI, Namespace: "test.test"}, Tail: true},
+		map[string]interface{}{"uri": DefaultURI, "tail": true},
+		&MongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI}, Tail: true},
 		nil, nil, nil,
 	},
 	{
 		"with bulk",
-		map[string]interface{}{"uri": DefaultURI, "namespace": "test.test", "bulk": true},
-		&MongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI, Namespace: "test.test"}, Bulk: true},
+		map[string]interface{}{"uri": DefaultURI, "bulk": true},
+		&MongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI}, Bulk: true},
 		nil, nil, nil,
 	},
 	{
 		"with collection filters",
-		map[string]interface{}{"uri": DefaultURI, "namespace": "test.test", "collection_filters": `{"foo":{"i":{"$gt":10}}}`},
-		&MongoDB{
-			BaseConfig: adaptor.BaseConfig{
-				URI:       DefaultURI,
-				Namespace: "test.test",
-			},
-			CollectionFilters: `{"foo":{"i":{"$gt":10}}}`,
-		},
+		map[string]interface{}{"uri": DefaultURI, "collection_filters": `{"foo":{"i":{"$gt":10}}}`},
+		&MongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI}, CollectionFilters: `{"foo":{"i":{"$gt":10}}}`},
 		nil, nil, nil,
 	},
 	{
 		"bad collection filter",
-		map[string]interface{}{"uri": DefaultURI, "namespace": "test.test", "collection_filters": `{"foo":{"i":{"$gt":10}}`},
-		&MongoDB{
-			BaseConfig: adaptor.BaseConfig{
-				URI:       DefaultURI,
-				Namespace: "test.test",
-			},
-			CollectionFilters: `{"foo":{"i":{"$gt":10}}`,
-		},
+		map[string]interface{}{"uri": DefaultURI, "collection_filters": `{"foo":{"i":{"$gt":10}}`},
+		&MongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI}, CollectionFilters: `{"foo":{"i":{"$gt":10}}`},
 		nil, ErrCollectionFilter, nil,
 	},
 }

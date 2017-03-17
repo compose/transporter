@@ -65,24 +65,20 @@ func (m *MongoDB) Client() (client.Client, error) {
 }
 
 func (m *MongoDB) Reader() (client.Reader, error) {
-	// TODO: pull db from the URI
-	db, _, err := adaptor.CompileNamespace(m.Namespace)
 	var f map[string]CollectionFilter
 	if m.CollectionFilters != "" {
 		if jerr := json.Unmarshal([]byte(m.CollectionFilters), &f); jerr != nil {
 			return nil, ErrCollectionFilter
 		}
 	}
-	return newReader(db, m.Tail, f), err
+	return newReader(m.Tail, f), nil
 }
 
 func (m *MongoDB) Writer(done chan struct{}, wg *sync.WaitGroup) (client.Writer, error) {
-	// TODO: pull db from the URI
-	db, _, err := adaptor.CompileNamespace(m.Namespace)
 	if m.Bulk {
-		return newBulker(db, done, wg), err
+		return newBulker(done, wg), nil
 	}
-	return newWriter(db), err
+	return newWriter(), nil
 }
 
 // Description for mongodb adaptor

@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"database/sql"
+	"net/url"
 
 	"github.com/compose/transporter/client"
 
@@ -25,6 +26,7 @@ type ClientOptionFunc func(*Client) error
 // Client represents a client to the underlying File source.
 type Client struct {
 	uri       string
+	db        string
 	pqSession *sql.DB
 }
 
@@ -33,6 +35,7 @@ func NewClient(options ...ClientOptionFunc) (*Client, error) {
 	// Set up the client
 	c := &Client{
 		uri: DefaultURI,
+		db:  "postgres",
 	}
 
 	// Run the options on it
@@ -47,8 +50,9 @@ func NewClient(options ...ClientOptionFunc) (*Client, error) {
 // WithURI defines the full connection string for the Postgres connection
 func WithURI(uri string) ClientOptionFunc {
 	return func(c *Client) error {
+		_, err := url.Parse(uri)
 		c.uri = uri
-		return nil
+		return err
 	}
 }
 
@@ -65,7 +69,11 @@ func (c *Client) Connect() (client.Session, error) {
 		// there's really no way for this to error because we know the driver we're passing is
 		// available.
 		c.pqSession, _ = sql.Open("postgres", c.uri)
+		uri, _ := url.Parse(c.uri)
+		if uri.Path != "" {
+			c.db = uri.Path[1:]
+		}
 	}
 	err := c.pqSession.Ping()
-	return &Session{c.pqSession}, err
+	return &Session{c.pqSession, c.db}, err
 }

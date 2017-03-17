@@ -19,11 +19,10 @@ var (
 
 // Reader implements the behavior defined by client.Reader for interfacing with MongoDB.
 type Reader struct {
-	db string
 }
 
-func newReader(db string) client.Reader {
-	return &Reader{db}
+func newReader() client.Reader {
+	return &Reader{}
 }
 
 func (r *Reader) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
@@ -32,20 +31,20 @@ func (r *Reader) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
 		session := s.(*Session)
 		go func() {
 			defer close(out)
-			log.With("db", r.db).Infoln("starting Read func")
-			tables, err := r.listTables(session.pqSession, filterFn)
+			log.With("db", session.db).Infoln("starting Read func")
+			tables, err := r.listTables(session.db, session.pqSession, filterFn)
 			if err != nil {
-				log.With("db", r.db).Errorf("unable to list tables, %s", err)
+				log.With("db", session.db).Errorf("unable to list tables, %s", err)
 				return
 			}
-			results := r.iterateTable(session.pqSession, tables, done)
+			results := r.iterateTable(session.db, session.pqSession, tables, done)
 			for {
 				select {
 				case <-done:
 					return
 				case result, ok := <-results:
 					if !ok {
-						log.With("db", r.db).Infoln("Read completed")
+						log.With("db", session.db).Infoln("Read completed")
 						return
 					}
 					msg := message.From(ops.Insert, result.table, result.data)
@@ -58,9 +57,8 @@ func (r *Reader) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
 	}
 }
 
-func (r *Reader) listTables(session *sql.DB, filterFn func(name string) bool) (<-chan string, error) {
+func (r *Reader) listTables(db string, session *sql.DB, filterFn func(name string) bool) (<-chan string, error) {
 	out := make(chan string)
-	fmt.Println("Exporting data from matching tables:")
 	tablesResult, err := session.Query("SELECT table_schema,table_name FROM information_schema.tables")
 	if err != nil {
 		return nil, err
@@ -72,18 +70,18 @@ func (r *Reader) listTables(session *sql.DB, filterFn func(name string) bool) (<
 			var tname string
 			err = tablesResult.Scan(&schema, &tname)
 			if err != nil {
-				log.With("db", r.db).Infoln("error scanning table name...")
+				log.With("db", db).Infoln("error scanning table name...")
 				continue
 			}
 			name := fmt.Sprintf("%s.%s", schema, tname)
 			if filterFn(name) && matchFunc(name) {
-				log.With("db", r.db).With("table", name).Infoln("sending for iteration...")
+				log.With("db", db).With("table", name).Infoln("sending for iteration...")
 				out <- name
 			} else {
-				log.With("db", r.db).With("table", name).Infoln("skipping iteration...")
+				log.With("db", db).With("table", name).Debugln("skipping iteration...")
 			}
 		}
-		log.With("db", r.db).Infoln("done iterating collections")
+		log.With("db", db).Infoln("done iterating collections")
 	}()
 	return out, nil
 }
@@ -100,7 +98,7 @@ type doc struct {
 	data  data.Data
 }
 
-func (r *Reader) iterateTable(session *sql.DB, in <-chan string, done chan struct{}) <-chan doc {
+func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done chan struct{}) <-chan doc {
 	out := make(chan doc)
 	go func() {
 		defer close(out)
@@ -110,7 +108,7 @@ func (r *Reader) iterateTable(session *sql.DB, in <-chan string, done chan struc
 				if !ok {
 					return
 				}
-				log.With("table", c).With("table", c).Infoln("iterating...")
+				log.With("db", db).With("table", c).With("table", c).Infoln("iterating...")
 				if strings.HasPrefix(c, "information_schema.") || strings.HasPrefix(c, "pg_catalog.") {
 					continue
 				}
@@ -124,7 +122,7 @@ func (r *Reader) iterateTable(session *sql.DB, in <-chan string, done chan struc
             ORDER BY c.ordinal_position;
             `, schemaTable[0], schemaTable[1]))
 				if err != nil {
-					log.With("table", c).Errorf("error getting columns %v", err)
+					log.With("db", db).With("table", c).Errorf("error getting columns %v", err)
 					continue
 				}
 				var columns [][]string
@@ -183,9 +181,9 @@ func (r *Reader) iterateTable(session *sql.DB, in <-chan string, done chan struc
 					}
 					out <- doc{table: c, data: docMap}
 				}
-				log.With("table", c).Infoln("iterating complete")
+				log.With("db", db).With("table", c).Infoln("iterating complete")
 			case <-done:
-				log.With("db", r.db).Infoln("iterating no more")
+				log.With("db", db).Infoln("iterating no more")
 				return
 			}
 		}

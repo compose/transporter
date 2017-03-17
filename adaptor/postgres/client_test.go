@@ -9,6 +9,7 @@ import (
 var (
 	defaultClient = &Client{
 		uri: DefaultURI,
+		db:  "postgres",
 	}
 
 	errBadClient = errors.New("bad client")

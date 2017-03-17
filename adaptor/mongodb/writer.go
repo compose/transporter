@@ -13,12 +13,11 @@ var _ client.Writer = &Writer{}
 
 // Writer implements client.Writer for use with MongoDB
 type Writer struct {
-	db       string
 	writeMap map[ops.Op]func(message.Msg, *mgo.Collection) error
 }
 
-func newWriter(db string) *Writer {
-	w := &Writer{db: db}
+func newWriter() *Writer {
+	w := &Writer{}
 	w.writeMap = map[ops.Op]func(message.Msg, *mgo.Collection) error{
 		ops.Insert: insertMsg,
 		ops.Update: updateMsg,
@@ -34,12 +33,12 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 			log.Infof("no function registered for operation, %s\n", msg.OP())
 			return msg, nil
 		}
-		return msg, writeFunc(msg, msgCollection(w.db, msg, s))
+		return msg, writeFunc(msg, msgCollection(msg, s))
 	}
 }
 
-func msgCollection(db string, msg message.Msg, s client.Session) *mgo.Collection {
-	return s.(*Session).mgoSession.DB(db).C(msg.Namespace())
+func msgCollection(msg message.Msg, s client.Session) *mgo.Collection {
+	return s.(*Session).mgoSession.DB("").C(msg.Namespace())
 }
 
 func insertMsg(msg message.Msg, c *mgo.Collection) error {

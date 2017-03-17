@@ -18,7 +18,7 @@ func TestRead(t *testing.T) {
 		t.Skip("skipping Read in short mode")
 	}
 
-	reader := newReader(readerTestData.DB)
+	reader := newReader()
 	readFunc := reader.Read(func(table string) bool {
 		if strings.HasPrefix(table, "information_schema.") || strings.HasPrefix(table, "pg_catalog.") {
 			return false
@@ -26,7 +26,16 @@ func TestRead(t *testing.T) {
 		return table == fmt.Sprintf("public.%s", readerTestData.Table)
 	})
 	done := make(chan struct{})
-	msgChan, err := readFunc(defaultSession, done)
+	c, err := NewClient(WithURI(fmt.Sprintf("postgres://127.0.0.1:5432/%s?sslmode=disable", readerTestData.DB)))
+	if err != nil {
+		t.Fatalf("unable to initialize connection to postgres, %s", err)
+	}
+	defer c.Close()
+	s, err := c.Connect()
+	if err != nil {
+		t.Fatalf("unable to obtain session to postgres, %s", err)
+	}
+	msgChan, err := readFunc(s, done)
 	if err != nil {
 		t.Fatalf("unexpected Read error, %s\n", err)
 	}
@@ -49,7 +58,7 @@ func TestReadComplex(t *testing.T) {
 		t.Skip("skipping Read in short mode")
 	}
 
-	reader := newReader(readerComplexTestData.DB)
+	reader := newReader()
 	readFunc := reader.Read(func(table string) bool {
 		if strings.HasPrefix(table, "information_schema.") || strings.HasPrefix(table, "pg_catalog.") {
 			return false
@@ -57,7 +66,16 @@ func TestReadComplex(t *testing.T) {
 		return table == fmt.Sprintf("public.%s", readerComplexTestData.Table)
 	})
 	done := make(chan struct{})
-	msgChan, err := readFunc(defaultSession, done)
+	c, err := NewClient(WithURI(fmt.Sprintf("postgres://127.0.0.1:5432/%s?sslmode=disable", readerComplexTestData.DB)))
+	if err != nil {
+		t.Fatalf("unable to initialize connection to postgres, %s", err)
+	}
+	defer c.Close()
+	s, err := c.Connect()
+	if err != nil {
+		t.Fatalf("unable to obtain session to postgres, %s", err)
+	}
+	msgChan, err := readFunc(s, done)
 	if err != nil {
 		t.Fatalf("unexpected Read error, %s\n", err)
 	}

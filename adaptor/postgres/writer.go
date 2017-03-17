@@ -16,12 +16,11 @@ var _ client.Writer = &Writer{}
 
 // Writer implements client.Writer for use with MongoDB
 type Writer struct {
-	db       string
 	writeMap map[ops.Op]func(message.Msg, *sql.DB) error
 }
 
-func newWriter(db string) *Writer {
-	w := &Writer{db: db}
+func newWriter() *Writer {
+	w := &Writer{}
 	w.writeMap = map[ops.Op]func(message.Msg, *sql.DB) error{
 		ops.Insert: insertMsg,
 		ops.Update: updateMsg,

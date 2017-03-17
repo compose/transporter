@@ -72,11 +72,10 @@ func (e *Elasticsearch) Reader() (client.Reader, error) {
 
 // Writer determines the which underlying writer to used based on the cluster's version.
 func (e *Elasticsearch) Writer(done chan struct{}, wg *sync.WaitGroup) (client.Writer, error) {
-	index, _, _ := adaptor.CompileNamespace(e.Namespace)
-	return setupWriter(index, e)
+	return setupWriter(e)
 }
 
-func setupWriter(index string, conf *Elasticsearch) (client.Writer, error) {
+func setupWriter(conf *Elasticsearch) (client.Writer, error) {
 	uri, err := url.Parse(conf.URI)
 	if err != nil {
 		return nil, client.InvalidURIError{URI: conf.URI, Err: err.Error()}
@@ -95,7 +94,7 @@ func setupWriter(index string, conf *Elasticsearch) (client.Writer, error) {
 
 	timeout, err := time.ParseDuration(conf.Timeout)
 	if err != nil {
-		log.Infof("failed to parse duration, %s, falling back to default timeout of 30s", conf.Timeout)
+		log.Debugf("failed to parse duration, %s, falling back to default timeout of 30s", conf.Timeout)
 		timeout = 30 * time.Second
 	}
 
@@ -114,7 +113,7 @@ func setupWriter(index string, conf *Elasticsearch) (client.Writer, error) {
 				URLs:       urls,
 				UserInfo:   uri.User,
 				HTTPClient: httpClient,
-				Index:      index,
+				Index:      uri.Path[1:],
 			}
 			versionedClient, _ := vc.Creator(opts)
 			return versionedClient, nil

@@ -3,14 +3,28 @@ package main
 import (
 	"os"
 	"reflect"
+	"regexp"
 	"testing"
+
+	"github.com/compose/transporter/pipeline"
 )
 
 func TestNewBuilder(t *testing.T) {
-	source := buildAdaptor("mongodb")(map[string]interface{}{"name": "source", "uri": "mongo://localhost:27017"})
-	transformer := buildAdaptor("transformer")(map[string]interface{}{"name": "trans", "filename": "pipeline.js"})
-	source.Add(transformer)
-	transformer.Add(buildAdaptor("elasticsearch")(map[string]interface{}{"name": "sink", "uri": "http://localhost:2900"}))
+	a := buildAdaptor("mongodb")(map[string]interface{}{"uri": "mongo://localhost:27017"})
+	source, err := pipeline.NewNode("source", a.name, "test./.*/", a.a, nil)
+	if err != nil {
+		t.Fatalf("unexpected error, %s\n", err)
+	}
+
+	a = buildAdaptor("elasticsearch")(map[string]interface{}{"uri": "http://localhost:9200"})
+	sink, err := pipeline.NewNode("sink", a.name, "test./.*/", a.a, source)
+	if err != nil {
+		t.Fatalf("unexpected error, %s\n", err)
+	}
+
+	transformer := buildFunction("transformer")(map[string]interface{}{"filename": "pipeline.js"})
+	sink.Transforms = []*pipeline.Transform{&pipeline.Transform{Name: "trans", Fn: transformer, NsFilter: regexp.MustCompile(".*")}}
+
 	expected := "Transporter:\n"
 	expected += source.String()
 
@@ -19,17 +33,27 @@ func TestNewBuilder(t *testing.T) {
 		t.Fatalf("unexpected error, %s", err)
 	}
 	actual := builder.String()
-	if reflect.DeepEqual(actual, expected) {
+	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("misconfigured transporter\nexpected:\n%s\ngot:\n%s", expected, actual)
 	}
 }
 
 func TestNewBuilderWithEnv(t *testing.T) {
 	os.Setenv("TEST_MONGO_URI", "mongo://localhost:27017")
-	source := buildAdaptor("mongodb")(map[string]interface{}{"name": "source", "uri": "mongo://localhost:27017"})
-	transformer := buildAdaptor("transformer")(map[string]interface{}{"name": "trans", "filename": "pipeline.js"})
-	source.Add(transformer)
-	transformer.Add(buildAdaptor("elasticsearch")(map[string]interface{}{"name": "sink", "uri": "http://localhost:2900"}))
+	a := buildAdaptor("mongodb")(map[string]interface{}{"uri": "mongo://localhost:27017"})
+	source, err := pipeline.NewNode("source", a.name, "test./.*/", a.a, nil)
+	if err != nil {
+		t.Fatalf("unexpected error, %s\n", err)
+	}
+	a = buildAdaptor("elasticsearch")(map[string]interface{}{"uri": "http://localhost:9200"})
+	sink, err := pipeline.NewNode("sink", a.name, "test./.*/", a.a, source)
+	if err != nil {
+		t.Fatalf("unexpected error, %s\n", err)
+	}
+
+	transformer := buildFunction("transformer")(map[string]interface{}{"filename": "pipeline.js"})
+	sink.Transforms = []*pipeline.Transform{&pipeline.Transform{Name: "trans", Fn: transformer, NsFilter: regexp.MustCompile(".*")}}
+
 	expected := "Transporter:\n"
 	expected += source.String()
 
@@ -38,8 +62,7 @@ func TestNewBuilderWithEnv(t *testing.T) {
 		t.Fatalf("unexpected error, %s", err)
 	}
 	actual := builder.String()
-	if reflect.DeepEqual(actual, expected) {
+	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("misconfigured transporter\nexpected:\n%s\ngot:\n%s", expected, actual)
 	}
-
 }

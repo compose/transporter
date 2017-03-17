@@ -1,16 +1,13 @@
 package pipeline
 
 import (
+	"regexp"
 	"testing"
 	"time"
 
 	"github.com/compose/transporter/adaptor"
 	_ "github.com/compose/transporter/adaptor/file"
-)
-
-var (
-	fakesourceCN = NewNode("source1", "source", adaptor.Config{"value": "rockettes", "namespace": "a./.*/"})
-	fileNode     = NewNode("localfile", "file", adaptor.Config{"uri": "file:///tmp/foo", "namespace": "a./.*/"})
+	"github.com/compose/transporter/pipe"
 )
 
 // a noop node adaptor to help test
@@ -42,28 +39,27 @@ func TestPipelineString(t *testing.T) {
 		out          string
 	}{
 		{
-			fakesourceCN,
-			nil,
-			" - Source:         source1                                  source          a./.*/                         ",
-		},
-		{
-			fakesourceCN,
-			fileNode,
-			" - Source:         source1                                  source          a./.*/                         \n  - Sink:          localfile                                file            a./.*/                         file:///tmp/foo",
+			&Node{Name: "source1", Type: "source", nsFilter: regexp.MustCompile(".*"), pipe: pipe.NewPipe(nil, "source1")},
+			&Node{Name: "localfile", Type: "file", nsFilter: regexp.MustCompile(".*")},
+			` - Source:         source1                                  source          .*                            
+  - Sink:          localfile                                file            .*                            `,
 		},
 	}
 
 	for _, v := range data {
 		if v.terminalNode != nil {
-			v.in.Add(v.terminalNode)
+			v.terminalNode.Parent = v.in
+			v.terminalNode.pipe = pipe.NewPipe(v.in.pipe, "localfile")
+			v.in.Children = []*Node{v.terminalNode}
 		}
 		p, err := NewDefaultPipeline(v.in, "", "", "", "test", 100*time.Millisecond)
 		if err != nil {
 			t.Errorf("can't create pipeline, got %s", err.Error())
 			t.FailNow()
 		}
-		if p.String() != v.out {
-			t.Errorf("\nexpected:\n%s\ngot:\n%s\n", v.out, p.String())
+		actual := p.String()
+		if actual != v.out {
+			t.Errorf("\nexpected:\n%v\ngot:\n%v\n", v.out, actual)
 		}
 	}
 }
