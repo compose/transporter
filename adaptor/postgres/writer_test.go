@@ -74,6 +74,83 @@ func TestInsert(t *testing.T) {
 }
 
 var (
+	writerComplexTestData = &TestData{"writer_complex_insert_test", "complex_test_table", complexSchema, 0}
+)
+
+func TestComplexInsert(t *testing.T) {
+	w := newWriter(writerComplexTestData.DB)
+	for i := 0; i < 10; i++ {
+		msg := message.From(ops.Insert, fmt.Sprintf("public.%s", writerComplexTestData.Table), data.Data{
+			"id":                 i,
+			"colvar":             randomHeros[i],
+			"coltimestamp":       time.Now().UTC(),
+			"colarrayint":        []interface{}{1, 2, 3, 4},
+			"colarraystring":     "{\"one\", \"two\", \"three\", \"four\"}",
+			"colbigint":          int64(4000001240125),
+			"colbit":             "1",
+			"colboolean":         false,
+			"colbox":             "(10,10),(20,20)",
+			"colbytea":           "\\xDEADBEEF",
+			"colcharacter":       "a",
+			"colcidr":            "10.0.1.0/28",
+			"colcircle":          "<(5,10),3>",
+			"coldate":            time.Now().UTC(),
+			"coldoubleprecision": 0.314259892323,
+			"colenum":            "sad",
+			"colinet":            "10.0.1.0",
+			"colinteger":         int64(3),
+			"coljson":            map[string]interface{}{"name": "batman"},
+			"colarrayjson":       []map[string]interface{}{map[string]interface{}{"name": "batman"}, map[string]interface{}{"name": "robin"}},
+			"coljsonb":           map[string]interface{}{"name": "batman"},
+			"colline":            "{1, 1, 3}",
+			"collseg":            "((10,10),(25,25))",
+			"colmacaddr":         "08:00:2b:01:02:03",
+			"colmoney":           "35.68",
+			"colnumeric":         0.23509838,
+			"colpath":            "[(10,10),(20,20),(20,10),(15,15)]",
+			"colpg_lsn":          "0/3000000",
+			"colpoint":           "(15,15)",
+			"colpolygon":         "((10,10),(11, 11),(11,0),(5,5))",
+			"colreal":            7,
+			"colsmallint":        3,
+			"coltext":            "this is \n extremely important",
+			"coltime":            "13:45",
+			"coltsquery":         "'fat':AB & 'cat'",
+			"coltsvector":        "a fat cat sat on a mat and ate a fat rat",
+			"coluuid":            "f0a0da24-4068-4be4-961d-7c295117ccca",
+			"colxml":             "<person><name>Batman</name></person>",
+		})
+		if err := w.Write(msg)(defaultSession); err != nil {
+			t.Errorf("unexpected Insert error, %s\n", err)
+		}
+	}
+	var (
+		id          int
+		stringValue string
+		timeValue   time.Time
+	)
+	if err := defaultSession.pqSession.
+		QueryRow(fmt.Sprintf("SELECT id, colvar, coltimestamp FROM %s WHERE id = 4", writerComplexTestData.Table)).
+		Scan(&id, &stringValue, &timeValue); err != nil {
+		t.Fatalf("Error on test query: %v", err)
+	}
+	if id != 4 || stringValue != randomHeros[4] || timeValue.Before(time.Now().Add(-30*time.Second).UTC()) {
+		t.Fatalf("Values were not what they were expected to be: %v, %v, %v", id, stringValue, timeValue)
+	}
+
+	var count int
+	err := defaultSession.pqSession.
+		QueryRow(fmt.Sprintf("SELECT COUNT(id) FROM %s;", writerComplexTestData.Table)).
+		Scan(&count)
+	if err != nil {
+		t.Errorf("unable to count table, %s", err)
+	}
+	if count != 10 {
+		t.Errorf("wrong document count, expected 10, got %d", count)
+	}
+}
+
+var (
 	writerUpdateTestData = &TestData{"writer_update_test", "update_test_table", basicSchema, 0}
 )
 
@@ -148,6 +225,7 @@ func TestComplexUpdate(t *testing.T) {
 		"colinet":            "10.0.1.0",
 		"colinteger":         int64(3),
 		"coljson":            map[string]interface{}{"name": "batman"},
+		"colarrayjson":       []map[string]interface{}{map[string]interface{}{"name": "batman"}, map[string]interface{}{"name": "robin"}},
 		"coljsonb":           map[string]interface{}{"name": "batman"},
 		"colline":            "{1, 1, 3}",
 		"collseg":            "((10,10),(25,25))",

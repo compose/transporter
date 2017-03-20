@@ -35,6 +35,7 @@ const (
   colinteger integer,
   colinterval interval,
   coljson json,
+  colarrayjson json,
   coljsonb jsonb,
   colline line,
   collseg lseg,
@@ -70,6 +71,7 @@ var (
 		readerComplexTestData,
 		tailerTestData,
 		writerTestData,
+		writerComplexTestData,
 		writerUpdateTestData,
 		writerDeleteTestData,
 		writerComplexUpdateTestData,
@@ -148,6 +150,7 @@ func setupData(data *TestData) {
 							3,                   -- colinteger integer,
 							DEFAULT,             -- autoset colinterval interval,
 							'{"name": "batman"}',  -- coljson json,
+							'[{"name": "batman"},{"name":"robin"}]',  -- colarrayjson json,
 							'{"name": "alfred"}',  -- coljsonb jsonb,
 							'{1, 1, 3}',         -- colline line,
 							'[(10,10),(25,25)]', -- collseg lseg,
@@ -173,6 +176,7 @@ func setupData(data *TestData) {
 			`, data.Table, i, randomHeros[i%len(randomHeros)])); err != nil {
 				log.Errorf("unexpected Insert error, %s\n", err)
 			}
+			// '[{"name": "batman"}, {"name": "robin"}]',  -- arraycoljson json,
 		} else if data.Schema == basicSchema {
 			if _, err := defaultSession.pqSession.Exec(fmt.Sprintf(`INSERT INTO %s VALUES (
 			  %d,            -- id

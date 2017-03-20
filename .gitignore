@@ -2,3 +2,4 @@
 .vagrant
 /transporter.yaml
 /pipeline.js
+.vscode
