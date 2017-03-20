@@ -18,6 +18,13 @@ Transporter no longer requires a YAML file. All configuration is in the JS file 
 
 ### Bugfixes
 
+## v0.2.2 [2017-03-20]
+
+### Features
+
+### Bugfixes
+- attempted fix for mejson.S conversion to json column in postgres adaptor [#314](https://github.com/compose/transporter/issues/314)
+
 ## v0.2.1 [2017-03-07]
 
 ### Features
