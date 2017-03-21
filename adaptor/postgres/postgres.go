@@ -47,17 +47,14 @@ func (p *Postgres) Client() (client.Client, error) {
 }
 
 func (p *Postgres) Reader() (client.Reader, error) {
-	db, _, err := adaptor.CompileNamespace(p.Namespace)
 	if p.Tail {
-		return newTailer(db, p.ReplicationSlot), err
+		return newTailer(p.ReplicationSlot), nil
 	}
-	return newReader(db), err
+	return newReader(), nil
 }
 
 func (p *Postgres) Writer(done chan struct{}, wg *sync.WaitGroup) (client.Writer, error) {
-	// TODO: pull db from the URI
-	db, _, err := adaptor.CompileNamespace(p.Namespace)
-	return newWriter(db), err
+	return newWriter(), nil
 }
 
 // Description for postgres adaptor

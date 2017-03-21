@@ -13,8 +13,10 @@ import (
 
 	"github.com/compose/transporter/adaptor"
 	"github.com/compose/transporter/client"
+	"github.com/compose/transporter/function"
 	"github.com/compose/transporter/log"
 	"github.com/compose/transporter/message"
+	"github.com/compose/transporter/message/ops"
 	"github.com/compose/transporter/pipe"
 )
 
@@ -33,60 +35,85 @@ var (
 // 	source.Add(sink2)
 //
 type Node struct {
-	Name     string         `json:"name"`     // the name of this node
-	Type     string         `json:"type"`     // the node's type, used to create the adaptorementation
-	Extra    adaptor.Config `json:"extra"`    // extra config options that are passed to the adaptorementation
-	Children []*Node        `json:"children"` // the nodes are set up as a tree, this is an array of this nodes children
-	Parent   *Node          `json:"parent"`   // this node's parent node, if this is nil, this is a 'source' node
+	Name       string  `json:"name"`     // the name of this node
+	Type       string  `json:"type"`     // the node's type, used to create the adaptorementation
+	Children   []*Node `json:"children"` // the nodes are set up as a tree, this is an array of this nodes children
+	Parent     *Node   `json:"parent"`   // this node's parent node, if this is nil, this is a 'source' node
+	Transforms []*Transform
 
 	nsFilter *regexp.Regexp
 	c        client.Client
-	r        client.Reader
-	w        client.Writer
+	reader   client.Reader
+	writer   client.Writer
 	done     chan struct{}
 	wg       sync.WaitGroup
 	l        log.Logger
 	pipe     *pipe.Pipe
 }
 
+type Transform struct {
+	Name     string
+	Fn       function.Function
+	NsFilter *regexp.Regexp
+}
+
 // NewNode creates a new Node struct
-func NewNode(name, kind string, extra adaptor.Config) *Node {
-	return &Node{
-		Name:     name,
-		Type:     kind,
-		Extra:    extra,
-		Children: make([]*Node, 0),
-		done:     make(chan struct{}),
+func NewNode(name, kind, ns string, a adaptor.Adaptor, parent *Node) (*Node, error) {
+	_, nsFilter, err := adaptor.CompileNamespace(ns)
+	if err != nil {
+		return nil, err
 	}
+	n := &Node{
+		Name:       name,
+		Type:       kind,
+		nsFilter:   nsFilter,
+		Children:   make([]*Node, 0),
+		Transforms: make([]*Transform, 0),
+		done:       make(chan struct{}),
+	}
+
+	n.c, err = a.Client()
+	if err != nil {
+		return nil, err
+	}
+
+	if parent == nil {
+		// TODO: remove path param
+		n.pipe = pipe.NewPipe(nil, "")
+		n.reader, err = a.Reader()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		n.Parent = parent
+		// TODO: remove path param
+		n.pipe = pipe.NewPipe(parent.pipe, "")
+		parent.Children = append(parent.Children, n)
+		n.writer, err = a.Writer(n.done, &n.wg)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return n, nil
 }
 
 // String
 func (n *Node) String() string {
 	var (
-		uri       string
-		s         string
-		prefix    string
-		namespace = n.Extra.GetString("namespace")
+		s, prefix string
 		depth     = n.depth()
 	)
-	if n.Type == transformerNode {
-		uri = n.Extra.GetString("filename")
-	} else {
-		uri = n.Extra.GetString("uri")
-	}
 
 	prefixformatter := fmt.Sprintf("%%%ds%%-%ds", depth, 18-depth)
 
 	if n.Parent == nil { // root node
-		// s = fmt.Sprintf("%18s %-40s %-15s %-30s %s\n", " ", "Name", "Type", "Namespace", "URI")
 		prefix = fmt.Sprintf(prefixformatter, " ", "- Source: ")
-	} else if len(n.Children) == 0 {
+	} else {
 		prefix = fmt.Sprintf(prefixformatter, " ", "- Sink: ")
-	} else if n.Type == transformerNode {
-		prefix = fmt.Sprintf(prefixformatter, " ", "- Transformer: ")
 	}
 
-	s += fmt.Sprintf("%-18s %-40s %-15s %-30s %s", prefix, n.Name, n.Type, namespace, uri)
+	s += fmt.Sprintf("%s %-40s %-15s %-30s", prefix, n.Name, n.Type, n.nsFilter.String())
 
 	for _, child := range n.Children {
 		s += "\n" + child.String()
@@ -117,58 +144,14 @@ func (n *Node) Path() string {
 	return n.Parent.Path() + "/" + n.Name
 }
 
-// Add the given node as a child of this node.
-// This has side effects, and sets the parent of the given node
-func (n *Node) Add(node *Node) *Node {
-	node.Parent = n
-	n.Children = append(n.Children, node)
-	return n
-}
-
-// Init sets up the node for action.  It creates a pipe and adaptor for this node,
-// and then recurses down the tree calling Init on each child
-func (n *Node) Init() (err error) {
-	path := n.Path()
-
-	n.l = log.With("name", n.Name).With("type", n.Type).With("path", path)
-
-	_, nsFilter, err := adaptor.CompileNamespace(n.Extra.GetString("namespace"))
+// AddTransform adds the provided function.Function to the Node and will be called
+// before sending any messages down the pipeline.
+func (n *Node) AddTransform(name string, f function.Function, ns string) error {
+	_, nsFilter, err := adaptor.CompileNamespace(ns)
 	if err != nil {
 		return err
 	}
-	n.nsFilter = nsFilter
-
-	a, err := adaptor.GetAdaptor(n.Type, n.Extra)
-	if err != nil {
-		return err
-	}
-
-	n.c, err = a.Client()
-	if err != nil {
-		return err
-	}
-
-	if n.Parent == nil { // we don't have a parent, we're the source
-		n.pipe = pipe.NewPipe(nil, path)
-		n.r, err = a.Reader()
-		if err != nil {
-			return err
-		}
-	} else { // we have a parent, so pass in the parent's pipe here
-		n.pipe = pipe.NewPipe(n.Parent.pipe, path)
-		n.w, err = a.Writer(n.done, &n.wg)
-		if err != nil {
-			return err
-		}
-	}
-
-	for _, child := range n.Children {
-		err = child.Init() // init each child
-		if err != nil {
-			return err
-		}
-	}
-
+	n.Transforms = append(n.Transforms, &Transform{name, f, nsFilter})
 	return nil
 }
 
@@ -177,6 +160,9 @@ func (n *Node) Init() (err error) {
 // and will emit messages to it's children,
 // All descendant nodes run Listen() on the adaptor
 func (n *Node) Start() error {
+	path := n.Path()
+	n.l = log.With("name", n.Name).With("type", n.Type).With("path", path)
+
 	for _, child := range n.Children {
 		go func(node *Node) {
 			node.Start()
@@ -205,7 +191,7 @@ func (n *Node) start() (err error) {
 			n.l.Infoln("session closed...")
 		}()
 	}
-	readFunc := n.r.Read(func(check string) bool { return n.nsFilter.MatchString(check) })
+	readFunc := n.reader.Read(func(check string) bool { return n.nsFilter.MatchString(check) })
 	msgChan, err := readFunc(s, n.done)
 	if err != nil {
 		return err
@@ -226,6 +212,12 @@ func (n *Node) listen() (err error) {
 }
 
 func (n *Node) write(msg message.Msg) (message.Msg, error) {
+	transformedMsg, err := n.applyTransforms(msg)
+	if err != nil {
+		return msg, nil
+	} else if transformedMsg == nil {
+		return nil, nil
+	}
 	sess, err := n.c.Connect()
 	if err != nil {
 		return msg, err
@@ -235,8 +227,7 @@ func (n *Node) write(msg message.Msg) (message.Msg, error) {
 			s.Close()
 		}
 	}()
-	msg, err = n.w.Write(message.From(msg.OP(), msg.Namespace(), msg.Data()))(sess)
-
+	returnMsg, err := n.writer.Write(transformedMsg)(sess)
 	if err != nil {
 		n.pipe.Err <- adaptor.Error{
 			Lvl:    adaptor.ERROR,
@@ -245,7 +236,32 @@ func (n *Node) write(msg message.Msg) (message.Msg, error) {
 			Record: msg.Data,
 		}
 	}
-	return msg, err
+	return returnMsg, err
+}
+
+func (n *Node) applyTransforms(msg message.Msg) (message.Msg, error) {
+	if msg.OP() != ops.Command {
+		for _, transform := range n.Transforms {
+			if !transform.NsFilter.MatchString(msg.Namespace()) {
+				n.l.With("transform", transform.Name).With("ns", msg.Namespace()).Infoln("filtered message")
+				continue
+			}
+			m, err := transform.Fn.Apply(msg)
+			if err != nil {
+				n.l.Errorf("transform function error, %s", err)
+				return nil, err
+			} else if m == nil {
+				n.l.With("transform", transform.Name).Infoln("returned nil message, skipping")
+				return nil, nil
+			}
+			msg = m
+			if msg.OP() == ops.Skip {
+				n.l.With("transform", transform.Name).With("op", msg.OP()).Infoln("skipping message")
+				return nil, nil
+			}
+		}
+	}
+	return msg, nil
 }
 
 // Stop this node's adaptor, and sends a stop to each child of this node
@@ -263,7 +279,7 @@ func (n *Node) stop() error {
 	close(n.done)
 	n.wg.Wait()
 
-	if closer, ok := n.w.(client.Closer); ok {
+	if closer, ok := n.writer.(client.Closer); ok {
 		defer func() {
 			n.l.Infoln("closing writer...")
 			closer.Close()
@@ -288,10 +304,6 @@ func (n *Node) stop() error {
 // in the adaptor package, it can't validate any custom adaptors
 func (n *Node) Validate() bool {
 	if n.Parent == nil && len(n.Children) == 0 { // the root node should have children
-		return false
-	}
-
-	if n.Type == transformerNode && len(n.Children) == 0 { // transformers need children
 		return false
 	}
 

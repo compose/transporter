@@ -1,0 +1,1 @@
+function transform(doc) { doc['data']['added'] = {"name":"batman","villain":"joker"}; return doc }

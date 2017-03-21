@@ -14,6 +14,7 @@ Transporter no longer requires a YAML file. All configuration is in the JS file 
 - NEW RabbitMQ adaptor [#298](https://github.com/compose/transporter/pull/298)
 - MongoDB adaptor supports per collection query filter when needing to copy only a subset of data [#301](https://github.com/compose/transporter/pull/301)
 - [goja](https://github.com/dop251/goja) added as an option for the JavaScript VM in transformers [#294](https://github.com/compose/transporter/pull/294)
+- NEW [native functions](https://github.com/compose/transporter#native-functions)
 
 ### Bugfixes
 

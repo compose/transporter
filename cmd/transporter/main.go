@@ -8,6 +8,7 @@ import (
 	"text/tabwriter"
 
 	_ "github.com/compose/transporter/adaptor/all"
+	_ "github.com/compose/transporter/function/all"
 	"github.com/compose/transporter/log"
 )
 

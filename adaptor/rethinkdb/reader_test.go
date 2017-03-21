@@ -1,6 +1,7 @@
 package rethinkdb
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -19,10 +20,19 @@ func TestRead(t *testing.T) {
 		t.Skip("skipping Read in short mode")
 	}
 
-	reader := newReader(readerTestData.DB, false)
+	reader := newReader(false)
 	readFunc := reader.Read(func(c string) bool { return true })
 	done := make(chan struct{})
-	msgChan, err := readFunc(defaultSession, done)
+	c, err := NewClient(WithURI(fmt.Sprintf("rethinkdb://127.0.0.1:28015/%s", readerTestData.DB)))
+	if err != nil {
+		t.Fatalf("unable to initialize connection to rethinkdb, %s", err)
+	}
+	defer c.Close()
+	s, err := c.Connect()
+	if err != nil {
+		t.Fatalf("unable to obtain session to rethinkdb, %s", err)
+	}
+	msgChan, err := readFunc(s, done)
 	if err != nil {
 		t.Fatalf("unexpected Read error, %s\n", err)
 	}
@@ -95,7 +105,7 @@ func TestTail(t *testing.T) {
 		t.Fatalf("unexpected insertMockTailData error, %s\n", err)
 	}
 
-	tail := newReader(tailTestData.DB, true)
+	tail := newReader(true)
 
 	time.Sleep(1 * time.Second)
 	tailFunc := tail.Read(func(c string) bool {
@@ -105,7 +115,16 @@ func TestTail(t *testing.T) {
 		return true
 	})
 	done := make(chan struct{})
-	msgChan, err := tailFunc(defaultSession, done)
+	c, err := NewClient(WithURI(fmt.Sprintf("rethinkdb://127.0.0.1:28015/%s", tailTestData.DB)))
+	if err != nil {
+		t.Fatalf("unable to initialize connection to rethinkdb, %s", err)
+	}
+	defer c.Close()
+	s, err := c.Connect()
+	if err != nil {
+		t.Fatalf("unable to obtain session to rethinkdb, %s", err)
+	}
+	msgChan, err := tailFunc(s, done)
 	if err != nil {
 		t.Fatalf("unexpected Tail error, %s\n", err)
 	}

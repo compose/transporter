@@ -38,7 +38,7 @@ var (
 	authURI  = func() string {
 		uri, _ := url.Parse(authedServer.URL)
 		uri.User = url.UserPassword(testUser, testPwd)
-		return uri.String()
+		return fmt.Sprintf("%s/test", uri.String())
 	}
 )
 var authedServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -73,48 +73,48 @@ var clientTests = []struct {
 }{
 	{
 		"base config",
-		adaptor.Config{"uri": goodVersionServer.URL, "namespace": "test.test"},
+		adaptor.Config{"uri": fmt.Sprintf("%s/test", goodVersionServer.URL)},
 		nil,
 	},
 	{
 		"timeout config",
-		adaptor.Config{"uri": goodVersionServer.URL, "namespace": "test.test", "timeout": "60s"},
+		adaptor.Config{"uri": fmt.Sprintf("%s/test", goodVersionServer.URL), "timeout": "60s"},
 		nil,
 	},
 	{
 		"authed URI",
-		adaptor.Config{"uri": authURI(), "namespace": "test.test"},
+		adaptor.Config{"uri": authURI()},
 		nil,
 	},
 	{
 		"bad URI",
-		adaptor.Config{"uri": "%gh&%ij", "namespace": "test.test"},
+		adaptor.Config{"uri": "%gh&%ij"},
 		client.InvalidURIError{URI: "%gh&%ij", Err: `parse %gh&%ij: invalid URL escape "%gh"`},
 	},
 	{
 		"no connection",
-		adaptor.Config{"uri": "http://localhost:7200", "namespace": "test.test"},
+		adaptor.Config{"uri": "http://localhost:7200/test"},
 		client.ConnectError{Reason: "http://localhost:7200"},
 	},
 	{
 		"empty body",
-		adaptor.Config{"uri": emptyBodyServer.URL, "namespace": "test.test"},
+		adaptor.Config{"uri": fmt.Sprintf("%s/test", emptyBodyServer.URL)},
 		client.VersionError{URI: emptyBodyServer.URL, V: "", Err: "missing version: {}"},
 	},
 	{
 		"malformed JSON",
-		adaptor.Config{"uri": badJSONServer.URL, "namespace": "test.test"},
+		adaptor.Config{"uri": fmt.Sprintf("%s/test", badJSONServer.URL)},
 		client.VersionError{URI: badJSONServer.URL, V: "", Err: "malformed JSON: Hello, client"},
 	},
 	{
 		"bad version",
-		adaptor.Config{"uri": badVersionServer.URL, "namespace": "test.test"},
-		client.VersionError{URI: badVersionServer.URL, V: "not a version", Err: "Malformed version: not a version"},
+		adaptor.Config{"uri": fmt.Sprintf("%s/test", badVersionServer.URL)},
+		client.VersionError{URI: fmt.Sprintf("%s/test", badVersionServer.URL), V: "not a version", Err: "Malformed version: not a version"},
 	},
 	{
 		"unsupported version",
-		adaptor.Config{"uri": unsupportedVersionServer.URL, "namespace": "test.test"},
-		client.VersionError{URI: unsupportedVersionServer.URL, V: "0.9.2", Err: "unsupported client"},
+		adaptor.Config{"uri": fmt.Sprintf("%s/test", unsupportedVersionServer.URL)},
+		client.VersionError{URI: fmt.Sprintf("%s/test", unsupportedVersionServer.URL), V: "0.9.2", Err: "unsupported client"},
 	},
 }
 

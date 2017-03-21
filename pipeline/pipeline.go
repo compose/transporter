@@ -66,12 +66,6 @@ func NewPipeline(version string, source *Node, emit events.EmitFunc, interval ti
 		pipeline.sessionTicker = time.NewTicker(sessionInterval)
 	}
 
-	// init the pipeline
-	err := pipeline.source.Init()
-	if err != nil {
-		return pipeline, err
-	}
-
 	// init the emitter with the right chan
 	pipeline.emitter = events.NewEmitter(source.pipe.Event, emit)
 

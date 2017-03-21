@@ -12,7 +12,6 @@ import (
 var (
 	defaultTestClient = &Client{
 		uri:            DefaultURI,
-		db:             DefaultDatabase,
 		sessionTimeout: DefaultTimeout,
 	}
 	defaultSession *Session

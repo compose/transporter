@@ -1,0 +1,1 @@
+function transform(doc) { delete doc['data']['name']; return doc }

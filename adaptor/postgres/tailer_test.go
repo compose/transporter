@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
 	"sync"
@@ -10,15 +11,15 @@ import (
 	"github.com/compose/transporter/message"
 )
 
-func addTestReplicationSlot() error {
-	_, err := defaultSession.pqSession.Exec(`
+func addTestReplicationSlot(s *sql.DB) error {
+	_, err := s.Exec(`
     SELECT * FROM pg_create_logical_replication_slot('test_slot', 'test_decoding');
   `)
 	return err
 }
 
-func dropTestReplicationSlot() error {
-	_, err := defaultSession.pqSession.Exec(`
+func dropTestReplicationSlot(s *sql.DB) error {
+	_, err := s.Exec(`
     SELECT * FROM pg_drop_replication_slot('test_slot');
   `)
 	return err
@@ -32,13 +33,23 @@ func TestTailer(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping Tailer in short mode")
 	}
-	dropTestReplicationSlot()
-	if err := addTestReplicationSlot(); err != nil {
+	c, err := NewClient(WithURI(fmt.Sprintf("postgres://127.0.0.1:5432/%s?sslmode=disable", tailerTestData.DB)))
+	if err != nil {
+		t.Fatalf("unable to initialize connection to postgres, %s", err)
+	}
+	defer c.Close()
+	s, err := c.Connect()
+	if err != nil {
+		t.Fatalf("unable to obtain session to postgres, %s", err)
+	}
+
+	dropTestReplicationSlot(s.(*Session).pqSession)
+	if err := addTestReplicationSlot(s.(*Session).pqSession); err != nil {
 		t.Fatalf("unable to create replication slot, %s", err)
 	}
 	time.Sleep(1 * time.Second)
 
-	r := newTailer(tailerTestData.DB, "test_slot")
+	r := newTailer("test_slot")
 	readFunc := r.Read(func(table string) bool {
 		if strings.HasPrefix(table, "information_schema.") || strings.HasPrefix(table, "pg_catalog.") {
 			return false
@@ -46,14 +57,14 @@ func TestTailer(t *testing.T) {
 		return table == fmt.Sprintf("public.%s", tailerTestData.Table)
 	})
 	done := make(chan struct{})
-	msgChan, err := readFunc(defaultSession, done)
+	msgChan, err := readFunc(s, done)
 	if err != nil {
 		t.Fatalf("unexpected Read error, %s\n", err)
 	}
 	checkCount("initial drain", tailerTestData.InsertCount, msgChan, t)
 
 	for i := 10; i < 20; i++ {
-		defaultSession.pqSession.Exec(fmt.Sprintf(`INSERT INTO %s VALUES (
+		s.(*Session).pqSession.Exec(fmt.Sprintf(`INSERT INTO %s VALUES (
       %d,            -- id
       '%s',          -- colvar VARCHAR(255),
       now() at time zone 'utc' -- coltimestamp TIMESTAMP,
@@ -62,12 +73,12 @@ func TestTailer(t *testing.T) {
 	checkCount("tailed data", 10, msgChan, t)
 
 	for i := 10; i < 20; i++ {
-		defaultSession.pqSession.Exec(fmt.Sprintf("UPDATE %s SET colvar = 'hello' WHERE id = %d;", tailerTestData.Table, i))
+		s.(*Session).pqSession.Exec(fmt.Sprintf("UPDATE %s SET colvar = 'hello' WHERE id = %d;", tailerTestData.Table, i))
 	}
 	checkCount("updated data", 10, msgChan, t)
 
 	for i := 10; i < 20; i++ {
-		defaultSession.pqSession.Exec(fmt.Sprintf(`DELETE FROM %v WHERE id = %d; `, tailerTestData.Table, i))
+		s.(*Session).pqSession.Exec(fmt.Sprintf(`DELETE FROM %v WHERE id = %d; `, tailerTestData.Table, i))
 	}
 
 	checkCount("deleted data", 10, msgChan, t)

@@ -13,6 +13,7 @@ import (
 
 	"github.com/compose/transporter/adaptor"
 	"github.com/compose/transporter/events"
+	"github.com/compose/transporter/function"
 	"github.com/compose/transporter/pipeline"
 	"github.com/dop251/goja"
 	uuid "github.com/nu7hatch/gouuid"
@@ -26,6 +27,9 @@ func NewBuilder(file string) (*Transporter, error) {
 	t.vm.Set("t", t.vm.Get("transporter"))
 	for _, name := range adaptor.RegisteredAdaptors() {
 		t.vm.Set(name, buildAdaptor(name))
+	}
+	for _, name := range function.RegisteredFunctions() {
+		t.vm.Set(name, buildFunction(name))
 	}
 
 	ba, err := ioutil.ReadFile(file)
@@ -63,7 +67,22 @@ type Transporter struct {
 	vm *goja.Runtime
 
 	sourceNode *pipeline.Node
-	lastNode   *pipeline.Node
+}
+
+type Node struct {
+	vm     *goja.Runtime
+	parent *pipeline.Node
+}
+
+type Transformer struct {
+	vm         *goja.Runtime
+	source     *pipeline.Node
+	transforms []*pipeline.Transform
+}
+
+type Adaptor struct {
+	name string
+	a    adaptor.Adaptor
 }
 
 func (t *Transporter) Run() error {
@@ -108,51 +127,111 @@ func (t *Transporter) String() string {
 	return out
 }
 
-func buildAdaptor(name string) func(map[string]interface{}) *pipeline.Node {
-	return func(args map[string]interface{}) *pipeline.Node {
-		uuid, _ := uuid.NewV4()
-		nodeName := uuid.String()
-		if name, ok := args["name"]; ok {
-			nodeName = name.(string)
-			delete(args, "name")
+func buildAdaptor(name string) func(map[string]interface{}) Adaptor {
+	return func(args map[string]interface{}) Adaptor {
+		a, err := adaptor.GetAdaptor(name, args)
+		if err != nil {
+			panic(err)
 		}
-		if _, ok := args["namespace"]; !ok {
-			args["namespace"] = "test./.*/"
+		return Adaptor{name, a}
+	}
+}
+
+func buildFunction(name string) func(map[string]interface{}) function.Function {
+	return func(args map[string]interface{}) function.Function {
+		f, err := function.GetFunction(name, args)
+		if err != nil {
+			panic(err)
 		}
-		return pipeline.NewNode(nodeName, name, args)
+		return f
 	}
 }
 
 func (t *Transporter) Source(call goja.FunctionCall) goja.Value {
-	args := exportArgs(call.Arguments)
-	t.sourceNode = args[0].(*pipeline.Node)
-	t.lastNode = t.sourceNode
-	return t.vm.ToValue(t)
+	name, out, namespace := exportArgs(call.Arguments)
+	a := out.(Adaptor)
+	n, err := pipeline.NewNode(name, a.name, namespace, a.a, nil)
+	if err != nil {
+		panic(err)
+	}
+	t.sourceNode = n
+	return t.vm.ToValue(&Node{t.vm, n})
 }
 
-func (t *Transporter) Transform(call goja.FunctionCall) goja.Value {
-	args := exportArgs(call.Arguments)
-	node := args[0].(*pipeline.Node)
-	t.lastNode.Add(node)
-	t.lastNode = node
-	return t.vm.ToValue(t)
+func (n *Node) Transform(call goja.FunctionCall) goja.Value {
+	name, f, ns := exportArgs(call.Arguments)
+	_, nsFilter, err := adaptor.CompileNamespace(ns)
+	if err != nil {
+		panic(err)
+	}
+	tf := &Transformer{
+		vm:         n.vm,
+		source:     n.parent,
+		transforms: make([]*pipeline.Transform, 0),
+	}
+	tf.transforms = append(tf.transforms, &pipeline.Transform{Name: name, Fn: f.(function.Function), NsFilter: nsFilter})
+	return n.vm.ToValue(tf)
 }
 
-func (t *Transporter) Save(call goja.FunctionCall) goja.Value {
-	args := exportArgs(call.Arguments)
-	node := args[0].(*pipeline.Node)
-	t.lastNode.Add(node)
-	t.lastNode = node
-	return t.vm.ToValue(t)
+func (tf *Transformer) Transform(call goja.FunctionCall) goja.Value {
+	name, f, ns := exportArgs(call.Arguments)
+	_, nsFilter, err := adaptor.CompileNamespace(ns)
+	if err != nil {
+		panic(err)
+	}
+	t := &pipeline.Transform{Name: name, Fn: f.(function.Function), NsFilter: nsFilter}
+	tf.transforms = append(tf.transforms, t)
+	return tf.vm.ToValue(tf)
 }
 
-func exportArgs(args []goja.Value) []interface{} {
+func (n *Node) Save(call goja.FunctionCall) goja.Value {
+	name, out, namespace := exportArgs(call.Arguments)
+	a := out.(Adaptor)
+	child, err := pipeline.NewNode(name, a.name, namespace, a.a, n.parent)
+	if err != nil {
+		panic(err)
+	}
+	return n.vm.ToValue(&Node{n.vm, child})
+}
+
+func (tf *Transformer) Save(call goja.FunctionCall) goja.Value {
+	name, out, namespace := exportArgs(call.Arguments)
+	a := out.(Adaptor)
+	child, err := pipeline.NewNode(name, a.name, namespace, a.a, tf.source)
+	if err != nil {
+		panic(err)
+	}
+	child.Transforms = tf.transforms
+	return tf.vm.ToValue(&Node{tf.vm, child})
+}
+
+// arguments can be any of the following forms:
+// ("name", Adaptor/Function, "namespace")
+// ("name", Adaptor/Function)
+// (Adaptor/Function, "namespace")
+// (Adaptor/Function)
+// the only *required* argument is a Adaptor or Function
+func exportArgs(args []goja.Value) (string, interface{}, string) {
 	if len(args) == 0 {
-		return nil
+		panic("at least 1 argument required")
 	}
-	out := make([]interface{}, 0, len(args))
-	for _, a := range args {
-		out = append(out, a.Export())
+	uuid, _ := uuid.NewV4()
+	var (
+		name      = uuid.String()
+		namespace = "test./.*/"
+		a         interface{}
+	)
+	if n, ok := args[0].Export().(string); ok {
+		name = n
+		a = args[1].Export()
+		if len(args) == 3 {
+			namespace = args[2].Export().(string)
+		}
+	} else {
+		a = args[0].Export()
+		if len(args) == 2 {
+			namespace = args[1].Export().(string)
+		}
 	}
-	return out
+	return name, a, namespace
 }

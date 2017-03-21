@@ -40,7 +40,6 @@ yuGnBXj8ytqU0CwIPX4WecigUCAkVDNx
 var (
 	defaultClient = &Client{
 		uri:            DefaultURI,
-		db:             DefaultDatabase,
 		sessionTimeout: DefaultTimeout,
 		tlsConfig:      nil,
 	}
@@ -66,30 +65,9 @@ var clientTests = []struct {
 	},
 	{
 		"with_url_fake",
-		[]ClientOptionFunc{WithURI("rethinkdb://fakeurl:28015")},
+		[]ClientOptionFunc{WithURI("rethinkdb://fakeurl:28015/test")},
 		&Client{
-			uri:            "rethinkdb://fakeurl:28015",
-			db:             DefaultDatabase,
-			sessionTimeout: DefaultTimeout,
-		},
-		nil,
-	},
-	{
-		"with_database",
-		[]ClientOptionFunc{WithDatabase("not_the_default")},
-		&Client{
-			uri:            DefaultURI,
-			db:             "not_the_default",
-			sessionTimeout: DefaultTimeout,
-		},
-		nil,
-	},
-	{
-		"with_database_empty",
-		[]ClientOptionFunc{WithDatabase("")},
-		&Client{
-			uri:            DefaultURI,
-			db:             DefaultDatabase,
+			uri:            "rethinkdb://fakeurl:28015/test",
 			sessionTimeout: DefaultTimeout,
 		},
 		nil,
@@ -99,7 +77,6 @@ var clientTests = []struct {
 		[]ClientOptionFunc{WithSessionTimeout("30s")},
 		&Client{
 			uri:            DefaultURI,
-			db:             DefaultDatabase,
 			sessionTimeout: 30 * time.Second,
 		},
 		nil,
@@ -121,7 +98,6 @@ var clientTests = []struct {
 		[]ClientOptionFunc{WithSSL(true)},
 		&Client{
 			uri:            DefaultURI,
-			db:             DefaultDatabase,
 			sessionTimeout: DefaultTimeout,
 			tlsConfig:      &tls.Config{InsecureSkipVerify: true, RootCAs: x509.NewCertPool()},
 		},
@@ -132,7 +108,6 @@ var clientTests = []struct {
 		[]ClientOptionFunc{WithSSL(true), WithCACerts([]string{rootPEM})},
 		&Client{
 			uri:            DefaultURI,
-			db:             DefaultDatabase,
 			sessionTimeout: DefaultTimeout,
 			tlsConfig:      &tls.Config{InsecureSkipVerify: false, RootCAs: certPool()},
 		},
@@ -143,7 +118,6 @@ var clientTests = []struct {
 		[]ClientOptionFunc{WithCACerts([]string{rootPEM})},
 		&Client{
 			uri:            DefaultURI,
-			db:             DefaultDatabase,
 			sessionTimeout: DefaultTimeout,
 			tlsConfig:      &tls.Config{InsecureSkipVerify: false, RootCAs: certPool()},
 		},
@@ -154,7 +128,6 @@ var clientTests = []struct {
 		[]ClientOptionFunc{WithCACerts([]string{"notacert"})},
 		&Client{
 			uri:            DefaultURI,
-			db:             DefaultDatabase,
 			sessionTimeout: DefaultTimeout,
 			tlsConfig:      &tls.Config{InsecureSkipVerify: false, RootCAs: certPool()},
 		},
@@ -191,7 +164,6 @@ var (
 			"default connect",
 			&Client{
 				uri:            DefaultURI,
-				db:             DefaultDatabase,
 				sessionTimeout: DefaultTimeout,
 			},
 			nil,
@@ -199,7 +171,7 @@ var (
 		{
 			"timeout connect",
 			&Client{
-				uri:            "rethinkdb://127.0.0.1:37017",
+				uri:            "rethinkdb://127.0.0.1:37017/test",
 				sessionTimeout: 2 * time.Second,
 			},
 			client.ConnectError{Reason: "gorethink: dial tcp 127.0.0.1:37017: getsockopt: connection refused"},
@@ -207,8 +179,7 @@ var (
 		{
 			"authenticated connect",
 			&Client{
-				uri:            "rethinkdb://admin:admin123@127.0.0.1:48015",
-				db:             DefaultDatabase,
+				uri:            "rethinkdb://admin:admin123@127.0.0.1:48015/test",
 				sessionTimeout: DefaultTimeout,
 			},
 			nil,
@@ -216,8 +187,7 @@ var (
 		{
 			"failed authenticated connect",
 			&Client{
-				uri:            "rethinkdb://admin:wrongpassword@127.0.0.1:48015",
-				db:             DefaultDatabase,
+				uri:            "rethinkdb://admin:wrongpassword@127.0.0.1:48015/test",
 				sessionTimeout: DefaultTimeout,
 			},
 			client.ConnectError{Reason: "gorethink: Wrong password"},
@@ -225,8 +195,7 @@ var (
 		{
 			"connect with ssl and verify",
 			&Client{
-				uri:            "rethinkdb://localhost:38015",
-				db:             DefaultDatabase,
+				uri:            "rethinkdb://localhost:38015/test",
 				sessionTimeout: DefaultTimeout,
 				tlsConfig:      &tls.Config{InsecureSkipVerify: false, RootCAs: caCertPool()},
 			},
@@ -235,8 +204,7 @@ var (
 		{
 			"connect with ssl skip verify",
 			&Client{
-				uri:            "rethinkdb://localhost:38015",
-				db:             DefaultDatabase,
+				uri:            "rethinkdb://localhost:38015/test",
 				sessionTimeout: DefaultTimeout,
 				tlsConfig:      &tls.Config{InsecureSkipVerify: true, RootCAs: x509.NewCertPool()},
 			},

@@ -90,7 +90,7 @@ func (m *Pipe) Listen(fn func(message.Msg) (message.Msg, error), nsFilter *regex
 					m.Err <- err
 					return err
 				}
-				if skipMsg(outmsg) {
+				if outmsg == nil {
 					break
 				}
 				if len(m.Out) > 0 {
@@ -121,13 +121,13 @@ func (m *Pipe) Stop() {
 // Send emits the given message on the 'Out' channel.  the send Timesout after 100 ms in order to chaeck of the Pipe has stopped and we've been asked to exit.
 // If the Pipe has been stopped, the send will fail and there is no guarantee of either success or failure
 func (m *Pipe) Send(msg message.Msg) {
+	m.MessageCount++
 	for _, ch := range m.Out {
 
 	A:
 		for {
 			select {
 			case ch <- msg:
-				m.MessageCount++
 				m.LastMsg = msg
 				break A
 			case <-time.After(100 * time.Millisecond):
@@ -138,9 +138,4 @@ func (m *Pipe) Send(msg message.Msg) {
 			}
 		}
 	}
-}
-
-// skipMsg returns true if the message should be skipped and not send on to any listening nodes
-func skipMsg(msg message.Msg) bool {
-	return msg == nil
 }

@@ -24,7 +24,6 @@ var (
 
 // Writer implements client.Writer for use with RethinkDB
 type Writer struct {
-	db      string
 	bulkMap map[string]*bulkOperation
 	*sync.Mutex
 	opCounter int
@@ -35,9 +34,8 @@ type bulkOperation struct {
 	docs []map[string]interface{}
 }
 
-func newWriter(db string, done chan struct{}, wg *sync.WaitGroup) *Writer {
+func newWriter(done chan struct{}, wg *sync.WaitGroup) *Writer {
 	w := &Writer{
-		db:      db,
 		bulkMap: make(map[string]*bulkOperation),
 		Mutex:   &sync.Mutex{},
 	}
@@ -53,7 +51,7 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 		switch msg.OP() {
 		case ops.Delete:
 			w.flushAll()
-			return msg, do(r.DB(w.db).Table(table).Get(prepareDocument(msg)["id"]).Delete(), rSession)
+			return msg, do(r.DB(rSession.Database()).Table(table).Get(prepareDocument(msg)["id"]).Delete(), rSession)
 		case ops.Insert:
 			w.Lock()
 			bOp, ok := w.bulkMap[table]
@@ -72,7 +70,7 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 			}
 		case ops.Update:
 			w.flushAll()
-			return msg, do(r.DB(w.db).Table(table).Insert(prepareDocument(msg), r.InsertOpts{Conflict: "replace"}), rSession)
+			return msg, do(r.DB(rSession.Database()).Table(table).Insert(prepareDocument(msg), r.InsertOpts{Conflict: "replace"}), rSession)
 		}
 		return msg, nil
 	}
@@ -115,8 +113,8 @@ func (w *Writer) flushAll() error {
 		w.Unlock()
 	}()
 	for t, bOp := range w.bulkMap {
-		log.With("db", w.db).With("table", t).With("op_counter", w.opCounter).With("doc_count", len(bOp.docs)).Infoln("flushing bulk messages")
-		resp, err := r.DB(w.db).Table(t).Insert(bOp.docs, r.InsertOpts{Conflict: "replace"}).RunWrite(bOp.s)
+		log.With("db", bOp.s.Database()).With("table", t).With("op_counter", w.opCounter).With("doc_count", len(bOp.docs)).Infoln("flushing bulk messages")
+		resp, err := r.DB(bOp.s.Database()).Table(t).Insert(bOp.docs, r.InsertOpts{Conflict: "replace"}).RunWrite(bOp.s)
 		if err != nil {
 			return err
 		}
