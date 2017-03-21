@@ -9,6 +9,7 @@ Transporter no longer requires a YAML file. All configuration is in the JS file 
 - if using transporter as a library, all packages have been moved out of `pkg` to the top-level
 - `eval` command removed
 - `list` command removed
+- the `namespace` parameter now only expects a single part (the regexp filter), all adaptors have been updated to pull the "database name" from the provided URI
 
 ### Features
 - NEW RabbitMQ adaptor [#298](https://github.com/compose/transporter/pull/298)

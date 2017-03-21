@@ -38,7 +38,7 @@ var (
 	authURI  = func() string {
 		uri, _ := url.Parse(authedServer.URL)
 		uri.User = url.UserPassword(testUser, testPwd)
-		return fmt.Sprintf("%s/test", uri.String())
+		return uri.String()
 	}
 )
 var authedServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -73,12 +73,12 @@ var clientTests = []struct {
 }{
 	{
 		"base config",
-		adaptor.Config{"uri": fmt.Sprintf("%s/test", goodVersionServer.URL)},
+		adaptor.Config{"uri": fmt.Sprintf("%s", goodVersionServer.URL)},
 		nil,
 	},
 	{
 		"timeout config",
-		adaptor.Config{"uri": fmt.Sprintf("%s/test", goodVersionServer.URL), "timeout": "60s"},
+		adaptor.Config{"uri": fmt.Sprintf("%s", goodVersionServer.URL), "timeout": "60s"},
 		nil,
 	},
 	{
@@ -93,7 +93,7 @@ var clientTests = []struct {
 	},
 	{
 		"no connection",
-		adaptor.Config{"uri": "http://localhost:7200/test"},
+		adaptor.Config{"uri": "http://localhost:7200"},
 		client.ConnectError{Reason: "http://localhost:7200"},
 	},
 	{
@@ -108,13 +108,13 @@ var clientTests = []struct {
 	},
 	{
 		"bad version",
-		adaptor.Config{"uri": fmt.Sprintf("%s/test", badVersionServer.URL)},
-		client.VersionError{URI: fmt.Sprintf("%s/test", badVersionServer.URL), V: "not a version", Err: "Malformed version: not a version"},
+		adaptor.Config{"uri": badVersionServer.URL},
+		client.VersionError{URI: badVersionServer.URL, V: "not a version", Err: "Malformed version: not a version"},
 	},
 	{
 		"unsupported version",
-		adaptor.Config{"uri": fmt.Sprintf("%s/test", unsupportedVersionServer.URL)},
-		client.VersionError{URI: fmt.Sprintf("%s/test", unsupportedVersionServer.URL), V: "0.9.2", Err: "unsupported client"},
+		adaptor.Config{"uri": unsupportedVersionServer.URL},
+		client.VersionError{URI: unsupportedVersionServer.URL, V: "0.9.2", Err: "unsupported client"},
 	},
 }
 

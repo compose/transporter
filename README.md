@@ -77,6 +77,8 @@ var sink = elasticsearch({
 })
 
 t.Source(source).Save(sink)
+// t.Source("source", source).Save("sink", sink)
+// t.Source("source", source, "namespace").Save("sink", sink, "namespace")
 $
 ```
 

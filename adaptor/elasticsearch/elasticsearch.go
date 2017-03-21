@@ -20,7 +20,11 @@ import (
 )
 
 const (
-	description  = "an elasticsearch sink adaptor"
+	// DefaultIndex is used when there is not one included in the provided URI.
+	DefaultIndex = "test"
+
+	description = "an elasticsearch sink adaptor"
+
 	sampleConfig = `{
   "uri": "${ELASTICSEARCH_URI}"
   // "timeout": "10s", // defaults to 30s
@@ -79,6 +83,10 @@ func setupWriter(conf *Elasticsearch) (client.Writer, error) {
 	uri, err := url.Parse(conf.URI)
 	if err != nil {
 		return nil, client.InvalidURIError{URI: conf.URI, Err: err.Error()}
+	}
+
+	if uri.Path == "" {
+		uri.Path = fmt.Sprintf("/%s", DefaultIndex)
 	}
 
 	hostsAndPorts := strings.Split(uri.Host, ",")

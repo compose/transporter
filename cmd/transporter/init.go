@@ -35,6 +35,8 @@ func runInit(args []string) error {
 		}
 	}
 	appFileHandle.WriteString(`t.Source(source).Save(sink)`)
+	appFileHandle.WriteString(`// t.Source("source", source).Save("sink", sink)`)
+	appFileHandle.WriteString(`// t.Source("source", source, "/.*/").Save("sink", sink, "/.*/")`)
 	appFileHandle.WriteString("\n")
 	return nil
 }
