@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/compose/mejson"
 	"github.com/compose/transporter/client"
 	"github.com/compose/transporter/log"
 	"github.com/compose/transporter/message"
@@ -54,10 +55,12 @@ func insertMsg(m message.Msg, s *sql.DB) error {
 		placeholders = append(placeholders, fmt.Sprintf("$%v", i))
 
 		switch value.(type) {
-		case map[string]interface{}:
+		case map[string]interface{}, mejson.M, []map[string]interface{}, mejson.S:
 			value, _ = json.Marshal(value)
 		case []interface{}:
 			value, _ = json.Marshal(value)
+			value = string(value.([]byte))
+			value = fmt.Sprintf("{%v}", value.(string)[1:len(value.(string))-1])
 		}
 		data = append(data, value)
 
@@ -85,8 +88,12 @@ func deleteMsg(m message.Msg, s *sql.DB) error {
 			ckeys = append(ckeys, fmt.Sprintf("%v = $%v", key, i))
 		}
 		switch value.(type) {
-		case map[string]interface{}:
+		case map[string]interface{}, mejson.M, []map[string]interface{}, mejson.S:
 			value, _ = json.Marshal(value)
+		case []interface{}:
+			value, _ = json.Marshal(value)
+			value = string(value.([]byte))
+			value = fmt.Sprintf("{%v}", value.(string)[1:len(value.(string))-1])
 		}
 		vals = append(vals, value)
 		i = i + 1
@@ -123,7 +130,7 @@ func updateMsg(m message.Msg, s *sql.DB) error {
 		}
 
 		switch value.(type) {
-		case map[string]interface{}:
+		case map[string]interface{}, mejson.M, []map[string]interface{}, mejson.S:
 			value, _ = json.Marshal(value)
 		case []interface{}:
 			value, _ = json.Marshal(value)
