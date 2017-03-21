@@ -34,13 +34,13 @@ Native Functions
 
 Each native function can be used as part of a `Transform` step in the pipeline.
 
-* [goja](./adaptor/function/gojajs)
-* [omit](./adaptor/function/omit)
-* [otto](./adaptor/function/ottojs)
-* [pick](./adaptor/function/pick)
-* [pretty](./adaptor/function/pretty)
-* [rename](./adaptor/function/rename)
-* [skip](./adaptor/function/skip)
+* [goja](./function/gojajs)
+* [omit](./function/omit)
+* [otto](./function/ottojs)
+* [pick](./function/pick)
+* [pretty](./function/pretty)
+* [rename](./function/rename)
+* [skip](./function/skip)
 
 Commands
 --------
