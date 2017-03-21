@@ -11,5 +11,5 @@ enron_sink_mongo = mongodb({
   "fsync": true
 })
 
-t.Source("enron_source_mongo", enron_source_mongo, "enron.emails")
-  .Save("enron_sink_mongo", enron_sink_mongo, "enron.emails");
+t.Source("enron_source_mongo", enron_source_mongo, "emails")
+  .Save("enron_sink_mongo", enron_sink_mongo, "emails");

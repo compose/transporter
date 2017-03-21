@@ -9,6 +9,7 @@ package pipeline
 import (
 	"fmt"
 	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/compose/transporter/adaptor"
@@ -59,14 +60,14 @@ type Transform struct {
 
 // NewNode creates a new Node struct
 func NewNode(name, kind, ns string, a adaptor.Adaptor, parent *Node) (*Node, error) {
-	_, nsFilter, err := adaptor.CompileNamespace(ns)
+	compiledNs, err := regexp.Compile(strings.Trim(ns, "/"))
 	if err != nil {
 		return nil, err
 	}
 	n := &Node{
 		Name:       name,
 		Type:       kind,
-		nsFilter:   nsFilter,
+		nsFilter:   compiledNs,
 		Children:   make([]*Node, 0),
 		Transforms: make([]*Transform, 0),
 		done:       make(chan struct{}),
@@ -142,17 +143,6 @@ func (n *Node) Path() string {
 	}
 
 	return n.Parent.Path() + "/" + n.Name
-}
-
-// AddTransform adds the provided function.Function to the Node and will be called
-// before sending any messages down the pipeline.
-func (n *Node) AddTransform(name string, f function.Function, ns string) error {
-	_, nsFilter, err := adaptor.CompileNamespace(ns)
-	if err != nil {
-		return err
-	}
-	n.Transforms = append(n.Transforms, &Transform{name, f, nsFilter})
-	return nil
 }
 
 // Start starts the nodes children in a go routine, and then runs either Start() or Listen()

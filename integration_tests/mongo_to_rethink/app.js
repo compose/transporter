@@ -8,5 +8,5 @@ enron_sink_rethink = rethinkdb({
   "ssl": true
 })
 
-t.Source("enron_source_mongo", enron_source_mongo, "enron.emails")
-  .Save("enron_sink_rethink", enron_sink_rethink, "enron.emails");
+t.Source("enron_source_mongo", enron_source_mongo, "emails")
+  .Save("enron_sink_rethink", enron_sink_rethink, "emails");

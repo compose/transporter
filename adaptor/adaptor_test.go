@@ -2,10 +2,10 @@ package adaptor_test
 
 import (
 	"reflect"
-	"regexp"
 	"testing"
 
 	"github.com/compose/transporter/adaptor"
+	_ "github.com/compose/transporter/log"
 )
 
 func init() {
@@ -84,58 +84,6 @@ func TestConfig(t *testing.T) {
 		val := ct.cfg.GetString(ct.key)
 		if !reflect.DeepEqual(val, ct.expected) {
 			t.Errorf("wrong string returned for %s, expected %s, got %s", ct.key, ct.expected, val)
-		}
-	}
-}
-
-var compileNamespaceTests = []struct {
-	name    string
-	cfg     adaptor.Config
-	partOne string
-	r       *regexp.Regexp
-	err     error
-}{
-	{
-		"simple ns",
-		adaptor.Config{"namespace": "a.b"},
-		"a",
-		regexp.MustCompile("b"),
-		nil,
-	},
-	{
-		"simple regexp ns",
-		adaptor.Config{"namespace": "a..*"},
-		"a",
-		regexp.MustCompile(".*"),
-		nil,
-	},
-	{
-		"simple regexp ns with /",
-		adaptor.Config{"namespace": "a./.*/"},
-		"a",
-		regexp.MustCompile(".*"),
-		nil,
-	},
-	{
-		"malformed regexp",
-		adaptor.Config{"namespace": "a"},
-		"",
-		nil,
-		adaptor.ErrNamespaceMalformed,
-	},
-}
-
-func TestCompileNamespace(t *testing.T) {
-	for _, ct := range compileNamespaceTests {
-		out, r, err := adaptor.CompileNamespace(ct.cfg.GetString("namespace"))
-		if !reflect.DeepEqual(out, ct.partOne) {
-			t.Errorf("[%s] wrong value returned, expected %s, got %s", ct.name, ct.partOne, out)
-		}
-		if !reflect.DeepEqual(r, ct.r) {
-			t.Errorf("[%s] wrong regexp returned, expected %+v, got %+v", ct.name, ct.r, r)
-		}
-		if err != ct.err {
-			t.Errorf("[%s] wrong error returned, expected %+v, got %+v", ct.name, ct.err, err)
 		}
 	}
 }

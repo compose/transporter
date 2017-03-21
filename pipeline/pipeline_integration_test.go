@@ -44,7 +44,7 @@ func TestFileToFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("can't create GetAdaptor, got %s", err)
 	}
-	outNode, err := NewNode("localfileout", "file", "blah./.*/", f, nil)
+	outNode, err := NewNode("localfileout", "file", "/.*/", f, nil)
 	if err != nil {
 		t.Fatalf("can't create newnode, got %s", err)
 	}
@@ -52,7 +52,7 @@ func TestFileToFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("can't create GetAdaptor, got %s", err)
 	}
-	_, err = NewNode("localfilein", "file", "blah./.*/", f, outNode)
+	_, err = NewNode("localfilein", "file", "/.*/", f, outNode)
 	if err != nil {
 		t.Fatalf("can't create newnode, got %s", err)
 	}

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
+	"strings"
 	"syscall"
 	"time"
 
@@ -18,6 +19,10 @@ import (
 	"github.com/dop251/goja"
 	uuid "github.com/nu7hatch/gouuid"
 	"github.com/oklog/oklog/pkg/group"
+)
+
+const (
+	DefaultNamespace = "/.*/"
 )
 
 func NewBuilder(file string) (*Transporter, error) {
@@ -160,7 +165,7 @@ func (t *Transporter) Source(call goja.FunctionCall) goja.Value {
 
 func (n *Node) Transform(call goja.FunctionCall) goja.Value {
 	name, f, ns := exportArgs(call.Arguments)
-	_, nsFilter, err := adaptor.CompileNamespace(ns)
+	compiledNs, err := regexp.Compile(strings.Trim(ns, "/"))
 	if err != nil {
 		panic(err)
 	}
@@ -169,17 +174,17 @@ func (n *Node) Transform(call goja.FunctionCall) goja.Value {
 		source:     n.parent,
 		transforms: make([]*pipeline.Transform, 0),
 	}
-	tf.transforms = append(tf.transforms, &pipeline.Transform{Name: name, Fn: f.(function.Function), NsFilter: nsFilter})
+	tf.transforms = append(tf.transforms, &pipeline.Transform{Name: name, Fn: f.(function.Function), NsFilter: compiledNs})
 	return n.vm.ToValue(tf)
 }
 
 func (tf *Transformer) Transform(call goja.FunctionCall) goja.Value {
 	name, f, ns := exportArgs(call.Arguments)
-	_, nsFilter, err := adaptor.CompileNamespace(ns)
+	compiledNs, err := regexp.Compile(strings.Trim(ns, "/"))
 	if err != nil {
 		panic(err)
 	}
-	t := &pipeline.Transform{Name: name, Fn: f.(function.Function), NsFilter: nsFilter}
+	t := &pipeline.Transform{Name: name, Fn: f.(function.Function), NsFilter: compiledNs}
 	tf.transforms = append(tf.transforms, t)
 	return tf.vm.ToValue(tf)
 }
@@ -218,7 +223,7 @@ func exportArgs(args []goja.Value) (string, interface{}, string) {
 	uuid, _ := uuid.NewV4()
 	var (
 		name      = uuid.String()
-		namespace = "test./.*/"
+		namespace = DefaultNamespace
 		a         interface{}
 	)
 	if n, ok := args[0].Export().(string); ok {

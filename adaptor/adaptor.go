@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
-	"strings"
 	"sync"
 
 	"github.com/compose/transporter/client"
@@ -88,30 +86,6 @@ func (c Config) GetString(key string) string {
 		return ""
 	}
 	return s
-}
-
-// split a namespace into it's elements
-// this covers a few standard cases, elasticsearch, mongo, rethink, but it's
-// expected to be all inclusive.
-func splitNamespace(ns string) (string, string, error) {
-	fields := strings.SplitN(ns, ".", 2)
-
-	if len(fields) != 2 {
-		return "", "", ErrNamespaceMalformed
-	}
-	return fields[0], fields[1], nil
-}
-
-// CompileNamespace split's on the first '.' and then compiles the second portion to use as the msg filter
-func CompileNamespace(ns string) (string, *regexp.Regexp, error) {
-	field0, field1, err := splitNamespace(ns)
-
-	if err != nil {
-		return "", nil, err
-	}
-
-	compiledNs, err := regexp.Compile(strings.Trim(field1, "/"))
-	return field0, compiledNs, err
 }
 
 // BaseConfig is a standard typed config struct to use for as general purpose config for most databases.

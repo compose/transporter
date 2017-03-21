@@ -67,7 +67,7 @@ func TestEventsBroadcast(t *testing.T) {
 	if err != nil {
 		t.Fatalf("can't create GetAdaptor, got %s", err)
 	}
-	dummyOutNode, err := NewNode("dummyFileOut", "file", "blah./.*/", f, nil)
+	dummyOutNode, err := NewNode("dummyFileOut", "file", "/.*/", f, nil)
 	if err != nil {
 		t.Fatalf("can't create NewNode, got %s", err)
 	}
@@ -75,7 +75,7 @@ func TestEventsBroadcast(t *testing.T) {
 	if err != nil {
 		t.Fatalf("can't create GetAdaptor, got %s", err)
 	}
-	_, err = NewNode("dummyFileIn", "file", "blah./.*/", f, dummyOutNode)
+	_, err = NewNode("dummyFileIn", "file", "/.*/", f, dummyOutNode)
 	if err != nil {
 		t.Fatalf("can't create NewNode, got %s", err)
 	}

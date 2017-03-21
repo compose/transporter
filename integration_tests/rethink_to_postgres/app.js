@@ -7,5 +7,5 @@ enron_sink_postgres = postgres({
   "uri": "postgres://${POSTGRES_ENRON_SINK_USER}:${POSTGRES_ENRON_SINK_PASSWORD}@${POSTGRES_ENRON_SINK_URI}"
 })
 
-t.Source("enron_source_rethink", enron_source_rethink, "enron.emails")
-  .Save("enron_sink_postgres", enron_sink_postgres, "enron.emails");
+t.Source("enron_source_rethink", enron_source_rethink, "emails")
+  .Save("enron_sink_postgres", enron_sink_postgres, "emails");
