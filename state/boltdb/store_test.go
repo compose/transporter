@@ -53,32 +53,6 @@ var (
 	}
 )
 
-func TestNew(t *testing.T) {
-	type args struct {
-		path string
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    *Store
-		wantErr bool
-	}{
-	// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := New(tt.args.path)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("New() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("New() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestStore_Apply(t *testing.T) {
 	tmp, _ := ioutil.TempDir("", "store")
 	defer os.RemoveAll(tmp)
