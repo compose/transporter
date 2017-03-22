@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/compose/transporter/client"
 	"github.com/compose/transporter/log"
-	"github.com/compose/transporter/message"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -286,7 +286,7 @@ func TestTail(t *testing.T) {
 	close(done)
 }
 
-func checkCount(desc string, expected int, msgChan <-chan message.Msg, t *testing.T) {
+func checkCount(desc string, expected int, msgChan <-chan client.MessageSet, t *testing.T) {
 	var numMsgs int
 	var wg sync.WaitGroup
 	wg.Add(1)

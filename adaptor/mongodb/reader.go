@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/compose/transporter/client"
+	"github.com/compose/transporter/commitlog"
 	"github.com/compose/transporter/log"
 	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/message/data"
@@ -48,8 +49,8 @@ type iterationComplete struct {
 }
 
 func (r *Reader) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
-	return func(s client.Session, done chan struct{}) (chan message.Msg, error) {
-		out := make(chan message.Msg)
+	return func(s client.Session, done chan struct{}) (chan client.MessageSet, error) {
+		out := make(chan client.MessageSet)
 		session := s.(*Session).mgoSession.Copy()
 		go func() {
 			defer func() {
@@ -114,7 +115,7 @@ func (r *Reader) listCollections(mgoSession *mgo.Session, filterFn func(name str
 	return colls, nil
 }
 
-func (r *Reader) iterateCollection(s *mgo.Session, c string, out chan<- message.Msg, done chan struct{}) error {
+func (r *Reader) iterateCollection(s *mgo.Session, c string, out chan<- client.MessageSet, done chan struct{}) error {
 	iter := r.iterate(s, c)
 	for {
 		select {
@@ -122,7 +123,9 @@ func (r *Reader) iterateCollection(s *mgo.Session, c string, out chan<- message.
 			if !ok {
 				return nil
 			}
-			out <- msg
+			out <- client.MessageSet{
+				Msg: msg,
+			}
 		case <-done:
 			return errors.New("iteration cancelled")
 		}
@@ -213,7 +216,7 @@ func sortable(id interface{}) bool {
 	return false
 }
 
-func (r *Reader) tailCollection(c string, mgoSession *mgo.Session, oplogTime bson.MongoTimestamp, out chan<- message.Msg, done chan struct{}) chan error {
+func (r *Reader) tailCollection(c string, mgoSession *mgo.Session, oplogTime bson.MongoTimestamp, out chan<- client.MessageSet, done chan struct{}) chan error {
 	errc := make(chan error)
 	go func() {
 		defer func() {
@@ -265,7 +268,11 @@ func (r *Reader) tailCollection(c string, mgoSession *mgo.Session, oplogTime bso
 						msg := message.From(op, c, data.Data(doc)).(*message.Base)
 						msg.TS = int64(result.Ts) >> 32
 
-						out <- msg
+						out <- client.MessageSet{
+							Msg:       msg,
+							Timestamp: msg.TS,
+							Mode:      commitlog.Sync,
+						}
 						oplogTime = result.Ts
 					}
 					result = oplogDoc{}

@@ -5,7 +5,6 @@ import (
 	"regexp"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/compose/transporter/adaptor"
 	"github.com/compose/transporter/client"
@@ -235,7 +234,7 @@ var (
 				pipe:   pipe.NewPipe(nil, "starter"),
 			},
 			0,
-			10,
+			1,
 		},
 		{
 			&Node{
@@ -292,12 +291,25 @@ func TestStop(t *testing.T) {
 			child.pipe = pipe.NewPipe(st.node.pipe, "stopper")
 			child.Parent = st.node
 		}
+		var errored bool
+		stopC := make(chan struct{})
+		go func() {
+			select {
+			case <-st.node.pipe.Err:
+				errored = true
+				st.node.Stop()
+				close(stopC)
+			}
+		}()
 		st.node.reader, _ = s.Reader()
 		if err := st.node.Start(); err != nil {
 			t.Errorf("unexpected Start() error, %s", err)
 		}
-		time.Sleep(1 * time.Second)
-		st.node.Stop()
+		if !errored {
+			st.node.Stop()
+			close(stopC)
+		}
+		<-stopC
 		for _, child := range st.node.Children {
 			if !s.Closed {
 				t.Errorf("[%s] child node was not closed but should have been", child.Name)

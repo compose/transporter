@@ -14,8 +14,12 @@ import (
 	"github.com/compose/transporter/message"
 )
 
+// type messageChan chan message.Msg
 type messageChan chan message.Msg
 
+// func newMessageChan() messageChan {
+// 	return make(chan message.Msg)
+// }
 func newMessageChan() messageChan {
 	return make(chan message.Msg)
 }
@@ -86,6 +90,7 @@ func (m *Pipe) Listen(fn func(message.Msg) (message.Msg, error), nsFilter *regex
 				outmsg, err := fn(msg)
 				if err != nil {
 					m.Err <- err
+					m.Stopped = true
 					return err
 				}
 				if outmsg == nil {

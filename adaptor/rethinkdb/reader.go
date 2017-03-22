@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/compose/transporter/client"
+	"github.com/compose/transporter/commitlog"
 	"github.com/compose/transporter/log"
 	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/message/ops"
@@ -32,8 +33,8 @@ type iterationComplete struct {
 }
 
 func (r *Reader) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
-	return func(s client.Session, done chan struct{}) (chan message.Msg, error) {
-		out := make(chan message.Msg)
+	return func(s client.Session, done chan struct{}) (chan client.MessageSet, error) {
+		out := make(chan client.MessageSet)
 		session := s.(*Session).session
 		go func() {
 			defer close(out)
@@ -102,7 +103,7 @@ func (r *Reader) listTables(session *re.Session, filterFn func(name string) bool
 	return out, nil
 }
 
-func (r *Reader) iterateTable(session *re.Session, in <-chan string, out chan<- message.Msg, done chan struct{}) <-chan iterationComplete {
+func (r *Reader) iterateTable(session *re.Session, in <-chan string, out chan<- client.MessageSet, done chan struct{}) <-chan iterationComplete {
 	tableDone := make(chan iterationComplete)
 	go func() {
 		defer close(tableDone)
@@ -129,7 +130,9 @@ func (r *Reader) iterateTable(session *re.Session, in <-chan string, out chan<- 
 
 				var result map[string]interface{}
 				for cursor.Next(&result) {
-					out <- message.From(ops.Insert, t, result)
+					out <- client.MessageSet{
+						Msg: message.From(ops.Insert, t, result),
+					}
 					result = map[string]interface{}{}
 				}
 
@@ -152,7 +155,7 @@ type rethinkDbChangeNotification struct {
 	NewVal map[string]interface{} `gorethink:"new_val"`
 }
 
-func (r *Reader) sendChanges(db, table string, ccursor *re.Cursor, out chan<- message.Msg, done chan struct{}) chan error {
+func (r *Reader) sendChanges(db, table string, ccursor *re.Cursor, out chan<- client.MessageSet, done chan struct{}) chan error {
 	errc := make(chan error)
 	go func() {
 		defer ccursor.Close()
@@ -176,14 +179,19 @@ func (r *Reader) sendChanges(db, table string, ccursor *re.Cursor, out chan<- me
 				}
 				log.With("db", db).With("table", table).With("change", change).Debugln("received")
 
+				var msg message.Msg
 				if change.Error != "" {
 					errc <- errors.New(change.Error)
 				} else if change.OldVal != nil && change.NewVal != nil {
-					out <- message.From(ops.Update, table, change.NewVal)
+					msg = message.From(ops.Update, table, change.NewVal)
 				} else if change.NewVal != nil {
-					out <- message.From(ops.Insert, table, change.NewVal)
+					msg = message.From(ops.Insert, table, change.NewVal)
 				} else if change.OldVal != nil {
-					out <- message.From(ops.Delete, table, change.OldVal)
+					msg = message.From(ops.Delete, table, change.OldVal)
+				}
+				out <- client.MessageSet{
+					Msg:  msg,
+					Mode: commitlog.Sync,
 				}
 			}
 		}
