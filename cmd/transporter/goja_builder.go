@@ -92,7 +92,7 @@ type Adaptor struct {
 
 func (t *Transporter) Run() error {
 	var g group.Group
-	p, err := pipeline.NewPipeline(version, t.sourceNode, events.LogEmitter(), 60*time.Second, nil, 10*time.Second)
+	p, err := pipeline.NewPipeline(version, t.sourceNode, events.LogEmitter(), 60*time.Second)
 	if err != nil {
 		return err
 	}
