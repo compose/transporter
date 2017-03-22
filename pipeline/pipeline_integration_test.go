@@ -58,7 +58,7 @@ func TestFileToFile(t *testing.T) {
 	}
 
 	// create the pipeline
-	p, err := NewPipeline("test", outNode, events.LogEmitter(), 60*time.Second, nil, 10*time.Second)
+	p, err := NewPipeline("test", outNode, events.LogEmitter(), 60*time.Second)
 	if err != nil {
 		t.Errorf("can't create pipeline, got %s", err.Error())
 		t.FailNow()

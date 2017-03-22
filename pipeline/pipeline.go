@@ -6,7 +6,6 @@ import (
 	"github.com/compose/transporter/adaptor"
 	"github.com/compose/transporter/events"
 	"github.com/compose/transporter/log"
-	"github.com/compose/transporter/state"
 )
 
 // A Pipeline is a the end to end description of a transporter data flow.
@@ -14,16 +13,14 @@ import (
 type Pipeline struct {
 	source        *Node
 	emitter       events.Emitter
-	sessionStore  state.SessionStore
 	metricsTicker *time.Ticker
 	version       string
 
 	// Err is the fatal error that was sent from the adaptor
 	// that caused us to stop this process.  If this is nil, then
 	// the transporter is running
-	Err           error
-	sessionTicker *time.Ticker
-	done          chan struct{}
+	Err  error
+	done chan struct{}
 }
 
 // NewDefaultPipeline returns a new Transporter Pipeline with the given node tree, and
@@ -39,7 +36,7 @@ type Pipeline struct {
 //   }
 // pipeline.Run()
 func NewDefaultPipeline(source *Node, uri, key, pid, version string, interval time.Duration) (*Pipeline, error) {
-	return NewPipeline(version, source, events.HTTPPostEmitter(uri, key, pid), interval, nil, 10*time.Second)
+	return NewPipeline(version, source, events.HTTPPostEmitter(uri, key, pid), interval)
 }
 
 // NewPipeline creates a new Transporter Pipeline using the given tree of nodes, and Event Emitter
@@ -47,23 +44,18 @@ func NewDefaultPipeline(source *Node, uri, key, pid, version string, interval ti
 //   source :=
 //   	transporter.NewNode("source", "mongo", adaptor.Config{"uri": "mongodb://localhost/", "namespace": "boom.foo", "debug": false, "tail": true}).
 // 	  	Add(transporter.NewNode("out", "file", adaptor.Config{"uri": "stdout://"}))
-//   pipeline, err := transporter.NewPipeline("version", source, events.NewNoopEmitter(), 1*time.Second, state.NewFilestore(pid, "/tmp/transporter.state"), 10*time.Second)
+//   pipeline, err := transporter.NewPipeline("version", source, events.NewNoopEmitter(), 1*time.Second)
 //   if err != nil {
 // 	  fmt.Println(err)
 // 	  os.Exit(1)
 //   }
 // pipeline.Run()
-func NewPipeline(version string, source *Node, emit events.EmitFunc, interval time.Duration, sessionStore state.SessionStore, sessionInterval time.Duration) (*Pipeline, error) {
+func NewPipeline(version string, source *Node, emit events.EmitFunc, interval time.Duration) (*Pipeline, error) {
 
 	pipeline := &Pipeline{
 		source:        source,
 		metricsTicker: time.NewTicker(interval),
 		done:          make(chan struct{}),
-	}
-
-	if sessionStore != nil {
-		pipeline.sessionStore = sessionStore
-		pipeline.sessionTicker = time.NewTicker(sessionInterval)
 	}
 
 	// init the emitter with the right chan
@@ -73,10 +65,6 @@ func NewPipeline(version string, source *Node, emit events.EmitFunc, interval ti
 	go pipeline.startErrorListener(source.pipe.Err)
 	go pipeline.startMetricsGatherer()
 
-	if sessionStore != nil {
-		pipeline.initState()
-		go pipeline.startStateSaver()
-	}
 	pipeline.emitter.Start()
 
 	return pipeline, nil
@@ -92,9 +80,6 @@ func (pipeline *Pipeline) String() string {
 func (pipeline *Pipeline) Stop() {
 	endpoints := pipeline.source.Endpoints()
 	pipeline.source.Stop()
-	if pipeline.sessionStore != nil {
-		pipeline.sessionTicker.Stop()
-	}
 
 	// pipeline has stopped, emit one last round of metrics and send the exit event
 	close(pipeline.done)
@@ -109,10 +94,6 @@ func (pipeline *Pipeline) Run() error {
 	endpoints := pipeline.source.Endpoints()
 	// send a boot event
 	pipeline.source.pipe.Event <- events.NewBootEvent(time.Now().UnixNano(), pipeline.version, endpoints)
-
-	if pipeline.sessionStore != nil {
-		pipeline.setState()
-	}
 
 	// start the source
 	err := pipeline.source.Start()
@@ -164,32 +145,6 @@ func (pipeline *Pipeline) startMetricsGatherer() {
 func (pipeline *Pipeline) emitMetrics() {
 	pipeline.apply(func(node *Node) {
 		pipeline.source.pipe.Event <- events.NewMetricsEvent(time.Now().UnixNano(), node.Path(), node.pipe.MessageCount)
-	})
-}
-
-func (pipeline *Pipeline) startStateSaver() {
-	for range pipeline.sessionTicker.C {
-		pipeline.setState()
-	}
-}
-
-func (pipeline *Pipeline) setState() {
-	pipeline.apply(func(node *Node) {
-		if node.Type != "transformer" && node.pipe.LastMsg != nil {
-			pipeline.sessionStore.Set(node.Path(), &state.MsgState{Msg: node.pipe.LastMsg, Extra: node.pipe.ExtraState})
-		}
-	})
-}
-
-func (pipeline *Pipeline) initState() {
-	pipeline.apply(func(node *Node) {
-		if node.Type != "transformer" {
-			state, _ := pipeline.sessionStore.Get(node.Path())
-			if state != nil {
-				node.pipe.LastMsg = state.Msg
-				node.pipe.ExtraState = state.Extra
-			}
-		}
 	})
 }
 
