@@ -1,6 +1,10 @@
 package backoff
 
-import "log"
+import (
+	"log"
+
+	"golang.org/x/net/context"
+)
 
 func ExampleRetry() {
 	// An operation that may fail.
@@ -9,6 +13,26 @@ func ExampleRetry() {
 	}
 
 	err := Retry(operation, NewExponentialBackOff())
+	if err != nil {
+		// Handle error.
+		return
+	}
+
+	// Operation is successful.
+}
+
+func ExampleRetryContext() {
+	// A context
+	ctx := context.Background()
+
+	// An operation that may fail.
+	operation := func() error {
+		return nil // or an error
+	}
+
+	b := WithContext(NewExponentialBackOff(), ctx)
+
+	err := Retry(operation, b)
 	if err != nil {
 		// Handle error.
 		return
