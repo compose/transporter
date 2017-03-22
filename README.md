@@ -108,11 +108,12 @@ transporter about postgres
 postgres - a postgres adaptor that functions as both a source and a sink
 
  Sample configuration:
-    type: postgres
-    uri: ${POSTGRESQL_URI}
-    # debug: false
-    # tail: false
-    # replication_slot: slot
+{
+  "uri": "${POSTGRESQL_URI}"
+  // "debug": false,
+  // "tail": false,
+  // "replication_slot": "slot"
+}
 ```
 
 ### run
