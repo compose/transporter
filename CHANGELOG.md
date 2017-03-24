@@ -1,6 +1,7 @@
 ## v0.3.1 [UNRELEASED]
 
 ### Features
+- added `js` alias for `goja` transform function [#335](https://github.com/compose/transporter/pull/335) 
 
 ### Bugfixes
 - fixed mongodb, rabbitmq, and rethinkdb adaptors from not trying to read from a file when provided in the `ca_certs` field [#334](https://github.com/compose/transporter/pull/334)

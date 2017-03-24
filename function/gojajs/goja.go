@@ -32,6 +32,12 @@ func init() {
 			return &Goja{}
 		},
 	)
+	function.Add(
+		"js",
+		func() function.Function {
+			return &Goja{}
+		},
+	)
 }
 
 type Goja struct {

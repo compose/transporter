@@ -12,15 +12,25 @@ import (
 )
 
 var initTests = []struct {
+	fnName string
 	in     map[string]interface{}
 	expect *Goja
 }{
-	{map[string]interface{}{"filename": "testdata/transformer.js"}, &Goja{Filename: "testdata/transformer.js"}},
+	{
+		"goja",
+		map[string]interface{}{"filename": "testdata/transformer.js"},
+		&Goja{Filename: "testdata/transformer.js"},
+	},
+	{
+		"js",
+		map[string]interface{}{"filename": "testdata/transformer.js"},
+		&Goja{Filename: "testdata/transformer.js"},
+	},
 }
 
 func TestInit(t *testing.T) {
 	for _, it := range initTests {
-		a, err := function.GetFunction("goja", it.in)
+		a, err := function.GetFunction(it.fnName, it.in)
 		if err != nil {
 			t.Fatalf("unexpected GetFunction() error, %s", err)
 		}
