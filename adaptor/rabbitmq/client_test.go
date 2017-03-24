@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 
@@ -93,6 +94,24 @@ var (
 			nil,
 		},
 		{
+			"with_ssl_with_cert_file",
+			[]ClientOptionFunc{WithSSL(true), WithCACerts([]string{"testdata/ca.pem"})},
+			&Client{
+				uri:       DefaultURI,
+				tlsConfig: &tls.Config{InsecureSkipVerify: false, RootCAs: certPool()},
+			},
+			nil,
+		},
+		{
+			"with_ssl_with_cert_file_permission_denied",
+			[]ClientOptionFunc{WithSSL(true), WithCACerts([]string{"testdata/ca_no_perms.pem"})},
+			&Client{
+				uri:       DefaultURI,
+				tlsConfig: &tls.Config{InsecureSkipVerify: false, RootCAs: certPool()},
+			},
+			&os.PathError{Op: "open", Path: "testdata/ca_no_perms.pem", Err: os.ErrPermission},
+		},
+		{
 			"with_certs",
 			[]ClientOptionFunc{WithCACerts([]string{rootPEM})},
 			&Client{
@@ -114,10 +133,11 @@ var (
 )
 
 func TestNewClient(t *testing.T) {
-
+	os.Chmod("testdata/ca_no_perms.pem", 0222)
+	defer os.Chmod("testdata/ca_no_perms.pem", 0644)
 	for _, ct := range clientTests {
 		actual, err := NewClient(ct.options...)
-		if err != ct.expectedErr {
+		if ct.expectedErr != nil && !reflect.DeepEqual(err.Error(), ct.expectedErr.Error()) {
 			t.Fatalf("[%s] unexpected NewClient error, expected %+v, got %+v\n", ct.name, ct.expectedErr, err)
 		}
 		if err == nil && !reflect.DeepEqual(ct.expected, actual) {

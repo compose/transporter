@@ -3,6 +3,9 @@ package rabbitmq
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 
 	"github.com/compose/transporter/client"
 
@@ -88,6 +91,14 @@ func WithCACerts(certs []string) ClientOptionFunc {
 		if len(certs) > 0 {
 			roots := x509.NewCertPool()
 			for _, cert := range certs {
+				if _, err := os.Stat(cert); err == nil {
+					filepath.Abs(cert)
+					c, err := ioutil.ReadFile(cert)
+					if err != nil {
+						return err
+					}
+					cert = string(c)
+				}
 				if ok := roots.AppendCertsFromPEM([]byte(cert)); !ok {
 					return client.ErrInvalidCert
 				}
