@@ -1,6 +1,7 @@
 package boltdb
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -17,7 +18,8 @@ const (
 )
 
 var (
-	_ state.Store = &Store{}
+	_                 state.Store = &Store{}
+	ErrEmptyNamespace             = errors.New("Namespace may not be empty")
 )
 
 type Store struct {
@@ -40,13 +42,28 @@ func New(path string) (*Store, error) {
 }
 
 func (s *Store) Apply(st state.State) error {
+	if st.Namespace == "" {
+		return ErrEmptyNamespace
+	}
+	ns := []byte(st.Namespace)
 	return s.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(defaultBucket))
+
+		if current := b.Get(ns); current != nil {
+			var existing state.State
+			if err := bson.Unmarshal(current, &existing); err != nil {
+				return err
+			}
+			if existing.MsgID > st.MsgID {
+				return nil
+			}
+		}
+
 		d, err := bson.Marshal(st)
 		if err != nil {
 			return err
 		}
-		return b.Put([]byte(st.Namespace), d)
+		return b.Put(ns, d)
 	})
 }
 

@@ -23,9 +23,19 @@ func New() *Store {
 		stateMap: make(map[string][]byte),
 	}
 }
+
 func (s *Store) Apply(st state.State) error {
 	if st.Namespace == "" {
 		return ErrEmptyNamespace
+	}
+	if current, ok := s.stateMap[st.Namespace]; ok {
+		var existing state.State
+		if err := bson.Unmarshal(current, &existing); err != nil {
+			return err
+		}
+		if existing.MsgID > st.MsgID {
+			return nil
+		}
 	}
 	d, err := bson.Marshal(st)
 	if err != nil {

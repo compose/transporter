@@ -15,36 +15,49 @@ import (
 var (
 	lotsOfStates = []state.State{
 		state.State{
+			MsgID:      0,
 			Identifier: 0,
 			Mode:       state.Copy,
 			Namespace:  "test",
 			Timestamp:  uint64(time.Now().Unix()),
 		},
 		state.State{
+			MsgID:      1,
 			Identifier: 1,
 			Mode:       state.Copy,
 			Namespace:  "test",
 			Timestamp:  uint64(time.Now().Unix()),
 		},
 		state.State{
+			MsgID:      0,
+			Identifier: 0,
+			Mode:       state.Copy,
+			Namespace:  "test",
+			Timestamp:  uint64(time.Now().Unix()),
+		},
+		state.State{
+			MsgID:      0,
 			Identifier: 0,
 			Mode:       state.Copy,
 			Namespace:  "foo",
 			Timestamp:  uint64(time.Now().Unix()),
 		},
 		state.State{
+			MsgID:      1,
 			Identifier: 1,
 			Mode:       state.Sync,
 			Namespace:  "foo",
 			Timestamp:  uint64(time.Now().Unix()),
 		},
 		state.State{
+			MsgID:      0,
 			Identifier: bson.NewObjectId(),
 			Mode:       state.Copy,
 			Namespace:  "collection",
 			Timestamp:  uint64(time.Now().Unix()),
 		},
 		state.State{
+			MsgID:      1,
 			Identifier: bson.NewObjectId(),
 			Mode:       state.Copy,
 			Namespace:  "collection",
@@ -64,7 +77,7 @@ func TestStore_Apply(t *testing.T) {
 		name    string
 		s       *Store
 		args    args
-		wantErr bool
+		wantErr error
 	}{
 		{
 			"int_Identifier",
@@ -77,7 +90,7 @@ func TestStore_Apply(t *testing.T) {
 					Timestamp:  uint64(time.Now().Unix()),
 				},
 			},
-			false,
+			nil,
 		},
 		{
 			"string_Identifier",
@@ -90,7 +103,7 @@ func TestStore_Apply(t *testing.T) {
 					Timestamp:  uint64(time.Now().Unix()),
 				},
 			},
-			false,
+			nil,
 		},
 		{
 			"ObjectId_Identifier",
@@ -103,12 +116,25 @@ func TestStore_Apply(t *testing.T) {
 					Timestamp:  uint64(time.Now().Unix()),
 				},
 			},
-			false,
+			nil,
+		},
+		{
+			"ObjectId_Identifier",
+			s,
+			args{
+				state.State{
+					Identifier: bson.NewObjectId(),
+					Mode:       state.Copy,
+					Namespace:  "",
+					Timestamp:  uint64(time.Now().Unix()),
+				},
+			},
+			ErrEmptyNamespace,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := tt.s.Apply(tt.args.st); (err != nil) != tt.wantErr {
+			if err := tt.s.Apply(tt.args.st); err != tt.wantErr {
 				t.Errorf("Store.Apply() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -137,7 +163,7 @@ func TestStore_All(t *testing.T) {
 		{
 			"multiple",
 			s,
-			[]state.State{lotsOfStates[5], lotsOfStates[3], lotsOfStates[1]},
+			[]state.State{lotsOfStates[6], lotsOfStates[4], lotsOfStates[1]},
 			false,
 		},
 	}
@@ -149,7 +175,7 @@ func TestStore_All(t *testing.T) {
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Store.All() = %v, want %v", got, tt.want)
+				t.Errorf("Store.All() = %+v, want %+v", got, tt.want)
 			}
 		})
 	}
