@@ -5,7 +5,10 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/url"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -166,6 +169,14 @@ func WithCACerts(certs []string) ClientOptionFunc {
 		if len(certs) > 0 {
 			roots := x509.NewCertPool()
 			for _, cert := range certs {
+				if _, err := os.Stat(cert); err == nil {
+					filepath.Abs(cert)
+					c, err := ioutil.ReadFile(cert)
+					if err != nil {
+						return err
+					}
+					cert = string(c)
+				}
 				if ok := roots.AppendCertsFromPEM([]byte(cert)); !ok {
 					return client.ErrInvalidCert
 				}

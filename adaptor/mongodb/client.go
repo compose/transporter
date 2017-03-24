@@ -4,7 +4,9 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"net"
+	"os"
 	"time"
 
 	"github.com/compose/transporter/client"
@@ -137,6 +139,13 @@ func WithCACerts(certs []string) ClientOptionFunc {
 		if len(certs) > 0 {
 			roots := x509.NewCertPool()
 			for _, cert := range certs {
+				if _, err := os.Stat(cert); err == nil {
+					c, err := ioutil.ReadFile(cert)
+					if err != nil {
+						return err
+					}
+					cert = string(c)
+				}
 				if ok := roots.AppendCertsFromPEM([]byte(cert)); !ok {
 					return client.ErrInvalidCert
 				}

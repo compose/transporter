@@ -1,3 +1,10 @@
+## v0.3.1 [UNRELEASED]
+
+### Features
+
+### Bugfixes
+- fixed mongodb, rabbitmq, and rethinkdb adaptors from not trying to read from a file when provided in the `ca_certs` field [#334](https://github.com/compose/transporter/pull/334)
+
 ## v0.3.0 [2017-03-21]
 
 ### Breaking changes
