@@ -34,6 +34,8 @@
 
 ```javascript
 goja({"filename": "/path/to/transform.js"})
+// js() is aliased to goja
+// js({"filename": "/path/to/transform.js"})
 ```
 
 ### example
