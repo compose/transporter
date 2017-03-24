@@ -154,3 +154,15 @@ func TestStore_All(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkTransformOne(b *testing.B) {
+	tmp, _ := ioutil.TempDir("", "store")
+	defer os.RemoveAll(tmp)
+	s, _ := New(tmp)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		loc := i % len(lotsOfStates)
+		s.Apply(lotsOfStates[loc])
+	}
+}
