@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/compose/transporter/adaptor"
 )
@@ -17,6 +18,15 @@ func runInit(args []string) error {
 	args = flagset.Args()
 	if len(args) != 2 {
 		return fmt.Errorf("wrong number of arguments provided, expected 2, got %d", len(args))
+	}
+	if _, err := os.Stat("pipeline.js"); err == nil {
+		fmt.Print("pipeline.js exists, overwrite? (y/n) ")
+		var overwrite string
+		fmt.Scanln(&overwrite)
+		if strings.ToLower(overwrite) != "y" {
+			fmt.Println("not overwriting pipeline.js, exiting...")
+			return nil
+		}
 	}
 	fmt.Println("Writing pipeline.js...")
 	appFileHandle, err := os.Create(defaultPipelineFile)
@@ -34,9 +44,7 @@ func runInit(args []string) error {
 			return fmt.Errorf("adaptor '%s' did not provide a sample config", name)
 		}
 	}
-	appFileHandle.WriteString(`t.Source(source).Save(sink)`)
-	appFileHandle.WriteString(`// t.Source("source", source).Save("sink", sink)`)
-	appFileHandle.WriteString(`// t.Source("source", source, "/.*/").Save("sink", sink, "/.*/")`)
+	appFileHandle.WriteString(`t.Source("source", source, "/.*/").Save("sink", sink, "/.*/")`)
 	appFileHandle.WriteString("\n")
 	return nil
 }

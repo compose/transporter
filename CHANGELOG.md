@@ -1,7 +1,8 @@
-## v0.3.1 [UNRELEASED]
+## v0.3.1 [2017-03-24]
 
 ### Features
 - added `js` alias for `goja` transform function [#335](https://github.com/compose/transporter/pull/335) 
+- `init` command will now prompt user when `pipeline.js` file already exists [#336](https://github.com/compose/transporter/pull/336)
 
 ### Bugfixes
 - fixed mongodb, rabbitmq, and rethinkdb adaptors from not trying to read from a file when provided in the `ca_certs` field [#334](https://github.com/compose/transporter/pull/334)
