@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"gopkg.in/mgo.v2/bson"
+
 	"github.com/compose/transporter/state"
 )
 
@@ -45,6 +47,11 @@ func init() {
 	}
 }
 
+func stateInBytes(st state.State) []byte {
+	d, _ := bson.Marshal(st)
+	return d
+}
+
 func TestStore_Apply(t *testing.T) {
 	type args struct {
 		in0 state.State
@@ -77,15 +84,15 @@ func TestStore_All(t *testing.T) {
 	}{
 		{
 			"no state",
-			&Store{stateMap: map[string]state.State{}},
+			&Store{stateMap: map[string][]byte{}},
 			[]state.State{},
 			false,
 		},
 		{
 			"single state",
 			&Store{
-				stateMap: map[string]state.State{
-					"test": lotsOfStates[0],
+				stateMap: map[string][]byte{
+					"test": stateInBytes(lotsOfStates[0]),
 				},
 			},
 			[]state.State{lotsOfStates[0]},
@@ -109,5 +116,15 @@ func TestStore_All(t *testing.T) {
 				t.Errorf("Store.All() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func BenchmarkTransformOne(b *testing.B) {
+	s := New()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		loc := i % len(lotsOfStates)
+		s.Apply(lotsOfStates[loc])
 	}
 }
