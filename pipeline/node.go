@@ -21,10 +21,6 @@ import (
 	"github.com/compose/transporter/pipe"
 )
 
-var (
-	transformerNode = "transformer"
-)
-
 // A Node is the basic building blocks of transporter pipelines.
 // Nodes are constructed in a tree, with the first node broadcasting
 // data to each of it's children.
@@ -187,7 +183,7 @@ func (n *Node) start() (err error) {
 		return err
 	}
 	for msg := range msgChan {
-		n.pipe.Send(msg)
+		n.pipe.Send(msg.Msg)
 	}
 
 	n.l.Infoln("adaptor Start finished...")
@@ -204,7 +200,7 @@ func (n *Node) listen() (err error) {
 func (n *Node) write(msg message.Msg) (message.Msg, error) {
 	transformedMsg, err := n.applyTransforms(msg)
 	if err != nil {
-		return msg, nil
+		return msg, err
 	} else if transformedMsg == nil {
 		return nil, nil
 	}

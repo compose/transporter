@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/compose/transporter/client"
+	"github.com/compose/transporter/commitlog"
 	"github.com/compose/transporter/log"
 	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/message/data"
@@ -32,14 +33,14 @@ func newTailer(replicationSlot string) client.Reader {
 
 // Tail does the things
 func (t *Tailer) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
-	return func(s client.Session, done chan struct{}) (chan message.Msg, error) {
+	return func(s client.Session, done chan struct{}) (chan client.MessageSet, error) {
 		readFunc := t.reader.Read(filterFn)
 		msgChan, err := readFunc(s, done)
 		if err != nil {
 			return nil, err
 		}
 		session := s.(*Session)
-		out := make(chan message.Msg)
+		out := make(chan client.MessageSet)
 		go func() {
 			defer close(out)
 			// read until reader done
@@ -72,8 +73,8 @@ func (t *Tailer) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
 }
 
 // Use Postgres logical decoding to retreive the latest changes
-func (t *Tailer) pluckFromLogicalDecoding(s *Session, filterFn client.NsFilterFunc) ([]message.Msg, error) {
-	var result []message.Msg
+func (t *Tailer) pluckFromLogicalDecoding(s *Session, filterFn client.NsFilterFunc) ([]client.MessageSet, error) {
+	var result []client.MessageSet
 	dataMatcher := regexp.MustCompile("^table ([^\\.]+).([^\\.]+): (INSERT|DELETE|UPDATE): (.+)$") // 1 - schema, 2 - table, 3 - action, 4 - remaining
 
 	changesResult, err := s.pqSession.Query(fmt.Sprintf("SELECT * FROM pg_logical_slot_get_changes('%v', NULL, NULL);", t.replicationSlot))
@@ -107,28 +108,30 @@ func (t *Tailer) pluckFromLogicalDecoding(s *Session, filterFn client.NsFilterFu
 		}
 
 		if dataMatches[4] == "(no-tuple-data)" {
-			fmt.Printf("No tuple data for action %v on %v.%v\n", dataMatches[3], dataMatches[1], dataMatches[2])
+			log.With("op", dataMatches[3]).With("schema", schemaAndTable).Infoln("no tuple data")
 			continue
 		}
 
 		// normalize the action
 		var action ops.Op
-		switch {
-		case dataMatches[3] == "INSERT":
+		switch dataMatches[3] {
+		case "INSERT":
 			action = ops.Insert
-		case dataMatches[3] == "DELETE":
+		case "DELETE":
 			action = ops.Delete
-		case dataMatches[3] == "UPDATE":
+		case "UPDATE":
 			action = ops.Update
-		case true:
+		default:
 			return result, fmt.Errorf("Error processing action from string: %v", d)
 		}
 
-		fmt.Printf("Received %v from Postgres on %v.%v\n", dataMatches[3], dataMatches[1], dataMatches[2])
+		log.With("op", action).With("table", schemaAndTable).Debugln("received")
 
 		docMap := parseLogicalDecodingData(dataMatches[4])
-		msg := message.From(action, schemaAndTable, docMap)
-		result = append(result, msg)
+		result = append(result, client.MessageSet{
+			Msg:  message.From(action, schemaAndTable, docMap),
+			Mode: commitlog.Sync,
+		})
 	}
 
 	return result, err
@@ -280,9 +283,6 @@ func casifyValue(value string, valueType string) interface{} {
 			fmt.Printf("\nTime (%v) parse error: %v\n\n", value, err)
 		}
 		return t
-
-		//default:
-		//fmt.Printf("Could not transform type '%v' with value '%v'\n", valueType, value)
 	}
 
 	return value

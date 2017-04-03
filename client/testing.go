@@ -2,7 +2,9 @@ package client
 
 import (
 	"errors"
+	"time"
 
+	"github.com/compose/transporter/commitlog"
 	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/message/ops"
 )
@@ -42,12 +44,16 @@ type MockReader struct {
 }
 
 func (r *MockReader) Read(filterFn NsFilterFunc) MessageChanFunc {
-	return func(s Session, done chan struct{}) (chan message.Msg, error) {
-		out := make(chan message.Msg)
+	return func(s Session, done chan struct{}) (chan MessageSet, error) {
+		out := make(chan MessageSet)
 		go func() {
 			defer close(out)
 			for i := 0; i < r.MsgCount; i++ {
-				out <- message.From(ops.Insert, "test", map[string]interface{}{"id": i})
+				out <- MessageSet{
+					message.From(ops.Insert, "test", map[string]interface{}{"id": i}),
+					time.Now().Unix(),
+					commitlog.Copy,
+				}
 			}
 		}()
 

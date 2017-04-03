@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/compose/transporter/client"
+	"github.com/compose/transporter/commitlog"
 	"github.com/compose/transporter/log"
 	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/message/ops"
@@ -31,8 +32,8 @@ type Reader struct {
 }
 
 func (r *Reader) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
-	return func(s client.Session, done chan struct{}) (chan message.Msg, error) {
-		out := make(chan message.Msg)
+	return func(s client.Session, done chan struct{}) (chan client.MessageSet, error) {
+		out := make(chan client.MessageSet)
 		queues, err := r.listQueues(filterFn)
 		if err != nil {
 			return nil, err
@@ -100,7 +101,7 @@ func (r *Reader) listQueues(filterFn client.NsFilterFunc) ([]string, error) {
 }
 
 // TODO: create a Consumer struct with fields to run this since we don't use anything from Reader
-func consumeQueue(c *amqp.Channel, queue string, wg *sync.WaitGroup, done chan struct{}, out chan message.Msg) error {
+func consumeQueue(c *amqp.Channel, queue string, wg *sync.WaitGroup, done chan struct{}, out chan client.MessageSet) error {
 	defer func() {
 		log.With("queue", queue).Infoln("consuming complete")
 		wg.Done()
@@ -119,7 +120,10 @@ func consumeQueue(c *amqp.Channel, queue string, wg *sync.WaitGroup, done chan s
 				log.Errorf("unable to decode message to JSON, %s", jerr)
 				continue
 			}
-			out <- message.From(ops.Insert, queue, result)
+			out <- client.MessageSet{
+				Msg:  message.From(ops.Insert, queue, result),
+				Mode: commitlog.Sync,
+			}
 			msg.Ack(false)
 		}
 	}

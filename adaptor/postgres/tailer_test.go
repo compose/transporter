@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/compose/transporter/message"
+	"github.com/compose/transporter/client"
 )
 
 func addTestReplicationSlot(s *sql.DB) error {
@@ -86,7 +86,7 @@ func TestTailer(t *testing.T) {
 	close(done)
 }
 
-func checkCount(desc string, expected int, msgChan <-chan message.Msg, t *testing.T) {
+func checkCount(desc string, expected int, msgChan <-chan client.MessageSet, t *testing.T) {
 	var numMsgs int
 	var wg sync.WaitGroup
 	wg.Add(1)

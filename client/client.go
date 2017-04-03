@@ -1,9 +1,19 @@
 package client
 
-import "github.com/compose/transporter/message"
+import (
+	"github.com/compose/transporter/commitlog"
+	"github.com/compose/transporter/message"
+)
 
 // MessageChanFunc represents the func signature needed to send messages to downstream adaptors.
-type MessageChanFunc func(Session, chan struct{}) (chan message.Msg, error)
+type MessageChanFunc func(Session, chan struct{}) (chan MessageSet, error)
+
+// MessageSet encapsulates the data being sent down the pipeline and its associated attributes.
+type MessageSet struct {
+	Msg       message.Msg
+	Timestamp int64
+	Mode      commitlog.Mode
+}
 
 // NsFilterFunc represents the func signature needed to filter while Read()ing.
 type NsFilterFunc func(string) bool

@@ -81,7 +81,7 @@ func TestReadComplex(t *testing.T) {
 	}
 	msgs := make([]message.Msg, 0)
 	for msg := range msgChan {
-		msgs = append(msgs, msg)
+		msgs = append(msgs, msg.Msg)
 	}
 	if len(msgs) != readerComplexTestData.InsertCount {
 		t.Errorf("bad message count, expected %d, got %d\n", readerComplexTestData.InsertCount, len(msgs))

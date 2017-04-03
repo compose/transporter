@@ -26,8 +26,8 @@ func newReader() client.Reader {
 }
 
 func (r *Reader) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
-	return func(s client.Session, done chan struct{}) (chan message.Msg, error) {
-		out := make(chan message.Msg)
+	return func(s client.Session, done chan struct{}) (chan client.MessageSet, error) {
+		out := make(chan client.MessageSet)
 		session := s.(*Session)
 		go func() {
 			defer close(out)
@@ -47,8 +47,9 @@ func (r *Reader) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
 						log.With("db", session.db).Infoln("Read completed")
 						return
 					}
-					msg := message.From(ops.Insert, result.table, result.data)
-					out <- msg
+					out <- client.MessageSet{
+						Msg: message.From(ops.Insert, result.table, result.data),
+					}
 				}
 			}
 		}()
@@ -109,9 +110,6 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done
 					return
 				}
 				log.With("db", db).With("table", c).With("table", c).Infoln("iterating...")
-				if strings.HasPrefix(c, "information_schema.") || strings.HasPrefix(c, "pg_catalog.") {
-					continue
-				}
 				schemaTable := strings.Split(c, ".")
 				columnsResult, err := session.Query(fmt.Sprintf(`
             SELECT c.column_name, c.data_type, e.data_type AS element_type

@@ -23,9 +23,10 @@ func newReader() client.Reader {
 }
 
 func (r *Reader) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
-	return func(s client.Session, done chan struct{}) (chan message.Msg, error) {
-		out := make(chan message.Msg)
+	return func(s client.Session, done chan struct{}) (chan client.MessageSet, error) {
+		out := make(chan client.MessageSet)
 		session := s.(*Session)
+		ns := session.file.Name()
 		go func() {
 			defer close(out)
 			results := r.decodeFile(session, done)
@@ -35,11 +36,13 @@ func (r *Reader) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
 					return
 				case result, ok := <-results:
 					if !ok {
-						log.With("file", session.file.Name()).Infoln("Read completed")
+						log.With("file", ns).Infoln("Read completed")
 						return
 					}
-					if filterFn(session.file.Name()) {
-						out <- message.From(ops.Insert, session.file.Name(), result)
+					if filterFn(ns) {
+						out <- client.MessageSet{
+							Msg: message.From(ops.Insert, ns, result),
+						}
 					}
 				}
 			}

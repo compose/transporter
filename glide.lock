@@ -1,8 +1,8 @@
-hash: 7c94d53de9134ea9acb2a0a48dc53fd8cf4763de55ce0045461ed5de65255c9d
-updated: 2017-03-07T15:27:17.049990505-06:00
+hash: 859152afd2d20c2bd326b87482b726ebf8adeb8ac6444402caa3d6ad17471969
+updated: 2017-03-22T14:48:19.559744759-05:00
 imports:
 - name: github.com/cenkalti/backoff
-  version: b02f2bbce11d7ea6b97f282ef1771b0fe2f65ef3
+  version: 3db60c813733fce657c114634171689bbf1f8dee
 - name: github.com/compose/mejson
   version: afcf51c7c640b1e09c17065d4e5b8de3259d6261
 - name: github.com/dlclark/regexp2
@@ -10,7 +10,7 @@ imports:
   subpackages:
   - syntax
 - name: github.com/dop251/goja
-  version: 1b1607cf5cf9c00ae9c2b0da9ac4f48cb25f8703
+  version: c99b0db935f5dfc806a759ba05de2b64b6ebe522
   subpackages:
   - ast
   - file
@@ -47,11 +47,11 @@ imports:
   - token
   - underscore
 - name: github.com/Sirupsen/logrus
-  version: 0208149b40d863d2c1a2f8fe5753096a9cf2cc8b
+  version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
 - name: github.com/smartystreets/go-aws-auth
   version: 2043e6d0bb7e4c18464a7bba562acbe482e3cabd
 - name: github.com/streadway/amqp
-  version: ce1c69d94c3efdb1f287015f851b17db8fa205b1
+  version: afe8eee29a74d213b1f3fb2586058157c397da60
 - name: golang.org/x/crypto
   version: 1351f936d976c60a0a48d728281922cf63eafb8d
   subpackages:
@@ -66,7 +66,7 @@ imports:
   subpackages:
   - unix
 - name: golang.org/x/text
-  version: f28f36722d5ef2f9655ad3de1f248e3e52ad5ebd
+  version: b00b5aff2fd772bedad89f1cf227f624c7660c2f
   subpackages:
   - cases
   - collate
@@ -92,11 +92,11 @@ imports:
   - internal/sasl
   - internal/scram
 - name: gopkg.in/olivere/elastic.v2
-  version: 89b2f0f27bbe09ff5ee27cb6f4422cb2d89c6be8
+  version: 8c148e9a5e627a3c155c6980fb965fe7813d78b8
 - name: gopkg.in/olivere/elastic.v3
-  version: 89b2f0f27bbe09ff5ee27cb6f4422cb2d89c6be8
+  version: 8c148e9a5e627a3c155c6980fb965fe7813d78b8
 - name: gopkg.in/olivere/elastic.v5
-  version: 89b2f0f27bbe09ff5ee27cb6f4422cb2d89c6be8
+  version: 8c148e9a5e627a3c155c6980fb965fe7813d78b8
   subpackages:
   - uritemplates
 - name: gopkg.in/sourcemap.v1

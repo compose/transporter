@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/compose/transporter/message"
+	"github.com/compose/transporter/client"
 
 	r "gopkg.in/gorethink/gorethink.v3"
 )
@@ -153,7 +153,7 @@ func TestTail(t *testing.T) {
 	close(done)
 }
 
-func checkCount(desc string, expected int, msgChan <-chan message.Msg, t *testing.T) {
+func checkCount(desc string, expected int, msgChan <-chan client.MessageSet, t *testing.T) {
 	var numMsgs int
 	var wg sync.WaitGroup
 	wg.Add(1)
