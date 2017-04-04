@@ -61,5 +61,7 @@ func TestPipelineString(t *testing.T) {
 		if actual != v.out {
 			t.Errorf("\nexpected:\n%v\ngot:\n%v\n", v.out, actual)
 		}
+
+		close(p.source.pipe.Err)
 	}
 }
