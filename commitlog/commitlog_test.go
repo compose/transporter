@@ -155,14 +155,16 @@ func TestAppend(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected New error, %s", err)
 	}
-	n, err := c.Append(entryTests[0].le)
+
+	n, err := c.Append(commitlog.NewLogFromEntry(entryTests[0].le))
 	if err != nil {
 		t.Fatalf("unexpected Append error, %s", err)
 	}
 	if n != 0 {
 		t.Errorf("wrong position returned, expected 0, got %d", n)
 	}
-	n, err = c.Append(entryTests[2].le)
+
+	n, err = c.Append(commitlog.NewLogFromEntry(entryTests[1].le))
 	if err != nil {
 		t.Fatalf("unexpected Append error, %s", err)
 	}
@@ -181,14 +183,16 @@ func TestAppendWithSplit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected New error, %s", err)
 	}
-	n, err := c.Append(entryTests[0].le)
+
+	n, err := c.Append(commitlog.NewLogFromEntry(entryTests[0].le))
 	if err != nil {
 		t.Fatalf("unexpected Append error, %s", err)
 	}
 	if n != 0 {
 		t.Errorf("wrong position returned, expected 0, got %d", n)
 	}
-	n, err = c.Append(entryTests[2].le)
+
+	n, err = c.Append(commitlog.NewLogFromEntry(entryTests[2].le))
 	if err != nil {
 		t.Fatalf("unexpected Append error, %s", err)
 	}
@@ -215,8 +219,9 @@ func BenchmarkCommitLog(b *testing.B) {
 		b.Fatalf("unexpected New error, %s", err)
 	}
 
-	le := entryTests[0].le
+	le := commitlog.NewLogFromEntry(entryTests[0].le)
 
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if _, err = c.Append(le); err != nil {
 			b.Errorf("unexpected Append error, %s", err)
