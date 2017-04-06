@@ -32,7 +32,7 @@ func TestRead(t *testing.T) {
 		t.Skip("skipping Read in short mode")
 	}
 
-	reader := newReader(false, DefaultCollectionFilter)
+	reader := newReader(false, DefaultCollectionFilter, DefaultUnwind)
 	readFunc := reader.Read(filterFunc)
 	done := make(chan struct{})
 	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://127.0.0.1:27017/%s", readerTestData.DB)))
@@ -63,6 +63,7 @@ func TestFilteredRead(t *testing.T) {
 	reader := newReader(
 		false,
 		map[string]CollectionFilter{"foo": CollectionFilter{"i": map[string]interface{}{"$gt": filteredReaderTestData.InsertCount}}},
+		DefaultUnwind,
 	)
 
 	for i := filteredReaderTestData.InsertCount; i <= 100; i++ {
@@ -97,7 +98,7 @@ func TestCancelledRead(t *testing.T) {
 		t.Skip("skipping TestCancelledRead in short mode")
 	}
 
-	reader := newReader(false, DefaultCollectionFilter)
+	reader := newReader(false, DefaultCollectionFilter, DefaultUnwind)
 	readFunc := reader.Read(filterFunc)
 	done := make(chan struct{})
 	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://127.0.0.1:27017/%s", cancelledReaderTestData.DB)))
@@ -153,7 +154,7 @@ func TestReadRestart(t *testing.T) {
 		session.mgoSession.DB(db).C("lotsodata").Insert(bson.M{"i": i})
 	}
 
-	reader := newReader(false, DefaultCollectionFilter)
+	reader := newReader(false, DefaultCollectionFilter, DefaultUnwind)
 	readFunc := reader.Read(filterFunc)
 	done := make(chan struct{})
 	msgChan, err := readFunc(s, done)
@@ -237,7 +238,7 @@ func TestTail(t *testing.T) {
 		t.Fatalf("unexpected insertMockTailData error, %s\n", err)
 	}
 
-	tail := newReader(true, DefaultCollectionFilter)
+	tail := newReader(true, DefaultCollectionFilter, DefaultUnwind)
 
 	time.Sleep(1 * time.Second)
 	tailFunc := tail.Read(func(c string) bool {

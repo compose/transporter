@@ -7,6 +7,16 @@ receiving data for inserts.
 is a query that will be used when iterating the collection. The commented out example below would only 
 include documents where the `i` field had a value greater than `10`.
 
+`unwind` is a JSON string where the top level key is the collection name and its value a key-value pair that 
+lets specify an array field from the input documents to output a document for each element. Key name sould be `fieldPath`.
+
+Example: 
+```
+JSON.stringify({
+  fooCollection: { fieldPath: "$barArrayField" } 
+})
+```
+
 ***NOTE*** You may want to check your collections to ensure the proper index(es) are in place or performance may suffer.
 
 ### Configuration:
@@ -20,6 +30,11 @@ m = mongodb({
   // "wc": 1,
   // "fsync": false,
   // "bulk": false,
-  // "collection_filters": "{\"foo\": {\"i\": {\"$gt\": 10}}}"
+  // "collection_filters": "{\"foo\": {\"i\": {\"$gt\": 10}}}",
+  // "unwind": JSON.stringify({
+  //    fooCollection: {
+  //        fieldPath: "$barArrayField"
+  //    }
+  // })
 })
 ```

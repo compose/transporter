@@ -22,20 +22,26 @@ var (
 
 	// DefaultCollectionFilter is an empty map of empty maps
 	DefaultCollectionFilter = map[string]CollectionFilter{}
+	// DefaultUnwind is an empty map of empty byte (raw json array)
+	DefaultUnwind = map[string]Unwind{}
 )
 
 // CollectionFilter is just a typed map of strings of map[string]interface{}
 type CollectionFilter map[string]interface{}
 
+// Unwind is just a typed map of strings of map[string]interface{}
+type Unwind map[string]interface{}
+
 // Reader implements the behavior defined by client.Reader for interfacing with MongoDB.
 type Reader struct {
 	tail              bool
 	collectionFilters map[string]CollectionFilter
+	unwind            map[string]Unwind
 	oplogTimeout      time.Duration
 }
 
-func newReader(tail bool, filters map[string]CollectionFilter) client.Reader {
-	return &Reader{tail, filters, 5 * time.Second}
+func newReader(tail bool, filters map[string]CollectionFilter, unwind map[string]Unwind) client.Reader {
+	return &Reader{tail, filters, unwind, 5 * time.Second}
 }
 
 type resultDoc struct {
@@ -172,7 +178,7 @@ func (r *Reader) iterate(s *mgo.Session, c string) <-chan message.Msg {
 	return msgChan
 }
 
-func (r *Reader) catQuery(c string, lastID interface{}, mgoSession *mgo.Session) *mgo.Query {
+func (r *Reader) catQuery(c string, lastID interface{}, mgoSession *mgo.Session) *mgo.Pipe {
 	query := bson.M{}
 	if f, ok := r.collectionFilters[c]; ok {
 		query = bson.M(f)
@@ -180,7 +186,20 @@ func (r *Reader) catQuery(c string, lastID interface{}, mgoSession *mgo.Session)
 	if lastID != nil {
 		query["_id"] = bson.M{"$gt": lastID}
 	}
-	return mgoSession.DB("").C(c).Find(query).Sort("_id")
+	if u, ok := r.unwind[c]; ok {
+		if fieldPath, ok := u["fieldPath"]; ok {
+			pipeline := []bson.M{
+				bson.M{"$match": query},
+				bson.M{"$unwind": fieldPath},
+				bson.M{"$sort": bson.M{"_id": 1}},
+			}
+			return mgoSession.DB("").C(c).Pipe(pipeline).AllowDiskUse()
+		}
+	}
+	return mgoSession.DB("").C(c).Pipe([]bson.M{
+		bson.M{"$match": query},
+		bson.M{"$sort": bson.M{"_id": 1}},
+	}).AllowDiskUse()
 }
 
 func (r *Reader) requeryable(c string, mgoSession *mgo.Session) bool {
@@ -296,6 +315,7 @@ func (r *Reader) tailCollection(c string, mgoSession *mgo.Session, oplogTime bso
 	return errc
 }
 
+// TODO improve with aggregation
 // getOriginalDoc retrieves the original document from the database.
 // transporter has no knowledge of update operations, all updates work as wholesale document replaces
 func (r *Reader) getOriginalDoc(doc bson.M, c string, s *mgo.Session) (result bson.M, err error) {

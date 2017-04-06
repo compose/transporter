@@ -30,6 +30,7 @@ var (
 
 	// ErrCollectionFilter is returned when an error occurs attempting to Unmarshal the string.
 	ErrCollectionFilter = errors.New("malformed collection_filters")
+	ErrUnwind           = errors.New("malformed unwind")
 )
 
 // MongoDB is an adaptor to read / write to mongodb.
@@ -43,6 +44,7 @@ type MongoDB struct {
 	FSync             bool     `json:"fsync"`
 	Bulk              bool     `json:"bulk"`
 	CollectionFilters string   `json:"collection_filters"`
+	Unwind            string   `json:"unwind"`
 }
 
 func init() {
@@ -66,12 +68,20 @@ func (m *MongoDB) Client() (client.Client, error) {
 
 func (m *MongoDB) Reader() (client.Reader, error) {
 	var f map[string]CollectionFilter
+	var a map[string]Unwind
 	if m.CollectionFilters != "" {
 		if jerr := json.Unmarshal([]byte(m.CollectionFilters), &f); jerr != nil {
 			return nil, ErrCollectionFilter
 		}
 	}
-	return newReader(m.Tail, f), nil
+
+	if m.Unwind != "" {
+		if jerr := json.Unmarshal([]byte(m.Unwind), &a); jerr != nil {
+			return nil, ErrUnwind
+		}
+	}
+
+	return newReader(m.Tail, f, a), nil
 }
 
 func (m *MongoDB) Writer(done chan struct{}, wg *sync.WaitGroup) (client.Writer, error) {
