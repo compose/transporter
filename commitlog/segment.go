@@ -104,6 +104,12 @@ func (s *Segment) Write(p []byte) (n int, err error) {
 	return n, nil
 }
 
+func (s *Segment) ReadAt(p []byte, off int64) (n int, err error) {
+	s.Lock()
+	defer s.Unlock()
+	return s.log.ReadAt(p, off)
+}
+
 // Close closes the read/write access to the underlying file.
 func (s *Segment) Close() error {
 	s.Lock()

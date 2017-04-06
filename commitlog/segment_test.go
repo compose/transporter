@@ -120,6 +120,21 @@ func TestIsFull(t *testing.T) {
 	}
 }
 
+func TestReadAt(t *testing.T) {
+	s, err := commitlog.NewSegment("testdata/read_at_test", 0, 1024)
+	if err != nil {
+		t.Fatalf("unexpected NewSegment error, %s", err)
+	}
+	l := make([]byte, 37)
+	n, err := s.ReadAt(l, 0)
+	if err != nil {
+		t.Fatalf("unexpected Read error, %s", err)
+	}
+	if n != 37 {
+		t.Errorf("mismatched read bytes, expected 37, got %d", n)
+	}
+}
+
 var (
 	closePath = filepath.Join(os.TempDir(), fmt.Sprintf("closesegmenttest%d", rand.Int63()))
 )

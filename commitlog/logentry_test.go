@@ -11,7 +11,7 @@ import (
 var (
 	entryTests = []struct {
 		name        string
-		offset      uint64
+		offset      int64
 		le          commitlog.LogEntry
 		expectedLog commitlog.Log
 	}{
@@ -139,9 +139,18 @@ var (
 
 func TestNewLogFromEntry(t *testing.T) {
 	for _, et := range entryTests {
-		actualLog := commitlog.NewLogFromEntry(et.offset, et.le)
+		actualLog := commitlog.NewLogFromEntry(et.le)
+		actualLog.PutOffset(et.offset)
 		if !reflect.DeepEqual(actualLog, et.expectedLog) {
 			t.Errorf("[%s] bad log, expected versus got\n%+v\n%+v", et.name, et.expectedLog, actualLog)
 		}
+	}
+}
+
+func BenchmarkNewLogFromEntry(b *testing.B) {
+	le := entryTests[0].le
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		commitlog.NewLogFromEntry(le)
 	}
 }

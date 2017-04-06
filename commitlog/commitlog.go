@@ -130,16 +130,17 @@ func (c *CommitLog) open() error {
 	return nil
 }
 
-// Append will convert the provided LogEntry into a binary representation and to be persisted
-// to the active segment.
-func (c *CommitLog) Append(le LogEntry) (offset int64, err error) {
+// Append will convert the set the offset for the provided []byte and then persist
+// it to the active segment.
+func (c *CommitLog) Append(p []byte) (offset int64, err error) {
+	l := Log(p)
 	if c.checkSplit() {
 		if err := c.split(); err != nil {
 			return offset, err
 		}
 	}
 	offset = c.NewestOffset()
-	l := NewLogFromEntry(uint64(offset), le)
+	l.PutOffset(offset)
 	if _, err := c.activeSegment().Write(l); err != nil {
 		return offset, err
 	}
