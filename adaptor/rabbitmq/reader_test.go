@@ -19,7 +19,8 @@ func TestRead(t *testing.T) {
 		t.Skip("skipping Read in short mode")
 	}
 	reader := &Reader{DefaultURI, DefaultAPIPort}
-	readFunc := reader.Read(func(queue string) bool { return queue == readerTestData.Queue })
+	readFunc := reader.Read(map[string]client.MessageSet{},
+		func(queue string) bool { return queue == readerTestData.Queue })
 	done := make(chan struct{})
 	msgChan, err := readFunc(defaultSession, done)
 	if err != nil {
@@ -34,7 +35,8 @@ func TestReadBadData(t *testing.T) {
 		t.Skip("skipping Read in short mode")
 	}
 	reader := &Reader{DefaultURI, DefaultAPIPort}
-	readFunc := reader.Read(func(queue string) bool { return queue == readerBadDataTest.Queue })
+	readFunc := reader.Read(map[string]client.MessageSet{},
+		func(queue string) bool { return queue == readerBadDataTest.Queue })
 	done := make(chan struct{})
 	msgChan, err := readFunc(defaultSession, done)
 	if err != nil {

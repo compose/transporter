@@ -25,3 +25,21 @@ func TestNewError(t *testing.T) {
 		}
 	}
 }
+
+var (
+	errorTests = []struct {
+		e        error
+		expected string
+	}{
+		{adaptor.ErrNotFound{Name: "notfound"}, "adaptor 'notfound' not found in registry"},
+		{adaptor.ErrFuncNotSupported{Name: "unsupported", Func: "Client()"}, "'unsupported' does not support 'Client()' function"},
+	}
+)
+
+func TestErrors(t *testing.T) {
+	for _, et := range errorTests {
+		if !reflect.DeepEqual(et.e.Error(), et.expected) {
+			t.Errorf("wrong Error(), expected %s, got %s", et.expected, et.e.Error())
+		}
+	}
+}

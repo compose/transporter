@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/compose/transporter/client"
 	"github.com/compose/transporter/message"
 )
 
@@ -19,7 +20,7 @@ func TestRead(t *testing.T) {
 	}
 
 	reader := newReader()
-	readFunc := reader.Read(func(table string) bool {
+	readFunc := reader.Read(map[string]client.MessageSet{}, func(table string) bool {
 		if strings.HasPrefix(table, "information_schema.") || strings.HasPrefix(table, "pg_catalog.") {
 			return false
 		}
@@ -59,7 +60,7 @@ func TestReadComplex(t *testing.T) {
 	}
 
 	reader := newReader()
-	readFunc := reader.Read(func(table string) bool {
+	readFunc := reader.Read(map[string]client.MessageSet{}, func(table string) bool {
 		if strings.HasPrefix(table, "information_schema.") || strings.HasPrefix(table, "pg_catalog.") {
 			return false
 		}

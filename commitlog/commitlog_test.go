@@ -205,6 +205,59 @@ func TestAppendWithSplit(t *testing.T) {
 }
 
 var (
+	readerTests = []struct {
+		name        string
+		offset      int64
+		expectedErr error
+	}{
+		{
+			"base",
+			0,
+			nil,
+		},
+		{
+			"with_offset",
+			10,
+			nil,
+		},
+		{
+			"no_offset",
+			-1,
+			nil,
+		},
+		{
+			"offset_not_found",
+			156680,
+			commitlog.ErrOffsetNotFound,
+		},
+	}
+)
+
+func TestNewReader(t *testing.T) {
+	c, err := commitlog.New(
+		commitlog.WithPath("testdata/find_offset_position"),
+		commitlog.WithMaxSegmentBytes(1024*1024),
+	)
+	if err != nil {
+		t.Fatalf("unexpected New error, %s", err)
+	}
+
+	for _, rt := range readerTests {
+		r, err := c.NewReader(rt.offset)
+		if !reflect.DeepEqual(err, rt.expectedErr) {
+			t.Errorf("[%s] unexpected NewReader error, expected %s, got %s", rt.name, rt.expectedErr, err)
+		}
+		if rt.expectedErr == nil && err == nil {
+			header := make([]byte, 21)
+			_, err = r.Read(header)
+			if err != nil {
+				t.Errorf("[%s] unexpected Read error, %s", rt.name, err)
+			}
+		}
+	}
+}
+
+var (
 	benchPath = filepath.Join(os.TempDir(), fmt.Sprintf("commitlogbenchtest%d", rand.Int63()))
 )
 
@@ -213,7 +266,7 @@ func BenchmarkCommitLog(b *testing.B) {
 	defer os.RemoveAll(benchPath)
 	c, err := commitlog.New(
 		commitlog.WithPath(benchPath),
-		commitlog.WithMaxSegmentBytes(4096),
+		commitlog.WithMaxSegmentBytes(1024*1024),
 	)
 	if err != nil {
 		b.Fatalf("unexpected New error, %s", err)

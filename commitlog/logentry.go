@@ -1,6 +1,8 @@
 package commitlog
 
 import (
+	"io"
+
 	"github.com/compose/transporter/message/ops"
 )
 
@@ -33,6 +35,39 @@ func (le LogEntry) ModeOpToByte() byte {
 	return byte(int(le.Mode) | (int(le.Op) << opShift))
 }
 
+// ReadHeader returns each part of data stored in the first LogEntry header.
+func ReadHeader(r io.Reader) (uint64, uint32, uint64, Mode, ops.Op, error) {
+	header := make([]byte, logEntryHeaderLen)
+	if _, err := r.Read(header); err != nil {
+		return 0, 0, 0, 0, 0, err
+	}
+	return encoding.Uint64(header[offsetPos:sizePos]),
+		encoding.Uint32(header[sizePos:tsPos]),
+		encoding.Uint64(header[tsPos:attrPos]),
+		ModeFromBytes(header),
+		OpFromBytes(header),
+		nil
+}
+
+// ReadKeyValue returns the key and value stored given the size and io.Reader.
+func ReadKeyValue(size uint32, r io.Reader) ([]byte, []byte, error) {
+	kvBytes := make([]byte, size)
+	if _, err := r.Read(kvBytes); err != nil {
+		return nil, nil, err
+	}
+	keyLen := encoding.Uint32(kvBytes[0:4])
+	// we can grab the key from keyLen and the we know the value is stored
+	// after the keyLen + 8 (4 byte size of key and value)
+	return kvBytes[4 : keyLen+4], kvBytes[keyLen+8:], nil
+}
+
+func ModeFromBytes(b []byte) Mode {
+	return Mode(b[attrPos] & modeMask)
+}
+func OpFromBytes(b []byte) ops.Op {
+	return ops.Op(b[attrPos] & opMask >> opShift)
+}
+
 // Mode is a representation of where a in the process a reader is with respect to a given namespace.
 type Mode int
 
@@ -49,7 +84,6 @@ func NewLogFromEntry(le LogEntry) Log {
 	valLen := len(le.Value)
 	kvLen := keyLen + valLen + 8
 	l := make([]byte, logEntryHeaderLen+kvLen)
-	// encoding.PutUint64(l[offsetPos:sizePos], offset)
 
 	encoding.PutUint64(l[tsPos:attrPos], le.Timestamp)
 

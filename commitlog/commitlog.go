@@ -5,6 +5,7 @@ package commitlog
 import (
 	"encoding/binary"
 	"errors"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -12,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"github.com/compose/transporter/log"
 )
 
 const (
@@ -25,6 +28,8 @@ var (
 
 	// ErrEmptyPath will be returned if the provided path is an empty string
 	ErrEmptyPath = errors.New("path is empty")
+	// ErrSegmentNotFound is returned with no segment is found given the provided offset
+	ErrSegmentNotFound = errors.New("segment not found")
 )
 
 // CommitLog is how the rest of the system will interact with the underlying log segments
@@ -186,6 +191,49 @@ func (c *CommitLog) DeleteAll() error {
 	return os.RemoveAll(c.path)
 }
 
+func (c *CommitLog) NewReader(offset int64) (io.Reader, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	log.With("num_segments", len(c.segments)).
+		With("offset", offset).
+		Infoln("searching segments")
+
+	// in the event there has been data committed to the segment but no offset for a path,
+	// then we need to create a reader that starts from the very beginning
+	if offset < 0 && len(c.segments) > 0 {
+		return &Reader{commitlog: c, idx: 0, position: 0}, nil
+	}
+
+	var idx int
+	for i := 0; i < len(c.segments); i++ {
+		idx = i
+		if (i + 1) != len(c.segments) {
+			lowerOffset := c.segments[i].BaseOffset
+			upperOffset := c.segments[i+1].BaseOffset
+			log.With("lower_offset", lowerOffset).
+				With("upper_offset", upperOffset).
+				With("offset", offset).
+				With("segment", idx).
+				Debugln("checking if offset in segment")
+			if offset >= lowerOffset && offset < upperOffset {
+				break
+			}
+		}
+	}
+
+	log.With("offset", offset).With("segment_index", idx).Debugln("finding offset in segment")
+	position, err := c.segments[idx].FindOffsetPosition(uint64(offset))
+	if err != nil {
+		return nil, err
+	}
+
+	return &Reader{
+		commitlog: c,
+		idx:       idx,
+		position:  position,
+	}, nil
+}
+
 func (c *CommitLog) activeSegment() *Segment {
 	return c.vActiveSegment.Load().(*Segment)
 }
@@ -201,7 +249,6 @@ func (c *CommitLog) split() error {
 	}
 	c.mu.Lock()
 	c.segments = append(c.segments, segment)
-	// c.activeSegment().Close()
 	c.vActiveSegment.Store(segment)
 	c.mu.Unlock()
 	return nil

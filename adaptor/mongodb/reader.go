@@ -48,7 +48,7 @@ type iterationComplete struct {
 	c         string
 }
 
-func (r *Reader) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
+func (r *Reader) Read(resumeMap map[string]client.MessageSet, filterFn client.NsFilterFunc) client.MessageChanFunc {
 	return func(s client.Session, done chan struct{}) (chan client.MessageSet, error) {
 		out := make(chan client.MessageSet)
 		session := s.(*Session).mgoSession.Copy()
@@ -65,12 +65,23 @@ func (r *Reader) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
 			}
 			var wg sync.WaitGroup
 			for _, c := range collections {
+				var lastID interface{}
 				oplogTime := timeAsMongoTimestamp(time.Now())
-				if err := r.iterateCollection(session.Copy(), c, out, done); err != nil {
-					log.With("db", session.DB("").Name).Errorln(err)
-					return
+				var mode commitlog.Mode // default to Copy
+				if m, ok := resumeMap[c]; ok {
+					lastID = m.Msg.Data().Get("_id")
+					mode = m.Mode
+					if m.Mode == commitlog.Sync {
+						oplogTime = timeAsMongoTimestamp(time.Unix(m.Timestamp, 0))
+					}
 				}
-				log.With("db", session.DB("").Name).With("collection", c).Infoln("iterating complete")
+				if mode == commitlog.Copy {
+					if err := r.iterateCollection(lastID, session.Copy(), c, out, done); err != nil {
+						log.With("db", session.DB("").Name).Errorln(err)
+						return
+					}
+					log.With("db", session.DB("").Name).With("collection", c).Infoln("iterating complete")
+				}
 				if r.tail {
 					wg.Add(1)
 					log.With("collection", c).Infof("oplog start timestamp: %d", oplogTime)
@@ -115,8 +126,8 @@ func (r *Reader) listCollections(mgoSession *mgo.Session, filterFn func(name str
 	return colls, nil
 }
 
-func (r *Reader) iterateCollection(s *mgo.Session, c string, out chan<- client.MessageSet, done chan struct{}) error {
-	iter := r.iterate(s, c)
+func (r *Reader) iterateCollection(lastID interface{}, s *mgo.Session, c string, out chan<- client.MessageSet, done chan struct{}) error {
+	iter := r.iterate(lastID, s, c)
 	for {
 		select {
 		case msg, ok := <-iter:
@@ -132,7 +143,7 @@ func (r *Reader) iterateCollection(s *mgo.Session, c string, out chan<- client.M
 	}
 }
 
-func (r *Reader) iterate(s *mgo.Session, c string) <-chan message.Msg {
+func (r *Reader) iterate(lastID interface{}, s *mgo.Session, c string) <-chan message.Msg {
 	msgChan := make(chan message.Msg)
 	go func() {
 		defer func() {
@@ -141,7 +152,6 @@ func (r *Reader) iterate(s *mgo.Session, c string) <-chan message.Msg {
 		}()
 		db := s.DB("").Name
 		canReissueQuery := r.requeryable(c, s)
-		var lastID interface{}
 		for {
 			log.With("collection", c).Infoln("iterating...")
 			session := s.Copy()

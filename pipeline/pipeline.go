@@ -26,9 +26,23 @@ type Pipeline struct {
 // NewDefaultPipeline returns a new Transporter Pipeline with the given node tree, and
 // uses the events.HttpPostEmitter to deliver metrics.
 // eg.
-//   source :=
-//   	transporter.NewNode("source", "mongo", adaptor.Config{"uri": "mongodb://localhost/", "namespace": "boom.foo", "debug": false, "tail": true}).
-// 	  	Add(transporter.NewNode("out", "file", adaptor.Config{"uri": "stdout://"}))
+//   a, err := adaptor.GetAdaptor("mongodb", map[string]interface{}{"uri": "mongo://localhost:27017"})
+//   if err != nil {
+//     fmt.Println(err)
+//     os.Exit(1)
+//   }
+//   source := pipeline.NewNodeWithOptions(
+//     "source", "mongo", "/.*/",
+//     pipeline.WithClient(a),
+//     pipeline.WithReader(a),
+//   )
+//   f, err := adaptor.GetAdaptor("file", map[string]interface{}{"uri": "stdout://"})
+//   sink := pipeline.NewNodeWithOptions(
+//     "out", "file", "/.*/",
+//     pipeline.WithClient(f),
+//     pipeline.WithWriter(f),
+//     pipeline.WithParent(source),
+//   )
 //   pipeline, err := transporter.NewDefaultPipeline(source, events.Api{URI: "http://localhost/endpoint"}, 1*time.Second)
 //   if err != nil {
 // 	  fmt.Println(err)
@@ -41,9 +55,23 @@ func NewDefaultPipeline(source *Node, uri, key, pid, version string, interval ti
 
 // NewPipeline creates a new Transporter Pipeline using the given tree of nodes, and Event Emitter
 // eg.
-//   source :=
-//   	transporter.NewNode("source", "mongo", adaptor.Config{"uri": "mongodb://localhost/", "namespace": "boom.foo", "debug": false, "tail": true}).
-// 	  	Add(transporter.NewNode("out", "file", adaptor.Config{"uri": "stdout://"}))
+//   a, err := adaptor.GetAdaptor("mongodb", map[string]interface{}{"uri": "mongo://localhost:27017"})
+//   if err != nil {
+//     fmt.Println(err)
+//     os.Exit(1)
+//   }
+//   source := pipeline.NewNodeWithOptions(
+//     "source", "mongo", "/.*/",
+//     pipeline.WithClient(a),
+//     pipeline.WithReader(a),
+//   )
+//   f, err := adaptor.GetAdaptor("file", map[string]interface{}{"uri": "stdout://"})
+//   sink := pipeline.NewNodeWithOptions(
+//     "out", "file", "/.*/",
+//     pipeline.WithClient(f),
+//     pipeline.WithWriter(f),
+//     pipeline.WithParent(source),
+//   )
 //   pipeline, err := transporter.NewPipeline("version", source, events.NewNoopEmitter(), 1*time.Second)
 //   if err != nil {
 // 	  fmt.Println(err)
@@ -122,8 +150,8 @@ func (pipeline *Pipeline) startErrorListener(cherr chan error) {
 				if pipeline.Err == nil {
 					pipeline.Err = err
 				}
-				pipeline.Stop()
 			}
+			pipeline.Stop()
 		case <-pipeline.done:
 			return
 		}
@@ -150,9 +178,6 @@ func (pipeline *Pipeline) emitMetrics() {
 
 // apply maps a function f across all nodes of a pipeline
 func (pipeline *Pipeline) apply(f func(*Node)) {
-	if pipeline.source == nil {
-		return
-	}
 	head := pipeline.source
 	nodes := []*Node{head}
 	for len(nodes) > 0 {

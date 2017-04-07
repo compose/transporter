@@ -4,12 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/compose/transporter/adaptor"
+	"github.com/compose/transporter/offset"
 )
 
 var (
@@ -61,13 +65,22 @@ func TestEventsBroadcast(t *testing.T) {
 	)
 
 	setupFiles(inFile, outFile)
+	rand.Seed(time.Now().Unix())
+	dataDir := filepath.Join(os.TempDir(), fmt.Sprintf("transporter%d", rand.Int31()))
+	os.MkdirAll(dataDir, 0777)
+	defer os.RemoveAll(dataDir)
 
 	// set up the nodes
 	f, err := adaptor.GetAdaptor("file", adaptor.Config{"uri": "file://" + outFile})
 	if err != nil {
 		t.Fatalf("can't create GetAdaptor, got %s", err)
 	}
-	dummyOutNode, err := NewNode("dummyFileOut", "file", "/.*/", f, nil)
+	dummyOutNode, err := NewNodeWithOptions(
+		"dummyFileOut", "file", "/.*",
+		WithClient(f),
+		WithReader(f),
+		WithCommitLog(dataDir, 1024*1024*1024),
+	)
 	if err != nil {
 		t.Fatalf("can't create NewNode, got %s", err)
 	}
@@ -75,7 +88,17 @@ func TestEventsBroadcast(t *testing.T) {
 	if err != nil {
 		t.Fatalf("can't create GetAdaptor, got %s", err)
 	}
-	_, err = NewNode("dummyFileIn", "file", "/.*/", f, dummyOutNode)
+	om, err := offset.NewLogManager(dataDir, "dummyFileIn")
+	if err != nil {
+		t.Fatalf("unexpected NewLogManager error, %s", err)
+	}
+	_, err = NewNodeWithOptions(
+		"dummyFileIn", "file", "/.*/",
+		WithParent(dummyOutNode),
+		WithClient(f),
+		WithWriter(f),
+		WithOffsetManager(om),
+	)
 	if err != nil {
 		t.Fatalf("can't create NewNode, got %s", err)
 	}
@@ -120,5 +143,5 @@ func (events EventHolder) lookupMetricEvent(metric, path string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("unable to locate metric, %s, in received metric events", metric)
+	return fmt.Errorf("unable to locate metric, %s (%s), in received metric events", metric, path)
 }

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/compose/transporter/adaptor"
+	"github.com/compose/transporter/client"
 )
 
 func TestRead(t *testing.T) {
@@ -28,7 +29,7 @@ func TestRead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected Reader() error, %s", err)
 	}
-	readFunc := r.Read(func(string) bool { return true })
+	readFunc := r.Read(map[string]client.MessageSet{}, func(string) bool { return true })
 	done := make(chan struct{})
 	defer close(done)
 	msgChan, err := readFunc(s, done)

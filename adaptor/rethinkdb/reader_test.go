@@ -21,7 +21,7 @@ func TestRead(t *testing.T) {
 	}
 
 	reader := newReader(false)
-	readFunc := reader.Read(func(c string) bool { return true })
+	readFunc := reader.Read(map[string]client.MessageSet{}, func(c string) bool { return true })
 	done := make(chan struct{})
 	c, err := NewClient(WithURI(fmt.Sprintf("rethinkdb://127.0.0.1:28015/%s", readerTestData.DB)))
 	if err != nil {
@@ -108,7 +108,7 @@ func TestTail(t *testing.T) {
 	tail := newReader(true)
 
 	time.Sleep(1 * time.Second)
-	tailFunc := tail.Read(func(c string) bool {
+	tailFunc := tail.Read(map[string]client.MessageSet{}, func(c string) bool {
 		if c == "skip" {
 			return false
 		}

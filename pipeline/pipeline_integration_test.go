@@ -1,6 +1,8 @@
 package pipeline
 
 import (
+	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -10,6 +12,7 @@ import (
 	"github.com/compose/transporter/adaptor"
 	_ "github.com/compose/transporter/adaptor/all"
 	"github.com/compose/transporter/events"
+	"github.com/compose/transporter/offset"
 )
 
 // set up some local files
@@ -37,6 +40,10 @@ func TestFileToFile(t *testing.T) {
 	)
 
 	setupFiles(inFile, outFile)
+	rand.Seed(time.Now().Unix())
+	dataDir := filepath.Join(os.TempDir(), fmt.Sprintf("transporterint%d", rand.Int31()))
+	os.MkdirAll(dataDir, 0777)
+	defer os.RemoveAll(dataDir)
 
 	numgorosBefore := runtime.NumGoroutine()
 	// create the source node and attach our sink
@@ -44,7 +51,12 @@ func TestFileToFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("can't create GetAdaptor, got %s", err)
 	}
-	outNode, err := NewNode("localfileout", "file", "/.*/", f, nil)
+	outNode, err := NewNodeWithOptions(
+		"localfileout", "file", "/.*",
+		WithClient(f),
+		WithReader(f),
+		WithCommitLog(dataDir, 1024*1024*1024),
+	)
 	if err != nil {
 		t.Fatalf("can't create newnode, got %s", err)
 	}
@@ -52,7 +64,17 @@ func TestFileToFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("can't create GetAdaptor, got %s", err)
 	}
-	_, err = NewNode("localfilein", "file", "/.*/", f, outNode)
+	om, err := offset.NewLogManager(dataDir, "localfilein")
+	if err != nil {
+		t.Fatalf("unexpected NewLogManager error, %s", err)
+	}
+	_, err = NewNodeWithOptions(
+		"localfilein", "file", "/.*/",
+		WithParent(outNode),
+		WithClient(f),
+		WithWriter(f),
+		WithOffsetManager(om),
+	)
 	if err != nil {
 		t.Fatalf("can't create newnode, got %s", err)
 	}

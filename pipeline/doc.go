@@ -9,8 +9,23 @@
 // and each child node is either a data transformer or a database sink.
 // Node's can be defined like:
 //
-//   transporter.NewNode("source", "mongo", map[string]interface{}{"uri": "mongodb://localhost/, "namespace": "test.colln", "debug": false, "tail": true}).
-//     Add(transporter.NewNode("out", "file", map[string]interface{}{"uri": "stdout://"}))
+//   a, err := adaptor.GetAdaptor("mongodb", map[string]interface{}{"uri": "mongo://localhost:27017"})
+//   if err != nil {
+//     fmt.Println(err)
+//     os.Exit(1)
+//   }
+//   source := pipeline.NewNodeWithOptions(
+//     "source", "mongo", "/.*/",
+//     pipeline.WithClient(a),
+//     pipeline.WithReader(a),
+//   )
+//   f, err := adaptor.GetAdaptor("file", map[string]interface{}{"uri": "stdout://"})
+//   sink := pipeline.NewNodeWithOptions(
+//     "out", "file", "/.*/",
+//     pipeline.WithClient(f),
+//     pipeline.WithWriter(f),
+//     pipeline.WithParent(source),
+//   )
 //
 // and pipelines can be defined :
 //   pipeline, err := transporter.NewPipeline(source, events.NewNoopEmitter(), 1*time.Second)
