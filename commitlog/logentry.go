@@ -35,22 +35,27 @@ func (le LogEntry) ModeOpToByte() byte {
 	return byte(int(le.Mode) | (int(le.Op) << opShift))
 }
 
-// ReadHeader returns each part of data stored in the first LogEntry header.
-func ReadHeader(r io.Reader) (uint64, uint32, uint64, Mode, ops.Op, error) {
+func ReadEntry(r io.Reader) (uint64, LogEntry, error) {
 	header := make([]byte, logEntryHeaderLen)
 	if _, err := r.Read(header); err != nil {
-		return 0, 0, 0, 0, 0, err
+		return 0, LogEntry{}, err
 	}
-	return encoding.Uint64(header[offsetPos:sizePos]),
-		encoding.Uint32(header[sizePos:tsPos]),
-		encoding.Uint64(header[tsPos:attrPos]),
-		ModeFromBytes(header),
-		OpFromBytes(header),
-		nil
+	k, v, err := readKeyValue(encoding.Uint32(header[sizePos:tsPos]), r)
+	if err != nil {
+		return 0, LogEntry{}, err
+	}
+	l := LogEntry{
+		Key:       k,
+		Value:     v,
+		Timestamp: encoding.Uint64(header[tsPos:attrPos]),
+		Mode:      modeFromBytes(header),
+		Op:        opFromBytes(header),
+	}
+	return encoding.Uint64(header[offsetPos:sizePos]), l, nil
 }
 
-// ReadKeyValue returns the key and value stored given the size and io.Reader.
-func ReadKeyValue(size uint32, r io.Reader) ([]byte, []byte, error) {
+// readKeyValue returns the key and value stored given the size and io.Reader.
+func readKeyValue(size uint32, r io.Reader) ([]byte, []byte, error) {
 	kvBytes := make([]byte, size)
 	if _, err := r.Read(kvBytes); err != nil {
 		return nil, nil, err
@@ -61,10 +66,10 @@ func ReadKeyValue(size uint32, r io.Reader) ([]byte, []byte, error) {
 	return kvBytes[4 : keyLen+4], kvBytes[keyLen+8:], nil
 }
 
-func ModeFromBytes(b []byte) Mode {
+func modeFromBytes(b []byte) Mode {
 	return Mode(b[attrPos] & modeMask)
 }
-func OpFromBytes(b []byte) ops.Op {
+func opFromBytes(b []byte) ops.Op {
 	return ops.Op(b[attrPos] & opMask >> opShift)
 }
 

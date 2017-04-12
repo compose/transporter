@@ -1,6 +1,7 @@
 package commitlog_test
 
 import (
+	"bytes"
 	"io"
 	"os"
 	"reflect"
@@ -149,102 +150,80 @@ func TestNewLogFromEntry(t *testing.T) {
 	}
 }
 
-func TestReadHeader(t *testing.T) {
-	log, err := os.OpenFile("testdata/00000000000000000000.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		t.Fatalf("unexpected OpenFile error, %s", err)
+var (
+	readEntryTests = []struct {
+		reader         func(t *testing.T) (io.Reader, func())
+		expectedOffset uint64
+		expectedEntry  commitlog.LogEntry
+		expectedErr    error
+	}{
+		{
+			func(t *testing.T) (io.Reader, func()) {
+				log, err := os.OpenFile("testdata/00000000000000000000.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+				if err != nil {
+					t.Fatalf("unexpected OpenFile error, %s", err)
+				}
+				return log, func() { log.Close() }
+			},
+			0,
+			commitlog.LogEntry{
+				Key:       []byte("key"),
+				Value:     []byte("value"),
+				Timestamp: 1491252302,
+				Mode:      commitlog.Copy,
+				Op:        ops.Insert,
+			},
+			nil,
+		},
+		{
+			func(t *testing.T) (io.Reader, func()) {
+				log, err := os.OpenFile("testdata/emptyfile.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+				if err != nil {
+					t.Fatalf("unexpected OpenFile error, %s", err)
+				}
+				return log, func() { log.Close() }
+			},
+			0,
+			commitlog.LogEntry{},
+			io.EOF,
+		},
 	}
-	defer log.Close()
-	offset, size, ts, mode, op, err := commitlog.ReadHeader(log)
-	if err != nil {
-		t.Fatalf("unexpected ReadHeader error, %s", err)
-	}
-	if offset != 0 {
-		t.Errorf("wrong offset, expected 0, got %d", offset)
-	}
-	if size != 16 {
-		t.Errorf("wrong size, expected 16, got %d", size)
-	}
-	if ts != 1491252302 {
-		t.Errorf("wrong timestamp, expected 1491252302, got %d", ts)
-	}
-	if mode != commitlog.Copy {
-		t.Errorf("wrong mode, expected %d, got %d", commitlog.Copy, mode)
-	}
-	if op != ops.Insert {
-		t.Errorf("wrong op, expected %d, got %d", ops.Insert, op)
+)
+
+func checkEntry(t *testing.T, deferFunc func(), actual commitlog.LogEntry, expected commitlog.LogEntry) {
+	defer deferFunc()
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("wrong LogEntry, expected %+v, got %+v", expected, actual)
 	}
 }
 
-func TestReadHeaderErr(t *testing.T) {
-	log, err := os.OpenFile("testdata/emptyfile.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		t.Fatalf("unexpected OpenFile error, %s", err)
-	}
-	defer log.Close()
-	_, _, _, _, _, err = commitlog.ReadHeader(log)
-	if err != io.EOF {
-		t.Errorf("wrong error, expected %s, got %s", io.EOF, err)
-	}
-}
-
-func TestReadKeyValue(t *testing.T) {
-	log, err := os.OpenFile("testdata/00000000000000000000.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		t.Fatalf("unexpected OpenFile error, %s", err)
-	}
-	defer log.Close()
-	_, size, _, _, _, err := commitlog.ReadHeader(log)
-	if err != nil {
-		t.Fatalf("unexpected ReadHeader error, %s", err)
-	}
-	key, value, err := commitlog.ReadKeyValue(size, log)
-	if err != nil {
-		t.Fatalf("unexpected ReadKeyValue error, %s", err)
-	}
-	if string(key) != "key" {
-		t.Errorf("wrong key, expected key, got %s", string(key))
-	}
-	if string(value) != "value" {
-		t.Errorf("wrong value, expected value, got %s", string(value))
-	}
-}
-
-func TestReadKeyValueErr(t *testing.T) {
-	log, err := os.OpenFile("testdata/emptyfile.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		t.Fatalf("unexpected OpenFile error, %s", err)
-	}
-	defer log.Close()
-	_, _, err = commitlog.ReadKeyValue(10, log)
-	if err != io.EOF {
-		t.Errorf("wrong error, expected %s, got %s", io.EOF, err)
+func TestReadEntry(t *testing.T) {
+	for _, ret := range readEntryTests {
+		r, d := ret.reader(t)
+		offset, entry, err := commitlog.ReadEntry(r)
+		if err != ret.expectedErr {
+			t.Fatalf("wrong ReadEntry error, expected %s, got %s", ret.expectedErr, err)
+		}
+		if ret.expectedErr == nil {
+			if !reflect.DeepEqual(ret.expectedOffset, offset) {
+				t.Errorf("wrong offset, expected %d, got %d", ret.expectedOffset, offset)
+			}
+			checkEntry(t, d, entry, ret.expectedEntry)
+		}
 	}
 }
 
 var (
-	modeTests = []struct {
-		name         string
-		l            commitlog.Log
-		expectedMode commitlog.Mode
+	mockEntryTests = []struct {
+		name           string
+		r              io.Reader
+		expectedOffset uint64
+		expectedEntry  commitlog.LogEntry
+		expectedErr    error
 	}{
 		{
-			"base",
-			commitlog.Log{
-				0, 0, 0, 0, 0, 0, 0, 0, // offset
-				0, 0, 0, 16, // size
-				0, 0, 0, 0, 88, 226, 180, 78, // timestamp
-				0,          // mode
-				0, 0, 0, 3, // key length
-				107, 101, 121, // key
-				0, 0, 0, 5, // value length
-				118, 97, 108, 117, 101, // value
-			},
-			commitlog.Copy,
-		},
-		{
 			"sync",
-			commitlog.Log{
+			bytes.NewBuffer(commitlog.Log{
 				0, 0, 0, 0, 0, 0, 0, 0, // offset
 				0, 0, 0, 16, // size
 				0, 0, 0, 0, 88, 226, 180, 78, // timestamp
@@ -253,12 +232,20 @@ var (
 				107, 101, 121, // key
 				0, 0, 0, 5, // value length
 				118, 97, 108, 117, 101, // value
+			}),
+			0,
+			commitlog.LogEntry{
+				Key:       []byte("key"),
+				Value:     []byte("value"),
+				Mode:      commitlog.Sync,
+				Op:        ops.Insert,
+				Timestamp: 1491252302,
 			},
-			commitlog.Sync,
+			nil,
 		},
 		{
 			"complete",
-			commitlog.Log{
+			bytes.NewBuffer(commitlog.Log{
 				0, 0, 0, 0, 0, 0, 0, 0, // offset
 				0, 0, 0, 16, // size
 				0, 0, 0, 0, 88, 226, 180, 78, // timestamp
@@ -267,12 +254,20 @@ var (
 				107, 101, 121, // key
 				0, 0, 0, 5, // value length
 				118, 97, 108, 117, 101, // value
+			}),
+			0,
+			commitlog.LogEntry{
+				Key:       []byte("key"),
+				Value:     []byte("value"),
+				Mode:      commitlog.Complete,
+				Op:        ops.Insert,
+				Timestamp: 1491252302,
 			},
-			commitlog.Complete,
+			nil,
 		},
 		{
 			"mode_with_op",
-			commitlog.Log{
+			bytes.NewBuffer(commitlog.Log{
 				0, 0, 0, 0, 0, 0, 0, 0, // offset
 				0, 0, 0, 16, // size
 				0, 0, 0, 0, 88, 226, 180, 78, // timestamp
@@ -281,45 +276,21 @@ var (
 				107, 101, 121, // key
 				0, 0, 0, 5, // value length
 				118, 97, 108, 117, 101, // value
+			}),
+			0,
+			commitlog.LogEntry{
+				Key:       []byte("key"),
+				Value:     []byte("value"),
+				Mode:      commitlog.Sync,
+				Op:        ops.Delete,
+				Timestamp: 1491252302,
 			},
-			commitlog.Sync,
-		},
-	}
-)
-
-func TestModeFromBytes(t *testing.T) {
-	for _, mt := range modeTests {
-		actualMode := commitlog.ModeFromBytes(mt.l)
-		if !reflect.DeepEqual(actualMode, mt.expectedMode) {
-			t.Errorf("[%s] wrong Mode, expected %+v, got %+v", mt.name, mt.expectedMode, actualMode)
-		}
-	}
-}
-
-var (
-	opTests = []struct {
-		name       string
-		l          commitlog.Log
-		expectedOp ops.Op
-	}{
-		{
-			"base",
-			commitlog.Log{
-				0, 0, 0, 0, 0, 0, 0, 0, // offset
-				0, 0, 0, 16, // size
-				0, 0, 0, 0, 88, 226, 180, 78, // timestamp
-				0,          // mode
-				0, 0, 0, 3, // key length
-				107, 101, 121, // key
-				0, 0, 0, 5, // value length
-				118, 97, 108, 117, 101, // value
-			},
-			ops.Insert,
+			nil,
 		},
 		{
 			"update",
-			commitlog.Log{
-				0, 0, 0, 0, 0, 0, 0, 0, // offset
+			bytes.NewBuffer(commitlog.Log{
+				0, 0, 0, 0, 0, 0, 0, 100, // offset
 				0, 0, 0, 16, // size
 				0, 0, 0, 0, 88, 226, 180, 78, // timestamp
 				4,          // mode
@@ -327,31 +298,43 @@ var (
 				107, 101, 121, // key
 				0, 0, 0, 5, // value length
 				118, 97, 108, 117, 101, // value
+			}),
+			100,
+			commitlog.LogEntry{
+				Key:       []byte("key"),
+				Value:     []byte("value"),
+				Mode:      commitlog.Copy,
+				Op:        ops.Update,
+				Timestamp: 1491252302,
 			},
-			ops.Update,
+			nil,
 		},
 		{
-			"op_with_mode",
-			commitlog.Log{
-				0, 0, 0, 0, 0, 0, 0, 0, // offset
+			"with_err",
+			bytes.NewBuffer(commitlog.Log{
+				0, 0, 0, 0, 0, 0, 0, 100, // offset
 				0, 0, 0, 16, // size
 				0, 0, 0, 0, 88, 226, 180, 78, // timestamp
-				9,          // mode
-				0, 0, 0, 3, // key length
-				107, 101, 121, // key
-				0, 0, 0, 5, // value length
-				118, 97, 108, 117, 101, // value
-			},
-			ops.Delete,
+				4, // mode
+			}),
+			100,
+			commitlog.LogEntry{},
+			io.EOF,
 		},
 	}
 )
 
-func TestOpFromBytes(t *testing.T) {
-	for _, ot := range opTests {
-		actualOp := commitlog.OpFromBytes(ot.l)
-		if !reflect.DeepEqual(actualOp, ot.expectedOp) {
-			t.Errorf("[%s] wrong Op, expected %+v, got %+v", ot.name, ot.expectedOp, actualOp)
+func TestReadEntryMock(t *testing.T) {
+	for _, met := range mockEntryTests {
+		offset, entry, err := commitlog.ReadEntry(met.r)
+		if err != met.expectedErr {
+			t.Fatalf("[%s] wrong ReadEntry error, expected %s, got %s", met.name, met.expectedErr, err)
+		}
+		if met.expectedErr == nil {
+			if !reflect.DeepEqual(met.expectedOffset, offset) {
+				t.Errorf("[%s] wrong offset, expected %d, got %d", met.name, met.expectedOffset, offset)
+			}
+			checkEntry(t, func() {}, entry, met.expectedEntry)
 		}
 	}
 }

@@ -68,17 +68,11 @@ func TestRead(t *testing.T) {
 			t.Fatalf("[%s] unexpected NewReader error, %s", rt.name, err)
 		}
 		for {
-			_, size, _, _, _, err := commitlog.ReadHeader(r)
+			_, _, err := commitlog.ReadEntry(r)
 			if err != nil && err == io.EOF {
 				break
 			} else if err != nil {
 				t.Fatalf("[%s] unexpected ReadHeader error, %s", rt.name, err)
-			}
-			_, _, err = commitlog.ReadKeyValue(size, r)
-			if err != nil && err == io.EOF {
-				break
-			} else if err != nil {
-				t.Fatalf("[%s] unexpected ReadKeyValue error, %s", rt.name, err)
 			}
 		}
 	}
