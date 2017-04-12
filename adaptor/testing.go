@@ -31,6 +31,42 @@ func (m *Mock) Writer(chan struct{}, *sync.WaitGroup) (client.Writer, error) {
 	return &client.MockWriter{}, nil
 }
 
+type MockClientErr struct {
+	BaseConfig
+}
+
+func (m *MockClientErr) Client() (client.Client, error) {
+	return &client.MockErr{}, nil
+}
+
+// Reader satisfies the V2 interface for providing a client.Reader.
+func (m *MockClientErr) Reader() (client.Reader, error) {
+	return &client.MockReader{}, nil
+}
+
+// Writer satisfies the V2 interface for providing a client.Writer.
+func (m *MockClientErr) Writer(chan struct{}, *sync.WaitGroup) (client.Writer, error) {
+	return &client.MockWriter{}, nil
+}
+
+type MockWriterErr struct {
+	BaseConfig
+}
+
+func (m *MockWriterErr) Client() (client.Client, error) {
+	return &client.Mock{}, nil
+}
+
+// Reader satisfies the V2 interface for providing a client.Reader.
+func (m *MockWriterErr) Reader() (client.Reader, error) {
+	return &client.MockReader{}, nil
+}
+
+// Writer satisfies the V2 interface for providing a client.Writer.
+func (m *MockWriterErr) Writer(chan struct{}, *sync.WaitGroup) (client.Writer, error) {
+	return &client.MockErrWriter{}, nil
+}
+
 // UnsupportedMock can be used for mocking tests that need no functional client interfaces.
 type UnsupportedMock struct {
 	BaseConfig

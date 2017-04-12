@@ -20,7 +20,7 @@ var (
 
 	dbsToTest = []*TestData{
 		bulkTestData,
-		readerTestData, filteredReaderTestData, cancelledReaderTestData,
+		readerTestData, filteredReaderTestData, skipReaderTestData, cancelledReaderTestData,
 		writerTestData,
 		tailTestData}
 )

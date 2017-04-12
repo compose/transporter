@@ -1,6 +1,7 @@
 package client_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/compose/transporter/client"
@@ -21,12 +22,23 @@ func TestWrite(t *testing.T) {
 	}
 }
 
+var (
+	writeErrorTests = []struct {
+		c   client.Client
+		w   client.Writer
+		err error
+	}{
+		{&client.MockErr{}, &client.MockWriter{}, client.ErrMockConnect},
+		{&client.Mock{}, &client.MockErrWriter{}, client.ErrMockWrite},
+	}
+)
+
 func TestWriteWithError(t *testing.T) {
-	w := &client.MockWriter{}
-	c := &client.MockErr{}
-	_, err := client.Write(c, w, message.From(ops.Insert, "test", map[string]interface{}{"hello": "client"}))
-	if err == nil {
-		t.Error("no error returned but expected one")
+	for _, wt := range writeErrorTests {
+		_, err := client.Write(wt.c, wt.w, message.From(ops.Insert, "test", map[string]interface{}{"hello": "client"}))
+		if !reflect.DeepEqual(err, wt.err) {
+			t.Errorf("wrong Write() error, expected %s, got %s", wt.err, err)
+		}
 	}
 }
 
@@ -38,7 +50,7 @@ func TestRead(t *testing.T) {
 	c := client.Mock{}
 	s, _ := c.Connect()
 	r := client.MockReader{MsgCount: testMsgCount}
-	readFunc := r.Read(func(string) bool { return true })
+	readFunc := r.Read(map[string]client.MessageSet{}, func(string) bool { return true })
 	msgChan, err := readFunc(s, nil)
 	if err != nil {
 		t.Fatalf("unexpected readFunc error, %s", err)

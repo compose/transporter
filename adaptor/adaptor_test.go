@@ -11,61 +11,65 @@ import (
 func init() {
 	adaptor.Add("mock", func() adaptor.Adaptor { return &adaptor.Mock{} })
 	adaptor.Add("unsupported", func() adaptor.Adaptor { return &adaptor.UnsupportedMock{} })
+	adaptor.Add("clienterr", func() adaptor.Adaptor { return &adaptor.MockClientErr{} })
+	adaptor.Add("writererr", func() adaptor.Adaptor { return &adaptor.MockWriterErr{} })
 }
+
+var (
+	mockTests = []struct {
+		name       string
+		conf       adaptor.Config
+		adaptorErr error
+		clientErr  error
+		readerErr  error
+		writerErr  error
+	}{
+		{"mock", map[string]interface{}{"uri": "uri"}, nil, nil, nil, nil},
+		{"clienterr", map[string]interface{}{"uri": "uri"}, nil, nil, nil, nil},
+		{"writererr", map[string]interface{}{"uri": "uri"}, nil, nil, nil, nil},
+		{"notfound", map[string]interface{}{}, adaptor.ErrNotFound{Name: "notfound"}, nil, nil, nil},
+		{
+			"unsupported",
+			map[string]interface{}{},
+			nil,
+			adaptor.ErrFuncNotSupported{Name: "unsupported", Func: "Client()"},
+			adaptor.ErrFuncNotSupported{Name: "unsupported", Func: "Reader()"},
+			adaptor.ErrFuncNotSupported{Name: "unsupported", Func: "Writer()"},
+		},
+	}
+)
 
 func TestMocks(t *testing.T) {
-	m, err := adaptor.GetAdaptor("mock", map[string]interface{}{"uri": "uri", "namespace": "namespace"})
-	if err != nil {
-		t.Errorf("unexpected GetV2() error, %s", err)
-	}
-	if _, err := m.Client(); err != nil {
-		t.Errorf("unexpected Client() error, %s", err)
-	}
-	if _, err := m.Reader(); err != nil {
-		t.Errorf("unexpected Reader() error, %s", err)
-	}
-	if _, err := m.Writer(nil, nil); err != nil {
-		t.Errorf("unexpected Writer() error, %s", err)
-	}
-
-	_, err = adaptor.GetAdaptor("notfound", map[string]interface{}{})
-	aerr := adaptor.ErrNotFound{Name: "notfound"}
-	if !reflect.DeepEqual(err.Error(), aerr.Error()) {
-		t.Errorf("err mismatch, expected %+v, got %+v", aerr, err)
-	}
-}
-
-func TestUnsupportedMock(t *testing.T) {
-	aName := "unsupported"
-	m, err := adaptor.GetAdaptor(aName, map[string]interface{}{})
-	if err != nil {
-		t.Errorf("unexpected GetV2() error, %s", err)
-	}
-	uerr := adaptor.ErrFuncNotSupported{Name: aName, Func: "Client()"}
-	if _, err := m.Client(); !reflect.DeepEqual(err.Error(), uerr.Error()) {
-		t.Errorf("wrong Client() error, expected %s, got %s", uerr, err)
-	}
-	uerr = adaptor.ErrFuncNotSupported{Name: aName, Func: "Reader()"}
-	if _, err := m.Reader(); !reflect.DeepEqual(err.Error(), uerr.Error()) {
-		t.Errorf("wrong Reader() error, expected %s, got %s", uerr, err)
-	}
-	uerr = adaptor.ErrFuncNotSupported{Name: aName, Func: "Writer()"}
-	if _, err := m.Writer(nil, nil); !reflect.DeepEqual(err.Error(), uerr.Error()) {
-		t.Errorf("wrong Writer() error, expected %s, got %s", uerr, err)
+	for _, mt := range mockTests {
+		m, err := adaptor.GetAdaptor(mt.name, mt.conf)
+		if !reflect.DeepEqual(err, mt.adaptorErr) {
+			t.Errorf("[%s] wrong GetAdaptor() error, expected %s, got %s", mt.name, mt.adaptorErr, err)
+		}
+		if err == nil {
+			if _, err := m.Client(); !reflect.DeepEqual(err, mt.clientErr) {
+				t.Errorf("[%s] wrong Client() error, expected %s, got %s", mt.name, mt.clientErr, err)
+			}
+			if _, err := m.Reader(); !reflect.DeepEqual(err, mt.readerErr) {
+				t.Errorf("[%s] wrong Reader() error, expected %s, got %s", mt.name, mt.readerErr, err)
+			}
+			if _, err := m.Writer(nil, nil); !reflect.DeepEqual(err, mt.writerErr) {
+				t.Errorf("[%s] wrong Writer() error, expected %s, got %s", mt.name, mt.writerErr, err)
+			}
+		}
 	}
 }
 
 func TestRegisteredAdaptors(t *testing.T) {
 	all := adaptor.RegisteredAdaptors()
-	if len(all) != 2 {
-		t.Error("wrong number of registered adaptors, expected 2, got %d", len(all))
+	if len(all) != 4 {
+		t.Errorf("wrong number of registered adaptors, expected 4, got %d", len(all))
 	}
 }
 
 func TestAdaptors(t *testing.T) {
 	all := adaptor.Adaptors()
-	if len(all) != 2 {
-		t.Error("wrong number of registered adaptors, expected 2, got %d", len(all))
+	if len(all) != 4 {
+		t.Errorf("wrong number of registered adaptors, expected 4, got %d", len(all))
 	}
 }
 

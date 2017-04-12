@@ -17,6 +17,7 @@ import (
 var (
 	readerTestData          = &TestData{"reader_test", "foo", 10}
 	filteredReaderTestData  = &TestData{"filtered_reader_test", "foo", 10}
+	skipReaderTestData      = &TestData{"skip_reader_test", "foo", 10}
 	cancelledReaderTestData = &TestData{"cancelled_reader_test", "foo", 100}
 )
 
@@ -33,7 +34,7 @@ func TestRead(t *testing.T) {
 	}
 
 	reader := newReader(false, DefaultCollectionFilter)
-	readFunc := reader.Read(filterFunc)
+	readFunc := reader.Read(map[string]client.MessageSet{}, filterFunc)
 	done := make(chan struct{})
 	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://127.0.0.1:27017/%s", readerTestData.DB)))
 	s, err := c.Connect()
@@ -69,7 +70,7 @@ func TestFilteredRead(t *testing.T) {
 		defaultSession.mgoSession.DB(filteredReaderTestData.DB).C(filteredReaderTestData.C).Insert(bson.M{"_id": i, "i": i})
 	}
 
-	readFunc := reader.Read(filterFunc)
+	readFunc := reader.Read(map[string]client.MessageSet{}, filterFunc)
 	done := make(chan struct{})
 	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://127.0.0.1:27017/%s", filteredReaderTestData.DB)))
 	s, err := c.Connect()
@@ -92,13 +93,49 @@ func TestFilteredRead(t *testing.T) {
 	close(done)
 }
 
+func TestSkipCollection(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping TestSkipCollection in short mode")
+	}
+
+	reader := newReader(false, DefaultCollectionFilter)
+	readFunc := reader.Read(map[string]client.MessageSet{}, func(c string) bool {
+		if strings.HasPrefix(c, "system.") || c == "bar" {
+			return false
+		}
+		return true
+	})
+	done := make(chan struct{})
+	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://127.0.0.1:27017/%s", skipReaderTestData.DB)))
+	s, err := c.Connect()
+	if err != nil {
+		t.Fatalf("unable to initialize connection to mongodb, %s", err)
+	}
+	defer s.(*Session).Close()
+	for i := 0; i < skipReaderTestData.InsertCount; i++ {
+		s.(*Session).mgoSession.DB(skipReaderTestData.DB).C("bar").Insert(bson.M{"_id": i, "i": i})
+	}
+	msgChan, err := readFunc(s, done)
+	if err != nil {
+		t.Fatalf("unexpected Read error, %s\n", err)
+	}
+	var numMsgs int
+	for _ = range msgChan {
+		numMsgs++
+	}
+	if numMsgs != skipReaderTestData.InsertCount {
+		t.Errorf("bad message count, expected %d, got %d\n", skipReaderTestData.InsertCount, numMsgs)
+	}
+	close(done)
+}
+
 func TestCancelledRead(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping TestCancelledRead in short mode")
 	}
 
 	reader := newReader(false, DefaultCollectionFilter)
-	readFunc := reader.Read(filterFunc)
+	readFunc := reader.Read(map[string]client.MessageSet{}, filterFunc)
 	done := make(chan struct{})
 	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://127.0.0.1:27017/%s", cancelledReaderTestData.DB)))
 	s, err := c.Connect()
@@ -154,7 +191,7 @@ func TestReadRestart(t *testing.T) {
 	}
 
 	reader := newReader(false, DefaultCollectionFilter)
-	readFunc := reader.Read(filterFunc)
+	readFunc := reader.Read(map[string]client.MessageSet{}, filterFunc)
 	done := make(chan struct{})
 	msgChan, err := readFunc(s, done)
 	if err != nil {
@@ -240,7 +277,7 @@ func TestTail(t *testing.T) {
 	tail := newReader(true, DefaultCollectionFilter)
 
 	time.Sleep(1 * time.Second)
-	tailFunc := tail.Read(func(c string) bool {
+	tailFunc := tail.Read(map[string]client.MessageSet{}, func(c string) bool {
 		if strings.HasPrefix(c, "system.") {
 			return false
 		} else if c == "skip" {

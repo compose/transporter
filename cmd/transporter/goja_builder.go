@@ -15,6 +15,7 @@ import (
 	"github.com/compose/transporter/adaptor"
 	"github.com/compose/transporter/events"
 	"github.com/compose/transporter/function"
+	"github.com/compose/transporter/offset"
 	"github.com/compose/transporter/pipeline"
 	"github.com/dop251/goja"
 	uuid "github.com/nu7hatch/gouuid"
@@ -155,7 +156,12 @@ func buildFunction(name string) func(map[string]interface{}) function.Function {
 func (t *Transporter) Source(call goja.FunctionCall) goja.Value {
 	name, out, namespace := exportArgs(call.Arguments)
 	a := out.(Adaptor)
-	n, err := pipeline.NewNode(name, a.name, namespace, a.a, nil)
+	n, err := pipeline.NewNodeWithOptions(
+		name, a.name, namespace,
+		pipeline.WithClient(a.a),
+		pipeline.WithReader(a.a),
+		pipeline.WithCommitLog("/tmp/transporter", 1024*1024*1024),
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -192,7 +198,17 @@ func (tf *Transformer) Transform(call goja.FunctionCall) goja.Value {
 func (n *Node) Save(call goja.FunctionCall) goja.Value {
 	name, out, namespace := exportArgs(call.Arguments)
 	a := out.(Adaptor)
-	child, err := pipeline.NewNode(name, a.name, namespace, a.a, n.parent)
+	om, err := offset.NewLogManager("/tmp/transporter", name)
+	if err != nil {
+		panic(err)
+	}
+	child, err := pipeline.NewNodeWithOptions(
+		name, a.name, namespace,
+		pipeline.WithParent(n.parent),
+		pipeline.WithClient(a.a),
+		pipeline.WithWriter(a.a),
+		pipeline.WithOffsetManager(om),
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -202,11 +218,16 @@ func (n *Node) Save(call goja.FunctionCall) goja.Value {
 func (tf *Transformer) Save(call goja.FunctionCall) goja.Value {
 	name, out, namespace := exportArgs(call.Arguments)
 	a := out.(Adaptor)
-	child, err := pipeline.NewNode(name, a.name, namespace, a.a, tf.source)
+	child, err := pipeline.NewNodeWithOptions(
+		name, a.name, namespace,
+		pipeline.WithParent(tf.source),
+		pipeline.WithClient(a.a),
+		pipeline.WithWriter(a.a),
+		pipeline.WithTransforms(tf.transforms),
+	)
 	if err != nil {
 		panic(err)
 	}
-	child.Transforms = tf.transforms
 	return tf.vm.ToValue(&Node{tf.vm, child})
 }
 

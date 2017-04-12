@@ -9,6 +9,11 @@ import (
 	"github.com/compose/transporter/message/ops"
 )
 
+var (
+	ErrMockConnect = errors.New("connect failed")
+	ErrMockWrite   = errors.New("write failed")
+)
+
 // Mock can be used for mocking tests that need no actual client or Session.
 type Mock struct {
 	Closed bool
@@ -28,7 +33,7 @@ type MockErr struct {
 
 // Connect satisfies the Client interface.
 func (c *MockErr) Connect() (Session, error) {
-	return nil, errors.New("connect failed")
+	return nil, ErrMockConnect
 }
 
 // MockSession can be used for mocking tests the do not need to use anything in the Session.
@@ -43,7 +48,7 @@ type MockReader struct {
 	MsgCount int
 }
 
-func (r *MockReader) Read(filterFn NsFilterFunc) MessageChanFunc {
+func (r *MockReader) Read(_ map[string]MessageSet, filterFn NsFilterFunc) MessageChanFunc {
 	return func(s Session, done chan struct{}) (chan MessageSet, error) {
 		out := make(chan MessageSet)
 		go func() {
@@ -71,5 +76,15 @@ func (w *MockWriter) Write(msg message.Msg) func(Session) (message.Msg, error) {
 	return func(s Session) (message.Msg, error) {
 		w.MsgCount++
 		return msg, nil
+	}
+}
+
+type MockErrWriter struct {
+}
+
+// Writer satisfies the Writer interface.
+func (w *MockErrWriter) Write(msg message.Msg) func(Session) (message.Msg, error) {
+	return func(Session) (message.Msg, error) {
+		return msg, ErrMockWrite
 	}
 }

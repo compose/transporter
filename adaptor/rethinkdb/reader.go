@@ -32,7 +32,7 @@ type iterationComplete struct {
 	table  string
 }
 
-func (r *Reader) Read(filterFn client.NsFilterFunc) client.MessageChanFunc {
+func (r *Reader) Read(_ map[string]client.MessageSet, filterFn client.NsFilterFunc) client.MessageChanFunc {
 	return func(s client.Session, done chan struct{}) (chan client.MessageSet, error) {
 		out := make(chan client.MessageSet)
 		session := s.(*Session).session

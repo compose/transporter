@@ -35,7 +35,7 @@ type Closer interface {
 // Reader represents the ability to send messages down the pipe and is only needed for
 // adaptors acting as a Source node.
 type Reader interface {
-	Read(NsFilterFunc) MessageChanFunc
+	Read(map[string]MessageSet, NsFilterFunc) MessageChanFunc
 }
 
 // Writer represents all possible functions needing to be implemented to handle messages.

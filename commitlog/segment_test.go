@@ -136,6 +136,90 @@ func TestReadAt(t *testing.T) {
 }
 
 var (
+	offsetTests = []struct {
+		offset           uint64
+		expectedPosition int64
+		expectedError    error
+	}{
+		{0, 0, nil},
+		{1, 90, nil},
+		{2, 180, nil},
+		{10, 900, nil},
+		{100, 9090, nil},
+		{1000, 91890, nil},
+		{2000, 184890, nil},
+		{10000, 928890, nil},
+		{100000, 9388890, nil},
+		{200000, 9388890, commitlog.ErrOffsetNotFound},
+	}
+)
+
+func TestFindOffsetPosition(t *testing.T) {
+	s, err := commitlog.NewSegment("testdata/find_offset_position", 0, 1024*1024*1024)
+	if err != nil {
+		t.Fatalf("unexpected NewSegment error, %s", err)
+	}
+	for _, ot := range offsetTests {
+		pos, err := s.FindOffsetPosition(ot.offset)
+		if !reflect.DeepEqual(err, ot.expectedError) {
+			t.Fatalf("unexpected FindOffsetPosition, expected %s, got, %s", ot.expectedError, err)
+		}
+		if ot.expectedError == nil {
+			if !reflect.DeepEqual(pos, ot.expectedPosition) {
+				t.Errorf("wrong position, expected %d, got %d", ot.expectedPosition, pos)
+			}
+		}
+	}
+}
+
+func TestFindOffsetPositionErr(t *testing.T) {
+	s, err := commitlog.NewSegment("testdata/find_offset_position_err", 0, 1024*1024*1024)
+	if err != nil {
+		t.Fatalf("unexpected NewSegment error, %s", err)
+	}
+	_, err = s.FindOffsetPosition(9)
+	if !reflect.DeepEqual(err, commitlog.ErrOffsetNotFound) {
+		t.Fatalf("unexpected FindOffsetPosition, expected %s, got, %s", commitlog.ErrOffsetNotFound, err)
+	}
+}
+
+var (
+	offsetMultiSegmentTests = []struct {
+		offset           uint64
+		expectedPosition int64
+		expectedError    error
+	}{
+		{0, 0, nil},
+		{1, 37, nil},
+		{2, 74, nil},
+		{10, 370, nil},
+		{100, 3700, nil},
+		{1000, 37000, nil},
+		{2000, 74000, nil},
+		{10000, 370000, nil},
+		{100000, -1, commitlog.ErrOffsetNotFound},
+	}
+)
+
+func TestFindOffsetPositionMultiSegment(t *testing.T) {
+	s, err := commitlog.NewSegment("testdata/find_offset_position_many_segments", 0, 1024*1024*1024)
+	if err != nil {
+		t.Fatalf("unexpected NewSegment error, %s", err)
+	}
+	for _, ot := range offsetMultiSegmentTests {
+		pos, err := s.FindOffsetPosition(ot.offset)
+		if !reflect.DeepEqual(err, ot.expectedError) {
+			t.Errorf("[%d] unexpected FindOffsetPosition, expected %s, got, %s", ot.offset, ot.expectedError, err)
+		}
+		if ot.expectedError == nil && err == nil {
+			if !reflect.DeepEqual(pos, ot.expectedPosition) {
+				t.Errorf("[%d] wrong position, expected %d, got %d", ot.offset, ot.expectedPosition, pos)
+			}
+		}
+	}
+}
+
+var (
 	closePath = filepath.Join(os.TempDir(), fmt.Sprintf("closesegmenttest%d", rand.Int63()))
 )
 
