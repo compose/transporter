@@ -15,6 +15,7 @@ import (
 	"github.com/compose/transporter/adaptor"
 	"github.com/compose/transporter/client"
 	"github.com/compose/transporter/function"
+	"github.com/compose/transporter/log"
 	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/message/ops"
 	"github.com/compose/transporter/offset"
@@ -27,83 +28,96 @@ var (
 
 func TestNodeString(t *testing.T) {
 	data := []struct {
-		in  *Node
+		in  func() *Node
 		out string
 	}{
 		{
-			&Node{
-				Name:     "name",
-				Type:     "mongodb",
-				nsFilter: DefaultNS,
+			func() *Node {
+				n, _ := NewNodeWithOptions("name", "mongodb", defaultNsString)
+				return n
 			},
 			" - Source:         name                                     mongodb         .*                            ",
 		},
 	}
 
 	for _, v := range data {
-		if v.in.String() != v.out {
-			t.Errorf("\nexpected: '%s'\n     got: '%s'\n", v.out, v.in.String())
+		n := v.in()
+		if n.String() != v.out {
+			t.Errorf("\nexpected: '%s'\n     got: '%s'\n", v.out, n.String())
 		}
 	}
 }
 
 func TestValidate(t *testing.T) {
 	data := []struct {
-		in  *Node
+		in  func() *Node
 		out bool
 	}{
 		{
-			&Node{Name: "first", Type: "mongodb", nsFilter: DefaultNS, Parent: nil},
+			func() *Node {
+				n, _ := NewNodeWithOptions("first", "mongodb", defaultNsString)
+				return n
+			},
 			false,
 		},
 		{
-			&Node{Name: "first", Type: "mongodb", nsFilter: DefaultNS, Parent: nil,
-				Children: []*Node{
-					&Node{Name: "second", Type: "mongodb", nsFilter: DefaultNS},
-				},
+			func() *Node {
+				source, _ := NewNodeWithOptions("first", "mongodb", defaultNsString)
+				NewNodeWithOptions("second", "mongodb", defaultNsString, WithParent(source))
+				return source
 			},
 			true,
 		},
 	}
 
 	for _, v := range data {
-		for _, child := range v.in.Children {
-			child.Parent = v.in
-		}
-		if v.in.Validate() != v.out {
-			t.Errorf("%s: expected: %t got: %t", v.in.Name, v.out, v.in.Validate())
+		node := v.in()
+		if node.Validate() != v.out {
+			t.Errorf("%s: expected: %t got: %t", node.Name, v.out, node.Validate())
 		}
 	}
 }
 
 func TestPath(t *testing.T) {
 	data := []struct {
-		in  *Node
+		in  func() *Node
 		out string
 	}{
 		{
-			&Node{Name: "first", Type: "mongodb", nsFilter: DefaultNS},
+			func() *Node {
+				n, _ := NewNodeWithOptions("first", "mongodb", defaultNsString)
+				return n
+			},
 			"first",
 		},
 		{
-			&Node{Name: "second", Type: "mongodb", nsFilter: DefaultNS, Parent: &Node{Name: "first", Type: "mongodb", nsFilter: DefaultNS}},
+			func() *Node {
+				first, _ := NewNodeWithOptions("first", "mongodb", defaultNsString)
+				second, _ := NewNodeWithOptions("second", "mongodb", defaultNsString, WithParent(first))
+				return second
+			},
 			"first/second",
 		},
 		{
-			&Node{Name: "third", Type: "mongodb", nsFilter: DefaultNS, Parent: &Node{Name: "second", Type: "transformer", nsFilter: DefaultNS, Parent: &Node{Name: "first", Type: "mongodb", nsFilter: DefaultNS}}},
+			func() *Node {
+				first, _ := NewNodeWithOptions("first", "mongodb", defaultNsString)
+				second, _ := NewNodeWithOptions("second", "mongodb", defaultNsString, WithParent(first))
+				third, _ := NewNodeWithOptions("third", "mongodb", defaultNsString, WithParent(second))
+				return third
+			},
 			"first/second/third",
 		},
 	}
 
 	for _, v := range data {
-		node := v.in
+		node := v.in()
 		var path string
 		for {
-			if len(node.Children) == 0 {
-				path = node.Path()
+			if len(node.children) == 0 {
+				path = node.path
 				break
 			}
-			node = node.Children[0]
+			node = node.children[0]
 		}
 		if path != v.out {
 			t.Errorf("%s: expected: %s got: %s", node.Name, v.out, path)
@@ -166,12 +180,14 @@ func scratchDataDir(suffix string) string {
 
 var (
 	stopTests = []struct {
+		name       string
 		node       func() (*Node, *StopWriter, func())
 		msgCount   int
 		applyCount int
 		startErr   error
 	}{
 		{
+			"base",
 			func() (*Node, *StopWriter, func()) {
 				dataDir := scratchDataDir("base")
 				a := &StopWriter{SendCount: 10}
@@ -194,6 +210,7 @@ var (
 			10, 0, nil,
 		},
 		{
+			"with_transform",
 			func() (*Node, *StopWriter, func()) {
 				dataDir := scratchDataDir("mocktransform")
 				a := &StopWriter{SendCount: 10}
@@ -217,6 +234,7 @@ var (
 			10, 10, nil,
 		},
 		{
+			"transform_ns_mismatch",
 			func() (*Node, *StopWriter, func()) {
 				dataDir := scratchDataDir("mocktransform_ns_mismatch")
 				a := &StopWriter{SendCount: 10}
@@ -246,6 +264,7 @@ var (
 			10, 0, nil,
 		},
 		{
+			"with_transform_err",
 			func() (*Node, *StopWriter, func()) {
 				dataDir := scratchDataDir("mocktransform_err")
 				a := &StopWriter{SendCount: 10}
@@ -275,6 +294,7 @@ var (
 			0, 1, nil,
 		},
 		{
+			"with_skip_transform",
 			func() (*Node, *StopWriter, func()) {
 				dataDir := scratchDataDir("skiptransform")
 				a := &StopWriter{SendCount: 10}
@@ -304,6 +324,7 @@ var (
 			0, 10, nil,
 		},
 		{
+			"with_skip_op_transform",
 			func() (*Node, *StopWriter, func()) {
 				dataDir := scratchDataDir("skipop_transform")
 				a := &StopWriter{SendCount: 10}
@@ -333,6 +354,7 @@ var (
 			0, 10, nil,
 		},
 		{
+			"resume_from_zero",
 			func() (*Node, *StopWriter, func()) {
 				dataDir := scratchDataDir("resume_from_zero")
 				a := &StopWriter{}
@@ -355,6 +377,7 @@ var (
 			104016, 0, nil,
 		},
 		{
+			"resume_from_middle",
 			func() (*Node, *StopWriter, func()) {
 				os.Remove("testdata/restart_from_middle/__consumer_offsets-stopper/00000000000000000000.log")
 				in, _ := os.Open("testdata/restart_from_middle/copy_from_here/00000000000000000000.log")
@@ -387,6 +410,7 @@ var (
 			2001, 0, nil,
 		},
 		{
+			"resume_from_end",
 			func() (*Node, *StopWriter, func()) {
 				a := &StopWriter{}
 				n, _ := NewNodeWithOptions(
@@ -408,6 +432,7 @@ var (
 			0, 0, nil,
 		},
 		{
+			"resume_from_zero_mock_offset",
 			func() (*Node, *StopWriter, func()) {
 				a := &StopWriter{}
 				n, _ := NewNodeWithOptions(
@@ -430,6 +455,7 @@ var (
 			104016, 0, nil,
 		},
 		{
+			"resume_multi_ns_offset",
 			func() (*Node, *StopWriter, func()) {
 				a := &StopWriter{}
 				n, _ := NewNodeWithOptions(
@@ -456,6 +482,7 @@ var (
 			0, 0, nil,
 		},
 		{
+			"resume_multi_ns_offset_with_messages",
 			func() (*Node, *StopWriter, func()) {
 				a := &StopWriter{}
 				n, _ := NewNodeWithOptions(
@@ -483,6 +510,7 @@ var (
 			4, 0, nil,
 		},
 		{
+			"resume_with_multi_ns_delayed_commit",
 			func() (*Node, *StopWriter, func()) {
 				a := &StopWriter{}
 				n, _ := NewNodeWithOptions(
@@ -510,11 +538,33 @@ var (
 			},
 			2, 0, ErrResumeTimedOut,
 		},
+		{
+			"with_ns_filter",
+			func() (*Node, *StopWriter, func()) {
+				a := &StopWriter{}
+				n, _ := NewNodeWithOptions(
+					"starter", "stopWriter", defaultNsString,
+					WithClient(a),
+					WithReader(a),
+					WithCommitLog("testdata/pipeline_run", 1024),
+				)
+				NewNodeWithOptions(
+					"stopper", "stopWriter", "/blah/",
+					WithClient(a),
+					WithWriter(a),
+					WithParent(n),
+					WithOffsetManager(&offset.MockManager{MemoryMap: map[string]uint64{}}),
+				)
+				return n, a, func() {}
+			},
+			0, 0, nil,
+		},
 	}
 )
 
 func TestStop(t *testing.T) {
 	for _, st := range stopTests {
+		log.Infof("starting test %s", st.name)
 		source, s, deferFunc := st.node()
 		defer deferFunc()
 		var errored bool
@@ -535,7 +585,7 @@ func TestStop(t *testing.T) {
 			close(stopC)
 		}
 		<-stopC
-		for _, child := range source.Children {
+		for _, child := range source.children {
 			if !s.Closed {
 				t.Errorf("[%s] child node was not closed but should have been", child.Name)
 			}
@@ -543,13 +593,14 @@ func TestStop(t *testing.T) {
 		if st.msgCount != s.MsgCount {
 			t.Errorf("wrong number of messages received, expected %d, got %d", st.msgCount, s.MsgCount)
 		}
-		if len(source.Children[0].Transforms) > 0 {
-			switch mock := source.Children[0].Transforms[0].Fn.(type) {
+		if len(source.children[0].transforms) > 0 {
+			switch mock := source.children[0].transforms[0].Fn.(type) {
 			case *function.Mock:
 				if mock.ApplyCount != st.applyCount {
 					t.Errorf("wrong number of transforms applied, expected %d, got %d", st.applyCount, mock.ApplyCount)
 				}
 			}
 		}
+		log.Infof("test %s completed", st.name)
 	}
 }

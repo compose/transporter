@@ -7,19 +7,23 @@
 package pipe
 
 import (
-	"regexp"
+	"errors"
 	"time"
 
 	"github.com/compose/transporter/events"
+	"github.com/compose/transporter/log"
 	"github.com/compose/transporter/message"
+)
+
+var (
+	// ErrUnableToListen is returned in cases where Listen is called before the In chan has been
+	// established.
+	ErrUnableToListen = errors.New("Listen called without a nil In chan")
 )
 
 // type messageChan chan message.Msg
 type messageChan chan message.Msg
 
-// func newMessageChan() messageChan {
-// 	return make(chan message.Msg)
-// }
 func newMessageChan() messageChan {
 	return make(chan message.Msg)
 }
@@ -43,7 +47,7 @@ type Pipe struct {
 	listening bool
 }
 
-// NewPipe creates a new Pipe.  If the pipe that is passed in is nil, then this pipe will be treaded as a source pipe that just serves to emit messages.
+// NewPipe creates a new Pipe.  If the pipe that is passed in is nil, then this pipe will be treated as a source pipe that just serves to emit messages.
 // Otherwise, the pipe returned will be created and chained from the last member of the Out slice of the parent.  This function has side effects, and will add
 // an Out channel to the pipe that is passed in
 func NewPipe(pipe *Pipe, path string) *Pipe {
@@ -70,9 +74,9 @@ func NewPipe(pipe *Pipe, path string) *Pipe {
 // Listen starts a listening loop that pulls messages from the In chan, applies fn(msg), a `func(message.Msg) error`, and emits them on the Out channel.
 // Errors will be emitted to the Pipe's Err chan, and will terminate the loop.
 // The listening loop can be interrupted by calls to Stop().
-func (m *Pipe) Listen(fn func(message.Msg) (message.Msg, error), nsFilter *regexp.Regexp) error {
+func (m *Pipe) Listen(fn func(message.Msg) (message.Msg, error)) error {
 	if m.In == nil {
-		return nil
+		return ErrUnableToListen
 	}
 	m.listening = true
 	for {
@@ -82,25 +86,20 @@ func (m *Pipe) Listen(fn func(message.Msg) (message.Msg, error), nsFilter *regex
 			m.Stopped = true
 			c <- true
 			return nil
-		case msg, ok := <-m.In:
-			if !ok {
+		case msg := <-m.In:
+			outmsg, err := fn(msg)
+			if err != nil {
+				m.Stopped = true
+				m.Err <- err
+				return err
+			}
+			if outmsg == nil {
 				break
 			}
-			if nsFilter.MatchString(msg.Namespace()) {
-				outmsg, err := fn(msg)
-				if err != nil {
-					m.Err <- err
-					m.Stopped = true
-					return err
-				}
-				if outmsg == nil {
-					break
-				}
-				if len(m.Out) > 0 {
-					m.Send(outmsg)
-				} else {
-					m.MessageCount++ // update the count anyway
-				}
+			if len(m.Out) > 0 {
+				m.Send(outmsg)
+			} else {
+				m.MessageCount++ // update the count anyway
 			}
 		}
 	}
@@ -134,6 +133,7 @@ func (m *Pipe) Send(msg message.Msg) {
 			case <-time.After(100 * time.Millisecond):
 				if m.Stopped {
 					// return, with no guarantee
+					log.Infoln("returning with no guarantee")
 					return
 				}
 			}

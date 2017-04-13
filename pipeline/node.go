@@ -44,9 +44,11 @@ type OptionFunc func(*Node) error
 type Node struct {
 	Name       string
 	Type       string
-	Children   []*Node
-	Parent     *Node
-	Transforms []*Transform
+	path       string
+	depth      int
+	children   []*Node
+	parent     *Node
+	transforms []*Transform
 
 	nsFilter      *regexp.Regexp
 	c             client.Client
@@ -78,10 +80,12 @@ func NewNodeWithOptions(name, kind, ns string, options ...OptionFunc) (*Node, er
 	n := &Node{
 		Name:          name,
 		Type:          kind,
+		path:          name,
+		depth:         1,
 		nsFilter:      compiledNs,
 		pipe:          pipe.NewPipe(nil, ""),
-		Children:      make([]*Node, 0),
-		Transforms:    make([]*Transform, 0),
+		children:      make([]*Node, 0),
+		transforms:    make([]*Transform, 0),
 		done:          make(chan struct{}),
 		c:             &client.Mock{},
 		reader:        &client.MockReader{},
@@ -128,10 +132,12 @@ func WithWriter(a adaptor.Adaptor) OptionFunc {
 // WithParent sets the parent node and reconfigures the pipe.
 func WithParent(parent *Node) OptionFunc {
 	return func(n *Node) error {
-		n.Parent = parent
+		n.parent = parent
 		// TODO: remove path param
 		n.pipe = pipe.NewPipe(parent.pipe, "")
-		parent.Children = append(parent.Children, n)
+		parent.children = append(parent.children, n)
+		n.path = parent.path + "/" + n.Name
+		n.depth = parent.depth + 1
 		return nil
 	}
 }
@@ -139,7 +145,7 @@ func WithParent(parent *Node) OptionFunc {
 // WithTransforms adds the provided transforms to be applied in the pipeline.
 func WithTransforms(t []*Transform) OptionFunc {
 	return func(n *Node) error {
-		n.Transforms = t
+		n.transforms = t
 		return nil
 	}
 }
@@ -177,12 +183,11 @@ func WithOffsetManager(om offset.Manager) OptionFunc {
 func (n *Node) String() string {
 	var (
 		s, prefix string
-		depth     = n.depth()
 	)
 
-	prefixformatter := fmt.Sprintf("%%%ds%%-%ds", depth, 18-depth)
+	prefixformatter := fmt.Sprintf("%%%ds%%-%ds", n.depth, 18-n.depth)
 
-	if n.Parent == nil { // root node
+	if n.parent == nil { // root node
 		prefix = fmt.Sprintf(prefixformatter, " ", "- Source: ")
 	} else {
 		prefix = fmt.Sprintf(prefixformatter, " ", "- Sink: ")
@@ -190,34 +195,10 @@ func (n *Node) String() string {
 
 	s += fmt.Sprintf("%s %-40s %-15s %-30s", prefix, n.Name, n.Type, n.nsFilter.String())
 
-	for _, child := range n.Children {
+	for _, child := range n.children {
 		s += "\n" + child.String()
 	}
 	return s
-}
-
-// depth is a measure of how deep into the node tree this node is.  Used to indent the String() stuff
-func (n *Node) depth() int {
-	if n.Parent == nil {
-		return 1
-	}
-
-	return 1 + n.Parent.depth()
-}
-
-// Path returns a string representation of the names of all the node's parents concatenated with "/"  used in metrics
-// eg. for the following tree
-// source := pipeline.NewNodeWithOptions("name1", "mongo", "/.*/")
-// sink1 := pipeline.NewNodeWithOptions("sink1", "file", "/.*/",
-//   pipeline.WithParent(source),
-// )
-// 'source' will have a Path of 'name1', and 'sink1' will have a path of 'name1/sink1'
-func (n *Node) Path() string {
-	if n.Parent == nil {
-		return n.Name
-	}
-
-	return n.Parent.Path() + "/" + n.Name
 }
 
 // Start starts the nodes children in a go routine, and then runs either Start() or Listen()
@@ -225,11 +206,10 @@ func (n *Node) Path() string {
 // and will emit messages to it's children,
 // All descendant nodes run Listen() on the adaptor
 func (n *Node) Start() error {
-	path := n.Path()
-	n.l = log.With("name", n.Name).With("type", n.Type).With("path", path)
+	n.l = log.With("name", n.Name).With("type", n.Type).With("path", n.path)
 
-	for _, child := range n.Children {
-		child.l = log.With("name", child.Name).With("type", child.Type).With("path", child.Path())
+	for _, child := range n.children {
+		child.l = log.With("name", child.Name).With("type", child.Type).With("path", child.path)
 		go func(node *Node) {
 			if err := node.Start(); err != nil {
 				node.l.Errorln(err)
@@ -237,17 +217,17 @@ func (n *Node) Start() error {
 		}(child)
 	}
 
-	if n.Parent == nil {
+	if n.parent == nil {
 		msgMap := make(map[string]client.MessageSet)
 		nsOffsetMap := make(map[string]uint64)
-		errc := make(chan error, len(n.Children))
+		errc := make(chan error, len(n.children))
 		// TODO: not entirely sure about this logic check...
 		if n.clog.OldestOffset() != n.clog.NewestOffset() {
 			var wg sync.WaitGroup
 			n.l.With("newestOffset", n.clog.NewestOffset()).
 				With("oldestOffset", n.clog.OldestOffset()).
 				Infoln("existing messages in commitlog, checking writer offsets...")
-			for _, child := range n.Children {
+			for _, child := range n.children {
 				n.l.With("name", child.Name).Infof("offsetMap: %+v", child.om.OffsetMap())
 				// we subtract 1 from NewestOffset() because we only need to catch up
 				// to the last entry in the log
@@ -288,27 +268,15 @@ func (n *Node) Start() error {
 				if err != nil {
 					return err
 				}
-				_, size, ts, mode, op, err := commitlog.ReadHeader(r)
+
+				d, err := readResumeData(r)
 				if err != nil {
 					return err
 				}
-				_, val, err := commitlog.ReadKeyValue(size, r)
-				if err != nil {
-					return err
-				}
-				d := make(map[string]interface{})
-				if err := json.Unmarshal(val, &d); err != nil {
-					return err
-				}
-				data, err := mejson.Unmarshal(d)
-				if err != nil {
-					return err
-				}
-				msg := message.From(op, ns, map[string]interface{}(data))
 				msgMap[ns] = client.MessageSet{
-					Msg:       msg,
-					Timestamp: int64(ts),
-					Mode:      mode,
+					Msg:       d.msg.Msg,
+					Timestamp: d.msg.Timestamp,
+					Mode:      d.msg.Mode,
 				}
 			}
 		}
@@ -325,38 +293,33 @@ func (n *Node) resume(newestOffset int64, r io.Reader) error {
 		n.l.Infoln("adaptor Resume complete")
 	}()
 
+	percentComplete := 0.0
 	for {
 		// read each message one at a time by getting the size and then
 		// the message and send down the pipe
-		logOffset, size, _, _, op, err := commitlog.ReadHeader(r)
+		d, err := readResumeData(r)
 		if err != nil {
 			return err
 		}
-		ns, val, err := commitlog.ReadKeyValue(size, r)
-		if err != nil {
-			return err
+
+		p := (float64(d.offset) / float64(newestOffset)) * 100.0
+		if (p - percentComplete) >= 1.0 {
+			percentComplete = p
+			n.l.With("offset", d.offset).
+				With("log_offset", newestOffset).
+				With("percent_complete", percentComplete).
+				Infoln("still resuming...")
 		}
-		d := make(map[string]interface{})
-		if err := json.Unmarshal(val, &d); err != nil {
-			return err
-		}
-		data, err := mejson.Unmarshal(d)
-		if err != nil {
-			return err
-		}
-		// if (offset % 1000) == 0 {
-		// 	percentComplete := (float64(offset) / float64(newestOffset)) * 100.0
-		// 	n.l.With("offset", offset).With("log_offset", newestOffset).With("percent_complete", percentComplete).Infoln("still resuming...")
-		// }
-		n.pipe.In <- message.From(op, string(ns), map[string]interface{}(data))
+		// n.pipe.In <- message.From(entry.Op, string(entry.Key), map[string]interface{}(data))
+		n.pipe.In <- d.msg.Msg
 		// TODO: remove this when https://github.com/compose/transporter/issues/327
 		// is implemented
 		n.om.CommitOffset(offset.Offset{
-			Namespace: string(ns),
-			LogOffset: logOffset,
+			Namespace: d.msg.Msg.Namespace(),
+			LogOffset: d.offset,
 			Timestamp: time.Now().Unix(),
 		})
-		if logOffset == uint64(newestOffset) {
+		if d.offset == uint64(newestOffset) {
 			n.l.Infoln("offset of message sent down pipe matches newestOffset")
 			break
 		}
@@ -418,7 +381,7 @@ func (n *Node) start(nsMap map[string]client.MessageSet) error {
 		}
 		// TODO: remove this when https://github.com/compose/transporter/issues/327
 		// is implemented
-		for _, child := range n.Children {
+		for _, child := range n.children {
 			child.om.CommitOffset(offset.Offset{
 				Namespace: msg.Msg.Namespace(),
 				LogOffset: uint64(logOffset),
@@ -437,47 +400,46 @@ func (n *Node) listen() (err error) {
 	n.l.Infoln("adaptor Listening...")
 	defer n.l.Infoln("adaptor Listen closed...")
 
-	// TODO: keep n.nsFilter here and remove from pipe.Pipe, we can filter
-	// out messages by namespace below in write(), this will allow us to keep
-	// the offsetmanager.Manager contained within here and not need to provide
-	// it to pipe.Pipe for the cases where we need to ack messages that get
-	// filtered out by the namespace filter
-	return n.pipe.Listen(n.write, n.nsFilter)
+	return n.pipe.Listen(n.write)
 }
 
 func (n *Node) write(msg message.Msg) (message.Msg, error) {
-	// TODO: defer func to check if there was an error and if not,
-	// call n.om.CommitOffset()
-	transformedMsg, err := n.applyTransforms(msg)
-	if err != nil {
-		return msg, err
-	} else if transformedMsg == nil {
-		return nil, nil
-	}
-	sess, err := n.c.Connect()
-	if err != nil {
-		return msg, err
-	}
-	defer func() {
-		if s, ok := sess.(client.Closer); ok {
-			s.Close()
+	if n.nsFilter.MatchString(msg.Namespace()) {
+		// TODO: defer func to check if there was an error and if not,
+		// call n.om.CommitOffset()
+		transformedMsg, err := n.applyTransforms(msg)
+		if err != nil {
+			return msg, err
+		} else if transformedMsg == nil {
+			return nil, nil
 		}
-	}()
-	returnMsg, err := n.writer.Write(transformedMsg)(sess)
-	if err != nil {
-		n.pipe.Err <- adaptor.Error{
-			Lvl:    adaptor.ERROR,
-			Path:   n.Path(),
-			Err:    fmt.Sprintf("write message error (%s)", err),
-			Record: msg.Data,
+		sess, err := n.c.Connect()
+		if err != nil {
+			return msg, err
 		}
+		defer func() {
+			if s, ok := sess.(client.Closer); ok {
+				s.Close()
+			}
+		}()
+		returnMsg, err := n.writer.Write(transformedMsg)(sess)
+		if err != nil {
+			n.pipe.Err <- adaptor.Error{
+				Lvl:    adaptor.ERROR,
+				Path:   n.path,
+				Err:    fmt.Sprintf("write message error (%s)", err),
+				Record: msg.Data,
+			}
+		}
+		return returnMsg, err
 	}
-	return returnMsg, err
+	n.l.With("ns", msg.Namespace()).Debugln("message skipped by namespace filter")
+	return msg, nil
 }
 
 func (n *Node) applyTransforms(msg message.Msg) (message.Msg, error) {
 	if msg.OP() != ops.Command {
-		for _, transform := range n.Transforms {
+		for _, transform := range n.transforms {
 			if !transform.NsFilter.MatchString(msg.Namespace()) {
 				n.l.With("transform", transform.Name).With("ns", msg.Namespace()).Debugln("filtered message")
 				continue
@@ -503,7 +465,7 @@ func (n *Node) applyTransforms(msg message.Msg) (message.Msg, error) {
 // Stop this node's adaptor, and sends a stop to each child of this node
 func (n *Node) Stop() {
 	n.stop()
-	for _, node := range n.Children {
+	for _, node := range n.children {
 		node.Stop()
 	}
 }
@@ -539,11 +501,11 @@ func (n *Node) stop() error {
 // dangling transformers are forbidden.  Validate only knows about default adaptors
 // in the adaptor package, it can't validate any custom adaptors
 func (n *Node) Validate() bool {
-	if n.Parent == nil && len(n.Children) == 0 { // the root node should have children
+	if n.parent == nil && len(n.children) == 0 { // the root node should have children
 		return false
 	}
 
-	for _, child := range n.Children {
+	for _, child := range n.children {
 		if !child.Validate() {
 			return false
 		}
@@ -555,7 +517,7 @@ func (n *Node) Validate() bool {
 // this is primarily used with the boot event
 func (n *Node) Endpoints() map[string]string {
 	m := map[string]string{n.Name: n.Type}
-	for _, child := range n.Children {
+	for _, child := range n.children {
 		childMap := child.Endpoints()
 		for k, v := range childMap {
 			m[k] = v

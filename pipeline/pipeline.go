@@ -172,7 +172,7 @@ func (pipeline *Pipeline) startMetricsGatherer() {
 // emit the metrics
 func (pipeline *Pipeline) emitMetrics() {
 	pipeline.apply(func(node *Node) {
-		pipeline.source.pipe.Event <- events.NewMetricsEvent(time.Now().UnixNano(), node.Path(), node.pipe.MessageCount)
+		pipeline.source.pipe.Event <- events.NewMetricsEvent(time.Now().UnixNano(), node.path, node.pipe.MessageCount)
 	})
 }
 
@@ -183,6 +183,6 @@ func (pipeline *Pipeline) apply(f func(*Node)) {
 	for len(nodes) > 0 {
 		head, nodes = nodes[0], nodes[1:]
 		f(head)
-		nodes = append(nodes, head.Children...)
+		nodes = append(nodes, head.children...)
 	}
 }

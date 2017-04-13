@@ -1,10 +1,8 @@
 package pipeline
 
 import (
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"regexp"
 	"testing"
 	"time"
 
@@ -13,7 +11,6 @@ import (
 	"github.com/compose/transporter/client"
 	"github.com/compose/transporter/events"
 	"github.com/compose/transporter/offset"
-	"github.com/compose/transporter/pipe"
 )
 
 // a noop node adaptor to help test
@@ -40,32 +37,28 @@ func (s *Testadaptor) SampleConfig() string {
 
 func TestPipelineString(t *testing.T) {
 	data := []struct {
-		in           *Node
-		terminalNode *Node
-		out          string
+		in  func() *Node
+		out string
 	}{
 		{
-			&Node{Name: "source1", Type: "source", nsFilter: regexp.MustCompile(".*"), pipe: pipe.NewPipe(nil, "source1")},
-			&Node{Name: "localfile", Type: "file", nsFilter: regexp.MustCompile(".*")},
+			func() *Node {
+				n, _ := NewNodeWithOptions("source1", "source", defaultNsString)
+				NewNodeWithOptions("localfile", "file", defaultNsString, WithParent(n))
+				return n
+			},
 			` - Source:         source1                                  source          .*                            
   - Sink:          localfile                                file            .*                            `,
 		},
 	}
 
-	mockTS := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ioutil.ReadAll(r.Body)
-		r.Body.Close()
+	mockTS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
-	mockTS.Start()
+	defer mockTS.Close()
 
 	for _, v := range data {
-		if v.terminalNode != nil {
-			v.terminalNode.Parent = v.in
-			v.terminalNode.pipe = pipe.NewPipe(v.in.pipe, "localfile")
-			v.in.Children = []*Node{v.terminalNode}
-		}
-		p, err := NewDefaultPipeline(v.in, mockTS.URL, "test", "test", "test", 100*time.Millisecond)
+		node := v.in()
+		p, err := NewDefaultPipeline(node, mockTS.URL, "test", "test", "test", 100*time.Millisecond)
 		if err != nil {
 			t.Errorf("can't create pipeline, got %s", err.Error())
 			t.FailNow()
@@ -75,6 +68,9 @@ func TestPipelineString(t *testing.T) {
 			t.Errorf("\nexpected:\n%v\ngot:\n%v\n", v.out, actual)
 		}
 
+		close(p.done)
+		p.emitMetrics()
+		p.emitter.Stop()
 		close(p.source.pipe.Err)
 	}
 }
