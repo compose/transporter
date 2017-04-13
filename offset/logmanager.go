@@ -98,7 +98,7 @@ func (m *LogManager) CommitOffset(o Offset) error {
 	if currentOffset, ok := m.nsMap[o.Namespace]; ok && currentOffset >= o.LogOffset {
 		log.With("currentOffest", currentOffset).
 			With("providedOffset", o.LogOffset).
-			Infoln("refusing to commit offset")
+			Debugln("refusing to commit offset")
 		return nil
 	}
 	_, err := m.log.Append(o.Bytes())

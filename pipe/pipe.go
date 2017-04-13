@@ -13,6 +13,7 @@ import (
 	"github.com/compose/transporter/events"
 	"github.com/compose/transporter/log"
 	"github.com/compose/transporter/message"
+	"github.com/compose/transporter/offset"
 )
 
 var (
@@ -21,11 +22,15 @@ var (
 	ErrUnableToListen = errors.New("Listen called without a nil In chan")
 )
 
-// type messageChan chan message.Msg
-type messageChan chan message.Msg
+type messageChan chan TrackedMessage
 
 func newMessageChan() messageChan {
-	return make(chan message.Msg)
+	return make(chan TrackedMessage)
+}
+
+type TrackedMessage struct {
+	Msg message.Msg
+	Off offset.Offset
 }
 
 // Pipe provides a set of methods to let transporter nodes communicate with each other.
@@ -74,46 +79,49 @@ func NewPipe(pipe *Pipe, path string) *Pipe {
 // Listen starts a listening loop that pulls messages from the In chan, applies fn(msg), a `func(message.Msg) error`, and emits them on the Out channel.
 // Errors will be emitted to the Pipe's Err chan, and will terminate the loop.
 // The listening loop can be interrupted by calls to Stop().
-func (m *Pipe) Listen(fn func(message.Msg) (message.Msg, error)) error {
-	if m.In == nil {
+func (p *Pipe) Listen(fn func(message.Msg, offset.Offset) (message.Msg, error)) error {
+	if p.In == nil {
 		return ErrUnableToListen
 	}
-	m.listening = true
+	p.listening = true
 	for {
 		// check for stop
 		select {
-		case c := <-m.chStop:
-			m.Stopped = true
+		case c := <-p.chStop:
+			p.Stopped = true
 			c <- true
 			return nil
-		case msg := <-m.In:
-			outmsg, err := fn(msg)
+		case m := <-p.In:
+			if p.Stopped {
+				break
+			}
+			outmsg, err := fn(m.Msg, m.Off)
 			if err != nil {
-				m.Stopped = true
-				m.Err <- err
-				return err
+				p.Stopped = true
+				p.Err <- err
+				break
 			}
 			if outmsg == nil {
 				break
 			}
-			if len(m.Out) > 0 {
-				m.Send(outmsg)
+			if len(p.Out) > 0 {
+				p.Send(outmsg, m.Off)
 			} else {
-				m.MessageCount++ // update the count anyway
+				p.MessageCount++ // update the count anyway
 			}
 		}
 	}
 }
 
 // Stop terminates the channels listening loop, and allows any timeouts in send to fail
-func (m *Pipe) Stop() {
-	if !m.Stopped {
-		m.Stopped = true
+func (p *Pipe) Stop() {
+	if !p.Stopped {
+		p.Stopped = true
 
 		// we only worry about the stop channel if we're in a listening loop
-		if m.listening {
+		if p.listening {
 			c := make(chan bool)
-			m.chStop <- c
+			p.chStop <- c
 			<-c
 		}
 	}
@@ -121,17 +129,17 @@ func (m *Pipe) Stop() {
 
 // Send emits the given message on the 'Out' channel.  the send Timesout after 100 ms in order to chaeck of the Pipe has stopped and we've been asked to exit.
 // If the Pipe has been stopped, the send will fail and there is no guarantee of either success or failure
-func (m *Pipe) Send(msg message.Msg) {
-	m.MessageCount++
-	for _, ch := range m.Out {
+func (p *Pipe) Send(msg message.Msg, off offset.Offset) {
+	p.MessageCount++
+	for _, ch := range p.Out {
 
 	A:
 		for {
 			select {
-			case ch <- msg:
+			case ch <- TrackedMessage{msg, off}:
 				break A
 			case <-time.After(100 * time.Millisecond):
-				if m.Stopped {
+				if p.Stopped {
 					// return, with no guarantee
 					log.Infoln("returning with no guarantee")
 					return

@@ -27,6 +27,7 @@ var (
 type Bulk struct {
 	bulkMap map[string]*bulkOperation
 	*sync.RWMutex
+	confirmChan chan struct{}
 }
 
 type bulkOperation struct {
@@ -53,6 +54,7 @@ func (b *Bulk) Write(msg message.Msg) func(client.Session) (message.Msg, error) 
 	return func(s client.Session) (message.Msg, error) {
 		coll := msg.Namespace()
 		b.Lock()
+		b.confirmChan = msg.Confirms()
 		bOp, ok := b.bulkMap[coll]
 		if !ok {
 			s := s.(*Session).mgoSession.Copy()
@@ -79,6 +81,9 @@ func (b *Bulk) Write(msg message.Msg) func(client.Session) (message.Msg, error) 
 		var err error
 		if bOp.opCounter >= maxObjSize || bOp.bsonOpSize >= maxBSONObjSize {
 			err = b.flush(coll, bOp)
+			if err == nil && b.confirmChan != nil {
+				b.confirmChan <- struct{}{}
+			}
 		}
 		b.Unlock()
 		return msg, err
@@ -116,7 +121,13 @@ func (b *Bulk) run(done chan struct{}, wg *sync.WaitGroup) {
 func (b *Bulk) flushAll() error {
 	b.Lock()
 	for c, bOp := range b.bulkMap {
-		b.flush(c, bOp)
+		if err := b.flush(c, bOp); err != nil {
+			return err
+		}
+	}
+	if b.confirmChan != nil {
+		close(b.confirmChan)
+		b.confirmChan = nil
 	}
 	b.Unlock()
 	return nil
@@ -124,16 +135,19 @@ func (b *Bulk) flushAll() error {
 
 func (b *Bulk) flush(c string, bOp *bulkOperation) error {
 	log.With("collection", c).With("opCounter", bOp.opCounter).With("bsonOpSize", bOp.bsonOpSize).Infoln("flushing bulk messages")
-	result, err := bOp.bulk.Run()
-	if err != nil {
+	_, err := bOp.bulk.Run()
+	if err != nil && !mgo.IsDup(err) {
 		log.With("collection", c).Errorf("flush error, %s\n", err)
 		return err
+	} else if mgo.IsDup(err) {
+		bOp.bulk.Unordered()
+		if _, err := bOp.bulk.Run(); err != nil && !mgo.IsDup(err) {
+			log.With("collection", c).Errorf("flush error with unordered, %s\n", err)
+			return err
+		}
 	}
 	bOp.s.Close()
-	log.With("collection", c).
-		With("modified", result.Modified).
-		With("match", result.Matched).
-		Infoln("flush complete")
+	log.With("collection", c).Infoln("flush complete")
 	delete(b.bulkMap, c)
 	return nil
 }

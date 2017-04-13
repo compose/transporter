@@ -23,6 +23,7 @@ func readResumeData(r io.Reader) (resumeData, error) {
 		return rd, err
 	}
 	rd.offset = logOffset
+	rd.ns = string(entry.Key)
 	d := make(map[string]interface{})
 	if err := json.Unmarshal(entry.Value, &d); err != nil {
 		return resumeData{}, err

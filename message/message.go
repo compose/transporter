@@ -25,6 +25,7 @@ type Msg interface {
 	Timestamp() int64
 	Data() data.Data
 	Namespace() string
+	Confirms() chan struct{}
 }
 
 // From builds a message.Msg specific to an elasticsearch document
@@ -34,7 +35,17 @@ func From(op ops.Op, namespace string, d data.Data) Msg {
 		TS:        time.Now().Unix(),
 		NS:        namespace,
 		MapData:   d,
+		confirm:   nil,
 	}
+}
+
+// WithConfirms attaches a channel to be able to acknowledge message processing.
+func WithConfirms(confirm chan struct{}, msg Msg) Msg {
+	switch m := msg.(type) {
+	case *Base:
+		m.confirm = confirm
+	}
+	return msg
 }
 
 // Base represents a standard message format for transporter data
@@ -45,6 +56,7 @@ type Base struct {
 	NS        string
 	Operation ops.Op
 	MapData   data.Data
+	confirm   chan struct{}
 }
 
 // Timestamp returns the time the object was created in transporter (i.e. it has no correlation
@@ -81,4 +93,8 @@ func (m *Base) ID() string {
 	default:
 		return fmt.Sprintf("%v", id)
 	}
+}
+
+func (m *Base) Confirms() chan struct{} {
+	return m.confirm
 }

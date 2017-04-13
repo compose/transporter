@@ -9,25 +9,26 @@ import (
 
 	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/message/ops"
+	"github.com/compose/transporter/offset"
 )
 
 func TestSend(t *testing.T) {
 	var msgsProcessed int
 	source := NewPipe(nil, "source")
 	sink1 := NewPipe(source, "sink1")
-	go sink1.Listen(func(msg message.Msg) (message.Msg, error) {
+	go sink1.Listen(func(msg message.Msg, _ offset.Offset) (message.Msg, error) {
 		time.Sleep(200 * time.Millisecond)
 		msgsProcessed++
 		return msg, nil
 	})
 	sink2 := NewPipe(source, "sink2")
-	go sink2.Listen(func(msg message.Msg) (message.Msg, error) {
+	go sink2.Listen(func(msg message.Msg, _ offset.Offset) (message.Msg, error) {
 		msgsProcessed++
 		return msg, nil
 	})
 	go func() {
-		source.Send(message.From(ops.Insert, "test", map[string]interface{}{}))
-		source.Send(message.From(ops.Insert, "test", map[string]interface{}{}))
+		source.Send(message.From(ops.Insert, "test", map[string]interface{}{}), offset.Offset{})
+		source.Send(message.From(ops.Insert, "test", map[string]interface{}{}), offset.Offset{})
 	}()
 	time.Sleep(300 * time.Millisecond)
 	if msgsProcessed != 3 {
@@ -42,18 +43,18 @@ func TestSendTimeout(t *testing.T) {
 	var msgsProcessed int
 	source := NewPipe(nil, "source")
 	sink1 := NewPipe(source, "sink1")
-	go sink1.Listen(func(msg message.Msg) (message.Msg, error) {
+	go sink1.Listen(func(msg message.Msg, _ offset.Offset) (message.Msg, error) {
 		time.Sleep(200 * time.Millisecond)
 		msgsProcessed++
 		return msg, nil
 	})
 	sink2 := NewPipe(source, "sink2")
-	go sink2.Listen(func(msg message.Msg) (message.Msg, error) {
+	go sink2.Listen(func(msg message.Msg, _ offset.Offset) (message.Msg, error) {
 		msgsProcessed++
 		return msg, nil
 	})
-	source.Send(message.From(ops.Insert, "test", map[string]interface{}{}))
-	go source.Send(message.From(ops.Insert, "test", map[string]interface{}{}))
+	source.Send(message.From(ops.Insert, "test", map[string]interface{}{}), offset.Offset{})
+	go source.Send(message.From(ops.Insert, "test", map[string]interface{}{}), offset.Offset{})
 	time.Sleep(100 * time.Millisecond)
 	source.Stop()
 	sink1.Stop()
@@ -67,15 +68,16 @@ func TestChainMessage(t *testing.T) {
 	var sink2ReceivedMessage bool
 	source := NewPipe(nil, "source")
 	sink1 := NewPipe(source, "sink1")
-	go sink1.Listen(func(msg message.Msg) (message.Msg, error) {
+	go sink1.Listen(func(msg message.Msg, _ offset.Offset) (message.Msg, error) {
 		return msg, nil
 	})
 	sink2 := NewPipe(sink1, "sink2")
-	go sink2.Listen(func(msg message.Msg) (message.Msg, error) {
+	go sink2.Listen(func(msg message.Msg, _ offset.Offset) (message.Msg, error) {
 		sink2ReceivedMessage = true
 		return msg, nil
 	})
-	source.Send(message.From(ops.Insert, "test", map[string]interface{}{}))
+	source.Send(message.From(ops.Insert, "test", map[string]interface{}{}), offset.Offset{})
+	time.Sleep(100 * time.Millisecond)
 	source.Stop()
 	sink1.Stop()
 	sink2.Stop()
@@ -88,15 +90,16 @@ func TestSkipMessage(t *testing.T) {
 	var sink2ReceivedMessage bool
 	source := NewPipe(nil, "source")
 	sink1 := NewPipe(source, "sink1")
-	go sink1.Listen(func(msg message.Msg) (message.Msg, error) {
+	go sink1.Listen(func(msg message.Msg, _ offset.Offset) (message.Msg, error) {
 		return nil, nil
 	})
 	sink2 := NewPipe(sink1, "sink2")
-	go sink2.Listen(func(msg message.Msg) (message.Msg, error) {
+	go sink2.Listen(func(msg message.Msg, _ offset.Offset) (message.Msg, error) {
 		sink2ReceivedMessage = true
 		return msg, nil
 	})
-	source.Send(message.From(ops.Insert, "test", map[string]interface{}{}))
+	source.Send(message.From(ops.Insert, "test", map[string]interface{}{}), offset.Offset{})
+	time.Sleep(100 * time.Millisecond)
 	source.Stop()
 	sink1.Stop()
 	sink2.Stop()
@@ -110,7 +113,7 @@ var errListen = errors.New("listen error")
 func TestListenErr(t *testing.T) {
 	source := NewPipe(nil, "source")
 	sink := NewPipe(source, "sink")
-	go sink.Listen(func(msg message.Msg) (message.Msg, error) {
+	go sink.Listen(func(msg message.Msg, _ offset.Offset) (message.Msg, error) {
 		return nil, errListen
 	})
 	var wg sync.WaitGroup
@@ -123,7 +126,8 @@ func TestListenErr(t *testing.T) {
 			wg.Done()
 		}
 	}(&wg, t)
-	source.Send(message.From(ops.Insert, "test", map[string]interface{}{}))
+	source.Send(message.From(ops.Insert, "test", map[string]interface{}{}), offset.Offset{})
+	source.Send(message.From(ops.Insert, "test", map[string]interface{}{}), offset.Offset{})
 	wg.Wait()
 	source.Stop()
 	sink.Stop()

@@ -2,6 +2,7 @@ package client_test
 
 import (
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/compose/transporter/client"
@@ -39,6 +40,34 @@ func TestWriteWithError(t *testing.T) {
 		if !reflect.DeepEqual(err, wt.err) {
 			t.Errorf("wrong Write() error, expected %s, got %s", wt.err, err)
 		}
+	}
+}
+
+func TestWriteWithConfirms(t *testing.T) {
+	w := &client.MockWriter{}
+	c := &client.Mock{}
+	defer c.Close()
+	confirms := make(chan struct{})
+	var writeConfirmed bool
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func(wg *sync.WaitGroup) {
+		<-confirms
+		writeConfirmed = true
+		wg.Done()
+	}(&wg)
+	msg := message.From(ops.Insert, "test", map[string]interface{}{"hello": "client"})
+	msg = message.WithConfirms(confirms, msg)
+	_, err := client.Write(c, w, msg)
+	if err != nil {
+		t.Fatalf("unexpected Write error, %s", err)
+	}
+	if w.MsgCount != 1 {
+		t.Errorf("message never received")
+	}
+	wg.Wait()
+	if !writeConfirmed {
+		t.Errorf("write was not confirmed but should have been")
 	}
 }
 

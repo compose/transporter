@@ -7,6 +7,7 @@
 package pipeline
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -32,6 +33,10 @@ var (
 	// ErrResumeTimedOut is returned when the resumeTimeout is reached after attempting
 	// to check that a sink offset matches the newest offset.
 	ErrResumeTimedOut = errors.New("resume timeout reached")
+
+	// ErrResumeStopped is returned when the underling pipe.Pipe has been stopped while
+	// a Node is in the process of resuming.
+	ErrResumeStopped = errors.New("pipe has been stopped, canceling resume")
 )
 
 // OptionFunc is a function that configures a Node.
@@ -263,7 +268,7 @@ func (n *Node) Start() error {
 				}
 			}
 			n.l.Infoln("done checking for resume errors")
-			for ns, offset := range nsOffsetMap {
+			for _, offset := range nsOffsetMap {
 				r, err := n.clog.NewReader(int64(offset))
 				if err != nil {
 					return err
@@ -273,7 +278,7 @@ func (n *Node) Start() error {
 				if err != nil {
 					return err
 				}
-				msgMap[ns] = client.MessageSet{
+				msgMap[d.ns] = client.MessageSet{
 					Msg:       d.msg.Msg,
 					Timestamp: d.msg.Timestamp,
 					Mode:      d.msg.Mode,
@@ -295,8 +300,6 @@ func (n *Node) resume(newestOffset int64, r io.Reader) error {
 
 	percentComplete := 0.0
 	for {
-		// read each message one at a time by getting the size and then
-		// the message and send down the pipe
 		d, err := readResumeData(r)
 		if err != nil {
 			return err
@@ -310,22 +313,24 @@ func (n *Node) resume(newestOffset int64, r io.Reader) error {
 				With("percent_complete", percentComplete).
 				Infoln("still resuming...")
 		}
-		// n.pipe.In <- message.From(entry.Op, string(entry.Key), map[string]interface{}(data))
-		n.pipe.In <- d.msg.Msg
-		// TODO: remove this when https://github.com/compose/transporter/issues/327
-		// is implemented
-		n.om.CommitOffset(offset.Offset{
-			Namespace: d.msg.Msg.Namespace(),
-			LogOffset: d.offset,
-			Timestamp: time.Now().Unix(),
-		})
+		if n.pipe.Stopped {
+			return ErrResumeStopped
+		}
+		n.pipe.In <- pipe.TrackedMessage{
+			Msg: d.msg.Msg,
+			Off: offset.Offset{
+				Namespace: d.msg.Msg.Namespace(),
+				LogOffset: d.offset,
+				Timestamp: time.Now().Unix(),
+			},
+		}
 		if d.offset == uint64(newestOffset) {
 			n.l.Infoln("offset of message sent down pipe matches newestOffset")
 			break
 		}
 	}
 
-	n.l.Infoln("all messages sent down pipeline, waiting for offsets to match...")
+	n.l.With("timeout", n.resumeTimeout).Infoln("all messages sent down pipeline, waiting for offsets to match...")
 	timeout := time.After(n.resumeTimeout)
 	for {
 		select {
@@ -379,17 +384,12 @@ func (n *Node) start(nsMap map[string]client.MessageSet) error {
 		if err != nil {
 			return err
 		}
-		// TODO: remove this when https://github.com/compose/transporter/issues/327
-		// is implemented
-		for _, child := range n.children {
-			child.om.CommitOffset(offset.Offset{
-				Namespace: msg.Msg.Namespace(),
-				LogOffset: uint64(logOffset),
-				Timestamp: time.Now().Unix(),
-			})
-		}
 		n.l.With("offset", logOffset).Debugln("attaching offset to message")
-		n.pipe.Send(msg.Msg)
+		n.pipe.Send(msg.Msg, offset.Offset{
+			Namespace: msg.Msg.Namespace(),
+			LogOffset: uint64(logOffset),
+			Timestamp: time.Now().Unix(),
+		})
 	}
 
 	n.l.Infoln("adaptor Start finished...")
@@ -403,38 +403,52 @@ func (n *Node) listen() (err error) {
 	return n.pipe.Listen(n.write)
 }
 
-func (n *Node) write(msg message.Msg) (message.Msg, error) {
-	if n.nsFilter.MatchString(msg.Namespace()) {
-		// TODO: defer func to check if there was an error and if not,
-		// call n.om.CommitOffset()
-		transformedMsg, err := n.applyTransforms(msg)
-		if err != nil {
-			return msg, err
-		} else if transformedMsg == nil {
-			return nil, nil
+func (n *Node) write(msg message.Msg, off offset.Offset) (message.Msg, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	var writeErr error
+	defer func() {
+		if writeErr != nil {
+			cancel()
 		}
-		sess, err := n.c.Connect()
-		if err != nil {
-			return msg, err
-		}
-		defer func() {
-			if s, ok := sess.(client.Closer); ok {
-				s.Close()
-			}
-		}()
-		returnMsg, err := n.writer.Write(transformedMsg)(sess)
-		if err != nil {
-			n.pipe.Err <- adaptor.Error{
-				Lvl:    adaptor.ERROR,
-				Path:   n.path,
-				Err:    fmt.Sprintf("write message error (%s)", err),
-				Record: msg.Data,
-			}
-		}
-		return returnMsg, err
+	}()
+	if !n.nsFilter.MatchString(msg.Namespace()) {
+		n.l.With("ns", msg.Namespace()).Debugln("message skipped by namespace filter")
+		n.om.CommitOffset(off)
+		return msg, nil
 	}
-	n.l.With("ns", msg.Namespace()).Debugln("message skipped by namespace filter")
-	return msg, nil
+	msg, writeErr = n.applyTransforms(msg)
+	if writeErr != nil {
+		return nil, writeErr
+	} else if msg == nil {
+		n.om.CommitOffset(off)
+		return nil, nil
+	}
+	msg = message.WithConfirms(make(chan struct{}), msg)
+	go n.confirmWrite(ctx, msg.Confirms(), off)
+	returnMsg, writeErr := client.Write(n.c, n.writer, msg)
+	return returnMsg, writeErr
+}
+
+func (n *Node) confirmWrite(ctx context.Context, confirmed chan struct{}, off offset.Offset) {
+	for {
+		select {
+		case <-confirmed:
+			if err := n.om.CommitOffset(off); err != nil {
+				n.l.Errorf("failed to commitoffset, %s", err)
+				return
+			}
+			n.l.Debugf("offset %d committed", off.LogOffset)
+			return
+		case <-ctx.Done():
+			if ctx.Err() == context.Canceled {
+				n.l.Debugln("offset commit canceled")
+				return
+			} else if ctx.Err() == context.DeadlineExceeded {
+				n.l.Debugln("time expired waiting for offset commit confirmation")
+				return
+			}
+		}
+	}
 }
 
 func (n *Node) applyTransforms(msg message.Msg) (message.Msg, error) {

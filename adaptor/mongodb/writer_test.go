@@ -90,10 +90,14 @@ func TestInsert(t *testing.T) {
 	w := newWriter()
 	for _, it := range inserttests {
 		for _, data := range it.data {
-			msg := message.From(ops.Insert, it.collection, data)
+			msg := message.WithConfirms(make(chan struct{}), message.From(ops.Insert, it.collection, data))
 			if _, err := w.Write(msg)(s); err != nil {
 				t.Errorf("unexpected Insert error, %s\n", err)
 			}
+		}
+		msg := message.WithConfirms(make(chan struct{}), message.From(ops.Command, it.collection, nil))
+		if _, err := w.Write(msg)(s); err != nil {
+			t.Errorf("unexpected Insert error, %s\n", err)
 		}
 		count, err := defaultSession.mgoSession.DB(writerTestData.DB).C(it.collection).Count()
 		if err != nil {

@@ -75,6 +75,9 @@ type MockWriter struct {
 func (w *MockWriter) Write(msg message.Msg) func(Session) (message.Msg, error) {
 	return func(s Session) (message.Msg, error) {
 		w.MsgCount++
+		if msg.Confirms() != nil {
+			close(msg.Confirms())
+		}
 		return msg, nil
 	}
 }

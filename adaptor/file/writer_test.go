@@ -26,6 +26,9 @@ func TestWrite(t *testing.T) {
 	w := newWriter()
 	for i := 0; i < 2; i++ {
 		msg := message.From(ops.Insert, "test", map[string]interface{}{"_id": "546656989330a846dc7ce327", "test": "hello world"})
+		if i == 0 {
+			msg = message.WithConfirms(make(chan struct{}), msg)
+		}
 		if _, err := w.Write(msg)(tmpSession); err != nil {
 			t.Errorf("unexpected Write error, %s\n", err)
 		}
