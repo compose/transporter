@@ -73,10 +73,26 @@ func TestWriter(t *testing.T) {
 	}
 	vc := clients.Clients["v5"]
 	w, _ := vc.Creator(opts)
-	w.Write(message.From(ops.Insert, testType, map[string]interface{}{"hello": "world"}))(nil)
-	w.Write(message.From(ops.Insert, testType, map[string]interface{}{"_id": "booya", "hello": "world"}))(nil)
-	w.Write(message.From(ops.Update, testType, map[string]interface{}{"_id": "booya", "hello": "goodbye"}))(nil)
-	w.Write(message.From(ops.Delete, testType, map[string]interface{}{"_id": "booya", "hello": "goodbye"}))(nil)
+	w.Write(
+		message.WithConfirms(
+			make(chan struct{}),
+			message.From(ops.Insert, testType, map[string]interface{}{"hello": "world"})),
+	)(nil)
+	w.Write(
+		message.WithConfirms(
+			make(chan struct{}),
+			message.From(ops.Insert, testType, map[string]interface{}{"_id": "booya", "hello": "world"})),
+	)(nil)
+	w.Write(
+		message.WithConfirms(
+			make(chan struct{}),
+			message.From(ops.Update, testType, map[string]interface{}{"_id": "booya", "hello": "goodbye"})),
+	)(nil)
+	w.Write(
+		message.WithConfirms(
+			make(chan struct{}),
+			message.From(ops.Delete, testType, map[string]interface{}{"_id": "booya", "hello": "goodbye"})),
+	)(nil)
 	w.(client.Closer).Close()
 
 	if _, err := http.Get(fullURL("/_refresh")); err != nil {
