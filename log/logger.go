@@ -5,8 +5,6 @@ package log
 import (
 	"flag"
 	"fmt"
-	"io"
-	"io/ioutil"
 
 	"github.com/Sirupsen/logrus"
 )
@@ -114,20 +112,6 @@ func Orig() *logrus.Logger {
 // Base returns the default Logger logging to
 func Base() Logger {
 	return baseLogger
-}
-
-// NewLogger returns a new Logger logging to out.
-func NewLogger(w io.Writer) Logger {
-	l := logrus.New()
-	l.Out = w
-	return logger{entry: logrus.NewEntry(l)}
-}
-
-// NewNopLogger returns a logger that discards all log messages.
-func NewNopLogger() Logger {
-	l := logrus.New()
-	l.Out = ioutil.Discard
-	return logger{entry: logrus.NewEntry(l)}
 }
 
 // With adds a field to the logger.
