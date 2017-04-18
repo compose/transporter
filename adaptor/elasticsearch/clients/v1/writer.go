@@ -69,6 +69,9 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 		case ops.Update:
 			_, err = w.esClient.Index().Index(w.index).Type(indexType).BodyJson(msg.Data()).Id(id).Do(context.TODO())
 		}
+		if msg.Confirms() != nil && err == nil {
+			close(msg.Confirms())
+		}
 		return msg, err
 	}
 }

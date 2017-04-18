@@ -3,6 +3,7 @@ package v2
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	elastic "gopkg.in/olivere/elastic.v3"
@@ -23,9 +24,11 @@ var (
 // Writer implements client.Writer and client.Session for sending requests to an elasticsearch
 // cluster via its _bulk API.
 type Writer struct {
-	index  string
-	bp     *elastic.BulkProcessor
-	logger log.Logger
+	index string
+	bp    *elastic.BulkProcessor
+	sync.Mutex
+	confirmChan chan struct{}
+	logger      log.Logger
 }
 
 func init() {
@@ -56,6 +59,7 @@ func init() {
 			BulkActions(1000).               // commit if # requests >= 1000
 			BulkSize(2 << 20).               // commit if size of requests >= 2 MB
 			FlushInterval(30 * time.Second). // commit every 30s
+			Before(w.preBulkProcessor).
 			After(w.postBulkProcessor).
 			Do(context.TODO())
 		if err != nil {
@@ -68,6 +72,9 @@ func init() {
 
 func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error) {
 	return func(s client.Session) (message.Msg, error) {
+		w.Lock()
+		w.confirmChan = msg.Confirms()
+		w.Unlock()
 		indexType := msg.Namespace()
 		var id string
 		if _, ok := msg.Data()["_id"]; ok {
@@ -98,13 +105,23 @@ func (w *Writer) Close() {
 	w.bp.Close()
 }
 
+func (w *Writer) preBulkProcessor(executionID int64, requests []elastic.BulkableRequest) {
+	// we need to lock the Writer to ensure the confirmChan is not changed until postBulkProcessor has been called
+	w.Lock()
+}
+
 func (w *Writer) postBulkProcessor(executionID int64, reqs []elastic.BulkableRequest, resp *elastic.BulkResponse, err error) {
+	defer w.Unlock()
 	if resp != nil && err == nil {
 		w.logger.With("executionID", executionID).
 			With("took", fmt.Sprintf("%dms", resp.Took)).
 			With("succeeeded", len(resp.Succeeded())).
 			With("failed", len(resp.Failed())).
 			Infoln("_bulk flush completed")
+		if w.confirmChan != nil && len(resp.Failed()) == 0 {
+			close(w.confirmChan)
+			w.confirmChan = nil
+		}
 	}
 	if err != nil {
 		w.logger.With("executionID", executionID).Errorln(err)
