@@ -31,9 +31,18 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 		writeFunc, ok := w.writeMap[msg.OP()]
 		if !ok {
 			log.Infof("no function registered for operation, %s\n", msg.OP())
+			if msg.Confirms() != nil {
+				close(msg.Confirms())
+			}
 			return msg, nil
 		}
-		return msg, writeFunc(msg, msgCollection(msg, s))
+		if err := writeFunc(msg, msgCollection(msg, s)); err != nil {
+			return nil, err
+		}
+		if msg.Confirms() != nil {
+			close(msg.Confirms())
+		}
+		return msg, nil
 	}
 }
 

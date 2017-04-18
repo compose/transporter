@@ -12,21 +12,31 @@ var (
 type MockManager struct {
 	MemoryMap   map[string]uint64
 	CommitDelay time.Duration
+	CommitErr   error
 	sync.Mutex
 }
 
 func (m *MockManager) CommitOffset(o Offset) error {
+	if m.CommitErr != nil {
+		return m.CommitErr
+	}
 	if m.CommitDelay > 0 {
 		go func() {
+			time.Sleep(m.CommitDelay)
 			m.Lock()
 			defer m.Unlock()
-			time.Sleep(m.CommitDelay)
+			if currentOffset, ok := m.MemoryMap[o.Namespace]; ok && currentOffset >= o.LogOffset {
+				return
+			}
 			m.MemoryMap[o.Namespace] = o.LogOffset
 		}()
 		return nil
 	}
 	m.Lock()
 	defer m.Unlock()
+	if currentOffset, ok := m.MemoryMap[o.Namespace]; ok && currentOffset >= o.LogOffset {
+		return nil
+	}
 	m.MemoryMap[o.Namespace] = o.LogOffset
 	return nil
 }
@@ -38,6 +48,8 @@ func (m *MockManager) OffsetMap() map[string]uint64 {
 }
 
 func (m *MockManager) NewestOffset() int64 {
+	m.Lock()
+	defer m.Unlock()
 	if len(m.MemoryMap) == 0 {
 		return -1
 	}

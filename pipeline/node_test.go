@@ -15,7 +15,6 @@ import (
 	"github.com/compose/transporter/adaptor"
 	"github.com/compose/transporter/client"
 	"github.com/compose/transporter/function"
-	"github.com/compose/transporter/log"
 	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/message/ops"
 	"github.com/compose/transporter/offset"
@@ -132,9 +131,11 @@ func init() {
 }
 
 type StopWriter struct {
-	SendCount int
-	MsgCount  int
-	Closed    bool
+	SendCount    int
+	MsgCount     int
+	ConfirmDelay time.Duration
+	WriteErr     error
+	Closed       bool
 }
 
 func (s *StopWriter) Client() (client.Client, error) {
@@ -152,7 +153,17 @@ func (s *StopWriter) Writer(done chan struct{}, wg *sync.WaitGroup) (client.Writ
 func (s *StopWriter) Write(msg message.Msg) func(client.Session) (message.Msg, error) {
 	return func(client.Session) (message.Msg, error) {
 		s.MsgCount++
-		return msg, nil
+		if s.ConfirmDelay > 0 {
+			go func(m message.Msg) {
+				time.Sleep(s.ConfirmDelay)
+				close(m.Confirms())
+			}(msg)
+			return msg, nil
+		}
+		if s.WriteErr == nil {
+			close(msg.Confirms())
+		}
+		return msg, s.WriteErr
 	}
 }
 
@@ -502,7 +513,6 @@ var (
 							"anotherCollection": 2998,
 							"testC":             1,
 						},
-						CommitDelay: 1 * time.Second,
 					}),
 				)
 				return n, a, func() {}
@@ -527,7 +537,7 @@ var (
 					WithResumeTimeout(2*time.Second),
 					WithOffsetManager(&offset.MockManager{
 						MemoryMap: map[string]uint64{
-							"MyCollection":      104014,
+							"MyCollection":      104013,
 							"anotherCollection": 2998,
 							"testC":             1,
 						},
@@ -536,7 +546,7 @@ var (
 				)
 				return n, a, func() {}
 			},
-			2, 0, ErrResumeTimedOut,
+			3, 0, ErrResumeTimedOut,
 		},
 		{
 			"with_ns_filter",
@@ -559,12 +569,84 @@ var (
 			},
 			0, 0, nil,
 		},
+		{
+			"with_ctx_timeout",
+			func() (*Node, *StopWriter, func()) {
+				a := &StopWriter{
+					ConfirmDelay: 11 * time.Second,
+				}
+				n, _ := NewNodeWithOptions(
+					"ctxStarter", "stopWriter", defaultNsString,
+					WithClient(a),
+					WithReader(a),
+					WithCommitLog("testdata/pipeline_run", 1024),
+				)
+				NewNodeWithOptions(
+					"ctxStopper", "stopWriter", defaultNsString,
+					WithClient(a),
+					WithWriter(a),
+					WithParent(n),
+					WithResumeTimeout(15*time.Second),
+					WithOffsetManager(&offset.MockManager{MemoryMap: map[string]uint64{}}),
+				)
+				return n, a, func() {}
+			},
+			9, 0, ErrResumeTimedOut,
+		},
+		{
+			"with_ctx_cancel",
+			func() (*Node, *StopWriter, func()) {
+				a := &StopWriter{
+					WriteErr: errors.New("bad write"),
+				}
+				n, _ := NewNodeWithOptions(
+					"ctx_cancel_starter", "stopWriter", defaultNsString,
+					WithClient(a),
+					WithReader(a),
+					WithCommitLog("testdata/pipeline_run", 1024),
+				)
+				NewNodeWithOptions(
+					"ctx_cancel_stopper", "stopWriter", defaultNsString,
+					WithClient(a),
+					WithWriter(a),
+					WithParent(n),
+					WithResumeTimeout(2*time.Second),
+					WithOffsetManager(&offset.MockManager{MemoryMap: map[string]uint64{}}),
+				)
+				return n, a, func() {}
+			},
+			1, 0, ErrResumeStopped,
+		},
+		{
+			"with_offset_commit_error",
+			func() (*Node, *StopWriter, func()) {
+				a := &StopWriter{}
+				n, _ := NewNodeWithOptions(
+					"offset_commit_err_starter", "stopWriter", defaultNsString,
+					WithClient(a),
+					WithReader(a),
+					WithCommitLog("testdata/pipeline_run", 1024),
+				)
+				NewNodeWithOptions(
+					"offset_commit_err_stopper", "stopWriter", defaultNsString,
+					WithClient(a),
+					WithWriter(a),
+					WithParent(n),
+					WithResumeTimeout(2*time.Second),
+					WithOffsetManager(&offset.MockManager{
+						MemoryMap: map[string]uint64{},
+						CommitErr: errors.New("failed to commit offset"),
+					}),
+				)
+				return n, a, func() {}
+			},
+			9, 0, ErrResumeTimedOut,
+		},
 	}
 )
 
 func TestStop(t *testing.T) {
 	for _, st := range stopTests {
-		log.Infof("starting test %s", st.name)
 		source, s, deferFunc := st.node()
 		defer deferFunc()
 		var errored bool
@@ -578,7 +660,7 @@ func TestStop(t *testing.T) {
 			}
 		}()
 		if err := source.Start(); err != st.startErr {
-			t.Errorf("unexpected Start() error, expected %s, got %s", st.startErr, err)
+			t.Errorf("[%s] unexpected Start() error, expected %s, got %s", st.name, st.startErr, err)
 		}
 		if !errored {
 			source.Stop()
@@ -591,16 +673,15 @@ func TestStop(t *testing.T) {
 			}
 		}
 		if st.msgCount != s.MsgCount {
-			t.Errorf("wrong number of messages received, expected %d, got %d", st.msgCount, s.MsgCount)
+			t.Errorf("[%s] wrong number of messages received, expected %d, got %d", st.name, st.msgCount, s.MsgCount)
 		}
 		if len(source.children[0].transforms) > 0 {
 			switch mock := source.children[0].transforms[0].Fn.(type) {
 			case *function.Mock:
 				if mock.ApplyCount != st.applyCount {
-					t.Errorf("wrong number of transforms applied, expected %d, got %d", st.applyCount, mock.ApplyCount)
+					t.Errorf("[%s] wrong number of transforms applied, expected %d, got %d", st.name, st.applyCount, mock.ApplyCount)
 				}
 			}
 		}
-		log.Infof("test %s completed", st.name)
 	}
 }

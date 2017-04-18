@@ -20,7 +20,13 @@ func newWriter() *Writer {
 
 func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error) {
 	return func(s client.Session) (message.Msg, error) {
-		return msg, dumpMessage(msg, s.(*Session).file)
+		if err := dumpMessage(msg, s.(*Session).file); err != nil {
+			return nil, err
+		}
+		if msg.Confirms() != nil {
+			close(msg.Confirms())
+		}
+		return msg, nil
 	}
 }
 

@@ -81,7 +81,7 @@ func TestCommitOffset(t *testing.T) {
 				LogOffset: uint64(i),
 				Timestamp: time.Now().Unix(),
 			}); err != nil {
-				t.Fatalf("unexpected Apply error, %s", err)
+				t.Fatalf("unexpected CommitOffset error, %s", err)
 			}
 		}
 		if err := m.CommitOffset(offset.Offset{
@@ -89,7 +89,7 @@ func TestCommitOffset(t *testing.T) {
 			LogOffset: uint64(rand.Intn(int(lastOffset))),
 			Timestamp: time.Now().Unix(),
 		}); err != nil {
-			t.Fatalf("unexpected Apply error, %s", err)
+			t.Fatalf("unexpected CommitOffset error, %s", err)
 		}
 	}
 

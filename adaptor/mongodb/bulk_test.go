@@ -1,6 +1,7 @@
 package mongodb
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
 	"sync"
@@ -39,6 +40,17 @@ func checkBulkCount(c string, countQuery bson.M, expectedCount int, t *testing.T
 	}
 }
 
+func confirmWrite(ctx context.Context, confirmed chan struct{}) {
+	for {
+		select {
+		case <-confirmed:
+			return
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 func TestBulkWrite(t *testing.T) {
 	var wg sync.WaitGroup
 	done := make(chan struct{})
@@ -56,7 +68,10 @@ func TestBulkWrite(t *testing.T) {
 			for k, v := range bt.extraData {
 				data[k] = v
 			}
-			b.Write(message.From(bt.op, bulkTestData.C, data))(s)
+			confirms := make(chan struct{})
+			ctx, _ := context.WithTimeout(context.TODO(), 5*time.Second)
+			go confirmWrite(ctx, confirms)
+			b.Write(message.WithConfirms(confirms, message.From(bt.op, bulkTestData.C, data)))(s)
 		}
 		time.Sleep(3 * time.Second)
 		checkBulkCount(bulkTestData.C, bt.countQuery, bt.expectedCount, t)
@@ -108,12 +123,47 @@ func TestBulkOpCount(t *testing.T) {
 	}
 	defer s.(*Session).Close()
 	for i := 0; i < maxObjSize; i++ {
-		msg := message.From(ops.Insert, "bar", map[string]interface{}{"i": i})
-		b.Write(msg)(s)
+		b.Write(message.From(ops.Insert, "bar", map[string]interface{}{"i": i}))(s)
 	}
 	close(done)
 	wg.Wait()
 	checkBulkCount("bar", bson.M{}, maxObjSize, t)
+}
+
+func TestBulkIsDup(t *testing.T) {
+	var wg sync.WaitGroup
+	done := make(chan struct{})
+	b := newBulker(done, &wg)
+
+	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://127.0.0.1:27017/%s", bulkTestData.DB)))
+	s, err := c.Connect()
+	if err != nil {
+		t.Fatalf("unable to initialize connection to mongodb, %s", err)
+	}
+	defer s.(*Session).Close()
+	for i := 0; i < testBulkMsgCount; i++ {
+		b.Write(
+			message.WithConfirms(
+				make(chan struct{}),
+				message.From(ops.Insert, "dupErr", map[string]interface{}{"_id": i, "i": i}),
+			),
+		)(s)
+	}
+	time.Sleep(3 * time.Second)
+	checkBulkCount("dupErr", bson.M{}, testBulkMsgCount, t)
+
+	for i := 0; i < (2 * testBulkMsgCount); i++ {
+		b.Write(
+			message.WithConfirms(
+				make(chan struct{}),
+				message.From(ops.Insert, "dupErr", map[string]interface{}{"_id": i, "i": i}),
+			),
+		)(s)
+	}
+
+	close(done)
+	wg.Wait()
+	checkBulkCount("dupErr", bson.M{}, (2 * testBulkMsgCount), t)
 }
 
 func TestFlushOnDone(t *testing.T) {
@@ -128,8 +178,7 @@ func TestFlushOnDone(t *testing.T) {
 	}
 	defer s.(*Session).Close()
 	for i := 0; i < testBulkMsgCount; i++ {
-		msg := message.From(ops.Insert, "baz", map[string]interface{}{"i": i})
-		b.Write(msg)(s)
+		b.Write(message.From(ops.Insert, "baz", map[string]interface{}{"i": i}))(s)
 	}
 	close(done)
 	wg.Wait()
@@ -186,8 +235,7 @@ func TestBulkSize(t *testing.T) {
 		}
 		bsonSize += (len(bs) + 4)
 
-		msg := message.From(ops.Insert, "size", doc)
-		b.Write(msg)(s)
+		b.Write(message.From(ops.Insert, "size", doc))(s)
 	}
 	bOp := b.bulkMap["size"]
 	if int(bOp.bsonOpSize) != bsonSize {

@@ -13,6 +13,7 @@ import (
 func TestBase(t *testing.T) {
 	testMap := map[string]interface{}{"hello": "world"}
 	b := From(ops.Insert, "test", testMap)
+	b = WithConfirms(make(chan struct{}), b)
 	if b.OP() != ops.Insert {
 		t.Errorf("wrong Op, expected %+v, got %+v", ops.Insert, b.OP())
 	}
@@ -25,6 +26,9 @@ func TestBase(t *testing.T) {
 	}
 	if !reflect.DeepEqual(b.Data().AsMap(), testMap) {
 		t.Errorf("bad data, expected %+v, got %+v", testMap, b.Data())
+	}
+	if b.Confirms() == nil {
+		t.Errorf("nil confirms channel found")
 	}
 }
 
