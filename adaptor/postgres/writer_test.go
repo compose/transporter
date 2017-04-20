@@ -3,6 +3,7 @@ package postgres
 import (
 	"fmt"
 	"math/rand"
+	"sync"
 	"testing"
 	"time"
 
@@ -47,13 +48,53 @@ func TestInsert(t *testing.T) {
 		t.Fatalf("unable to obtain session to postgres, %s", err)
 	}
 	for i := 0; i < 10; i++ {
-		msg := message.From(
-			ops.Insert,
-			fmt.Sprintf("public.%s", writerTestData.Table),
-			data.Data{"id": i, "colvar": "hello world", "coltimestamp": time.Now().UTC()})
-		if _, err := w.Write(msg)(s); err != nil {
+		if _, err := w.Write(
+			message.WithConfirms(
+				make(chan struct{}),
+				message.From(
+					ops.Insert,
+					fmt.Sprintf("public.%s", writerTestData.Table),
+					data.Data{"id": i, "colvar": "hello world", "coltimestamp": time.Now().UTC()}),
+			),
+		)(s); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
 		}
+	}
+
+	unusedConfirms := make(chan struct{})
+	var wg sync.WaitGroup
+	var confirmClosed bool
+	wg.Add(1)
+	go func(wg *sync.WaitGroup) {
+		select {
+		case <-time.After(10 * time.Second):
+		case <-unusedConfirms:
+			confirmClosed = true
+		}
+		wg.Done()
+	}(&wg)
+	if _, err := w.Write(message.WithConfirms(
+		unusedConfirms,
+		message.From(
+			ops.Command,
+			fmt.Sprintf("public.%s", writerTestData.Table),
+			map[string]interface{}{},
+		)),
+	)(s); err != nil {
+		t.Errorf("unexpected Command error, %s", err)
+	}
+
+	wg.Wait()
+	if !confirmClosed {
+		t.Errorf("confirms chan should have been closed but isn't")
+	}
+
+	if _, err := w.Write(message.From(
+		ops.Command,
+		fmt.Sprintf("public.%s", writerTestData.Table),
+		map[string]interface{}{},
+	))(s); err != nil {
+		t.Errorf("unexpected Command error, %s", err)
 	}
 
 	var (
