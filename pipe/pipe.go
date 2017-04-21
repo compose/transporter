@@ -8,6 +8,7 @@ package pipe
 
 import (
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/compose/transporter/events"
@@ -25,7 +26,7 @@ var (
 type messageChan chan TrackedMessage
 
 func newMessageChan() messageChan {
-	return make(chan TrackedMessage)
+	return make(chan TrackedMessage, 10)
 }
 
 type TrackedMessage struct {
@@ -48,8 +49,9 @@ type Pipe struct {
 	MessageCount int
 
 	path      string // the path of this pipe (for events and errors)
-	chStop    chan chan bool
+	chStop    chan struct{}
 	listening bool
+	wg        sync.WaitGroup
 }
 
 // NewPipe creates a new Pipe.  If the pipe that is passed in is nil, then this pipe will be treated as a source pipe that just serves to emit messages.
@@ -60,7 +62,7 @@ func NewPipe(pipe *Pipe, path string) *Pipe {
 	p := &Pipe{
 		Out:    make([]messageChan, 0),
 		path:   path,
-		chStop: make(chan chan bool),
+		chStop: make(chan struct{}),
 	}
 
 	if pipe != nil {
@@ -84,22 +86,25 @@ func (p *Pipe) Listen(fn func(message.Msg, offset.Offset) (message.Msg, error)) 
 		return ErrUnableToListen
 	}
 	p.listening = true
+	p.wg.Add(1)
 	for {
 		// check for stop
 		select {
-		case c := <-p.chStop:
-			p.Stopped = true
-			c <- true
+		case <-p.chStop:
+			if len(p.In) > 0 {
+				log.With("buffer_length", len(p.In)).Infoln("received stop, message buffer not empty, continuing...")
+				continue
+			}
+			log.Infoln("received stop, message buffer is empty, closing...")
+			p.wg.Done()
 			return nil
 		case m := <-p.In:
-			if p.Stopped {
-				break
-			}
 			outmsg, err := fn(m.Msg, m.Off)
 			if err != nil {
 				p.Stopped = true
 				p.Err <- err
-				break
+				p.wg.Done()
+				return err
 			}
 			if outmsg == nil {
 				break
@@ -120,11 +125,34 @@ func (p *Pipe) Stop() {
 
 		// we only worry about the stop channel if we're in a listening loop
 		if p.listening {
-			c := make(chan bool)
-			p.chStop <- c
-			<-c
+			close(p.chStop)
+			p.wg.Wait()
+			return
+		}
+
+		timeout := time.After(10 * time.Second)
+		for {
+			select {
+			case <-timeout:
+				log.Errorln("timeout reached waiting for Out channels to clear")
+				return
+			default:
+			}
+			if p.empty() {
+				return
+			}
+			time.Sleep(1 * time.Second)
 		}
 	}
+}
+
+func (p *Pipe) empty() bool {
+	for _, ch := range p.Out {
+		if len(ch) > 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // Send emits the given message on the 'Out' channel.  the send Timesout after 100 ms in order to chaeck of the Pipe has stopped and we've been asked to exit.
@@ -138,12 +166,6 @@ func (p *Pipe) Send(msg message.Msg, off offset.Offset) {
 			select {
 			case ch <- TrackedMessage{msg, off}:
 				break A
-			case <-time.After(100 * time.Millisecond):
-				if p.Stopped {
-					// return, with no guarantee
-					log.Infoln("returning with no guarantee")
-					return
-				}
 			}
 		}
 	}

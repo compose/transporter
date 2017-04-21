@@ -77,9 +77,15 @@ func TestBulkInsert(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to obtain session to rethinkdb, %s", err)
 	}
+	confirms := make(chan struct{})
+	var confirmed bool
+	go func() {
+		<-confirms
+		confirmed = true
+	}()
 	for i := 0; i < 999; i++ {
-		msg := message.From(ops.Insert, "bulk", map[string]interface{}{"i": i})
-		if _, err := w.Write(msg)(s); err != nil {
+		msg := message.From(ops.Insert, "bulk", map[string]interface{}{"id": i, "i": i})
+		if _, err := w.Write(message.WithConfirms(confirms, msg))(s); err != nil {
 			t.Errorf("unexpected Insert error, %s", err)
 		}
 	}
@@ -95,6 +101,27 @@ func TestBulkInsert(t *testing.T) {
 	countResp.Close()
 	if count != 999 {
 		t.Errorf("[bulk] mismatched doc count, expected 999, got %d", count)
+	}
+
+	if !confirmed {
+		t.Errorf("[bulk] confirm chan never closed but should have")
+	}
+
+	for i := 0; i < 2000; i++ {
+		msg := message.From(ops.Insert, "bulk", map[string]interface{}{"id": i, "i": i})
+		if _, err := w.Write(msg)(s); err != nil {
+			t.Errorf("unexpected Insert error, %s", err)
+		}
+	}
+
+	countResp, err = r.DB(writerTestData.DB).Table("bulk").Count().Run(defaultSession.session)
+	if err != nil {
+		t.Errorf("unable to determine table count, %s", err)
+	}
+	countResp.One(&count)
+	countResp.Close()
+	if count != 2000 {
+		t.Errorf("[bulk] mismatched doc count, expected 2000, got %d", count)
 	}
 }
 
