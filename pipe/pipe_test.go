@@ -17,34 +17,6 @@ func TestSend(t *testing.T) {
 	source := NewPipe(nil, "source")
 	sink1 := NewPipe(source, "sink1")
 	go sink1.Listen(func(msg message.Msg, _ offset.Offset) (message.Msg, error) {
-		time.Sleep(200 * time.Millisecond)
-		msgsProcessed++
-		return msg, nil
-	})
-	sink2 := NewPipe(source, "sink2")
-	go sink2.Listen(func(msg message.Msg, _ offset.Offset) (message.Msg, error) {
-		msgsProcessed++
-		return msg, nil
-	})
-	go func() {
-		source.Send(message.From(ops.Insert, "test", map[string]interface{}{}), offset.Offset{})
-		source.Send(message.From(ops.Insert, "test", map[string]interface{}{}), offset.Offset{})
-	}()
-	time.Sleep(300 * time.Millisecond)
-	if msgsProcessed != 3 {
-		t.Errorf("unexpected messages processed count, expected 3, got %d", msgsProcessed)
-	}
-	source.Stop()
-	sink1.Stop()
-	sink2.Stop()
-}
-
-func TestSendTimeout(t *testing.T) {
-	var msgsProcessed int
-	source := NewPipe(nil, "source")
-	sink1 := NewPipe(source, "sink1")
-	go sink1.Listen(func(msg message.Msg, _ offset.Offset) (message.Msg, error) {
-		time.Sleep(200 * time.Millisecond)
 		msgsProcessed++
 		return msg, nil
 	})
@@ -54,14 +26,33 @@ func TestSendTimeout(t *testing.T) {
 		return msg, nil
 	})
 	source.Send(message.From(ops.Insert, "test", map[string]interface{}{}), offset.Offset{})
-	go source.Send(message.From(ops.Insert, "test", map[string]interface{}{}), offset.Offset{})
-	time.Sleep(100 * time.Millisecond)
+	source.Send(message.From(ops.Insert, "test", map[string]interface{}{}), offset.Offset{})
 	source.Stop()
 	sink1.Stop()
 	sink2.Stop()
-	if msgsProcessed != 2 {
-		t.Errorf("unexpected messages processed count, expected 2, got %d", msgsProcessed)
+	if msgsProcessed != 4 {
+		t.Errorf("unexpected messages processed count, expected 4, got %d", msgsProcessed)
 	}
+}
+
+func TestStopMessageInFlight(t *testing.T) {
+	var msgsProcessed int
+	source := NewPipe(nil, "in-flight-source")
+	sink1 := NewPipe(source, "in-flight-sink1")
+	go sink1.Listen(func(msg message.Msg, _ offset.Offset) (message.Msg, error) {
+		time.Sleep(100 * time.Millisecond)
+		msgsProcessed++
+		return msg, nil
+	})
+	for i := 0; i < 20; i++ {
+		source.Send(message.From(ops.Insert, "test", map[string]interface{}{}), offset.Offset{})
+	}
+	sink1.Stop()
+	source.Stop()
+	if msgsProcessed != 20 {
+		t.Errorf("unexpected messages processed count, expected 20, got %d", msgsProcessed)
+	}
+
 }
 
 func TestChainMessage(t *testing.T) {
@@ -77,7 +68,6 @@ func TestChainMessage(t *testing.T) {
 		return msg, nil
 	})
 	source.Send(message.From(ops.Insert, "test", map[string]interface{}{}), offset.Offset{})
-	time.Sleep(100 * time.Millisecond)
 	source.Stop()
 	sink1.Stop()
 	sink2.Stop()
@@ -99,7 +89,6 @@ func TestSkipMessage(t *testing.T) {
 		return msg, nil
 	})
 	source.Send(message.From(ops.Insert, "test", map[string]interface{}{}), offset.Offset{})
-	time.Sleep(100 * time.Millisecond)
 	source.Stop()
 	sink1.Stop()
 	sink2.Stop()
@@ -119,12 +108,11 @@ func TestListenErr(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func(wg *sync.WaitGroup, t *testing.T) {
-		for err := range source.Err {
-			if !reflect.DeepEqual(err, errListen) {
-				t.Errorf("wrong error received, expected %s, got %s", errListen, err)
-			}
-			wg.Done()
+		err := <-source.Err
+		if !reflect.DeepEqual(err, errListen) {
+			t.Errorf("wrong error received, expected %s, got %s", errListen, err)
 		}
+		wg.Done()
 	}(&wg, t)
 	source.Send(message.From(ops.Insert, "test", map[string]interface{}{}), offset.Offset{})
 	source.Send(message.From(ops.Insert, "test", map[string]interface{}{}), offset.Offset{})

@@ -649,29 +649,41 @@ func TestStop(t *testing.T) {
 	for _, st := range stopTests {
 		source, s, deferFunc := st.node()
 		defer deferFunc()
-		var errored bool
+		var errorChecked bool
 		stopC := make(chan struct{})
-		go func() {
+		var mu sync.Mutex
+		go func(mu *sync.Mutex) {
 			select {
 			case <-source.pipe.Err:
-				errored = true
+				mu.Lock()
+				defer mu.Unlock()
+				if errorChecked {
+					return
+				}
+				errorChecked = true
+				time.Sleep(1 * time.Second)
 				source.Stop()
 				close(stopC)
 			}
-		}()
+		}(&mu)
 		if err := source.Start(); err != st.startErr {
 			t.Errorf("[%s] unexpected Start() error, expected %s, got %s", st.name, st.startErr, err)
 		}
-		if !errored {
+		mu.Lock()
+		if !errorChecked {
+			errorChecked = true
+			time.Sleep(1 * time.Second)
 			source.Stop()
 			close(stopC)
 		}
+		mu.Unlock()
 		<-stopC
 		for _, child := range source.children {
 			if !s.Closed {
 				t.Errorf("[%s] child node was not closed but should have been", child.Name)
 			}
 		}
+
 		if st.msgCount != s.MsgCount {
 			t.Errorf("[%s] wrong number of messages received, expected %d, got %d", st.name, st.msgCount, s.MsgCount)
 		}

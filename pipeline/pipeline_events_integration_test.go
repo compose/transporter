@@ -53,6 +53,7 @@ func TestEventsBroadcast(t *testing.T) {
 	eh := &EventHolder{rawEvents: make([][]byte, 0)}
 	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		event, _ := ioutil.ReadAll(r.Body)
+		fmt.Println(string(event))
 		r.Body.Close()
 		eh.rawEvents = append(eh.rawEvents, event)
 	}))
@@ -103,7 +104,7 @@ func TestEventsBroadcast(t *testing.T) {
 		t.Fatalf("can't create NewNode, got %s", err)
 	}
 
-	p, err := NewDefaultPipeline(dummyOutNode, ts.URL, "asdf", "jklm", "test", 1*time.Second)
+	p, err := NewDefaultPipeline(dummyOutNode, ts.URL, "asdf", "jklm", "test", 10*time.Second)
 	if err != nil {
 		t.Errorf("can't create pipeline, got %s", err.Error())
 		t.FailNow()
