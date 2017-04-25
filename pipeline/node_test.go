@@ -603,7 +603,7 @@ var (
 					"ctx_cancel_starter", "stopWriter", defaultNsString,
 					WithClient(a),
 					WithReader(a),
-					WithCommitLog("testdata/pipeline_run", 1024),
+					WithCommitLog("testdata/restart_from_zero", 1024),
 				)
 				NewNodeWithOptions(
 					"ctx_cancel_stopper", "stopWriter", defaultNsString,
