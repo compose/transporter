@@ -71,12 +71,10 @@ func (r *Reader) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 				if m, ok := resumeMap[c]; ok {
 					lastID = m.Msg.Data().Get("_id")
 					mode = m.Mode
-					if m.Mode == commitlog.Sync {
-						oplogTime = timeAsMongoTimestamp(time.Unix(m.Timestamp, 0))
-					}
+					oplogTime = timeAsMongoTimestamp(time.Unix(m.Timestamp, 0))
 				}
 				if mode == commitlog.Copy {
-					if err := r.iterateCollection(lastID, session.Copy(), c, out, done); err != nil {
+					if err := r.iterateCollection(r.iterate(lastID, session.Copy(), c), out, done, int64(oplogTime)>>32); err != nil {
 						log.With("db", session.DB("").Name).Errorln(err)
 						return
 					}
@@ -126,16 +124,16 @@ func (r *Reader) listCollections(mgoSession *mgo.Session, filterFn func(name str
 	return colls, nil
 }
 
-func (r *Reader) iterateCollection(lastID interface{}, s *mgo.Session, c string, out chan<- client.MessageSet, done chan struct{}) error {
-	iter := r.iterate(lastID, s, c)
+func (r *Reader) iterateCollection(in <-chan message.Msg, out chan<- client.MessageSet, done chan struct{}, origOplogTime int64) error {
 	for {
 		select {
-		case msg, ok := <-iter:
+		case msg, ok := <-in:
 			if !ok {
 				return nil
 			}
 			out <- client.MessageSet{
-				Msg: msg,
+				Msg:       msg,
+				Timestamp: origOplogTime,
 			}
 		case <-done:
 			return errors.New("iteration cancelled")
