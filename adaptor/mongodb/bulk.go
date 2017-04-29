@@ -134,7 +134,7 @@ func (b *Bulk) flushAll() error {
 }
 
 func (b *Bulk) flush(c string, bOp *bulkOperation) error {
-	log.With("collection", c).With("opCounter", bOp.opCounter).With("bsonOpSize", bOp.bsonOpSize).Infoln("flushing bulk messages")
+	log.With("collection", c).With("opCounter", bOp.opCounter).With("bsonOpSize", bOp.bsonOpSize).Debugln("flushing bulk messages")
 	_, err := bOp.bulk.Run()
 	if err != nil && !mgo.IsDup(err) {
 		log.With("collection", c).Errorf("flush error, %s\n", err)
@@ -147,7 +147,7 @@ func (b *Bulk) flush(c string, bOp *bulkOperation) error {
 		}
 	}
 	bOp.s.Close()
-	log.With("collection", c).Infoln("flush complete")
+	log.With("collection", c).Debugln("flush complete")
 	delete(b.bulkMap, c)
 	return nil
 }
