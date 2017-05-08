@@ -56,7 +56,12 @@ func TestNewSegment(t *testing.T) {
 	setup(path, t)
 	defer cleanup(path, t)
 	for _, st := range segmentTests {
-		actualS, err := commitlog.NewSegment(st.p, st.offset, 1024)
+		actualS, err := commitlog.NewSegment(
+			st.p,
+			commitlog.LogNameFormat,
+			st.offset,
+			1024,
+		)
 		if err != nil {
 			t.Fatalf("unexpected NewSegment error, %s", err)
 		}
@@ -82,7 +87,12 @@ var (
 func TestWrite(t *testing.T) {
 	setup(writePath, t)
 	defer cleanup(writePath, t)
-	s, err := commitlog.NewSegment(writePath, 0, 1024)
+	s, err := commitlog.NewSegment(
+		writePath,
+		commitlog.LogNameFormat,
+		0,
+		1024,
+	)
 	if err != nil {
 		t.Fatalf("unexpected NewSegment error, %s", err)
 	}
@@ -105,7 +115,12 @@ var (
 func TestIsFull(t *testing.T) {
 	setup(fullPath, t)
 	defer cleanup(fullPath, t)
-	s, err := commitlog.NewSegment(fullPath, 0, 10)
+	s, err := commitlog.NewSegment(
+		fullPath,
+		commitlog.LogNameFormat,
+		0,
+		10,
+	)
 	if err != nil {
 		t.Fatalf("unexpected NewSegment error, %s", err)
 	}
@@ -121,7 +136,12 @@ func TestIsFull(t *testing.T) {
 }
 
 func TestReadAt(t *testing.T) {
-	s, err := commitlog.NewSegment("testdata/read_at_test", 0, 1024)
+	s, err := commitlog.NewSegment(
+		"testdata/read_at_test",
+		commitlog.LogNameFormat,
+		0,
+		1024,
+	)
 	if err != nil {
 		t.Fatalf("unexpected NewSegment error, %s", err)
 	}
@@ -155,7 +175,12 @@ var (
 )
 
 func TestFindOffsetPosition(t *testing.T) {
-	s, err := commitlog.NewSegment("testdata/find_offset_position", 0, 1024*1024*1024)
+	s, err := commitlog.NewSegment(
+		"testdata/find_offset_position",
+		commitlog.LogNameFormat,
+		0,
+		1024*1024*1024,
+	)
 	if err != nil {
 		t.Fatalf("unexpected NewSegment error, %s", err)
 	}
@@ -173,7 +198,12 @@ func TestFindOffsetPosition(t *testing.T) {
 }
 
 func TestFindOffsetPositionErr(t *testing.T) {
-	s, err := commitlog.NewSegment("testdata/find_offset_position_err", 0, 1024*1024*1024)
+	s, err := commitlog.NewSegment(
+		"testdata/find_offset_position_err",
+		commitlog.LogNameFormat,
+		0,
+		1024*1024*1024,
+	)
 	if err != nil {
 		t.Fatalf("unexpected NewSegment error, %s", err)
 	}
@@ -202,7 +232,12 @@ var (
 )
 
 func TestFindOffsetPositionMultiSegment(t *testing.T) {
-	s, err := commitlog.NewSegment("testdata/find_offset_position_many_segments", 0, 1024*1024*1024)
+	s, err := commitlog.NewSegment(
+		"testdata/find_offset_position_many_segments",
+		commitlog.LogNameFormat,
+		0,
+		1024*1024*1024,
+	)
 	if err != nil {
 		t.Fatalf("unexpected NewSegment error, %s", err)
 	}
@@ -226,7 +261,12 @@ var (
 func TestClose(t *testing.T) {
 	setup(closePath, t)
 	defer cleanup(closePath, t)
-	s, err := commitlog.NewSegment(closePath, 0, 1024)
+	s, err := commitlog.NewSegment(
+		closePath,
+		commitlog.LogNameFormat,
+		0,
+		1024,
+	)
 	if err != nil {
 		t.Fatalf("unexpected NewSegment error, %s", err)
 	}

@@ -15,6 +15,7 @@ import (
 	"github.com/compose/transporter/adaptor"
 	"github.com/compose/transporter/client"
 	"github.com/compose/transporter/function"
+	"github.com/compose/transporter/log"
 	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/message/ops"
 	"github.com/compose/transporter/offset"
@@ -647,37 +648,29 @@ var (
 
 func TestStop(t *testing.T) {
 	for _, st := range stopTests {
+		log.Infof("starting %s", st.name)
 		source, s, deferFunc := st.node()
 		defer deferFunc()
-		var errorChecked bool
-		stopC := make(chan struct{})
-		var mu sync.Mutex
-		go func(mu *sync.Mutex) {
-			select {
-			case <-source.pipe.Err:
-				mu.Lock()
-				defer mu.Unlock()
-				if errorChecked {
-					return
-				}
-				errorChecked = true
-				time.Sleep(1 * time.Second)
-				source.Stop()
-				close(stopC)
-			}
-		}(&mu)
-		if err := source.Start(); err != st.startErr {
+		errc := make(chan error, 1)
+		go func() {
+			errc <- source.Start()
+			close(errc)
+		}()
+		var err error
+		select {
+		case <-source.pipe.Err:
+		case e := <-errc:
+			err = e
+		}
+		source.Stop()
+		// need to check errc in case there was a pipe.Err
+		e, ok := <-errc
+		if ok {
+			err = e
+		}
+		if err != st.startErr {
 			t.Errorf("[%s] unexpected Start() error, expected %s, got %s", st.name, st.startErr, err)
 		}
-		mu.Lock()
-		if !errorChecked {
-			errorChecked = true
-			time.Sleep(1 * time.Second)
-			source.Stop()
-			close(stopC)
-		}
-		mu.Unlock()
-		<-stopC
 		for _, child := range source.children {
 			if !s.Closed {
 				t.Errorf("[%s] child node was not closed but should have been", child.Name)
