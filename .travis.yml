@@ -3,6 +3,8 @@ dist: trusty
 language: go
 go:
 - 1.8.x
+git:
+  lfs_skip_smudge: true
 env:
   global:
   - MONGODB_VERSION=3.2.11
