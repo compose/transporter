@@ -38,9 +38,9 @@ func (c *NamespaceCompactor) Compact(offset uint64, segments []*Segment) {
 
 func (c *NamespaceCompactor) compactSegment(offset uint64, wg *sync.WaitGroup, segment *Segment) {
 	defer wg.Done()
-	if err := segment.Open(); err != nil {
-		log.With("segment", segment.path).Errorf("unable to open segment, %s", err)
-	}
+	// if err := segment.Open(); err != nil {
+	// 	log.With("segment", segment.path).Errorf("unable to open segment, %s", err)
+	// }
 	r := &segmentReader{s: segment, position: 0}
 	entryMap := make(map[string]LogEntry)
 	for {

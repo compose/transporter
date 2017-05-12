@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/compose/transporter/adaptor"
+	"github.com/compose/transporter/commitlog"
 	"github.com/compose/transporter/offset"
 )
 
@@ -80,7 +81,9 @@ func TestEventsBroadcast(t *testing.T) {
 		"dummyFileOut", "file", "/.*",
 		WithClient(f),
 		WithReader(f),
-		WithCommitLog(dataDir, 1024*1024*1024),
+		WithCommitLog([]commitlog.OptionFunc{
+			commitlog.WithPath(dataDir),
+		}...),
 	)
 	if err != nil {
 		t.Fatalf("can't create NewNode, got %s", err)

@@ -13,14 +13,10 @@ func runRun(args []string) error {
 		args = []string{defaultPipelineFile}
 	}
 
-	builder, err := NewBuilder(args[0])
+	builder, err := newBuilder(args[0])
 	if err != nil {
 		return err
 	}
 
-	if err := builder.Run(); err != nil {
-		return err
-	}
-
-	return nil
+	return builder.run()
 }

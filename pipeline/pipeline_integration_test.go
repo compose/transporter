@@ -11,6 +11,7 @@ import (
 
 	"github.com/compose/transporter/adaptor"
 	_ "github.com/compose/transporter/adaptor/all"
+	"github.com/compose/transporter/commitlog"
 	"github.com/compose/transporter/events"
 	"github.com/compose/transporter/offset"
 )
@@ -55,7 +56,9 @@ func TestFileToFile(t *testing.T) {
 		"localfileout", "file", "/.*",
 		WithClient(f),
 		WithReader(f),
-		WithCommitLog(dataDir, 1024*1024*1024),
+		WithCommitLog([]commitlog.OptionFunc{
+			commitlog.WithPath(dataDir),
+		}...),
 	)
 	if err != nil {
 		t.Fatalf("can't create newnode, got %s", err)

@@ -146,18 +146,18 @@ func (s *Segment) ReadAt(p []byte, off int64) (n int, err error) {
 	return s.log.ReadAt(p, off)
 }
 
-func (s *Segment) Open() error {
-	s.Lock()
-	defer s.Unlock()
-	l, err := os.OpenFile(s.path, os.O_RDWR, 0666)
-	if err != nil {
-		return err
-	}
-	s.log = l
-	s.reader = l
-	s.writer = l
-	return nil
-}
+// func (s *Segment) Open() error {
+// 	s.Lock()
+// 	defer s.Unlock()
+// 	l, err := os.OpenFile(s.path, os.O_RDWR, 0666)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	s.log = l
+// 	s.reader = l
+// 	s.writer = l
+// 	return nil
+// }
 
 // Close closes the read/write access to the underlying file.
 func (s *Segment) Close() error {
