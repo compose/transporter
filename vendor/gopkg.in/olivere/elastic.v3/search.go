@@ -5,13 +5,12 @@
 package elastic
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
 	"reflect"
 	"strings"
-
-	"golang.org/x/net/context"
 
 	"gopkg.in/olivere/elastic.v5/uritemplates"
 )
@@ -96,6 +95,12 @@ func (s *SearchService) Timeout(timeout string) *SearchService {
 // profiling data.
 func (s *SearchService) Profile(profile bool) *SearchService {
 	s.searchSource = s.searchSource.Profile(profile)
+	return s
+}
+
+// Collapse adds field collapsing.
+func (s *SearchService) Collapse(collapse *CollapseBuilder) *SearchService {
+	s.searchSource = s.searchSource.Collapse(collapse)
 	return s
 }
 

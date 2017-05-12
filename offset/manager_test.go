@@ -77,7 +77,7 @@ func TestMockCommitOffset(t *testing.T) {
 					Namespace: ns,
 					LogOffset: uint64(i),
 					Timestamp: time.Now().Unix(),
-				}); err != nil {
+				}, false); err != nil {
 					t.Fatalf("unexpected CommitOffset error, %s", err)
 				}
 			}
@@ -85,7 +85,7 @@ func TestMockCommitOffset(t *testing.T) {
 				Namespace: ns,
 				LogOffset: uint64(rand.Intn(int(lastOffset))),
 				Timestamp: time.Now().Unix(),
-			}); err != nil {
+			}, false); err != nil {
 				t.Fatalf("unexpected CommitOffset error, %s", err)
 			}
 		}
@@ -117,7 +117,7 @@ func TestMockCommitErr(t *testing.T) {
 		Namespace: "blah",
 		LogOffset: uint64(10),
 		Timestamp: time.Now().Unix(),
-	}); err == nil {
+	}, false); err == nil {
 		t.Errorf("no error returned but expected %s", mockErr)
 	}
 	if m.NewestOffset() != -1 {

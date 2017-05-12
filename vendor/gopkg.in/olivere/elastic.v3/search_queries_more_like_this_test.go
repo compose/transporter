@@ -5,10 +5,9 @@
 package elastic
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
-
-	"golang.org/x/net/context"
 )
 
 func TestMoreLikeThisQuerySourceWithLikeText(t *testing.T) {
@@ -22,7 +21,7 @@ func TestMoreLikeThisQuerySourceWithLikeText(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := string(data)
-	expected := `{"mlt":{"fields":["message"],"like":["Golang topic"]}}`
+	expected := `{"more_like_this":{"fields":["message"],"like":["Golang topic"]}}`
 	if got != expected {
 		t.Fatalf("expected\n%s\n,got:\n%s", expected, got)
 	}
@@ -44,7 +43,7 @@ func TestMoreLikeThisQuerySourceWithLikeAndUnlikeItems(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := string(data)
-	expected := `{"mlt":{"like":[{"_id":"1"},{"_id":"2","_index":"elastic-test2","_routing":"routing_id","_type":"comment"}],"unlike":[{"_id":"3"}]}}`
+	expected := `{"more_like_this":{"like":[{"_id":"1"},{"_id":"2","_index":"elastic-test2","_routing":"routing_id","_type":"comment"}],"unlike":[{"_id":"3"}]}}`
 	if got != expected {
 		t.Fatalf("expected\n%s\n,got:\n%s", expected, got)
 	}

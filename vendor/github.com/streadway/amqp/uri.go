@@ -14,7 +14,6 @@ import (
 )
 
 var errURIScheme = errors.New("AMQP scheme must be either 'amqp://' or 'amqps://'")
-var errURIWhitespace = errors.New("URI must not contain whitespace")
 
 var schemePorts = map[string]int{
 	"amqp":  5672,
@@ -53,45 +52,41 @@ type URI struct {
 //   Vhost: /
 //
 func ParseURI(uri string) (URI, error) {
-	builder := defaultURI
-
-	if strings.Contains(uri, " ") == true {
-		return builder, errURIWhitespace
-	}
+	me := defaultURI
 
 	u, err := url.Parse(uri)
 	if err != nil {
-		return builder, err
+		return me, err
 	}
 
 	defaultPort, okScheme := schemePorts[u.Scheme]
 
 	if okScheme {
-		builder.Scheme = u.Scheme
+		me.Scheme = u.Scheme
 	} else {
-		return builder, errURIScheme
+		return me, errURIScheme
 	}
 
 	host, port := splitHostPort(u.Host)
 
 	if host != "" {
-		builder.Host = host
+		me.Host = host
 	}
 
 	if port != "" {
 		port32, err := strconv.ParseInt(port, 10, 32)
 		if err != nil {
-			return builder, err
+			return me, err
 		}
-		builder.Port = int(port32)
+		me.Port = int(port32)
 	} else {
-		builder.Port = defaultPort
+		me.Port = defaultPort
 	}
 
 	if u.User != nil {
-		builder.Username = u.User.Username()
+		me.Username = u.User.Username()
 		if password, ok := u.User.Password(); ok {
-			builder.Password = password
+			me.Password = password
 		}
 	}
 
@@ -102,17 +97,17 @@ func ParseURI(uri string) (URI, error) {
 				// to the scheme handler.  In our case, we translate amqp:/// into the
 				// default host and whatever the vhost should be
 				if len(u.Path) > 3 {
-					builder.Vhost = u.Path[3:]
+					me.Vhost = u.Path[3:]
 				}
 			} else if len(u.Path) > 1 {
-				builder.Vhost = u.Path[1:]
+				me.Vhost = u.Path[1:]
 			}
 		} else {
-			builder.Vhost = u.Path
+			me.Vhost = u.Path
 		}
 	}
 
-	return builder, nil
+	return me, nil
 }
 
 // Splits host:port, host, [ho:st]:port, or [ho:st].  Unlike net.SplitHostPort
@@ -140,36 +135,36 @@ func splitHostPort(addr string) (host, port string) {
 
 // PlainAuth returns a PlainAuth structure based on the parsed URI's
 // Username and Password fields.
-func (uri URI) PlainAuth() *PlainAuth {
+func (me URI) PlainAuth() *PlainAuth {
 	return &PlainAuth{
-		Username: uri.Username,
-		Password: uri.Password,
+		Username: me.Username,
+		Password: me.Password,
 	}
 }
 
-func (uri URI) String() string {
+func (me URI) String() string {
 	var authority string
 
-	if uri.Username != defaultURI.Username || uri.Password != defaultURI.Password {
-		authority += uri.Username
+	if me.Username != defaultURI.Username || me.Password != defaultURI.Password {
+		authority += me.Username
 
-		if uri.Password != defaultURI.Password {
-			authority += ":" + uri.Password
+		if me.Password != defaultURI.Password {
+			authority += ":" + me.Password
 		}
 
 		authority += "@"
 	}
 
-	authority += uri.Host
+	authority += me.Host
 
-	if defaultPort, found := schemePorts[uri.Scheme]; !found || defaultPort != uri.Port {
-		authority += ":" + strconv.FormatInt(int64(uri.Port), 10)
+	if defaultPort, found := schemePorts[me.Scheme]; !found || defaultPort != me.Port {
+		authority += ":" + strconv.FormatInt(int64(me.Port), 10)
 	}
 
 	var vhost string
-	if uri.Vhost != defaultURI.Vhost {
-		vhost = uri.Vhost
+	if me.Vhost != defaultURI.Vhost {
+		vhost = me.Vhost
 	}
 
-	return fmt.Sprintf("%s://%s/%s", uri.Scheme, authority, url.QueryEscape(vhost))
+	return fmt.Sprintf("%s://%s/%s", me.Scheme, authority, url.QueryEscape(vhost))
 }

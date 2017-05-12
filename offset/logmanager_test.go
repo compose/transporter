@@ -80,7 +80,7 @@ func TestCommitOffset(t *testing.T) {
 				Namespace: ns,
 				LogOffset: uint64(i),
 				Timestamp: time.Now().Unix(),
-			}); err != nil {
+			}, false); err != nil {
 				t.Fatalf("unexpected CommitOffset error, %s", err)
 			}
 		}
@@ -88,7 +88,7 @@ func TestCommitOffset(t *testing.T) {
 			Namespace: ns,
 			LogOffset: uint64(rand.Intn(int(lastOffset))),
 			Timestamp: time.Now().Unix(),
-		}); err != nil {
+		}, false); err != nil {
 			t.Fatalf("unexpected CommitOffset error, %s", err)
 		}
 	}

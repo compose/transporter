@@ -125,6 +125,8 @@ func (t *server) recv(channel int, m message) message {
 			t.Fatalf("unexpected frame: %+v", f)
 		}
 	}
+
+	panic("unreachable")
 }
 
 func (t *server) expectAMQP() {
@@ -325,7 +327,6 @@ func TestConfirmMultipleOrdersDeliveryTags(t *testing.T) {
 		// Single tag, plus multiple, should produce
 		// 2, 1, 3, 4
 		srv.send(1, &basicAck{DeliveryTag: 2})
-		srv.send(1, &basicAck{DeliveryTag: 1})
 		srv.send(1, &basicAck{DeliveryTag: 4, Multiple: true})
 
 		srv.recv(1, &basicPublish{})
@@ -350,34 +351,29 @@ func TestConfirmMultipleOrdersDeliveryTags(t *testing.T) {
 		t.Fatalf("could not open channel: %v (%s)", ch, err)
 	}
 
-	confirm := ch.NotifyPublish(make(chan Confirmation))
+	acks, _ := ch.NotifyConfirm(make(chan uint64), make(chan uint64))
 
 	ch.Confirm(false)
 
-	go func() {
-		ch.Publish("", "q", false, false, Publishing{Body: []byte("pub 1")})
-		ch.Publish("", "q", false, false, Publishing{Body: []byte("pub 2")})
-		ch.Publish("", "q", false, false, Publishing{Body: []byte("pub 3")})
-		ch.Publish("", "q", false, false, Publishing{Body: []byte("pub 4")})
-	}()
+	ch.Publish("", "q", false, false, Publishing{Body: []byte("pub 1")})
+	ch.Publish("", "q", false, false, Publishing{Body: []byte("pub 2")})
+	ch.Publish("", "q", false, false, Publishing{Body: []byte("pub 3")})
+	ch.Publish("", "q", false, false, Publishing{Body: []byte("pub 4")})
 
-	// received out of order, consumed in order
-	for i, tag := range []uint64{1, 2, 3, 4} {
-		if ack := <-confirm; tag != ack.DeliveryTag {
-			t.Fatalf("failed ack, expected ack#%d to be %d, got %d", i, tag, ack.DeliveryTag)
+	for i, tag := range []uint64{2, 1, 3, 4} {
+		if ack := <-acks; tag != ack {
+			t.Fatalf("failed ack, expected ack#%d to be %d, got %d", i, tag, ack)
 		}
 	}
 
-	go func() {
-		ch.Publish("", "q", false, false, Publishing{Body: []byte("pub 5")})
-		ch.Publish("", "q", false, false, Publishing{Body: []byte("pub 6")})
-		ch.Publish("", "q", false, false, Publishing{Body: []byte("pub 7")})
-		ch.Publish("", "q", false, false, Publishing{Body: []byte("pub 8")})
-	}()
+	ch.Publish("", "q", false, false, Publishing{Body: []byte("pub 5")})
+	ch.Publish("", "q", false, false, Publishing{Body: []byte("pub 6")})
+	ch.Publish("", "q", false, false, Publishing{Body: []byte("pub 7")})
+	ch.Publish("", "q", false, false, Publishing{Body: []byte("pub 8")})
 
-	for i, tag := range []uint64{5, 6, 7, 8} {
-		if ack := <-confirm; tag != ack.DeliveryTag {
-			t.Fatalf("failed ack, expected ack#%d to be %d, got %d", i, tag, ack.DeliveryTag)
+	for i, tag := range []uint64{5, 6, 8, 7} {
+		if ack := <-acks; tag != ack {
+			t.Fatalf("failed ack, expected ack#%d to be %d, got %d", i, tag, ack)
 		}
 	}
 
@@ -474,16 +470,22 @@ func TestNotifyClosesAllChansAfterConnectionClose(t *testing.T) {
 		t.Errorf("expected to close Channel.NotifyReturn chan after Connection.Close")
 	}
 
-	confirms := ch.NotifyPublish(make(chan Confirmation))
+	ack, nack := ch.NotifyConfirm(make(chan uint64), make(chan uint64))
 
 	select {
-	case <-confirms:
+	case <-ack:
 	case <-time.After(time.Millisecond):
-		t.Errorf("expected to close confirms on Channel.NotifyPublish chan after Connection.Close")
+		t.Errorf("expected to close acks on Channel.NotifyConfirm chan after Connection.Close")
+	}
+
+	select {
+	case <-nack:
+	case <-time.After(time.Millisecond):
+		t.Errorf("expected to close nacks Channel.NotifyConfirm chan after Connection.Close")
 	}
 }
 
-// Should not panic when sending bodies split at different boundaries
+// Should not panic when sending bodies split at differnet boundaries
 func TestPublishBodySliceIssue74(t *testing.T) {
 	rwc, srv := newSession(t)
 	defer rwc.Close()
@@ -520,50 +522,6 @@ func TestPublishBodySliceIssue74(t *testing.T) {
 
 	for i := 0; i < publishings; i++ {
 		go ch.Publish("", "q", false, false, Publishing{Body: base[0:i]})
-	}
-
-	<-done
-}
-
-// Should not panic when server and client have frame_size of 0
-func TestPublishZeroFrameSizeIssue161(t *testing.T) {
-	rwc, srv := newSession(t)
-	defer rwc.Close()
-
-	const frameSize = 0
-	const publishings = 1
-	done := make(chan bool)
-
-	go func() {
-		srv.connectionOpen()
-		srv.channelOpen(1)
-
-		for i := 0; i < publishings; i++ {
-			srv.recv(1, &basicPublish{})
-		}
-
-		done <- true
-	}()
-
-	cfg := defaultConfig()
-	cfg.FrameSize = frameSize
-
-	c, err := Open(rwc, cfg)
-
-	// override the tuned framesize with a hard 0, as would happen when rabbit is configured with 0
-	c.Config.FrameSize = frameSize
-
-	if err != nil {
-		t.Fatalf("could not create connection: %v (%s)", c, err)
-	}
-
-	ch, err := c.Channel()
-	if err != nil {
-		t.Fatalf("could not open channel: %v (%s)", ch, err)
-	}
-
-	for i := 0; i < publishings; i++ {
-		go ch.Publish("", "q", false, false, Publishing{Body: []byte("anything")})
 	}
 
 	<-done

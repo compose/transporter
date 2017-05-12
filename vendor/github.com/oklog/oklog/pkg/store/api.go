@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
-	level "github.com/go-kit/kit/log/experimental_level"
+	"github.com/go-kit/kit/log/level"
 	"github.com/oklog/ulid"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -34,12 +34,23 @@ const (
 	APIPathClusterState   = "/_clusterstate"
 )
 
+// ClusterPeer models cluster.Peer.
+type ClusterPeer interface {
+	Current(cluster.PeerType) []string
+	State() map[string]interface{}
+}
+
+// Doer models http.Client.
+type Doer interface {
+	Do(*http.Request) (*http.Response, error)
+}
+
 // API serves the store API.
 type API struct {
-	peer               *cluster.Peer
+	peer               ClusterPeer
 	log                Log
-	queryClient        *http.Client // should time out
-	streamClient       *http.Client // should not time out
+	queryClient        Doer // should time out
+	streamClient       Doer // should not time out
 	streamQueries      *queryRegistry
 	replicatedSegments prometheus.Counter
 	replicatedBytes    prometheus.Counter
@@ -49,9 +60,9 @@ type API struct {
 
 // NewAPI returns a usable API.
 func NewAPI(
-	peer *cluster.Peer,
+	peer ClusterPeer,
 	log Log,
-	queryClient, streamClient *http.Client,
+	queryClient, streamClient Doer,
 	replicatedSegments, replicatedBytes prometheus.Counter,
 	duration *prometheus.HistogramVec,
 	logger log.Logger,
@@ -363,6 +374,7 @@ func (a *API) handleInternalStream(w http.ResponseWriter, r *http.Request) {
 
 	pass := recordFilterPlain([]byte(qp.Q))
 	if qp.Regex {
+		// QueryParams.DecodeFrom validated the regex.
 		pass = recordFilterRegex(regexp.MustCompile(qp.Q))
 	}
 
@@ -371,8 +383,7 @@ func (a *API) handleInternalStream(w http.ResponseWriter, r *http.Request) {
 
 	// Thus, we range over the records chan.
 	for record := range records {
-		w.Write(record)
-		w.Write([]byte{'\n'})
+		w.Write(record) // includes trailing newline
 		flusher.Flush()
 	}
 }
@@ -422,23 +433,24 @@ func teeRecords(src io.Reader, dst ...io.Writer) (lo, hi ulid.ULID, n int, err e
 		w     = io.MultiWriter(dst...)
 		s     = bufio.NewScanner(src)
 	)
+	s.Split(scanLinesPreserveNewline)
 	for s.Scan() {
 		// ULID and record-count accounting.
-		if err := id.UnmarshalText(s.Bytes()[:ulid.EncodedSize]); err != nil {
+		line := s.Bytes()
+		if err := id.UnmarshalText(line[:ulid.EncodedSize]); err != nil {
 			return lo, hi, n, err
 		}
 		if first {
 			lo, first = id, false
 		}
-		hi, n = id, n+1
+		hi = id
 
 		// Copying.
-		if _, err := w.Write(s.Bytes()); err != nil {
+		n0, err := w.Write(line)
+		if err != nil {
 			return lo, hi, n, err
 		}
-		if _, err := w.Write([]byte{'\n'}); err != nil {
-			return lo, hi, n, err
-		}
+		n += n0
 	}
 	return lo, hi, n, s.Err() // EOF yields nil
 }

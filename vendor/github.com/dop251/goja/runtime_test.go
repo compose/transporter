@@ -204,7 +204,14 @@ func TestLastIndexOf(t *testing.T) {
 func TestUnicodeLastIndexOf(t *testing.T) {
 	const SCRIPT = `
 	"абвабаб".lastIndexOf("аб", 3)
+	`
 
+	testScript1(SCRIPT, intToValue(3), t)
+}
+
+func TestUnicodeLastIndexOf1(t *testing.T) {
+	const SCRIPT = `
+	"abꞐcde".lastIndexOf("cd");
 	`
 
 	testScript1(SCRIPT, intToValue(3), t)
@@ -503,7 +510,7 @@ func TestRuntime_ExportToFuncThrow(t *testing.T) {
 
 	if _, err := fn("40"); err != nil {
 		if ex, ok := err.(*Exception); ok {
-			if msg := ex.Error(); msg != "Error: testing" {
+			if msg := ex.Error(); msg != "Error: testing at f (<eval>:3:9(4))" {
 				t.Fatalf("Msg: %q", msg)
 			}
 		} else {
@@ -744,10 +751,7 @@ func TestNilCallArg(t *testing.T) {
 	}
 	`
 	vm := New()
-	prg, err := Compile("test.js", SCRIPT, false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	prg := MustCompile("test.js", SCRIPT, false)
 	vm.RunProgram(prg)
 	if f, ok := AssertFunction(vm.Get("f")); ok {
 		v, err := f(nil, nil)
@@ -760,6 +764,26 @@ func TestNilCallArg(t *testing.T) {
 	}
 }
 
+func TestNullCallArg(t *testing.T) {
+	const SCRIPT = `
+	f(null);
+	`
+	vm := New()
+	prg := MustCompile("test.js", SCRIPT, false)
+	vm.Set("f", func(x *int) bool {
+		return x == nil
+	})
+
+	v, err := vm.RunProgram(prg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !v.StrictEquals(valueTrue) {
+		t.Fatalf("Unexpected result: %v", v)
+	}
+}
+
 func TestObjectKeys(t *testing.T) {
 	const SCRIPT = `
 	var o = { a: 1, b: 2, c: 3, d: 4 };
@@ -767,10 +791,7 @@ func TestObjectKeys(t *testing.T) {
 	`
 
 	vm := New()
-	prg, err := Compile("test.js", SCRIPT, false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	prg := MustCompile("test.js", SCRIPT, false)
 
 	res, err := vm.RunProgram(prg)
 	if err != nil {

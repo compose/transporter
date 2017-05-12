@@ -1148,7 +1148,9 @@ func TestIntegrationConfirm(t *testing.T) {
 	if c, ch := integrationQueue(t, "confirm"); c != nil {
 		defer c.Close()
 
-		confirms := ch.NotifyPublish(make(chan Confirmation, 1))
+		ack, nack := make(chan uint64, 1), make(chan uint64, 1)
+
+		ch.NotifyConfirm(ack, nack)
 
 		if err := ch.Confirm(false); err != nil {
 			t.Fatalf("could not confirm")
@@ -1157,8 +1159,8 @@ func TestIntegrationConfirm(t *testing.T) {
 		ch.Publish("", "confirm", false, false, Publishing{Body: []byte("confirm")})
 
 		select {
-		case confirmed := <-confirms:
-			if confirmed.DeliveryTag != 1 {
+		case tag := <-ack:
+			if tag != 1 {
 				t.Fatalf("expected ack starting with delivery tag of 1")
 			}
 		case <-time.After(200 * time.Millisecond):
@@ -1366,16 +1368,17 @@ func TestDeadlockConsumerIssue48(t *testing.T) {
 			t.Fatalf("got error on confirm: %v", err)
 		}
 
-		confirms := ch.NotifyPublish(make(chan Confirmation, 2))
+		ack, nack := make(chan uint64, 2), make(chan uint64, 2)
+		ch.NotifyConfirm(ack, nack)
 
-		for i := 0; i < cap(confirms); i++ {
+		for i := 0; i < cap(ack); i++ {
 			// Fill the queue with some new or remaining publishings
 			ch.Publish("", queue, false, false, Publishing{Body: []byte("")})
 		}
 
-		for i := 0; i < cap(confirms); i++ {
+		for i := 0; i < cap(ack); i++ {
 			// Wait for them to land on the queue so they'll be delivered on consume
-			<-confirms
+			<-ack
 		}
 
 		// Consuming should send them all on the wire
@@ -1694,44 +1697,6 @@ func TestRabbitMQQueueNackMultipleRequeue(t *testing.T) {
 	}
 }
 
-func TestConsumerCancelNotification(t *testing.T) {
-	c := integrationConnection(t, "consumer cancel notification")
-	if c != nil {
-		defer c.Close()
-		ch, err := c.Channel()
-		if err != nil {
-			t.Fatalf("got error on channel.open: %v", err)
-		}
-
-		queue := "test-consumer-cancel-notification"
-
-		if _, err := ch.QueueDeclare(queue, false, true, false, false, nil); err != nil {
-			t.Fatalf("expected to declare a queue: %v", err)
-		}
-
-		if _, err := ch.Consume(queue, "", false, false, false, false, nil); err != nil {
-			t.Fatalf("basic.consume failed")
-		}
-		// consumer cancel notification channel
-		ccnChan := make(chan string, 1)
-		ch.NotifyCancel(ccnChan)
-
-		if _, err := ch.QueueDelete(queue, false, false, true); err != nil {
-			t.Fatalf("queue.delete failed: %s", err)
-		}
-
-		select {
-		case <-ccnChan:
-			// do nothing
-		case <-time.After(time.Second * 10):
-			t.Errorf("basic.cancel wasn't received")
-			t.Fail()
-		}
-		// we don't close ccnChan because channel shutdown
-		// does it
-	}
-}
-
 /*
  * Support for integration tests
  */
@@ -1751,8 +1716,8 @@ func loggedConnection(t *testing.T, conn *Connection, name string) *Connection {
 	return conn
 }
 
-// Returns a connection to the AMQP if the AMQP_URL environment
-// variable is set and a connection can be established.
+// Returns a conneciton to the AMQP if the AMQP_URL environment
+// variable is set and a connnection can be established.
 func integrationConnection(t *testing.T, name string) *Connection {
 	conn, err := Dial(integrationURLFromEnv())
 	if err != nil {

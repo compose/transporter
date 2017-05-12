@@ -36,7 +36,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	proto3pb "github.com/golang/protobuf/proto/proto3_proto"
 	pb "github.com/golang/protobuf/proto/testdata"
 )
 
@@ -195,9 +194,6 @@ var mergeTests = []struct {
 			NameMapping: map[int32]string{6: "Nigel"},
 			MsgMapping: map[int64]*pb.FloatingPoint{
 				0x4001: &pb.FloatingPoint{F: proto.Float64(2.0)},
-				0x4002: &pb.FloatingPoint{
-					F: proto.Float64(2.0),
-				},
 			},
 			ByteMapping: map[bool][]byte{true: []byte("wowsa")},
 		},
@@ -205,12 +201,6 @@ var mergeTests = []struct {
 			NameMapping: map[int32]string{
 				6: "Bruce", // should be overwritten
 				7: "Andrew",
-			},
-			MsgMapping: map[int64]*pb.FloatingPoint{
-				0x4002: &pb.FloatingPoint{
-					F:     proto.Float64(3.0),
-					Exact: proto.Bool(true),
-				}, // the entire message should be overwritten
 			},
 		},
 		want: &pb.MessageWithMap{
@@ -220,71 +210,8 @@ var mergeTests = []struct {
 			},
 			MsgMapping: map[int64]*pb.FloatingPoint{
 				0x4001: &pb.FloatingPoint{F: proto.Float64(2.0)},
-				0x4002: &pb.FloatingPoint{
-					F: proto.Float64(2.0),
-				},
 			},
 			ByteMapping: map[bool][]byte{true: []byte("wowsa")},
-		},
-	},
-	// proto3 shouldn't merge zero values,
-	// in the same way that proto2 shouldn't merge nils.
-	{
-		src: &proto3pb.Message{
-			Name: "Aaron",
-			Data: []byte(""), // zero value, but not nil
-		},
-		dst: &proto3pb.Message{
-			HeightInCm: 176,
-			Data:       []byte("texas!"),
-		},
-		want: &proto3pb.Message{
-			Name:       "Aaron",
-			HeightInCm: 176,
-			Data:       []byte("texas!"),
-		},
-	},
-	// Oneof fields should merge by assignment.
-	{
-		src: &pb.Communique{
-			Union: &pb.Communique_Number{41},
-		},
-		dst: &pb.Communique{
-			Union: &pb.Communique_Name{"Bobby Tables"},
-		},
-		want: &pb.Communique{
-			Union: &pb.Communique_Number{41},
-		},
-	},
-	// Oneof nil is the same as not set.
-	{
-		src: &pb.Communique{},
-		dst: &pb.Communique{
-			Union: &pb.Communique_Name{"Bobby Tables"},
-		},
-		want: &pb.Communique{
-			Union: &pb.Communique_Name{"Bobby Tables"},
-		},
-	},
-	{
-		src: &proto3pb.Message{
-			Terrain: map[string]*proto3pb.Nested{
-				"kay_a": &proto3pb.Nested{Cute: true},      // replace
-				"kay_b": &proto3pb.Nested{Bunny: "rabbit"}, // insert
-			},
-		},
-		dst: &proto3pb.Message{
-			Terrain: map[string]*proto3pb.Nested{
-				"kay_a": &proto3pb.Nested{Bunny: "lost"},  // replaced
-				"kay_c": &proto3pb.Nested{Bunny: "bunny"}, // keep
-			},
-		},
-		want: &proto3pb.Message{
-			Terrain: map[string]*proto3pb.Nested{
-				"kay_a": &proto3pb.Nested{Cute: true},
-				"kay_b": &proto3pb.Nested{Bunny: "rabbit"},
-				"kay_c": &proto3pb.Nested{Bunny: "bunny"},
-			},
 		},
 	},
 }

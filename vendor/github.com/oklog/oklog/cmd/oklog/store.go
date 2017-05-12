@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
-	level "github.com/go-kit/kit/log/experimental_level"
+	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -19,6 +19,7 @@ import (
 	"github.com/oklog/oklog/pkg/fs"
 	"github.com/oklog/oklog/pkg/group"
 	"github.com/oklog/oklog/pkg/store"
+	"github.com/oklog/oklog/pkg/ui"
 )
 
 const (
@@ -38,6 +39,7 @@ var (
 func runStore(args []string) error {
 	flagset := flag.NewFlagSet("store", flag.ExitOnError)
 	var (
+		debug                    = flagset.Bool("debug", false, "debug logging")
 		apiAddr                  = flagset.String("api", defaultAPIAddr, "listen address for store API")
 		clusterAddr              = flagset.String("cluster", defaultClusterAddr, "listen address for cluster")
 		storePath                = flagset.String("store.path", defaultStorePath, "path holding segment files for storage tier")
@@ -48,6 +50,7 @@ func runStore(args []string) error {
 		segmentReplicationFactor = flagset.Int("store.segment-replication-factor", defaultStoreSegmentReplicationFactor, "how many copies of each segment to replicate")
 		segmentRetain            = flagset.Duration("store.segment-retain", defaultStoreSegmentRetain, "retention period for segment files")
 		segmentPurge             = flagset.Duration("store.segment-purge", defaultStoreSegmentPurge, "purge deleted segment files after this long")
+		uiLocal                  = flagset.Bool("ui.local", false, "Ignores embedded files and goes straight to the filesystem")
 		filesystem               = flagset.String("filesystem", defaultFilesystem, "real, real-mmap, virtual, nop")
 		clusterPeers             = stringslice{}
 	)
@@ -74,9 +77,15 @@ func runStore(args []string) error {
 
 	// Logging.
 	var logger log.Logger
-	logger = log.NewLogfmtLogger(os.Stderr)
-	logger = log.NewContext(logger).With("ts", log.DefaultTimestampUTC)
-	logger = level.New(logger, level.Allowed(level.AllowAll()))
+	{
+		logLevel := level.AllowInfo()
+		if *debug {
+			logLevel = level.AllowAll()
+		}
+		logger = log.NewLogfmtLogger(os.Stderr)
+		logger = log.With(logger, "ts", log.DefaultTimestampUTC)
+		logger = level.NewFilter(logger, logLevel)
+	}
 
 	// Instrumentation.
 	apiDuration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
@@ -187,7 +196,7 @@ func runStore(args []string) error {
 		clusterHost, clusterPort,
 		clusterPeers,
 		cluster.PeerTypeStore, apiPort,
-		log.NewContext(logger).With("component", "cluster"),
+		log.With(logger, "component", "cluster"),
 	)
 	if err != nil {
 		return err
@@ -236,7 +245,7 @@ func runStore(args []string) error {
 			consumedBytes,
 			replicatedSegments.WithLabelValues("egress"),
 			replicatedBytes.WithLabelValues("egress"),
-			log.NewContext(logger).With("component", "Consumer"),
+			log.With(logger, "component", "Consumer"),
 		)
 		g.Add(func() error {
 			c.Run()
@@ -254,7 +263,7 @@ func runStore(args []string) error {
 			compactDuration,
 			trashedSegments,
 			purgedSegments,
-			log.NewContext(logger).With("component", "Compacter"),
+			log.With(logger, "component", "Compacter"),
 		)
 		g.Add(func() error {
 			c.Run()
@@ -282,6 +291,7 @@ func runStore(args []string) error {
 				}
 			}()
 			mux.Handle("/store/", http.StripPrefix("/store", api))
+			mux.Handle("/ui/", http.StripPrefix("/ui", ui.NewAPI(logger, *uiLocal)))
 			registerMetrics(mux)
 			registerProfile(mux)
 			return http.Serve(apiListener, mux)

@@ -6,8 +6,8 @@ package elastic
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -17,13 +17,12 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/net/context"
-	"golang.org/x/net/context/ctxhttp"
+	"github.com/pkg/errors"
 )
 
 const (
 	// Version is the current version of Elastic.
-	Version = "5.0.30"
+	Version = "5.0.38"
 
 	// DefaultURL is the default endpoint of Elasticsearch on the local machine.
 	// It is used e.g. when initializing a new Client without a specific URL.
@@ -813,7 +812,7 @@ func (c *Client) sniff(timeout time.Duration) error {
 	c.connsMu.RUnlock()
 
 	if len(urls) == 0 {
-		return ErrNoClient
+		return errors.Wrap(ErrNoClient, "no URLs found")
 	}
 
 	// Start sniffing on all found URLs
@@ -832,7 +831,7 @@ func (c *Client) sniff(timeout time.Duration) error {
 			}
 		case <-time.After(timeout):
 			// We get here if no cluster responds in time
-			return ErrNoClient
+			return errors.Wrap(ErrNoClient, "sniff timeout")
 		}
 	}
 }
@@ -1065,7 +1064,7 @@ func (c *Client) startupHealthcheck(timeout time.Duration) error {
 			break
 		}
 	}
-	return ErrNoClient
+	return errors.Wrap(ErrNoClient, "health check timeout")
 }
 
 // next returns the next available connection, or ErrNoClient.
@@ -1104,7 +1103,7 @@ func (c *Client) next() (*conn, error) {
 	}
 
 	// We tried hard, but there is no node available
-	return nil, ErrNoClient
+	return nil, errors.Wrap(ErrNoClient, "no avaiable connection")
 }
 
 // mustActiveConn returns nil if there is an active connection,
@@ -1118,7 +1117,7 @@ func (c *Client) mustActiveConn() error {
 			return nil
 		}
 	}
-	return ErrNoClient
+	return errors.Wrap(ErrNoClient, "no active connection found")
 }
 
 // PerformRequest does a HTTP request to Elasticsearch.
@@ -1159,7 +1158,7 @@ func (c *Client) PerformRequest(ctx context.Context, method, path string, params
 
 		// Get a connection
 		conn, err = c.next()
-		if err == ErrNoClient {
+		if errors.Cause(err) == ErrNoClient {
 			n++
 			if !retried {
 				// Force a healtcheck as all connections seem to be dead.
@@ -1204,7 +1203,11 @@ func (c *Client) PerformRequest(ctx context.Context, method, path string, params
 		c.dumpRequest((*http.Request)(req))
 
 		// Get response
-		res, err := ctxhttp.Do(ctx, c.c, (*http.Request)(req))
+		res, err := c.c.Do((*http.Request)(req).WithContext(ctx))
+		if err == context.Canceled || err == context.DeadlineExceeded {
+			// Proceed, but don't mark the node as dead
+			return nil, err
+		}
 		if err != nil {
 			n++
 			wait, ok, rerr := c.retrier.Retry(ctx, n, (*http.Request)(req), res, err)
@@ -1535,6 +1538,11 @@ func (c *Client) PutMapping() *IndicesPutMappingService {
 	return NewIndicesPutMappingService(c)
 }
 
+// GetFieldMapping gets mapping for fields.
+func (c *Client) GetFieldMapping() *IndicesGetFieldMappingService {
+	return NewIndicesGetFieldMappingService(c)
+}
+
 // -- cat APIs --
 
 // TODO cat aliases
@@ -1622,14 +1630,30 @@ func (c *Client) TasksList() *TasksListService {
 // -- Snapshot and Restore --
 
 // TODO Snapshot Create
-// TODO Snapshot Create Repository
 // TODO Snapshot Delete
-// TODO Snapshot Delete Repository
 // TODO Snapshot Get
-// TODO Snapshot Get Repository
 // TODO Snapshot Restore
 // TODO Snapshot Status
-// TODO Snapshot Verify Repository
+
+// SnapshotCreateRepository creates or updates a snapshot repository.
+func (c *Client) SnapshotCreateRepository(repository string) *SnapshotCreateRepositoryService {
+	return NewSnapshotCreateRepositoryService(c).Repository(repository)
+}
+
+// SnapshotDeleteRepository deletes a snapshot repository.
+func (c *Client) SnapshotDeleteRepository(repositories ...string) *SnapshotDeleteRepositoryService {
+	return NewSnapshotDeleteRepositoryService(c).Repository(repositories...)
+}
+
+// SnapshotGetRepository gets a snapshot repository.
+func (c *Client) SnapshotGetRepository(repositories ...string) *SnapshotGetRepositoryService {
+	return NewSnapshotGetRepositoryService(c).Repository(repositories...)
+}
+
+// SnapshotVerifyRepository verifies a snapshot repository.
+func (c *Client) SnapshotVerifyRepository(repository string) *SnapshotVerifyRepositoryService {
+	return NewSnapshotVerifyRepositoryService(c).Repository(repository)
+}
 
 // -- Helpers and shortcuts --
 
@@ -1692,4 +1716,10 @@ func (c *Client) WaitForGreenStatus(timeout string) error {
 // See WaitForStatus for more details.
 func (c *Client) WaitForYellowStatus(timeout string) error {
 	return c.WaitForStatus("yellow", timeout)
+}
+
+// IsConnError unwraps the given error value and checks if it is equal to
+// elastic.ErrNoClient.
+func IsConnErr(err error) bool {
+	return errors.Cause(err) == ErrNoClient
 }
