@@ -228,7 +228,6 @@ func (n *Node) Start() error {
 		errc := make(chan error, len(n.children))
 		// TODO: not entirely sure about this logic check...
 		if n.clog.OldestOffset() != n.clog.NewestOffset() {
-			var wg sync.WaitGroup
 			n.l.With("newestOffset", n.clog.NewestOffset()).
 				With("oldestOffset", n.clog.OldestOffset()).
 				Infoln("existing messages in commitlog, checking writer offsets...")
@@ -241,11 +240,11 @@ func (n *Node) Start() error {
 					if err != nil {
 						return err
 					}
-					wg.Add(1)
 					go func(r io.Reader) {
 						errc <- child.resume(n.clog.NewestOffset()-1, r)
-						wg.Done()
 					}(r)
+				} else {
+					errc <- nil
 				}
 
 				// compute a map of the oldest offset for every namespace from each child
@@ -255,17 +254,15 @@ func (n *Node) Start() error {
 					}
 				}
 			}
-			go func() {
-				n.l.Infoln("waiting for all children to resume...")
-				wg.Wait()
-				n.l.Infoln("done waiting for all children to resume")
-				close(errc)
-			}()
-			for err := range errc {
-				if err != nil {
-					n.l.Errorln(err)
-					return err
-				}
+			n.l.Infoln("waiting for all children to resume...")
+			err := <-errc
+			for i := 1; i < cap(errc); i++ {
+				<-errc
+			}
+			n.l.Infoln("done waiting for all children to resume")
+			if err != nil {
+				n.l.Errorln(err)
+				return err
 			}
 			n.l.Infoln("done checking for resume errors")
 			for _, offset := range nsOffsetMap {

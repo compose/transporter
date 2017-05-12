@@ -5,6 +5,7 @@ package commitlog
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -20,6 +21,9 @@ import (
 const (
 	defaultMaxSegmentBytes = 1024
 	logFileSuffix          = ".log"
+	cleanedFileSuffix      = ".cleaned"
+	swapFileSuffix         = ".swap"
+	deletedFileSuffix      = ".deleted"
 )
 
 var (
@@ -113,19 +117,43 @@ func (c *CommitLog) open() error {
 	if err != nil {
 		return err
 	}
+
+	// first pass through to clean up any interrupted compactions
+	for _, file := range files {
+		switch filepath.Ext(file.Name()) {
+		case deletedFileSuffix, cleanedFileSuffix:
+			os.Remove(filepath.Join(c.path, file.Name()))
+		case swapFileSuffix:
+			offsetStr := strings.TrimSuffix(file.Name(), swapFileSuffix)
+			baseOffset, err := strconv.Atoi(offsetStr)
+			if err != nil {
+				return err
+			}
+			os.Rename(
+				filepath.Join(c.path, file.Name()),
+				filepath.Join(c.path, fmt.Sprintf(LogNameFormat, baseOffset)),
+			)
+		}
+	}
+
+	// now load each segment file
 	for _, file := range files {
 		if strings.HasSuffix(file.Name(), logFileSuffix) {
 			offsetStr := strings.TrimSuffix(file.Name(), logFileSuffix)
 			baseOffset, err := strconv.Atoi(offsetStr)
-			segment, err := NewSegment(c.path, int64(baseOffset), c.maxSegmentBytes)
+			segment, err := NewSegment(c.path, LogNameFormat, int64(baseOffset), c.maxSegmentBytes)
 			if err != nil {
 				return err
+			}
+			// we don't want to keep file handles open unless they are needed
+			if len(c.segments) > 0 {
+				c.segments[len(c.segments)-1].Close()
 			}
 			c.segments = append(c.segments, segment)
 		}
 	}
 	if len(c.segments) == 0 {
-		segment, err := NewSegment(c.path, 0, c.maxSegmentBytes)
+		segment, err := NewSegment(c.path, LogNameFormat, 0, c.maxSegmentBytes)
 		if err != nil {
 			return err
 		}
@@ -201,6 +229,9 @@ func (c *CommitLog) NewReader(offset int64) (io.Reader, error) {
 	// in the event there has been data committed to the segment but no offset for a path,
 	// then we need to create a reader that starts from the very beginning
 	if offset < 0 && len(c.segments) > 0 {
+		if err := c.segments[0].Open(); err != nil {
+			log.Errorf("unable to open segment, %s", err)
+		}
 		return &Reader{commitlog: c, idx: 0, position: 0}, nil
 	}
 
@@ -222,6 +253,9 @@ func (c *CommitLog) NewReader(offset int64) (io.Reader, error) {
 	}
 
 	log.With("offset", offset).With("segment_index", idx).Debugln("finding offset in segment")
+	if err := c.segments[idx].Open(); err != nil {
+		log.Errorf("unable to open segment, %s", err)
+	}
 	position, err := c.segments[idx].FindOffsetPosition(uint64(offset))
 	if err != nil {
 		return nil, err
@@ -234,6 +268,44 @@ func (c *CommitLog) NewReader(offset int64) (io.Reader, error) {
 	}, nil
 }
 
+func (c *CommitLog) replaceSegment(newSegment, oldSegment *Segment) error {
+	log.With("new_segment", newSegment.path).
+		With("old_segment", oldSegment.path).
+		Infoln("replacing segment...")
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	log.With("new_segment", newSegment.path).
+		With("format", swapNameFormat).
+		Infoln("renaming")
+	newSegment.rename(c.path, swapNameFormat)
+	// TODO: this may become ineffienct but works for now
+	for i, s := range c.segments {
+		if s == oldSegment {
+			c.segments[i] = newSegment
+			break
+		}
+	}
+	// TODO: make this async
+	log.With("old_segment", c.path).Infoln("configuring for deletion")
+	oldSegment.rename(c.path, deleteNameFormat)
+	log.With("old_segment", oldSegment.log.Name()).Infoln("deleting segment")
+	os.Remove(oldSegment.log.Name())
+
+	log.With("new_segment", newSegment.path).
+		With("format", LogNameFormat).
+		Infoln("renaming")
+	newSegment.rename(c.path, LogNameFormat)
+
+	// no need to keep a file handle open once compaction has completed
+	if err := newSegment.Close(); err != nil {
+		log.With("new_segment", newSegment.path).Errorf("failed to Close, %s", err)
+	}
+	log.With("new_segment", newSegment.path).
+		With("old_segment", oldSegment.path).
+		Infoln("segment replacement complete")
+	return nil
+}
+
 func (c *CommitLog) activeSegment() *Segment {
 	return c.vActiveSegment.Load().(*Segment)
 }
@@ -243,12 +315,14 @@ func (c *CommitLog) checkSplit() bool {
 }
 
 func (c *CommitLog) split() error {
-	segment, err := NewSegment(c.path, c.NewestOffset(), c.maxSegmentBytes)
+	segment, err := NewSegment(c.path, LogNameFormat, c.NewestOffset(), c.maxSegmentBytes)
+	log.With("segment", segment.path).Infoln("new segment created")
 	if err != nil {
 		return err
 	}
 	c.mu.Lock()
 	c.segments = append(c.segments, segment)
+	c.activeSegment().Close()
 	c.vActiveSegment.Store(segment)
 	c.mu.Unlock()
 	return nil

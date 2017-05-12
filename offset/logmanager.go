@@ -54,6 +54,7 @@ func NewLogManager(path, name string) (*LogManager, error) {
 func (m *LogManager) buildMap() error {
 	var lastError error
 	for _, s := range m.log.Segments() {
+		s.Open()
 		var readPosition int64
 		for {
 			// skip the offsetHeader
