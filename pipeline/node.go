@@ -156,12 +156,10 @@ func WithTransforms(t []*Transform) OptionFunc {
 }
 
 // WithCommitLog configures a CommitLog for the reader to persist messages.
-func WithCommitLog(dataDir string, maxBytes int) OptionFunc {
+// func WithCommitLog(dataDir string, maxBytes int) OptionFunc {
+func WithCommitLog(options ...commitlog.OptionFunc) OptionFunc {
 	return func(n *Node) error {
-		clog, err := commitlog.New(
-			commitlog.WithPath(dataDir),
-			commitlog.WithMaxSegmentBytes(int64(maxBytes)),
-		)
+		clog, err := commitlog.New(options...)
 		n.clog = clog
 		return err
 	}
@@ -224,61 +222,73 @@ func (n *Node) Start() error {
 
 	if n.parent == nil {
 		msgMap := make(map[string]client.MessageSet)
-		nsOffsetMap := make(map[string]uint64)
-		errc := make(chan error, len(n.children))
-		// TODO: not entirely sure about this logic check...
-		if n.clog.OldestOffset() != n.clog.NewestOffset() {
-			n.l.With("newestOffset", n.clog.NewestOffset()).
-				With("oldestOffset", n.clog.OldestOffset()).
-				Infoln("existing messages in commitlog, checking writer offsets...")
-			for _, child := range n.children {
-				n.l.With("name", child.Name).Infof("offsetMap: %+v", child.om.OffsetMap())
-				// we subtract 1 from NewestOffset() because we only need to catch up
-				// to the last entry in the log
-				if child.om.NewestOffset() < (n.clog.NewestOffset() - 1) {
-					r, err := n.clog.NewReader(child.om.NewestOffset())
+		if n.clog != nil {
+			nsOffsetMap := make(map[string]uint64)
+			errc := make(chan error, len(n.children))
+			// TODO: not entirely sure about this logic check...
+			if n.clog.OldestOffset() != n.clog.NewestOffset() {
+				n.l.With("newestOffset", n.clog.NewestOffset()).
+					With("oldestOffset", n.clog.OldestOffset()).
+					Infoln("existing messages in commitlog, checking writer offsets...")
+				for _, child := range n.children {
+					n.l.With("name", child.Name).Infof("offsetMap: %+v", child.om.OffsetMap())
+					// we subtract 1 from NewestOffset() because we only need to catch up
+					// to the last entry in the log
+					if child.om.NewestOffset() < (n.clog.NewestOffset() - 1) {
+						r, err := n.clog.NewReader(child.om.NewestOffset())
+						if err != nil {
+							return err
+						}
+						go func(r io.Reader) {
+							errc <- child.resume(n.clog.NewestOffset()-1, r)
+						}(r)
+					} else {
+						errc <- nil
+					}
+
+				}
+				n.l.Infoln("waiting for all children to resume...")
+				err := <-errc
+				for i := 1; i < cap(errc); i++ {
+					<-errc
+				}
+				n.l.Infoln("done waiting for all children to resume")
+				if err != nil {
+					n.l.Errorln(err)
+					return err
+				}
+				n.l.Infoln("done checking for resume errors")
+				// compute a map of the oldest offset for every namespace from each child
+				for _, child := range n.children {
+					for ns, offset := range child.om.OffsetMap() {
+						if currentOffset, ok := nsOffsetMap[ns]; !ok || currentOffset > offset {
+							nsOffsetMap[ns] = offset
+						}
+					}
+				}
+
+				for _, offset := range nsOffsetMap {
+					r, err := n.clog.NewReader(int64(offset))
 					if err != nil {
 						return err
 					}
-					go func(r io.Reader) {
-						errc <- child.resume(n.clog.NewestOffset()-1, r)
-					}(r)
-				} else {
-					errc <- nil
-				}
 
-				// compute a map of the oldest offset for every namespace from each child
-				for ns, offset := range child.om.OffsetMap() {
-					if currentOffset, ok := nsOffsetMap[ns]; !ok || currentOffset > offset {
-						nsOffsetMap[ns] = offset
+					d, err := readResumeData(r)
+					if err != nil {
+						return err
 					}
-				}
-			}
-			n.l.Infoln("waiting for all children to resume...")
-			err := <-errc
-			for i := 1; i < cap(errc); i++ {
-				<-errc
-			}
-			n.l.Infoln("done waiting for all children to resume")
-			if err != nil {
-				n.l.Errorln(err)
-				return err
-			}
-			n.l.Infoln("done checking for resume errors")
-			for _, offset := range nsOffsetMap {
-				r, err := n.clog.NewReader(int64(offset))
-				if err != nil {
-					return err
-				}
+					mode := d.msg.Mode
+					// we overwrite the mode to Complete unless the offset
+					// was the last message processed
+					if mode == commitlog.Copy && int64(offset) != (n.clog.NewestOffset()-1) {
+						mode = commitlog.Complete
+					}
 
-				d, err := readResumeData(r)
-				if err != nil {
-					return err
-				}
-				msgMap[d.ns] = client.MessageSet{
-					Msg:       d.msg.Msg,
-					Timestamp: d.msg.Timestamp,
-					Mode:      d.msg.Mode,
+					msgMap[d.ns] = client.MessageSet{
+						Msg:       d.msg.Msg,
+						Timestamp: d.msg.Timestamp,
+						Mode:      mode,
+					}
 				}
 			}
 		}
@@ -366,22 +376,26 @@ func (n *Node) start(nsMap map[string]client.MessageSet) error {
 	if err != nil {
 		return err
 	}
+	var logOffset int64
 	for msg := range msgChan {
-		d, _ := mejson.Marshal(msg.Msg.Data().AsMap())
-		b, _ := json.Marshal(d)
-		logOffset, err := n.clog.Append(
-			commitlog.NewLogFromEntry(
-				commitlog.LogEntry{
-					Key:       []byte(msg.Msg.Namespace()),
-					Mode:      msg.Mode,
-					Op:        msg.Msg.OP(),
-					Timestamp: uint64(msg.Timestamp),
-					Value:     b,
-				}))
-		if err != nil {
-			return err
+		if n.clog != nil {
+			d, _ := mejson.Marshal(msg.Msg.Data().AsMap())
+			b, _ := json.Marshal(d)
+			o, err := n.clog.Append(
+				commitlog.NewLogFromEntry(
+					commitlog.LogEntry{
+						Key:       []byte(msg.Msg.Namespace()),
+						Mode:      msg.Mode,
+						Op:        msg.Msg.OP(),
+						Timestamp: uint64(msg.Timestamp),
+						Value:     b,
+					}))
+			if err != nil {
+				return err
+			}
+			logOffset = o
+			n.l.With("offset", logOffset).Debugln("attaching offset to message")
 		}
-		n.l.With("offset", logOffset).Debugln("attaching offset to message")
 		n.pipe.Send(msg.Msg, offset.Offset{
 			Namespace: msg.Msg.Namespace(),
 			LogOffset: uint64(logOffset),
@@ -401,27 +415,33 @@ func (n *Node) listen() (err error) {
 }
 
 func (n *Node) write(msg message.Msg, off offset.Offset) (message.Msg, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	var writeErr error
-	defer func() {
-		if writeErr != nil {
-			cancel()
-		}
-	}()
 	if !n.nsFilter.MatchString(msg.Namespace()) {
 		n.l.With("ns", msg.Namespace()).Debugln("message skipped by namespace filter")
-		n.om.CommitOffset(off)
+		if n.om != nil {
+			n.om.CommitOffset(off)
+		}
 		return msg, nil
 	}
 	msg, writeErr = n.applyTransforms(msg)
 	if writeErr != nil {
 		return nil, writeErr
 	} else if msg == nil {
-		n.om.CommitOffset(off)
+		if n.om != nil {
+			n.om.CommitOffset(off)
+		}
 		return nil, nil
 	}
-	msg = message.WithConfirms(make(chan struct{}), msg)
-	go n.confirmWrite(ctx, msg.Confirms(), off)
+	if n.om != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer func() {
+			if writeErr != nil {
+				cancel()
+			}
+		}()
+		msg = message.WithConfirms(make(chan struct{}), msg)
+		go n.confirmWrite(ctx, msg.Confirms(), off)
+	}
 	returnMsg, writeErr := client.Write(n.c, n.writer, msg)
 	return returnMsg, writeErr
 }

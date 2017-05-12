@@ -14,6 +14,7 @@ import (
 
 	"github.com/compose/transporter/adaptor"
 	"github.com/compose/transporter/client"
+	"github.com/compose/transporter/commitlog"
 	"github.com/compose/transporter/function"
 	"github.com/compose/transporter/log"
 	"github.com/compose/transporter/message"
@@ -207,7 +208,10 @@ var (
 					"starter", "stopWriter", defaultNsString,
 					WithClient(a),
 					WithReader(a),
-					WithCommitLog(dataDir, 1024),
+					WithCommitLog([]commitlog.OptionFunc{
+						commitlog.WithPath(dataDir),
+						commitlog.WithMaxSegmentBytes(1024),
+					}...),
 				)
 				om, _ := offset.NewLogManager(dataDir, "stopper")
 				NewNodeWithOptions(
@@ -230,7 +234,10 @@ var (
 					"starter", "stopWriter", defaultNsString,
 					WithClient(a),
 					WithReader(a),
-					WithCommitLog(dataDir, 1024),
+					WithCommitLog([]commitlog.OptionFunc{
+						commitlog.WithPath(dataDir),
+						commitlog.WithMaxSegmentBytes(1024),
+					}...),
 				)
 				om, _ := offset.NewLogManager(dataDir, "stopper")
 				NewNodeWithOptions(
@@ -254,7 +261,10 @@ var (
 					"starter", "stopWriter", defaultNsString,
 					WithClient(a),
 					WithReader(a),
-					WithCommitLog(dataDir, 1024),
+					WithCommitLog([]commitlog.OptionFunc{
+						commitlog.WithPath(dataDir),
+						commitlog.WithMaxSegmentBytes(1024),
+					}...),
 				)
 				om, _ := offset.NewLogManager(dataDir, "stopper")
 				NewNodeWithOptions(
@@ -284,7 +294,10 @@ var (
 					"starter", "stopWriter", defaultNsString,
 					WithClient(a),
 					WithReader(a),
-					WithCommitLog(dataDir, 1024),
+					WithCommitLog([]commitlog.OptionFunc{
+						commitlog.WithPath(dataDir),
+						commitlog.WithMaxSegmentBytes(1024),
+					}...),
 				)
 				om, _ := offset.NewLogManager(dataDir, "stopper")
 				NewNodeWithOptions(
@@ -314,7 +327,10 @@ var (
 					"starter", "stopWriter", defaultNsString,
 					WithClient(a),
 					WithReader(a),
-					WithCommitLog(dataDir, 1024),
+					WithCommitLog([]commitlog.OptionFunc{
+						commitlog.WithPath(dataDir),
+						commitlog.WithMaxSegmentBytes(1024),
+					}...),
 				)
 				om, _ := offset.NewLogManager(dataDir, "stopper")
 				NewNodeWithOptions(
@@ -344,7 +360,10 @@ var (
 					"starter", "stopWriter", defaultNsString,
 					WithClient(a),
 					WithReader(a),
-					WithCommitLog(dataDir, 1024),
+					WithCommitLog([]commitlog.OptionFunc{
+						commitlog.WithPath(dataDir),
+						commitlog.WithMaxSegmentBytes(1024),
+					}...),
 				)
 				om, _ := offset.NewLogManager(dataDir, "stopper")
 				NewNodeWithOptions(
@@ -374,7 +393,10 @@ var (
 					"starter", "stopWriter", defaultNsString,
 					WithClient(a),
 					WithReader(a),
-					WithCommitLog("testdata/restart_from_zero", 1024),
+					WithCommitLog([]commitlog.OptionFunc{
+						commitlog.WithPath("testdata/restart_from_zero"),
+						commitlog.WithMaxSegmentBytes(1024),
+					}...),
 				)
 				om, _ := offset.NewLogManager(dataDir, "stopper")
 				NewNodeWithOptions(
@@ -407,7 +429,10 @@ var (
 					"starter", "stopWriter", defaultNsString,
 					WithClient(a),
 					WithReader(a),
-					WithCommitLog("testdata/restart_from_middle", 1024),
+					WithCommitLog([]commitlog.OptionFunc{
+						commitlog.WithPath("testdata/restart_from_middle"),
+						commitlog.WithMaxSegmentBytes(1024),
+					}...),
 				)
 				om, _ := offset.NewLogManager("testdata/restart_from_middle", "stopper")
 				NewNodeWithOptions(
@@ -429,7 +454,10 @@ var (
 					"starter", "stopWriter", defaultNsString,
 					WithClient(a),
 					WithReader(a),
-					WithCommitLog("testdata/restart_from_end", 1024),
+					WithCommitLog([]commitlog.OptionFunc{
+						commitlog.WithPath("testdata/restart_from_end"),
+						commitlog.WithMaxSegmentBytes(1024),
+					}...),
 				)
 				om, _ := offset.NewLogManager("testdata/restart_from_end", "stopper")
 				NewNodeWithOptions(
@@ -451,7 +479,10 @@ var (
 					"starter", "stopWriter", defaultNsString,
 					WithClient(a),
 					WithReader(a),
-					WithCommitLog("testdata/restart_from_zero", 1024),
+					WithCommitLog([]commitlog.OptionFunc{
+						commitlog.WithPath("testdata/restart_from_zero"),
+						commitlog.WithMaxSegmentBytes(1024),
+					}...),
 				)
 				NewNodeWithOptions(
 					"stopper", "stopWriter", defaultNsString,
@@ -474,7 +505,10 @@ var (
 					"starter", "stopWriter", defaultNsString,
 					WithClient(a),
 					WithReader(a),
-					WithCommitLog("testdata/restart_from_zero", 1024),
+					WithCommitLog([]commitlog.OptionFunc{
+						commitlog.WithPath("testdata/restart_from_zero"),
+						commitlog.WithMaxSegmentBytes(1024),
+					}...),
 				)
 				NewNodeWithOptions(
 					"stopper", "stopWriter", defaultNsString,
@@ -501,7 +535,10 @@ var (
 					"starter", "stopWriter", defaultNsString,
 					WithClient(a),
 					WithReader(a),
-					WithCommitLog("testdata/restart_from_zero", 1024),
+					WithCommitLog([]commitlog.OptionFunc{
+						commitlog.WithPath("testdata/restart_from_zero"),
+						commitlog.WithMaxSegmentBytes(1024),
+					}...),
 				)
 				NewNodeWithOptions(
 					"stopper", "stopWriter", defaultNsString,
@@ -528,7 +565,10 @@ var (
 					"starter", "stopWriter", defaultNsString,
 					WithClient(a),
 					WithReader(a),
-					WithCommitLog("testdata/restart_from_zero", 1024),
+					WithCommitLog([]commitlog.OptionFunc{
+						commitlog.WithPath("testdata/restart_from_zero"),
+						commitlog.WithMaxSegmentBytes(1024),
+					}...),
 				)
 				NewNodeWithOptions(
 					"stopper", "stopWriter", defaultNsString,
@@ -557,7 +597,10 @@ var (
 					"starter", "stopWriter", defaultNsString,
 					WithClient(a),
 					WithReader(a),
-					WithCommitLog("testdata/pipeline_run", 1024),
+					WithCommitLog([]commitlog.OptionFunc{
+						commitlog.WithPath("testdata/pipeline_run"),
+						commitlog.WithMaxSegmentBytes(1024),
+					}...),
 				)
 				NewNodeWithOptions(
 					"stopper", "stopWriter", "/blah/",
@@ -580,7 +623,10 @@ var (
 					"ctxStarter", "stopWriter", defaultNsString,
 					WithClient(a),
 					WithReader(a),
-					WithCommitLog("testdata/pipeline_run", 1024),
+					WithCommitLog([]commitlog.OptionFunc{
+						commitlog.WithPath("testdata/pipeline_run"),
+						commitlog.WithMaxSegmentBytes(1024),
+					}...),
 				)
 				NewNodeWithOptions(
 					"ctxStopper", "stopWriter", defaultNsString,
@@ -604,7 +650,10 @@ var (
 					"ctx_cancel_starter", "stopWriter", defaultNsString,
 					WithClient(a),
 					WithReader(a),
-					WithCommitLog("testdata/restart_from_zero", 1024),
+					WithCommitLog([]commitlog.OptionFunc{
+						commitlog.WithPath("testdata/restart_from_zero"),
+						commitlog.WithMaxSegmentBytes(1024),
+					}...),
 				)
 				NewNodeWithOptions(
 					"ctx_cancel_stopper", "stopWriter", defaultNsString,
@@ -626,7 +675,10 @@ var (
 					"offset_commit_err_starter", "stopWriter", defaultNsString,
 					WithClient(a),
 					WithReader(a),
-					WithCommitLog("testdata/pipeline_run", 1024),
+					WithCommitLog([]commitlog.OptionFunc{
+						commitlog.WithPath("testdata/pipeline_run"),
+						commitlog.WithMaxSegmentBytes(1024),
+					}...),
 				)
 				NewNodeWithOptions(
 					"offset_commit_err_stopper", "stopWriter", defaultNsString,

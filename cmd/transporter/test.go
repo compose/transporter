@@ -17,7 +17,7 @@ func runTest(args []string) error {
 		args = []string{defaultPipelineFile}
 	}
 
-	builder, err := NewBuilder(args[0])
+	builder, err := newBuilder(args[0])
 	if err != nil {
 		return err
 	}

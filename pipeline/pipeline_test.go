@@ -9,6 +9,7 @@ import (
 	"github.com/compose/transporter/adaptor"
 	_ "github.com/compose/transporter/adaptor/file"
 	"github.com/compose/transporter/client"
+	"github.com/compose/transporter/commitlog"
 	"github.com/compose/transporter/events"
 	"github.com/compose/transporter/offset"
 )
@@ -87,7 +88,9 @@ var (
 					"starter", "stopWriter", defaultNsString,
 					WithClient(a),
 					WithReader(a),
-					WithCommitLog("testdata/pipeline_run", 1024),
+					WithCommitLog([]commitlog.OptionFunc{
+						commitlog.WithPath("testdata/pipeline_run"),
+					}...),
 				)
 				NewNodeWithOptions(
 					"stopper", "stopWriter", defaultNsString,
@@ -107,7 +110,9 @@ var (
 					"starter", "stopWriter", defaultNsString,
 					WithClient(&adaptor.MockClientErr{}),
 					WithReader(a),
-					WithCommitLog("testdata/pipeline_run", 1024),
+					WithCommitLog([]commitlog.OptionFunc{
+						commitlog.WithPath("testdata/pipeline_run"),
+					}...),
 				)
 				NewNodeWithOptions(
 					"stopper", "stopWriter", defaultNsString,

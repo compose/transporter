@@ -54,7 +54,7 @@ func NewLogManager(path, name string) (*LogManager, error) {
 func (m *LogManager) buildMap() error {
 	var lastError error
 	for _, s := range m.log.Segments() {
-		s.Open()
+		// s.Open()
 		var readPosition int64
 		for {
 			// skip the offsetHeader
@@ -118,6 +118,7 @@ func (m *LogManager) OffsetMap() map[string]uint64 {
 	return m.nsMap
 }
 
+// NewestOffset loops over every offset and returns the highest one.
 func (m *LogManager) NewestOffset() int64 {
 	m.Lock()
 	defer m.Unlock()

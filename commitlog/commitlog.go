@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	defaultMaxSegmentBytes = 1024
+	defaultMaxSegmentBytes = 1024 * 1024 * 100
 	logFileSuffix          = ".log"
 	cleanedFileSuffix      = ".cleaned"
 	swapFileSuffix         = ".swap"
@@ -103,7 +103,9 @@ func WithPath(path string) OptionFunc {
 // to create a new one.
 func WithMaxSegmentBytes(max int64) OptionFunc {
 	return func(c *CommitLog) error {
-		c.maxSegmentBytes = max
+		if max > 0 {
+			c.maxSegmentBytes = max
+		}
 		return nil
 	}
 }
@@ -146,9 +148,9 @@ func (c *CommitLog) open() error {
 				return err
 			}
 			// we don't want to keep file handles open unless they are needed
-			if len(c.segments) > 0 {
-				c.segments[len(c.segments)-1].Close()
-			}
+			// if len(c.segments) > 0 {
+			// 	c.segments[len(c.segments)-1].Close()
+			// }
 			c.segments = append(c.segments, segment)
 		}
 	}
@@ -229,9 +231,9 @@ func (c *CommitLog) NewReader(offset int64) (io.Reader, error) {
 	// in the event there has been data committed to the segment but no offset for a path,
 	// then we need to create a reader that starts from the very beginning
 	if offset < 0 && len(c.segments) > 0 {
-		if err := c.segments[0].Open(); err != nil {
-			log.Errorf("unable to open segment, %s", err)
-		}
+		// if err := c.segments[0].Open(); err != nil {
+		// 	log.Errorf("unable to open segment, %s", err)
+		// }
 		return &Reader{commitlog: c, idx: 0, position: 0}, nil
 	}
 
@@ -253,9 +255,9 @@ func (c *CommitLog) NewReader(offset int64) (io.Reader, error) {
 	}
 
 	log.With("offset", offset).With("segment_index", idx).Debugln("finding offset in segment")
-	if err := c.segments[idx].Open(); err != nil {
-		log.Errorf("unable to open segment, %s", err)
-	}
+	// if err := c.segments[idx].Open(); err != nil {
+	// 	log.Errorf("unable to open segment, %s", err)
+	// }
 	position, err := c.segments[idx].FindOffsetPosition(uint64(offset))
 	if err != nil {
 		return nil, err
@@ -322,7 +324,7 @@ func (c *CommitLog) split() error {
 	}
 	c.mu.Lock()
 	c.segments = append(c.segments, segment)
-	c.activeSegment().Close()
+	// c.activeSegment().Close()
 	c.vActiveSegment.Store(segment)
 	c.mu.Unlock()
 	return nil
