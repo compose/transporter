@@ -93,10 +93,10 @@ func (m *LogManager) buildMap() error {
 
 // CommitOffset verifies it does not contain an offset older than the current offset
 // and persists to the log.
-func (m *LogManager) CommitOffset(o Offset) error {
+func (m *LogManager) CommitOffset(o Offset, override bool) error {
 	m.Lock()
 	defer m.Unlock()
-	if currentOffset, ok := m.nsMap[o.Namespace]; ok && currentOffset >= o.LogOffset {
+	if currentOffset, ok := m.nsMap[o.Namespace]; !override && ok && currentOffset >= o.LogOffset {
 		log.With("currentOffest", currentOffset).
 			With("providedOffset", o.LogOffset).
 			Debugln("refusing to commit offset")

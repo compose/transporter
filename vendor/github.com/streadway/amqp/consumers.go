@@ -62,54 +62,54 @@ func bufferDeliveries(in chan *Delivery, out chan Delivery) {
 }
 
 // On key conflict, close the previous channel.
-func (subs *consumers) add(tag string, consumer chan Delivery) {
-	subs.Lock()
-	defer subs.Unlock()
+func (me *consumers) add(tag string, consumer chan Delivery) {
+	me.Lock()
+	defer me.Unlock()
 
-	if prev, found := subs.chans[tag]; found {
+	if prev, found := me.chans[tag]; found {
 		close(prev)
 	}
 
 	in := make(chan *Delivery)
 	go bufferDeliveries(in, consumer)
 
-	subs.chans[tag] = in
+	me.chans[tag] = in
 }
 
-func (subs *consumers) close(tag string) (found bool) {
-	subs.Lock()
-	defer subs.Unlock()
+func (me *consumers) close(tag string) (found bool) {
+	me.Lock()
+	defer me.Unlock()
 
-	ch, found := subs.chans[tag]
+	ch, found := me.chans[tag]
 
 	if found {
-		delete(subs.chans, tag)
+		delete(me.chans, tag)
 		close(ch)
 	}
 
 	return found
 }
 
-func (subs *consumers) closeAll() {
-	subs.Lock()
-	defer subs.Unlock()
+func (me *consumers) closeAll() {
+	me.Lock()
+	defer me.Unlock()
 
-	for _, ch := range subs.chans {
+	for _, ch := range me.chans {
 		close(ch)
 	}
 
-	subs.chans = make(consumerBuffers)
+	me.chans = make(consumerBuffers)
 }
 
 // Sends a delivery to a the consumer identified by `tag`.
 // If unbuffered channels are used for Consume this method
 // could block all deliveries until the consumer
 // receives on the other end of the channel.
-func (subs *consumers) send(tag string, msg *Delivery) bool {
-	subs.Lock()
-	defer subs.Unlock()
+func (me *consumers) send(tag string, msg *Delivery) bool {
+	me.Lock()
+	defer me.Unlock()
 
-	buffer, found := subs.chans[tag]
+	buffer, found := me.chans[tag]
 	if found {
 		buffer <- msg
 	}

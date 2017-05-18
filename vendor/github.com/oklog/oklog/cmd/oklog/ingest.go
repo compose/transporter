@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
-	level "github.com/go-kit/kit/log/experimental_level"
+	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -40,6 +40,7 @@ var (
 func runIngest(args []string) error {
 	flagset := flag.NewFlagSet("ingest", flag.ExitOnError)
 	var (
+		debug                 = flagset.Bool("debug", false, "debug logging")
 		apiAddr               = flagset.String("api", defaultAPIAddr, "listen address for ingest API")
 		fastAddr              = flagset.String("ingest.fast", defaultFastAddr, "listen address for fast (async) writes")
 		durableAddr           = flagset.String("ingest.durable", defaultDurableAddr, "listen address for durable (sync) writes")
@@ -74,9 +75,15 @@ func runIngest(args []string) error {
 
 	// Logging.
 	var logger log.Logger
-	logger = log.NewLogfmtLogger(os.Stderr)
-	logger = log.NewContext(logger).With("ts", log.DefaultTimestampUTC)
-	logger = level.New(logger, level.Allowed(level.AllowAll()))
+	{
+		logLevel := level.AllowInfo()
+		if *debug {
+			logLevel = level.AllowAll()
+		}
+		logger = log.NewLogfmtLogger(os.Stderr)
+		logger = log.With(logger, "ts", log.DefaultTimestampUTC)
+		logger = level.NewFilter(logger, logLevel)
+	}
 
 	// Instrumentation.
 	connectedClients := prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -233,7 +240,7 @@ func runIngest(args []string) error {
 		clusterHost, clusterPort,
 		clusterPeers,
 		cluster.PeerTypeIngest, apiPort,
-		log.NewContext(logger).With("component", "cluster"),
+		log.With(logger, "component", "cluster"),
 	)
 	if err != nil {
 		return err

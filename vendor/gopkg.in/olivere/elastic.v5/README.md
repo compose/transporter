@@ -238,7 +238,7 @@ See the [wiki](https://github.com/olivere/elastic/wiki) for more details.
 - [ ] Search Exists API
 - [ ] Validate API
 - [x] Explain API
-- [ ] Profile API
+- [x] Profile API
 - [x] Field Stats API
 
 ### Aggregations
@@ -290,8 +290,8 @@ See the [wiki](https://github.com/olivere/elastic/wiki) for more details.
   - [x] Bucket Script
   - [x] Bucket Selector
   - [x] Serial Differencing
-- [ ] Matrix Aggregations
-  - [ ] Matrix Stats
+- [x] Matrix Aggregations
+  - [x] Matrix Stats
 - [x] Aggregation Metadata
 
 ### Indices APIs
@@ -302,11 +302,11 @@ See the [wiki](https://github.com/olivere/elastic/wiki) for more details.
 - [x] Indices Exists
 - [x] Open / Close Index
 - [x] Shrink Index
-- [ ] Rollover Index
+- [x] Rollover Index
 - [x] Put Mapping
 - [x] Get Mapping
-- [ ] Get Field Mapping
-- [ ] Types Exists
+- [x] Get Field Mapping
+- [x] Types Exists
 - [x] Index Aliases
 - [x] Update Indices Settings
 - [x] Get Settings
@@ -421,7 +421,13 @@ The cat APIs are not implemented as of now. We think they are better suited for 
 
 ### Modules
 
-- [ ] Snapshot and Restore
+- Snapshot and Restore
+  - [x] Repositories
+  - [ ] Snapshot
+  - [ ] Restore
+  - [ ] Snapshot status
+  - [ ] Monitoring snapshot/restore status
+  - [ ] Stopping currently running snapshot and restore
 
 ### Sorting
 

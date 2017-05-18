@@ -190,30 +190,30 @@ var (
 				Body []byte{{end}}
       }
 
-			func (msg *{{$struct}}) id() (uint16, uint16) {
+			func (me *{{$struct}}) id() (uint16, uint16) {
 				return {{$class.Index}}, {{$method.Index}}
 			}
 
-			func (msg *{{$struct}}) wait() (bool) {
-				return {{.Synchronous}}{{if $.HasField "NoWait" .}} && !msg.NoWait{{end}}
+			func (me *{{$struct}}) wait() (bool) {
+				return {{.Synchronous}}{{if $.HasField "NoWait" .}} && !me.NoWait{{end}}
 			}
 
 			{{if .Content}}
-      func (msg *{{$struct}}) getContent() (properties, []byte) {
-        return msg.Properties, msg.Body
+      func (me *{{$struct}}) getContent() (properties, []byte) {
+        return me.Properties, me.Body
       }
 
-      func (msg *{{$struct}}) setContent(props properties, body []byte) {
-        msg.Properties, msg.Body = props, body
+      func (me *{{$struct}}) setContent(props properties, body []byte) {
+        me.Properties, me.Body = props, body
       }
 			{{end}}
-      func (msg *{{$struct}}) write(w io.Writer) (err error) {
+      func (me *{{$struct}}) write(w io.Writer) (err error) {
 				{{if $.HasType "bit" $method}}var bits byte{{end}}
         {{.Fields | $.Fieldsets | $.Partial "enc-"}}
         return
       }
 
-      func (msg *{{$struct}}) read(r io.Reader) (err error) {
+      func (me *{{$struct}}) read(r io.Reader) (err error) {
 				{{if $.HasType "bit" $method}}var bits byte{{end}}
         {{.Fields | $.Fieldsets | $.Partial "dec-"}}
         return
@@ -221,16 +221,16 @@ var (
     {{end}}
   {{end}}
 
-  func (r *reader) parseMethodFrame(channel uint16, size uint32) (f frame, err error) {
+  func (me *reader) parseMethodFrame(channel uint16, size uint32) (f frame, err error) {
     mf := &methodFrame {
       ChannelId: channel,
     }
 
-    if err = binary.Read(r.r, binary.BigEndian, &mf.ClassId); err != nil {
+    if err = binary.Read(me.r, binary.BigEndian, &mf.ClassId); err != nil {
       return
     }
 
-    if err = binary.Read(r.r, binary.BigEndian, &mf.MethodId); err != nil {
+    if err = binary.Read(me.r, binary.BigEndian, &mf.MethodId); err != nil {
       return
     }
 
@@ -243,7 +243,7 @@ var (
       case {{.Index}}: // {{$class.Name}} {{.Name}}
         //fmt.Println("NextMethod: class:{{$class.Index}} method:{{.Index}}")
         method := &{{$.StructName $class.Name .Name}}{}
-        if err = method.read(r.r); err != nil {
+        if err = method.read(me.r); err != nil {
           return
         }
         mf.Method = method
@@ -262,44 +262,44 @@ var (
 
   {{define "enc-bit"}}
     {{range $off, $field := .Fields}}
-    if msg.{{$field | $.FieldName}} { bits |= 1 << {{$off}} }
+    if me.{{$field | $.FieldName}} { bits |= 1 << {{$off}} }
     {{end}}
     if err = binary.Write(w, binary.BigEndian, bits); err != nil { return }
   {{end}}
   {{define "enc-octet"}}
-    {{range .Fields}} if err = binary.Write(w, binary.BigEndian, msg.{{. | $.FieldName}}); err != nil { return }
+    {{range .Fields}} if err = binary.Write(w, binary.BigEndian, me.{{. | $.FieldName}}); err != nil { return }
     {{end}}
   {{end}}
   {{define "enc-shortshort"}}
-    {{range .Fields}} if err = binary.Write(w, binary.BigEndian, msg.{{. | $.FieldName}}); err != nil { return }
+    {{range .Fields}} if err = binary.Write(w, binary.BigEndian, me.{{. | $.FieldName}}); err != nil { return }
     {{end}}
   {{end}}
   {{define "enc-short"}}
-    {{range .Fields}} if err = binary.Write(w, binary.BigEndian, msg.{{. | $.FieldName}}); err != nil { return }
+    {{range .Fields}} if err = binary.Write(w, binary.BigEndian, me.{{. | $.FieldName}}); err != nil { return }
     {{end}}
   {{end}}
   {{define "enc-long"}}
-    {{range .Fields}} if err = binary.Write(w, binary.BigEndian, msg.{{. | $.FieldName}}); err != nil { return }
+    {{range .Fields}} if err = binary.Write(w, binary.BigEndian, me.{{. | $.FieldName}}); err != nil { return }
     {{end}}
   {{end}}
   {{define "enc-longlong"}}
-    {{range .Fields}} if err = binary.Write(w, binary.BigEndian, msg.{{. | $.FieldName}}); err != nil { return }
+    {{range .Fields}} if err = binary.Write(w, binary.BigEndian, me.{{. | $.FieldName}}); err != nil { return }
     {{end}}
   {{end}}
   {{define "enc-timestamp"}}
-    {{range .Fields}} if err = writeTimestamp(w, msg.{{. | $.FieldName}}); err != nil { return }
+    {{range .Fields}} if err = writeTimestamp(w, me.{{. | $.FieldName}}); err != nil { return }
     {{end}}
   {{end}}
   {{define "enc-shortstr"}}
-    {{range .Fields}} if err = writeShortstr(w, msg.{{. | $.FieldName}}); err != nil { return }
+    {{range .Fields}} if err = writeShortstr(w, me.{{. | $.FieldName}}); err != nil { return }
     {{end}}
   {{end}}
   {{define "enc-longstr"}}
-    {{range .Fields}} if err = writeLongstr(w, msg.{{. | $.FieldName}}); err != nil { return }
+    {{range .Fields}} if err = writeLongstr(w, me.{{. | $.FieldName}}); err != nil { return }
     {{end}}
   {{end}}
   {{define "enc-table"}}
-    {{range .Fields}} if err = writeTable(w, msg.{{. | $.FieldName}}); err != nil { return }
+    {{range .Fields}} if err = writeTable(w, me.{{. | $.FieldName}}); err != nil { return }
     {{end}}
   {{end}}
 
@@ -307,58 +307,58 @@ var (
     if err = binary.Read(r, binary.BigEndian, &bits); err != nil {
       return
     }
-    {{range $off, $field := .Fields}} msg.{{$field | $.FieldName}} = (bits & (1 << {{$off}}) > 0)
+    {{range $off, $field := .Fields}} me.{{$field | $.FieldName}} = (bits & (1 << {{$off}}) > 0)
     {{end}}
   {{end}}
   {{define "dec-octet"}}
-    {{range .Fields}} if err = binary.Read(r, binary.BigEndian, &msg.{{. | $.FieldName}}); err != nil { return }
+    {{range .Fields}} if err = binary.Read(r, binary.BigEndian, &me.{{. | $.FieldName}}); err != nil { return }
     {{end}}
   {{end}}
   {{define "dec-shortshort"}}
-    {{range .Fields}} if err = binary.Read(r, binary.BigEndian, &msg.{{. | $.FieldName}}); err != nil { return }
+    {{range .Fields}} if err = binary.Read(r, binary.BigEndian, &me.{{. | $.FieldName}}); err != nil { return }
     {{end}}
   {{end}}
   {{define "dec-short"}}
-    {{range .Fields}} if err = binary.Read(r, binary.BigEndian, &msg.{{. | $.FieldName}}); err != nil { return }
+    {{range .Fields}} if err = binary.Read(r, binary.BigEndian, &me.{{. | $.FieldName}}); err != nil { return }
     {{end}}
   {{end}}
   {{define "dec-long"}}
-    {{range .Fields}} if err = binary.Read(r, binary.BigEndian, &msg.{{. | $.FieldName}}); err != nil { return }
+    {{range .Fields}} if err = binary.Read(r, binary.BigEndian, &me.{{. | $.FieldName}}); err != nil { return }
     {{end}}
   {{end}}
   {{define "dec-longlong"}}
-    {{range .Fields}} if err = binary.Read(r, binary.BigEndian, &msg.{{. | $.FieldName}}); err != nil { return }
+    {{range .Fields}} if err = binary.Read(r, binary.BigEndian, &me.{{. | $.FieldName}}); err != nil { return }
     {{end}}
   {{end}}
   {{define "dec-timestamp"}}
-    {{range .Fields}} if msg.{{. | $.FieldName}}, err = readTimestamp(r); err != nil { return }
+    {{range .Fields}} if me.{{. | $.FieldName}}, err = readTimestamp(r); err != nil { return }
     {{end}}
   {{end}}
   {{define "dec-shortstr"}}
-    {{range .Fields}} if msg.{{. | $.FieldName}}, err = readShortstr(r); err != nil { return }
+    {{range .Fields}} if me.{{. | $.FieldName}}, err = readShortstr(r); err != nil { return }
     {{end}}
   {{end}}
   {{define "dec-longstr"}}
-    {{range .Fields}} if msg.{{. | $.FieldName}}, err = readLongstr(r); err != nil { return }
+    {{range .Fields}} if me.{{. | $.FieldName}}, err = readLongstr(r); err != nil { return }
     {{end}}
   {{end}}
   {{define "dec-table"}}
-    {{range .Fields}} if msg.{{. | $.FieldName}}, err = readTable(r); err != nil { return }
+    {{range .Fields}} if me.{{. | $.FieldName}}, err = readTable(r); err != nil { return }
     {{end}}
   {{end}}
 
   `))
 )
 
-func (c *Constant) IsError() bool {
-	return strings.Contains(c.Class, "error")
+func (me *Constant) IsError() bool {
+	return strings.Contains(me.Class, "error")
 }
 
-func (c *Constant) IsSoftError() bool {
-	return c.Class == "soft-error"
+func (me *Constant) IsSoftError() bool {
+	return me.Class == "soft-error"
 }
 
-func (renderer *renderer) Partial(prefix string, fields []fieldset) (s string, err error) {
+func (me *renderer) Partial(prefix string, fields []fieldset) (s string, err error) {
 	var buf bytes.Buffer
 	for _, set := range fields {
 		name := prefix + set.AmqpType
@@ -374,16 +374,16 @@ func (renderer *renderer) Partial(prefix string, fields []fieldset) (s string, e
 }
 
 // Groups the fields so that the right encoder/decoder can be called
-func (renderer *renderer) Fieldsets(fields []Field) (f []fieldset, err error) {
+func (me *renderer) Fieldsets(fields []Field) (f []fieldset, err error) {
 	if len(fields) > 0 {
 		for _, field := range fields {
 			cur := fieldset{}
-			cur.AmqpType, err = renderer.FieldType(field)
+			cur.AmqpType, err = me.FieldType(field)
 			if err != nil {
 				return
 			}
 
-			cur.NativeType, err = renderer.NativeType(cur.AmqpType)
+			cur.NativeType, err = me.NativeType(cur.AmqpType)
 			if err != nil {
 				return
 			}
@@ -407,9 +407,9 @@ func (renderer *renderer) Fieldsets(fields []Field) (f []fieldset, err error) {
 	return
 }
 
-func (renderer *renderer) HasType(typ string, method Method) bool {
+func (me *renderer) HasType(typ string, method Method) bool {
 	for _, f := range method.Fields {
-		name, _ := renderer.FieldType(f)
+		name, _ := me.FieldType(f)
 		if name == typ {
 			return true
 		}
@@ -417,9 +417,9 @@ func (renderer *renderer) HasType(typ string, method Method) bool {
 	return false
 }
 
-func (renderer *renderer) HasField(field string, method Method) bool {
+func (me *renderer) HasField(field string, method Method) bool {
 	for _, f := range method.Fields {
-		name := renderer.FieldName(f)
+		name := me.FieldName(f)
 		if name == field {
 			return true
 		}
@@ -427,8 +427,8 @@ func (renderer *renderer) HasField(field string, method Method) bool {
 	return false
 }
 
-func (renderer *renderer) Domain(field Field) (domain Domain, err error) {
-	for _, domain = range renderer.Root.Domains {
+func (me *renderer) Domain(field Field) (domain Domain, err error) {
+	for _, domain = range me.Root.Domains {
 		if field.Domain == domain.Name {
 			return
 		}
@@ -437,7 +437,7 @@ func (renderer *renderer) Domain(field Field) (domain Domain, err error) {
 	//return domain, ErrUnknownDomain
 }
 
-func (renderer *renderer) FieldName(field Field) (t string) {
+func (me *renderer) FieldName(field Field) (t string) {
 	t = public(field.Name)
 
 	if field.Reserved {
@@ -447,12 +447,12 @@ func (renderer *renderer) FieldName(field Field) (t string) {
 	return
 }
 
-func (renderer *renderer) FieldType(field Field) (t string, err error) {
+func (me *renderer) FieldType(field Field) (t string, err error) {
 	t = field.Type
 
 	if t == "" {
 		var domain Domain
-		domain, err = renderer.Domain(field)
+		domain, err = me.Domain(field)
 		if err != nil {
 			return "", err
 		}
@@ -462,14 +462,14 @@ func (renderer *renderer) FieldType(field Field) (t string, err error) {
 	return
 }
 
-func (renderer *renderer) NativeType(amqpType string) (t string, err error) {
+func (me *renderer) NativeType(amqpType string) (t string, err error) {
 	if t, ok := amqpTypeToNative[amqpType]; ok {
 		return t, nil
 	}
 	return "", ErrUnknownType
 }
 
-func (renderer *renderer) Tag(d Domain) string {
+func (me *renderer) Tag(d Domain) string {
 	label := "`"
 
 	label += `domain:"` + d.Name + `"`
@@ -483,7 +483,7 @@ func (renderer *renderer) Tag(d Domain) string {
 	return label
 }
 
-func (renderer *renderer) StructName(parts ...string) string {
+func (me *renderer) StructName(parts ...string) string {
 	return parts[0] + public(parts[1:]...)
 }
 

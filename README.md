@@ -133,6 +133,86 @@ transporter test [-log.level "info"] <application.js>
 Evaluates and connects the pipeline, sources and sinks. Establishes connections but does not run.
 Prints out the state of connections at the end. Useful for debugging new configurations.
 
+### xlog
+
+The `xlog` command is useful for inspecting the current state of the commit log.
+It contains 3 subcommands, `current`, `oldest`, and `offset`, as well as 
+a required flag `-log_dir` which should be the path to where the commit log is stored.
+
+***NOTE*** the command should only be run against the commit log when transporter
+is not actively running.
+
+```
+transporter xlog -log_dir=/path/to/dir current
+12345
+```
+
+Returns the most recent offset appended to the commit log.
+
+```
+transporter xlog -log_dir=/path/to/dir oldest
+0
+```
+
+Returns the oldest offset in the commit log.
+
+```
+transporter xlog -log_dir=/path/to/dir show 0
+offset    : 0
+timestamp : 2017-05-16 11:00:20 -0400 EDT
+mode      : COPY
+op        : INSERT
+key       : MyCollection
+value     : {"_id":{"$oid":"58efd14b60d271d7457b4f24"},"i":0}
+```
+
+Prints out the entry stored at the provided offset.
+
+### offset
+
+The `offset` command provides access to current state of each consumer (i.e. sink)
+offset. It contains 4 subcommands, `list`, `show`, `mark`, and `delete`, as well as 
+a required flag `-log_dir` which should be the path to where the commit log is stored.
+
+```
+transporter offset -log_dir=/path/to/dir list
++------+---------+
+| SINK | OFFSET  |
++------+---------+
+| sink | 1103003 |
++------+---------+
+```
+
+Lists all consumers and their associated offset in `log_dir`.
+
+```
+transporter offset -log_dir=/path/to/dir show sink
++-------------------+---------+
+|     NAMESPACE     | OFFSET  |
++-------------------+---------+
+| newCollection     | 1102756 |
+| testC             | 1103003 |
+| MyCollection      |  999429 |
+| anotherCollection | 1002997 |
++-------------------+---------+
+```
+
+Prints out each namespace and its associated offset.
+
+```
+transporter offset -log_dir=/path/to/dir mark sink 1
+OK
+```
+
+Rewrites the namespace offset map based on the provided offset.
+
+```
+transporter offset -log_dir=/path/to/dir delete sink
+OK
+```
+
+Removes the consumer (i.e. sink) log directory.
+
 #### flags
 
 `-log.level "info"` - sets the logging level. Default is info; can be debug or error.

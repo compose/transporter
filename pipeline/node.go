@@ -419,7 +419,7 @@ func (n *Node) write(msg message.Msg, off offset.Offset) (message.Msg, error) {
 	if !n.nsFilter.MatchString(msg.Namespace()) {
 		n.l.With("ns", msg.Namespace()).Debugln("message skipped by namespace filter")
 		if n.om != nil {
-			n.om.CommitOffset(off)
+			n.om.CommitOffset(off, false)
 		}
 		return msg, nil
 	}
@@ -428,7 +428,7 @@ func (n *Node) write(msg message.Msg, off offset.Offset) (message.Msg, error) {
 		return nil, writeErr
 	} else if msg == nil {
 		if n.om != nil {
-			n.om.CommitOffset(off)
+			n.om.CommitOffset(off, false)
 		}
 		return nil, nil
 	}
@@ -450,7 +450,7 @@ func (n *Node) confirmWrite(ctx context.Context, confirmed chan struct{}, off of
 	for {
 		select {
 		case <-confirmed:
-			if err := n.om.CommitOffset(off); err != nil {
+			if err := n.om.CommitOffset(off, false); err != nil {
 				n.l.Errorf("failed to commitoffset, %s", err)
 				return
 			}

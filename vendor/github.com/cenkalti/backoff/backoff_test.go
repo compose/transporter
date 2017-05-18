@@ -1,8 +1,9 @@
 package backoff
 
 import (
-	"testing"
 	"time"
+
+	"testing"
 )
 
 func TestNextBackOffMillis(t *testing.T) {

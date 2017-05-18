@@ -83,6 +83,18 @@ const (
 	Complete
 )
 
+func (m Mode) String() string {
+	switch m {
+	case Copy:
+		return "COPY"
+	case Sync:
+		return "SYNC"
+	case Complete:
+		return "COMPLETE"
+	}
+	return "UNKNOWN"
+}
+
 // NewLogFromEntry takes the LogEntry and builds the underlying []byte to be stored.
 func NewLogFromEntry(le LogEntry) Log {
 	keyLen := len(le.Key)

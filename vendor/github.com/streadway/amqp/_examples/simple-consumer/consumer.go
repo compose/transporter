@@ -97,7 +97,7 @@ func NewConsumer(amqpURI, exchange, exchangeType, queueName, key, ctag string) (
 	queue, err := c.channel.QueueDeclare(
 		queueName, // name of the queue
 		true,      // durable
-		false,     // delete when unused
+		false,     // delete when usused
 		false,     // exclusive
 		false,     // noWait
 		nil,       // arguments

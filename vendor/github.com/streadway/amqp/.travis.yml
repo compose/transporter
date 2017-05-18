@@ -1,20 +1,13 @@
 language: go
 
 go:
-  - 1.6
-  - 1.7
-  - 1.8
+  - 1.1
   - tip
 
 services:
   - rabbitmq
 
 env:
- - AMQP_URL=amqp://guest:guest@127.0.0.1:5672/
+ - AMQP_URL=amqp://guest:guest@127.0.0.1:5672/ GOMAXPROCS=2
 
-before_install:
-  - go get -v github.com/golang/lint/golint
-
-script:
-  - ./pre-commit
-  - go test -cpu=1,2 -v -tags integration ./...
+script: go test -tags integration ./...

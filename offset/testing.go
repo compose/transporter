@@ -16,7 +16,7 @@ type MockManager struct {
 	sync.Mutex
 }
 
-func (m *MockManager) CommitOffset(o Offset) error {
+func (m *MockManager) CommitOffset(o Offset, override bool) error {
 	if m.CommitErr != nil {
 		return m.CommitErr
 	}

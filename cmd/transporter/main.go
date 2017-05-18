@@ -27,6 +27,8 @@ func usage() {
 	fmt.Fprintf(os.Stderr, "  test      display the compiled nodes without starting a pipeline\n")
 	fmt.Fprintf(os.Stderr, "  about     show information about available adaptors\n")
 	fmt.Fprintf(os.Stderr, "  init      initialize a config and pipeline file based from provided adaptors\n")
+	fmt.Fprintf(os.Stderr, "  xlog      manage the commit log\n")
+	fmt.Fprintf(os.Stderr, "  offset    manage the offset for sinks\n")
 	fmt.Fprintf(os.Stderr, "\n")
 	fmt.Fprintf(os.Stderr, "VERSION\n")
 	fmt.Fprintf(os.Stderr, "  %s\n", version)
@@ -49,6 +51,10 @@ func main() {
 		run = runAbout
 	case "init":
 		run = runInit
+	case "xlog":
+		run = runXlog
+	case "offset":
+		run = runOffset
 	default:
 		usage()
 		os.Exit(1)

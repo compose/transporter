@@ -6,9 +6,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
-
 	"github.com/streadway/amqp"
+	"log"
 )
 
 var (
@@ -71,9 +70,9 @@ func publish(amqpURI, exchange, exchangeType, routingKey, body string, reliable 
 			return fmt.Errorf("Channel could not be put into confirm mode: %s", err)
 		}
 
-		confirms := channel.NotifyPublish(make(chan amqp.Confirmation, 1))
+		ack, nack := channel.NotifyConfirm(make(chan uint64, 1), make(chan uint64, 1))
 
-		defer confirmOne(confirms)
+		defer confirmOne(ack, nack)
 	}
 
 	log.Printf("declared Exchange, publishing %dB body (%q)", len(body), body)
@@ -101,12 +100,13 @@ func publish(amqpURI, exchange, exchangeType, routingKey, body string, reliable 
 // One would typically keep a channel of publishings, a sequence number, and a
 // set of unacknowledged sequence numbers and loop until the publishing channel
 // is closed.
-func confirmOne(confirms <-chan amqp.Confirmation) {
+func confirmOne(ack, nack chan uint64) {
 	log.Printf("waiting for confirmation of one publishing")
 
-	if confirmed := <-confirms; confirmed.Ack {
-		log.Printf("confirmed delivery with delivery tag: %d", confirmed.DeliveryTag)
-	} else {
-		log.Printf("failed delivery of delivery tag: %d", confirmed.DeliveryTag)
+	select {
+	case tag := <-ack:
+		log.Printf("confirmed delivery with delivery tag: %d", tag)
+	case tag := <-nack:
+		log.Printf("failed delivery of delivery tag: %d", tag)
 	}
 }

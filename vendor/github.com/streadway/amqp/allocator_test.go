@@ -72,10 +72,6 @@ func TestAllocatorShouldReuseReleased(t *testing.T) {
 }
 
 func TestAllocatorReleasesKeepUpWithAllocationsForAllSizes(t *testing.T) {
-	if testing.Short() {
-		t.Skip()
-	}
-
 	const runs = 5
 	const max = 13
 

@@ -5,9 +5,8 @@
 package elastic
 
 import (
+	"context"
 	"testing"
-
-	"golang.org/x/net/context"
 )
 
 func TestPutMappingURL(t *testing.T) {
@@ -53,7 +52,7 @@ func TestMappingLifecycle(t *testing.T) {
 		"tweetdoc":{
 			"properties":{
 				"field":{
-					"type":"string"
+					"type":"keyword"
 				}
 			}
 		}
