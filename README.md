@@ -12,6 +12,37 @@ Transporter allows the user to configure a number of data adaptors as sources or
 
 Adaptors may be able to track changes as they happen in source data. This "tail" capability allows a Transporter to stay running and keep the sinks in sync.
 
+***BETA Feature***
+
+As of release `v0.4.0`, transporter contains support for being able to resume operations
+after being stopped. The feature is disabled by default and can be enabled with the following:
+
+```
+source = mongodb({"uri": "mongo://localhost:27017/source_db"})
+sink = mongodb({"uri": "mongo://localhost:27017/sink_db"})
+t.Config({"log_dir":"/data/transporter"})
+  .Source("source", source)
+  .Save("sink", sink)
+```
+
+When using the above pipeline, all messages will be appended to a commit log and 
+successful processing of a message is handled via consumer/sink offset tracking.
+
+Below is a list of each adaptor and its support of the feature:
+
+```
++---------------+-------------+----------------+
+|    adaptor    | read resume | write tracking |
++---------------+-------------+----------------+
+| elasticsearch |     N/A     |       X        | 
+|     file      |             |       X        | 
+|    mongodb    |      X      |       X        | 
+|  postgresql   |             |       X        | 
+|   rabbitmq    |      X      |                | 
+|   rethinkdb   |             |       X        | 
++---------------+-------------+----------------+
+```
+
 Downloading Transporter
 -----------------------
 
