@@ -14,7 +14,7 @@ Go to [http://git-scm.com/downloads](http://git-scm.com/downloads) and download 
 
 3) Install Mercurial
 
-The other source code control tool you'll need for this build is Mercurial, so go to [http://mercurial.selenic.com/wiki/Download](http://mercurial.selenic.com/wiki/Download) and download `Mercurial-3.2.3 (64-bit msi)`.
+The other source code control tool you'll need for this build is Mercurial, so go to [http://mercurial.selenic.com/wiki/Download](http://mercurial.selenic.com/wiki/Download) alternative [https://www.mercurial-scm.org/wiki/Download](https://www.mercurial-scm.org/wiki/Download)  and download `Mercurial-3.2.3 (64-bit msi)`.
 
 4) Make directories
 
