@@ -27,7 +27,7 @@ mkdir go
 We need to set the GOPATH environment variable. This is going to point at the directory we just made and lets Go locate other packages. We'll just set it temporarily here like so:
 
 ```
-export GOPATH=`pwd`/go/
+SET GOPATH=%cd%\go
 ```
 
 Nowe we can build the rest of the tree:
