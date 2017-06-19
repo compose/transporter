@@ -7,7 +7,6 @@
 package pipeline
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,6 +28,10 @@ import (
 	"github.com/compose/transporter/pipe"
 )
 
+const (
+	defaultCompactionInterval = 1 * time.Hour
+)
+
 var (
 	// ErrResumeTimedOut is returned when the resumeTimeout is reached after attempting
 	// to check that a sink offset matches the newest offset.
@@ -37,6 +40,10 @@ var (
 	// ErrResumeStopped is returned when the underling pipe.Pipe has been stopped while
 	// a Node is in the process of resuming.
 	ErrResumeStopped = errors.New("pipe has been stopped, canceling resume")
+
+	// ErrConfirmOffset is returned if the underling OffsetManager fails to commit
+	// the offsets.
+	ErrConfirmOffset = errors.New("failed to confirm offsets")
 )
 
 // OptionFunc is a function that configures a Node.
@@ -55,17 +62,22 @@ type Node struct {
 	parent     *Node
 	transforms []*Transform
 
-	nsFilter      *regexp.Regexp
-	c             client.Client
-	reader        client.Reader
-	writer        client.Writer
-	done          chan struct{}
-	wg            sync.WaitGroup
-	l             log.Logger
-	pipe          *pipe.Pipe
-	clog          *commitlog.CommitLog
-	om            offset.Manager
-	resumeTimeout time.Duration
+	nsFilter       *regexp.Regexp
+	c              client.Client
+	reader         client.Reader
+	writer         client.Writer
+	done           chan struct{}
+	wg             sync.WaitGroup
+	l              log.Logger
+	pipe           *pipe.Pipe
+	clog           *commitlog.CommitLog
+	om             offset.Manager
+	confirms       chan struct{}
+	pendingOffsets []offset.Offset
+	offsetLock     sync.Mutex
+	resumeTimeout  time.Duration
+
+	compactionInterval time.Duration
 }
 
 // Transform defines the struct for including a native function in the pipeline.
@@ -83,19 +95,20 @@ func NewNodeWithOptions(name, kind, ns string, options ...OptionFunc) (*Node, er
 		return nil, err
 	}
 	n := &Node{
-		Name:          name,
-		Type:          kind,
-		path:          name,
-		depth:         1,
-		nsFilter:      compiledNs,
-		pipe:          pipe.NewPipe(nil, ""),
-		children:      make([]*Node, 0),
-		transforms:    make([]*Transform, 0),
-		done:          make(chan struct{}),
-		c:             &client.Mock{},
-		reader:        &client.MockReader{},
-		writer:        &client.MockWriter{},
-		resumeTimeout: 60 * time.Second,
+		Name:               name,
+		Type:               kind,
+		path:               name,
+		depth:              1,
+		nsFilter:           compiledNs,
+		pipe:               pipe.NewPipe(nil, ""),
+		children:           make([]*Node, 0),
+		transforms:         make([]*Transform, 0),
+		done:               make(chan struct{}),
+		c:                  &client.Mock{},
+		reader:             &client.MockReader{},
+		writer:             &client.MockWriter{},
+		resumeTimeout:      60 * time.Second,
+		compactionInterval: defaultCompactionInterval,
 	}
 	// Run the options on it
 	for _, option := range options {
@@ -156,7 +169,6 @@ func WithTransforms(t []*Transform) OptionFunc {
 }
 
 // WithCommitLog configures a CommitLog for the reader to persist messages.
-// func WithCommitLog(dataDir string, maxBytes int) OptionFunc {
 func WithCommitLog(options ...commitlog.OptionFunc) OptionFunc {
 	return func(n *Node) error {
 		clog, err := commitlog.New(options...)
@@ -175,10 +187,25 @@ func WithResumeTimeout(timeout time.Duration) OptionFunc {
 }
 
 // WithOffsetManager configures an offset.Manager to track message offsets.
-// func WithOffsetManager(name, dataDir string) OptionFunc {
 func WithOffsetManager(om offset.Manager) OptionFunc {
 	return func(n *Node) error {
 		n.om = om
+		return nil
+	}
+}
+
+// WithCompactionInterval configures the duration for running log compaction.
+func WithCompactionInterval(interval string) OptionFunc {
+	return func(n *Node) error {
+		if interval == "" {
+			n.compactionInterval = defaultCompactionInterval
+			return nil
+		}
+		ci, err := time.ParseDuration(interval)
+		if err != nil {
+			return err
+		}
+		n.compactionInterval = ci
 		return nil
 	}
 }
@@ -291,6 +318,7 @@ func (n *Node) Start() error {
 					}
 				}
 			}
+			go n.runCompaction()
 		}
 		n.l.Infof("starting with metadata %+v", msgMap)
 		return n.start(msgMap)
@@ -343,6 +371,8 @@ func (n *Node) resume(newestOffset int64, r io.Reader) error {
 		select {
 		case <-timeout:
 			return ErrResumeTimedOut
+		case <-n.done:
+			return nil
 		default:
 		}
 		n.l.Infoln("checking if offsets match")
@@ -353,6 +383,27 @@ func (n *Node) resume(newestOffset int64, r io.Reader) error {
 		}
 		n.l.With("sink_offset", sinkOffset).With("newestOffset", newestOffset).Infoln("offsets did not match, checking again in 5 seconds...")
 		time.Sleep(5 * time.Second)
+	}
+}
+
+func (n *Node) runCompaction() {
+	compactor := commitlog.NewNamespaceCompactor(n.clog)
+	n.l.With("compaction_interval", n.compactionInterval).Infoln("starting compaction routine")
+	ticker := time.NewTicker(n.compactionInterval)
+	for {
+		select {
+		case <-ticker.C:
+		case <-n.done:
+			n.l.Infoln("stopping compaction routine")
+			return
+		}
+		oldestOffset := uint64(n.clog.NewestOffset())
+		for _, child := range n.children {
+			if oldestOffset > uint64(child.om.NewestOffset()) {
+				oldestOffset = uint64(child.om.NewestOffset())
+			}
+		}
+		compactor.Compact(oldestOffset, n.clog.Segments())
 	}
 }
 
@@ -407,65 +458,83 @@ func (n *Node) start(nsMap map[string]client.MessageSet) error {
 	return nil
 }
 
-func (n *Node) listen() (err error) {
+func (n *Node) listen() error {
 	n.l.Infoln("adaptor Listening...")
 	defer n.l.Infoln("adaptor Listen closed...")
 
-	return n.pipe.Listen(n.write)
+	errors := make(chan error, 1)
+	if n.om != nil {
+		errors = make(chan error, 2)
+		n.confirms = make(chan struct{})
+		n.pendingOffsets = make([]offset.Offset, 0)
+		go func() {
+			errors <- n.waitForConfirms()
+		}()
+	}
+
+	go func() {
+		errors <- n.pipe.Listen(n.write)
+	}()
+
+	err := <-errors
+	n.l.Infoln("error returned, wait for other routines to stop")
+	if err == ErrConfirmOffset {
+		go n.pipe.Stop()
+		return err
+	}
+
+	for i := 1; i < cap(errors); i++ {
+		<-errors
+	}
+	n.l.Infoln("all routines returned")
+
+	return err
 }
 
 func (n *Node) write(msg message.Msg, off offset.Offset) (message.Msg, error) {
-	var writeErr error
 	if !n.nsFilter.MatchString(msg.Namespace()) {
 		n.l.With("ns", msg.Namespace()).Debugln("message skipped by namespace filter")
-		if n.om != nil {
-			n.om.CommitOffset(off, false)
-		}
 		return msg, nil
 	}
-	msg, writeErr = n.applyTransforms(msg)
-	if writeErr != nil {
-		return nil, writeErr
-	} else if msg == nil {
-		if n.om != nil {
-			n.om.CommitOffset(off, false)
-		}
-		return nil, nil
+	msg, err := n.applyTransforms(msg)
+	if err != nil || msg == nil {
+		return nil, err
 	}
 	if n.om != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer func() {
-			if writeErr != nil {
-				cancel()
-			}
-		}()
-		msg = message.WithConfirms(make(chan struct{}), msg)
-		go n.confirmWrite(ctx, msg.Confirms(), off)
+		n.offsetLock.Lock()
+		msg = message.WithConfirms(n.confirms, msg)
+		n.pendingOffsets = append(n.pendingOffsets, off)
+		n.offsetLock.Unlock()
 	}
-	returnMsg, writeErr := client.Write(n.c, n.writer, msg)
-	return returnMsg, writeErr
+	return client.Write(n.c, n.writer, msg)
 }
 
-func (n *Node) confirmWrite(ctx context.Context, confirmed chan struct{}, off offset.Offset) {
+func (n *Node) waitForConfirms() error {
 	for {
 		select {
-		case <-confirmed:
-			if err := n.om.CommitOffset(off, false); err != nil {
-				n.l.Errorf("failed to commitoffset, %s", err)
-				return
+		case <-n.confirms:
+			if err := n.confirmOffsets(); err != nil {
+				n.l.Errorf("confirmOffset err, %s", err)
+				return ErrConfirmOffset
 			}
-			n.l.Debugf("offset %d committed", off.LogOffset)
-			return
-		case <-ctx.Done():
-			if ctx.Err() == context.Canceled {
-				n.l.Debugln("offset commit canceled")
-				return
-			} else if ctx.Err() == context.DeadlineExceeded {
-				n.l.Debugln("time expired waiting for offset commit confirmation")
-				return
-			}
+		case <-n.done:
+			n.l.Infoln("closing waitForConfirms routine")
+			return nil
 		}
 	}
+}
+
+func (n *Node) confirmOffsets() error {
+	n.offsetLock.Lock()
+	defer n.offsetLock.Unlock()
+	// n.confirms = make(chan struct{})
+	for i := len(n.pendingOffsets) - 1; i >= 0; i-- {
+		if err := n.om.CommitOffset(n.pendingOffsets[i], false); err != nil {
+			return err
+		}
+	}
+	n.pendingOffsets = make([]offset.Offset, 0)
+	return nil
 }
 
 func (n *Node) applyTransforms(msg message.Msg) (message.Msg, error) {
@@ -504,9 +573,12 @@ func (n *Node) Stop() {
 func (n *Node) stop() error {
 	n.l.Infoln("adaptor Stopping...")
 	n.pipe.Stop()
+	n.l.Infoln("pipe stopped...")
 
 	close(n.done)
+	n.l.Infoln("done chan closed...")
 	n.wg.Wait()
+	n.l.Infoln("wait group done...")
 
 	if closer, ok := n.writer.(client.Closer); ok {
 		defer func() {

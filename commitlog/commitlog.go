@@ -299,9 +299,9 @@ func (c *CommitLog) replaceSegment(newSegment, oldSegment *Segment) error {
 	newSegment.rename(c.path, LogNameFormat)
 
 	// no need to keep a file handle open once compaction has completed
-	if err := newSegment.Close(); err != nil {
-		log.With("new_segment", newSegment.path).Errorf("failed to Close, %s", err)
-	}
+	// if err := newSegment.Close(); err != nil {
+	// 	log.With("new_segment", newSegment.path).Errorf("failed to Close, %s", err)
+	// }
 	log.With("new_segment", newSegment.path).
 		With("old_segment", oldSegment.path).
 		Infoln("segment replacement complete")

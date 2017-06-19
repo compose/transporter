@@ -21,7 +21,7 @@ elif [[ "$TRAVIS_EVENT_TYPE" != "cron" && "$TESTDIR" != integration_tests* ]]; t
   for t in "${test_dir[@]}"; do
     echo "testing $t"
     for d in $(go list ./$t); do
-        go test -v -coverprofile=profile.out -covermode=atomic $d -log.level=error
+        go test -v -coverprofile=profile.out -covermode=atomic $d
         if [ -f profile.out ]; then
             cat profile.out >> coverage.txt
             rm profile.out

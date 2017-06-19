@@ -119,8 +119,7 @@ func (w *Writer) postBulkProcessor(executionID int64, reqs []elastic.BulkableReq
 			With("failed", len(resp.Failed())).
 			Debugln("_bulk flush completed")
 		if w.confirmChan != nil && len(resp.Failed()) == 0 {
-			close(w.confirmChan)
-			w.confirmChan = nil
+			w.confirmChan <- struct{}{}
 		}
 	}
 	if err != nil {

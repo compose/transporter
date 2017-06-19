@@ -9,6 +9,7 @@ import (
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
+	"github.com/compose/transporter/adaptor"
 	"github.com/compose/transporter/log"
 	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/message/data"
@@ -78,6 +79,8 @@ var (
 )
 
 func TestInsert(t *testing.T) {
+	confirms, cleanup := adaptor.MockConfirmWrites()
+	defer adaptor.VerifyWriteConfirmed(cleanup, t)
 	if testing.Short() {
 		t.Skip("skipping Insert in short mode")
 	}
@@ -90,12 +93,12 @@ func TestInsert(t *testing.T) {
 	w := newWriter()
 	for _, it := range inserttests {
 		for _, data := range it.data {
-			msg := message.WithConfirms(make(chan struct{}), message.From(ops.Insert, it.collection, data))
+			msg := message.WithConfirms(confirms, message.From(ops.Insert, it.collection, data))
 			if _, err := w.Write(msg)(s); err != nil {
 				t.Errorf("unexpected Insert error, %s\n", err)
 			}
 		}
-		msg := message.WithConfirms(make(chan struct{}), message.From(ops.Command, it.collection, nil))
+		msg := message.WithConfirms(confirms, message.From(ops.Command, it.collection, nil))
 		if _, err := w.Write(msg)(s); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
 		}

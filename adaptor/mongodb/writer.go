@@ -32,7 +32,7 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 		if !ok {
 			log.Infof("no function registered for operation, %s\n", msg.OP())
 			if msg.Confirms() != nil {
-				close(msg.Confirms())
+				msg.Confirms() <- struct{}{}
 			}
 			return msg, nil
 		}
@@ -40,7 +40,7 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 			return nil, err
 		}
 		if msg.Confirms() != nil {
-			close(msg.Confirms())
+			msg.Confirms() <- struct{}{}
 		}
 		return msg, nil
 	}

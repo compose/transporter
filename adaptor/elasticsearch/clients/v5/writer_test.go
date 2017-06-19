@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/compose/transporter/adaptor"
 	"github.com/compose/transporter/adaptor/elasticsearch/clients"
 	"github.com/compose/transporter/client"
 	"github.com/compose/transporter/log"
@@ -66,6 +67,8 @@ type countResponse struct {
 }
 
 func TestWriter(t *testing.T) {
+	confirms, cleanup := adaptor.MockConfirmWrites()
+	defer adaptor.VerifyWriteConfirmed(cleanup, t)
 	opts := &clients.ClientOptions{
 		URLs:       []string{testURL},
 		HTTPClient: http.DefaultClient,
@@ -75,22 +78,22 @@ func TestWriter(t *testing.T) {
 	w, _ := vc.Creator(opts)
 	w.Write(
 		message.WithConfirms(
-			make(chan struct{}),
+			confirms,
 			message.From(ops.Insert, testType, map[string]interface{}{"hello": "world"})),
 	)(nil)
 	w.Write(
 		message.WithConfirms(
-			make(chan struct{}),
+			confirms,
 			message.From(ops.Insert, testType, map[string]interface{}{"_id": "booya", "hello": "world"})),
 	)(nil)
 	w.Write(
 		message.WithConfirms(
-			make(chan struct{}),
+			confirms,
 			message.From(ops.Update, testType, map[string]interface{}{"_id": "booya", "hello": "goodbye"})),
 	)(nil)
 	w.Write(
 		message.WithConfirms(
-			make(chan struct{}),
+			confirms,
 			message.From(ops.Delete, testType, map[string]interface{}{"_id": "booya", "hello": "goodbye"})),
 	)(nil)
 	w.(client.Closer).Close()

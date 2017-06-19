@@ -154,7 +154,7 @@ func handleResponse(resp *r.WriteResponse, confirms chan struct{}) error {
 		}
 	}
 	if confirms != nil {
-		close(confirms)
+		confirms <- struct{}{}
 	}
 	return nil
 }

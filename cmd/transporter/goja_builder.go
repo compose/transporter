@@ -82,8 +82,9 @@ type Transporter struct {
 }
 
 type config struct {
-	LogDir          string `json:"log_dir"`
-	MaxSegmentBytes int    `json:"max_segment_bytes"`
+	LogDir             string `json:"log_dir"`
+	MaxSegmentBytes    int    `json:"max_segment_bytes"`
+	CompactionInterval string `json:"compaction_interval"`
 }
 
 // Node encapsulates a sink/source node in the pipeline.
@@ -169,6 +170,8 @@ func buildFunction(name string) func(map[string]interface{}) function.Function {
 	}
 }
 
+// Config parses the provided configuration object and associates it with the
+// JS VM.
 func (t *Transporter) Config(call goja.FunctionCall) goja.Value {
 	if cfg, ok := call.Argument(0).Export().(map[string]interface{}); ok {
 		b, err := json.Marshal(cfg)
@@ -192,6 +195,7 @@ func (t *Transporter) Source(call goja.FunctionCall) goja.Value {
 	options := []pipeline.OptionFunc{
 		pipeline.WithClient(a.a),
 		pipeline.WithReader(a.a),
+		pipeline.WithCompactionInterval(t.config.CompactionInterval),
 	}
 	if t.config.LogDir != "" {
 		options = append(options, pipeline.WithCommitLog(

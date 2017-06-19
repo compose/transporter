@@ -126,8 +126,7 @@ func (b *Bulk) flushAll() error {
 		}
 	}
 	if b.confirmChan != nil {
-		close(b.confirmChan)
-		b.confirmChan = nil
+		b.confirmChan <- struct{}{}
 	}
 	b.Unlock()
 	return nil

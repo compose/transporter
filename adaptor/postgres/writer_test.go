@@ -3,10 +3,10 @@ package postgres
 import (
 	"fmt"
 	"math/rand"
-	"sync"
 	"testing"
 	"time"
 
+	"github.com/compose/transporter/adaptor"
 	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/message/data"
 	"github.com/compose/transporter/message/ops"
@@ -37,6 +37,8 @@ var (
 )
 
 func TestInsert(t *testing.T) {
+	confirms, cleanup := adaptor.MockConfirmWrites()
+	defer adaptor.VerifyWriteConfirmed(cleanup, t)
 	w := newWriter()
 	c, err := NewClient(WithURI(fmt.Sprintf("postgres://127.0.0.1:5432/%s?sslmode=disable", writerTestData.DB)))
 	if err != nil {
@@ -50,7 +52,7 @@ func TestInsert(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		if _, err := w.Write(
 			message.WithConfirms(
-				make(chan struct{}),
+				confirms,
 				message.From(
 					ops.Insert,
 					fmt.Sprintf("public.%s", writerTestData.Table),
@@ -61,20 +63,8 @@ func TestInsert(t *testing.T) {
 		}
 	}
 
-	unusedConfirms := make(chan struct{})
-	var wg sync.WaitGroup
-	var confirmClosed bool
-	wg.Add(1)
-	go func(wg *sync.WaitGroup) {
-		select {
-		case <-time.After(10 * time.Second):
-		case <-unusedConfirms:
-			confirmClosed = true
-		}
-		wg.Done()
-	}(&wg)
 	if _, err := w.Write(message.WithConfirms(
-		unusedConfirms,
+		confirms,
 		message.From(
 			ops.Command,
 			fmt.Sprintf("public.%s", writerTestData.Table),
@@ -82,11 +72,6 @@ func TestInsert(t *testing.T) {
 		)),
 	)(s); err != nil {
 		t.Errorf("unexpected Command error, %s", err)
-	}
-
-	wg.Wait()
-	if !confirmClosed {
-		t.Errorf("confirms chan should have been closed but isn't")
 	}
 
 	if _, err := w.Write(message.From(
