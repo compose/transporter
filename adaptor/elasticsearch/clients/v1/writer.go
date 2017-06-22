@@ -70,7 +70,7 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 			_, err = w.esClient.Index().Index(w.index).Type(indexType).BodyJson(msg.Data()).Id(id).Do(context.TODO())
 		}
 		if msg.Confirms() != nil && err == nil {
-			close(msg.Confirms())
+			msg.Confirms() <- struct{}{}
 		}
 		return msg, err
 	}

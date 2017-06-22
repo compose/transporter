@@ -6,6 +6,8 @@ import (
 
 	"github.com/compose/transporter/adaptor"
 	_ "github.com/compose/transporter/log"
+	"github.com/compose/transporter/message"
+	"github.com/compose/transporter/message/ops"
 )
 
 func init() {
@@ -89,5 +91,23 @@ func TestConfig(t *testing.T) {
 		if !reflect.DeepEqual(val, ct.expected) {
 			t.Errorf("wrong string returned for %s, expected %s, got %s", ct.key, ct.expected, val)
 		}
+	}
+}
+
+func TestMockConfirms(t *testing.T) {
+	confirms, cleanup := adaptor.MockConfirmWrites()
+	defer adaptor.VerifyWriteConfirmed(cleanup, t)
+	m, err := adaptor.GetAdaptor("mock", map[string]interface{}{"uri": "uri"})
+	if err != nil {
+		t.Fatalf("unexpected GetAdaptor error, %s", err)
+	}
+	w, err := m.Writer(nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected Writer error, %s", err)
+	}
+	msg := message.From(ops.Insert, "test", map[string]interface{}{"id": 0, "test": "hello world"})
+	msg = message.WithConfirms(confirms, msg)
+	if _, err = w.Write(msg)(nil); err != nil {
+		t.Errorf("unexpected Writer error, %s", err)
 	}
 }

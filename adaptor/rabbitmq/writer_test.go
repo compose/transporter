@@ -82,7 +82,7 @@ func TestWriteWithEmptyKey(t *testing.T) {
 }
 
 func checkQueueCount(queue string, count int, t *testing.T) {
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 	u, _ := url.Parse(DefaultURI)
 	vhost := u.Path
 	if vhost != "/" {

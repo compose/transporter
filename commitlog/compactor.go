@@ -3,6 +3,7 @@ package commitlog
 import (
 	"io"
 	"os"
+	"sort"
 	"sync"
 	"time"
 
@@ -25,6 +26,10 @@ type NamespaceCompactor struct {
 	log *CommitLog
 }
 
+func NewNamespaceCompactor(clog *CommitLog) *NamespaceCompactor {
+	return &NamespaceCompactor{log: clog}
+}
+
 func (c *NamespaceCompactor) Compact(offset uint64, segments []*Segment) {
 	log.With("num_segments", len(segments)).Infoln("starting compaction...")
 	var wg sync.WaitGroup
@@ -36,13 +41,18 @@ func (c *NamespaceCompactor) Compact(offset uint64, segments []*Segment) {
 	wg.Wait()
 }
 
+type compactedEntry struct {
+	le LogEntry
+	o  uint64
+}
+
 func (c *NamespaceCompactor) compactSegment(offset uint64, wg *sync.WaitGroup, segment *Segment) {
 	defer wg.Done()
 	// if err := segment.Open(); err != nil {
 	// 	log.With("segment", segment.path).Errorf("unable to open segment, %s", err)
 	// }
 	r := &segmentReader{s: segment, position: 0}
-	entryMap := make(map[string]LogEntry)
+	entryMap := make(map[string]compactedEntry)
 	for {
 		o, e, err := ReadEntry(r)
 		if err == io.EOF {
@@ -55,7 +65,7 @@ func (c *NamespaceCompactor) compactSegment(offset uint64, wg *sync.WaitGroup, s
 			log.Infof("unable to compact segment (%s), contains unread offset, %d", segment.log.Name(), offset)
 			return
 		}
-		entryMap[string(e.Key)] = e
+		entryMap[string(e.Key)] = compactedEntry{e, o}
 	}
 	newSegment, err := NewSegment(c.log.path,
 		cleanNameFormat,
@@ -65,8 +75,16 @@ func (c *NamespaceCompactor) compactSegment(offset uint64, wg *sync.WaitGroup, s
 		log.Errorf("failed to create cleaned segment, %s", err)
 		return
 	}
-	for _, le := range entryMap {
-		l := NewLogFromEntry(le)
+	entries := make([]compactedEntry, len(entryMap))
+	var i int
+	for _, em := range entryMap {
+		entries[i] = em
+		i++
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].o < entries[j].o })
+	for _, em := range entries {
+		l := NewLogFromEntry(em.le)
+		l.PutOffset(int64(em.o))
 		if _, err := newSegment.Write(l); err != nil {
 			log.Errorf("failed writing to cleaned segment, %s", err)
 			return

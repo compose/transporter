@@ -133,11 +133,10 @@ func init() {
 }
 
 type StopWriter struct {
-	SendCount    int
-	MsgCount     int
-	ConfirmDelay time.Duration
-	WriteErr     error
-	Closed       bool
+	SendCount int
+	MsgCount  int
+	WriteErr  error
+	Closed    bool
 }
 
 func (s *StopWriter) Client() (client.Client, error) {
@@ -155,15 +154,9 @@ func (s *StopWriter) Writer(done chan struct{}, wg *sync.WaitGroup) (client.Writ
 func (s *StopWriter) Write(msg message.Msg) func(client.Session) (message.Msg, error) {
 	return func(client.Session) (message.Msg, error) {
 		s.MsgCount++
-		if s.ConfirmDelay > 0 {
-			go func(m message.Msg) {
-				time.Sleep(s.ConfirmDelay)
-				close(m.Confirms())
-			}(msg)
-			return msg, nil
-		}
-		if s.WriteErr == nil {
-			close(msg.Confirms())
+		if msg.Confirms() != nil {
+			msg.Confirms() <- struct{}{}
+			// close(msg.Confirms())
 		}
 		return msg, s.WriteErr
 	}
@@ -607,65 +600,12 @@ var (
 					WithClient(a),
 					WithWriter(a),
 					WithParent(n),
+					WithResumeTimeout(5*time.Second),
 					WithOffsetManager(&offset.MockManager{MemoryMap: map[string]uint64{}}),
 				)
 				return n, a, func() {}
 			},
-			0, 0, nil,
-		},
-		{
-			"with_ctx_timeout",
-			func() (*Node, *StopWriter, func()) {
-				a := &StopWriter{
-					ConfirmDelay: 11 * time.Second,
-				}
-				n, _ := NewNodeWithOptions(
-					"ctxStarter", "stopWriter", defaultNsString,
-					WithClient(a),
-					WithReader(a),
-					WithCommitLog([]commitlog.OptionFunc{
-						commitlog.WithPath("testdata/pipeline_run"),
-						commitlog.WithMaxSegmentBytes(1024),
-					}...),
-				)
-				NewNodeWithOptions(
-					"ctxStopper", "stopWriter", defaultNsString,
-					WithClient(a),
-					WithWriter(a),
-					WithParent(n),
-					WithResumeTimeout(15*time.Second),
-					WithOffsetManager(&offset.MockManager{MemoryMap: map[string]uint64{}}),
-				)
-				return n, a, func() {}
-			},
-			9, 0, ErrResumeTimedOut,
-		},
-		{
-			"with_ctx_cancel",
-			func() (*Node, *StopWriter, func()) {
-				a := &StopWriter{
-					WriteErr: errors.New("bad write"),
-				}
-				n, _ := NewNodeWithOptions(
-					"ctx_cancel_starter", "stopWriter", defaultNsString,
-					WithClient(a),
-					WithReader(a),
-					WithCommitLog([]commitlog.OptionFunc{
-						commitlog.WithPath("testdata/restart_from_zero"),
-						commitlog.WithMaxSegmentBytes(1024),
-					}...),
-				)
-				NewNodeWithOptions(
-					"ctx_cancel_stopper", "stopWriter", defaultNsString,
-					WithClient(a),
-					WithWriter(a),
-					WithParent(n),
-					WithResumeTimeout(2*time.Second),
-					WithOffsetManager(&offset.MockManager{MemoryMap: map[string]uint64{}}),
-				)
-				return n, a, func() {}
-			},
-			1, 0, ErrResumeStopped,
+			0, 0, ErrResumeTimedOut,
 		},
 		{
 			"with_offset_commit_error",
@@ -685,7 +625,6 @@ var (
 					WithClient(a),
 					WithWriter(a),
 					WithParent(n),
-					WithResumeTimeout(2*time.Second),
 					WithOffsetManager(&offset.MockManager{
 						MemoryMap: map[string]uint64{},
 						CommitErr: errors.New("failed to commit offset"),
@@ -693,7 +632,7 @@ var (
 				)
 				return n, a, func() {}
 			},
-			9, 0, ErrResumeTimedOut,
+			2, 0, ErrResumeStopped,
 		},
 	}
 )
@@ -703,23 +642,12 @@ func TestStop(t *testing.T) {
 		log.Infof("starting %s", st.name)
 		source, s, deferFunc := st.node()
 		defer deferFunc()
-		errc := make(chan error, 1)
+		errors := make(chan error, 1)
 		go func() {
-			errc <- source.Start()
-			close(errc)
+			errors <- source.Start()
 		}()
-		var err error
-		select {
-		case <-source.pipe.Err:
-		case e := <-errc:
-			err = e
-		}
+		err := <-errors
 		source.Stop()
-		// need to check errc in case there was a pipe.Err
-		e, ok := <-errc
-		if ok {
-			err = e
-		}
 		if err != st.startErr {
 			t.Errorf("[%s] unexpected Start() error, expected %s, got %s", st.name, st.startErr, err)
 		}
