@@ -268,7 +268,6 @@ func (r *Reader) tailCollection(c string, mgoSession *mgo.Session, oplogTime bso
 							if err != nil {
 								// errors aren't fatal here, but we need to send it down the pipe
 								log.With("ns", result.Ns).Errorf("unable to getOriginalDoc, %s", err)
-								// m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("tail MongoDB error (%s)", err.Error()), nil)
 								continue
 							}
 						}
