@@ -88,7 +88,6 @@ func (p *Pipe) Listen(fn func(message.Msg, offset.Offset) (message.Msg, error)) 
 	p.listening = true
 	p.wg.Add(1)
 	for {
-		// check for stop
 		select {
 		case <-p.chStop:
 			if len(p.In) > 0 {

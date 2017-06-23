@@ -156,7 +156,6 @@ func (s *StopWriter) Write(msg message.Msg) func(client.Session) (message.Msg, e
 		s.MsgCount++
 		if msg.Confirms() != nil {
 			msg.Confirms() <- struct{}{}
-			// close(msg.Confirms())
 		}
 		return msg, s.WriteErr
 	}
@@ -625,6 +624,7 @@ var (
 					WithClient(a),
 					WithWriter(a),
 					WithParent(n),
+					WithResumeTimeout(5*time.Second),
 					WithOffsetManager(&offset.MockManager{
 						MemoryMap: map[string]uint64{},
 						CommitErr: errors.New("failed to commit offset"),
@@ -632,7 +632,7 @@ var (
 				)
 				return n, a, func() {}
 			},
-			2, 0, ErrResumeStopped,
+			2, 0, ErrResumeTimedOut,
 		},
 	}
 )

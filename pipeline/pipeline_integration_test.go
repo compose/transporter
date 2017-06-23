@@ -100,9 +100,7 @@ func TestFileToFile(t *testing.T) {
 	time.Sleep(1 * time.Second)
 	numgorosAfter := runtime.NumGoroutine()
 	if numgorosBefore < numgorosAfter {
-		trace := make([]byte, 10240)
-		runtime.Stack(trace, true)
-		t.Errorf("leaky goroutines detected, started with %d, ended with %d\n%s", numgorosBefore, numgorosAfter, trace)
+		t.Errorf("leaky goroutines detected, started with %d, ended with %d\n", numgorosBefore, numgorosAfter)
 	}
 
 	// compare the files

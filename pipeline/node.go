@@ -7,6 +7,7 @@
 package pipeline
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -73,6 +74,7 @@ type Node struct {
 	clog           *commitlog.CommitLog
 	om             offset.Manager
 	confirms       chan struct{}
+	confirmsDone   chan struct{}
 	pendingOffsets []offset.Offset
 	offsetLock     sync.Mutex
 	resumeTimeout  time.Duration
@@ -238,12 +240,11 @@ func (n *Node) String() string {
 func (n *Node) Start() error {
 	n.l = log.With("name", n.Name).With("type", n.Type).With("path", n.path)
 
+	errors := make(chan error, 1)
 	for _, child := range n.children {
 		child.l = log.With("name", child.Name).With("type", child.Type).With("path", child.path)
 		go func(node *Node) {
-			if err := node.Start(); err != nil {
-				node.l.Errorln(err)
-			}
+			errors <- node.Start()
 		}(child)
 	}
 
@@ -277,7 +278,10 @@ func (n *Node) Start() error {
 				n.l.Infoln("waiting for all children to resume...")
 				err := <-errc
 				for i := 1; i < cap(errc); i++ {
-					<-errc
+					e := <-errc
+					if err == nil && e != nil {
+						err = e
+					}
 				}
 				n.l.Infoln("done waiting for all children to resume")
 				if err != nil {
@@ -321,10 +325,16 @@ func (n *Node) Start() error {
 			go n.runCompaction()
 		}
 		n.l.Infof("starting with metadata %+v", msgMap)
-		return n.start(msgMap)
+		go func() {
+			errors <- n.start(msgMap)
+		}()
+	} else {
+		go func() {
+			errors <- n.listen()
+		}()
 	}
 
-	return n.listen()
+	return <-errors
 }
 
 func (n *Node) resume(newestOffset int64, r io.Reader) error {
@@ -417,9 +427,9 @@ func (n *Node) start(nsMap map[string]client.MessageSet) error {
 	}
 	if closer, ok := s.(client.Closer); ok {
 		defer func() {
-			n.l.Infoln("closing session...")
+			n.l.Debugln("closing session...")
 			closer.Close()
-			n.l.Infoln("session closed...")
+			n.l.Debugln("session closed...")
 		}()
 	}
 	readFunc := n.reader.Read(nsMap, func(check string) bool { return n.nsFilter.MatchString(check) })
@@ -466,6 +476,7 @@ func (n *Node) listen() error {
 	if n.om != nil {
 		errors = make(chan error, 2)
 		n.confirms = make(chan struct{})
+		n.confirmsDone = make(chan struct{})
 		n.pendingOffsets = make([]offset.Offset, 0)
 		go func() {
 			errors <- n.waitForConfirms()
@@ -476,19 +487,12 @@ func (n *Node) listen() error {
 		errors <- n.pipe.Listen(n.write)
 	}()
 
-	err := <-errors
-	n.l.Infoln("error returned, wait for other routines to stop")
-	if err == ErrConfirmOffset {
-		go n.pipe.Stop()
-		return err
-	}
+	return <-errors
+}
 
-	for i := 1; i < cap(errors); i++ {
-		<-errors
-	}
-	n.l.Infoln("all routines returned")
-
-	return err
+type writeResult struct {
+	msg message.Msg
+	err error
 }
 
 func (n *Node) write(msg message.Msg, off offset.Offset) (message.Msg, error) {
@@ -506,7 +510,20 @@ func (n *Node) write(msg message.Msg, off offset.Offset) (message.Msg, error) {
 		n.pendingOffsets = append(n.pendingOffsets, off)
 		n.offsetLock.Unlock()
 	}
-	return client.Write(n.c, n.writer, msg)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+	c := make(chan writeResult)
+	go func() {
+		m, err := client.Write(n.c, n.writer, msg)
+		c <- writeResult{m, err}
+	}()
+	select {
+	case wr := <-c:
+		return wr.msg, wr.err
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
 
 func (n *Node) waitForConfirms() error {
@@ -514,11 +531,10 @@ func (n *Node) waitForConfirms() error {
 		select {
 		case <-n.confirms:
 			if err := n.confirmOffsets(); err != nil {
-				n.l.Errorf("confirmOffset err, %s", err)
 				return ErrConfirmOffset
 			}
-		case <-n.done:
-			n.l.Infoln("closing waitForConfirms routine")
+		case <-n.confirmsDone:
+			n.l.Infoln("waitForConfirms stopped")
 			return nil
 		}
 	}
@@ -527,7 +543,6 @@ func (n *Node) waitForConfirms() error {
 func (n *Node) confirmOffsets() error {
 	n.offsetLock.Lock()
 	defer n.offsetLock.Unlock()
-	// n.confirms = make(chan struct{})
 	for i := len(n.pendingOffsets) - 1; i >= 0; i-- {
 		if err := n.om.CommitOffset(n.pendingOffsets[i], false); err != nil {
 			return err
@@ -573,25 +588,21 @@ func (n *Node) Stop() {
 func (n *Node) stop() error {
 	n.l.Infoln("adaptor Stopping...")
 	n.pipe.Stop()
-	n.l.Infoln("pipe stopped...")
-
 	close(n.done)
-	n.l.Infoln("done chan closed...")
 	n.wg.Wait()
-	n.l.Infoln("wait group done...")
+
+	if n.om != nil {
+		close(n.confirmsDone)
+	}
 
 	if closer, ok := n.writer.(client.Closer); ok {
 		defer func() {
-			n.l.Infoln("closing writer...")
 			closer.Close()
-			n.l.Infoln("writer closed...")
 		}()
 	}
 	if closer, ok := n.c.(client.Closer); ok {
 		defer func() {
-			n.l.Infoln("closing connection...")
 			closer.Close()
-			n.l.Infoln("connection closed...")
 		}()
 	}
 
