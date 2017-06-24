@@ -85,6 +85,7 @@ type config struct {
 	LogDir             string `json:"log_dir"`
 	MaxSegmentBytes    int    `json:"max_segment_bytes"`
 	CompactionInterval string `json:"compaction_interval"`
+	WriteTimeout       string `json:"write_timeout"`
 }
 
 // Node encapsulates a sink/source node in the pipeline.
@@ -247,6 +248,7 @@ func (n *Node) Save(call goja.FunctionCall) goja.Value {
 		pipeline.WithParent(n.parent),
 		pipeline.WithClient(a.a),
 		pipeline.WithWriter(a.a),
+		pipeline.WithWriteTimeout(n.config.WriteTimeout),
 	}
 
 	if n.config.LogDir != "" {
@@ -272,6 +274,7 @@ func (tf *Transformer) Save(call goja.FunctionCall) goja.Value {
 		pipeline.WithClient(a.a),
 		pipeline.WithWriter(a.a),
 		pipeline.WithTransforms(tf.transforms),
+		pipeline.WithWriteTimeout(tf.config.WriteTimeout),
 	}
 
 	if tf.config.LogDir != "" {

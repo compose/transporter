@@ -31,6 +31,7 @@ import (
 
 const (
 	defaultCompactionInterval = 1 * time.Hour
+	defaultWriteTimeout       = 5 * time.Second
 )
 
 var (
@@ -78,6 +79,7 @@ type Node struct {
 	pendingOffsets []offset.Offset
 	offsetLock     sync.Mutex
 	resumeTimeout  time.Duration
+	writeTimeout   time.Duration
 
 	compactionInterval time.Duration
 }
@@ -110,6 +112,7 @@ func NewNodeWithOptions(name, kind, ns string, options ...OptionFunc) (*Node, er
 		reader:             &client.MockReader{},
 		writer:             &client.MockWriter{},
 		resumeTimeout:      60 * time.Second,
+		writeTimeout:       defaultWriteTimeout,
 		compactionInterval: defaultCompactionInterval,
 	}
 	// Run the options on it
@@ -184,6 +187,22 @@ func WithCommitLog(options ...commitlog.OptionFunc) OptionFunc {
 func WithResumeTimeout(timeout time.Duration) OptionFunc {
 	return func(n *Node) error {
 		n.resumeTimeout = timeout
+		return nil
+	}
+}
+
+// WithWriteTimeout configures the timeout duration for a writer to return.
+func WithWriteTimeout(timeout string) OptionFunc {
+	return func(n *Node) error {
+		if timeout == "" {
+			n.writeTimeout = defaultWriteTimeout
+			return nil
+		}
+		wt, err := time.ParseDuration(timeout)
+		if err != nil {
+			return err
+		}
+		n.writeTimeout = wt
 		return nil
 	}
 }
@@ -511,7 +530,7 @@ func (n *Node) write(msg message.Msg, off offset.Offset) (message.Msg, error) {
 		n.offsetLock.Unlock()
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), n.writeTimeout)
 	defer cancel()
 	c := make(chan writeResult)
 	go func() {
