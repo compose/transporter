@@ -218,6 +218,33 @@ var (
 			10, 0, nil,
 		},
 		{
+			"with_write_timeout",
+			func() (*Node, *StopWriter, func()) {
+				dataDir := scratchDataDir("write_timeout")
+				a := &StopWriter{SendCount: 10}
+				n, _ := NewNodeWithOptions(
+					"write_timeout_source", "stopWriter", defaultNsString,
+					WithClient(a),
+					WithReader(a),
+					WithCommitLog([]commitlog.OptionFunc{
+						commitlog.WithPath(dataDir),
+						commitlog.WithMaxSegmentBytes(1024),
+					}...),
+				)
+				om, _ := offset.NewLogManager(dataDir, "stopper")
+				NewNodeWithOptions(
+					"write_timeout_sink", "stopWriter", defaultNsString,
+					WithClient(a),
+					WithWriter(a),
+					WithParent(n),
+					WithOffsetManager(om),
+					WithWriteTimeout("1m"),
+				)
+				return n, a, func() { os.RemoveAll(dataDir) }
+			},
+			10, 0, nil,
+		},
+		{
 			"with_transform",
 			func() (*Node, *StopWriter, func()) {
 				dataDir := scratchDataDir("mocktransform")

@@ -8,5 +8,10 @@ enron_sink_rethink = rethinkdb({
   "ssl": true
 })
 
-t.Source("enron_source_mongo", enron_source_mongo, "emails")
+var config = {
+  "write_timeout": "30s",
+}
+
+t.Config(config)
+  .Source("enron_source_mongo", enron_source_mongo, "emails")
   .Save("enron_sink_rethink", enron_sink_rethink, "emails");
