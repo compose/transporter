@@ -91,7 +91,7 @@ func (p *Pipe) Listen(fn func(message.Msg, offset.Offset) (message.Msg, error)) 
 		select {
 		case <-p.chStop:
 			if len(p.In) > 0 {
-				log.With("buffer_length", len(p.In)).Infoln("received stop, message buffer not empty, continuing...")
+				log.With("path", p.path).With("buffer_length", len(p.In)).Infoln("received stop, message buffer not empty, continuing...")
 				continue
 			}
 			log.Infoln("received stop, message buffer is empty, closing...")
@@ -133,7 +133,7 @@ func (p *Pipe) Stop() {
 		for {
 			select {
 			case <-timeout:
-				log.Errorln("timeout reached waiting for Out channels to clear")
+				log.With("path", p.path).Errorln("timeout reached waiting for Out channels to clear")
 				return
 			default:
 			}
