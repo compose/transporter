@@ -97,7 +97,8 @@ var source = mongodb({
   // "wc": 1,
   // "fsync": false,
   // "bulk": false,
-  // "collection_filters": "{}"
+  // "collection_filters": "{}",
+  // "read_preference": "Primary"
 })
 
 var sink = elasticsearch({

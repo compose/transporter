@@ -15,6 +15,7 @@ var (
 		uri:            DefaultURI,
 		sessionTimeout: DefaultSessionTimeout,
 		safety:         DefaultSafety,
+		readPreference: DefaultReadPreference,
 	}
 	defaultSession *Session
 

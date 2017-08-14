@@ -21,7 +21,8 @@ const (
   // "wc": 1,
   // "fsync": false,
   // "bulk": false,
-  // "collection_filters": "{}"
+  // "collection_filters": "{}",
+  // "read_preference": "Primary"
 }`
 )
 
@@ -43,6 +44,7 @@ type MongoDB struct {
 	FSync             bool     `json:"fsync"`
 	Bulk              bool     `json:"bulk"`
 	CollectionFilters string   `json:"collection_filters"`
+	ReadPreference    string   `json:"read_preference"`
 }
 
 func init() {
@@ -61,7 +63,8 @@ func (m *MongoDB) Client() (client.Client, error) {
 		WithCACerts(m.CACerts),
 		WithFsync(m.FSync),
 		WithTail(m.Tail),
-		WithWriteConcern(m.Wc))
+		WithWriteConcern(m.Wc),
+		WithReadPreference(m.ReadPreference))
 }
 
 func (m *MongoDB) Reader() (client.Reader, error) {
