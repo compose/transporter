@@ -1,3 +1,14 @@
+## v0.4.0 [2017-08-15]
+
+### Features
+- updated to Go 1.8
+- MongoDB Read Preferences [#393](https://github.com/compose/transporter/pull/393), thanks @SamBartrum!
+- ability to support [Continuous Change Data Capture](https://github.com/compose/transporter/blob/master/DESIGN.md#continuous-change-data-capture) as a Beta feature, see *BETA Feature* section on [README](https://github.com/compose/transporter#about)
+
+### Bugfixes
+- when using MongoDB as a source with tailing enabled and namespace filtering, it was possible for documents
+from others collections to be sent down the pipeline, fixed via [#386](https://github.com/compose/transporter/pull/386)
+
 ## v0.3.1 [2017-03-24]
 
 ### Features
