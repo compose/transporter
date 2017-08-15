@@ -8,6 +8,7 @@
 ### Bugfixes
 - when using MongoDB as a source with tailing enabled and namespace filtering, it was possible for documents
 from others collections to be sent down the pipeline, fixed via [#386](https://github.com/compose/transporter/pull/386)
+- if transporter lost connection to MongoDB while tailing the oplog, the connection never successfully reconnected, fixed via [#398](https://github.com/compose/transporter/pull/398)
 
 ## v0.3.1 [2017-03-24]
 
