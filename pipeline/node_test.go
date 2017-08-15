@@ -613,7 +613,7 @@ var (
 			func() (*Node, *StopWriter, func()) {
 				a := &StopWriter{}
 				n, _ := NewNodeWithOptions(
-					"starter", "stopWriter", defaultNsString,
+					"ns_filter_starter", "stopWriter", defaultNsString,
 					WithClient(a),
 					WithReader(a),
 					WithCommitLog([]commitlog.OptionFunc{
@@ -622,16 +622,15 @@ var (
 					}...),
 				)
 				NewNodeWithOptions(
-					"stopper", "stopWriter", "/blah/",
+					"ns_filter_stopper", "stopWriter", "/blah/",
 					WithClient(a),
 					WithWriter(a),
 					WithParent(n),
-					WithResumeTimeout(5*time.Second),
 					WithOffsetManager(&offset.MockManager{MemoryMap: map[string]uint64{}}),
 				)
 				return n, a, func() {}
 			},
-			0, 0, ErrResumeTimedOut,
+			0, 0, nil,
 		},
 		{
 			"with_offset_commit_error",

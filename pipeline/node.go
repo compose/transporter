@@ -104,7 +104,7 @@ func NewNodeWithOptions(name, kind, ns string, options ...OptionFunc) (*Node, er
 		path:               name,
 		depth:              1,
 		nsFilter:           compiledNs,
-		pipe:               pipe.NewPipe(nil, ""),
+		pipe:               pipe.NewPipe(nil, name),
 		children:           make([]*Node, 0),
 		transforms:         make([]*Transform, 0),
 		done:               make(chan struct{}),
@@ -156,11 +156,10 @@ func WithWriter(a adaptor.Adaptor) OptionFunc {
 func WithParent(parent *Node) OptionFunc {
 	return func(n *Node) error {
 		n.parent = parent
-		// TODO: remove path param
-		n.pipe = pipe.NewPipe(parent.pipe, "")
 		parent.children = append(parent.children, n)
 		n.path = parent.path + "/" + n.Name
 		n.depth = parent.depth + 1
+		n.pipe = pipe.NewPipe(parent.pipe, n.path)
 		return nil
 	}
 }
@@ -515,21 +514,39 @@ type writeResult struct {
 }
 
 func (n *Node) write(msg message.Msg, off offset.Offset) (message.Msg, error) {
-	if !n.nsFilter.MatchString(msg.Namespace()) {
-		n.l.With("ns", msg.Namespace()).Debugln("message skipped by namespace filter")
-		return msg, nil
-	}
-	msg, err := n.applyTransforms(msg)
-	if err != nil || msg == nil {
-		return nil, err
-	}
 	if n.om != nil {
 		n.offsetLock.Lock()
 		msg = message.WithConfirms(n.confirms, msg)
-		n.pendingOffsets = append(n.pendingOffsets, off)
 		n.offsetLock.Unlock()
 	}
+	if !n.nsFilter.MatchString(msg.Namespace()) {
+		n.l.With("ns", msg.Namespace()).Debugln("message skipped by namespace filter")
+		if msg.Confirms() != nil {
+			n.offsetLock.Lock()
+			if len(n.pendingOffsets) == 0 {
+				n.om.CommitOffset(off, false)
+			}
+			n.offsetLock.Unlock()
+		}
+		return msg, nil
+	}
+	msg, err := n.applyTransforms(msg)
+	if err != nil {
+		return nil, err
+	} else if msg == nil {
+		if n.om != nil {
+			n.offsetLock.Lock()
+			if len(n.pendingOffsets) == 0 {
+				n.om.CommitOffset(off, false)
+			}
+			n.offsetLock.Unlock()
+		}
+		return nil, err
+	}
 
+	n.offsetLock.Lock()
+	n.pendingOffsets = append(n.pendingOffsets, off)
+	n.offsetLock.Unlock()
 	ctx, cancel := context.WithTimeout(context.Background(), n.writeTimeout)
 	defer cancel()
 	c := make(chan writeResult)
