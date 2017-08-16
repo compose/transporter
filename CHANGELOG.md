@@ -1,3 +1,8 @@
+## v0.4.1 [UNRELEASED]
+
+### Bugfixes
+- when using an adaptor that was configured for flushing bulk messages based on an interval, it was possible for the bulk flush to error but not propagated back up to the pipeline, fixed via [#399](https://github.com/compose/transporter/pull/399)
+
 ## v0.4.0 [2017-08-15]
 
 ### Features
