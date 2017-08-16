@@ -71,6 +71,7 @@ Each native function can be used as part of a `Transform` step in the pipeline.
 * [pick](./function/pick)
 * [pretty](./function/pretty)
 * [rename](./function/rename)
+* [remap](./function/remap)
 * [skip](./function/skip)
 
 Commands

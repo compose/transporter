@@ -1,5 +1,9 @@
 ## v0.4.1 [UNRELEASED]
 
+### Features
+- new `remap` function for changing the namespace with a native function versus needing a custom
+JS function to do it, fixed via [#400](https://github.com/compose/transporter/pull/400)
+
 ### Bugfixes
 - when using an adaptor that was configured for flushing bulk messages based on an interval, it was possible for the bulk flush to error but not propagated back up to the pipeline, fixed via [#399](https://github.com/compose/transporter/pull/399)
 
