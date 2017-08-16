@@ -25,6 +25,7 @@ type Msg interface {
 	Timestamp() int64
 	Data() data.Data
 	Namespace() string
+	UpdateNamespace(string)
 	Confirms() chan struct{}
 }
 
@@ -70,6 +71,11 @@ func (m *Base) Namespace() string {
 	return m.NS
 }
 
+// UpdateNamespace provides access to change the current namespace associated with the message.
+func (m *Base) UpdateNamespace(newNs string) {
+	m.NS = newNs
+}
+
 // OP returns the type of operation the message is associated with (i.e. insert/update/delete).
 func (m *Base) OP() ops.Op {
 	return m.Operation
@@ -95,6 +101,7 @@ func (m *Base) ID() string {
 	}
 }
 
+// Confirms provides access to the underlying channel.
 func (m *Base) Confirms() chan struct{} {
 	return m.confirm
 }

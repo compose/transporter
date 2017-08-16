@@ -68,3 +68,11 @@ func TestID(t *testing.T) {
 		}
 	}
 }
+
+func TestUpdateNamespace(t *testing.T) {
+	orig := From(ops.Insert, "foo", nil)
+	orig.UpdateNamespace("bar")
+	if orig.Namespace() != "bar" {
+		t.Errorf("UpdateNamespace failed, expected %s, got %s", "bar", orig.Namespace())
+	}
+}
