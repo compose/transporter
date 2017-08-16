@@ -74,10 +74,14 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 			w.Unlock()
 			w.opCounter++
 			if w.opCounter >= maxObjSize {
-				w.flushAll()
+				if err := w.flushAll(); err != nil {
+					return nil, err
+				}
 			}
 		case ops.Update:
-			w.flushAll()
+			if err := w.flushAll(); err != nil {
+				return nil, err
+			}
 			return msg, do(
 				r.DB(rSession.Database()).Table(table).Insert(prepareDocument(msg), r.InsertOpts{Conflict: "replace"}),
 				rSession,
@@ -102,6 +106,7 @@ func prepareDocument(msg message.Msg) map[string]interface{} {
 }
 
 func (w *Writer) run(done chan struct{}, wg *sync.WaitGroup) {
+	defer wg.Done()
 	for {
 		select {
 		case <-time.After(2 * time.Second):
@@ -111,8 +116,9 @@ func (w *Writer) run(done chan struct{}, wg *sync.WaitGroup) {
 			}
 		case <-done:
 			log.Debugln("received done channel")
-			w.flushAll()
-			wg.Done()
+			if err := w.flushAll(); err != nil {
+				log.Errorf("flush error, %s", err)
+			}
 			return
 		}
 	}

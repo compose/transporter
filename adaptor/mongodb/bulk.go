@@ -105,14 +105,19 @@ func (bOp *bulkOperation) calculateAvgObjSize(d data.Data) {
 }
 
 func (b *Bulk) run(done chan struct{}, wg *sync.WaitGroup) {
+	defer wg.Done()
 	for {
 		select {
 		case <-time.After(2 * time.Second):
-			b.flushAll()
+			if err := b.flushAll(); err != nil {
+				log.Errorf("flush error, %s", err)
+				return
+			}
 		case <-done:
 			log.Debugln("received done channel")
-			b.flushAll()
-			wg.Done()
+			if err := b.flushAll(); err != nil {
+				log.Errorf("flush error, %s", err)
+			}
 			return
 		}
 	}

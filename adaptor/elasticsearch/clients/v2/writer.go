@@ -29,6 +29,7 @@ type Writer struct {
 	sync.Mutex
 	confirmChan chan struct{}
 	logger      log.Logger
+	writeError  error
 }
 
 func init() {
@@ -72,6 +73,9 @@ func init() {
 
 func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error) {
 	return func(s client.Session) (message.Msg, error) {
+		if w.writeError != nil {
+			return msg, w.writeError
+		}
 		w.Lock()
 		w.confirmChan = msg.Confirms()
 		w.Unlock()
@@ -125,4 +129,5 @@ func (w *Writer) postBulkProcessor(executionID int64, reqs []elastic.BulkableReq
 	if err != nil {
 		w.logger.With("executionID", executionID).Errorln(err)
 	}
+	w.writeError = err
 }
