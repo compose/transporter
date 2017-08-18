@@ -52,8 +52,9 @@ func init() {
 			return nil, err
 		}
 		w := &Writer{
-			index:  opts.Index,
-			logger: log.With("writer", "elasticsearch").With("version", 5),
+			index:    opts.Index,
+			parentId: opts.ParentId,
+			logger:   log.With("writer", "elasticsearch").With("version", 5),
 		}
 		p, err := esClient.BulkProcessor().
 			Name("TransporterWorker-1").
@@ -95,13 +96,13 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 			w.bp.Flush()
 			br = elastic.NewBulkDeleteRequest().Index(w.index).Type(indexType).Id(id)
 		case ops.Insert:
-			if _, ok := msg.Data()["elastic_parent"]; ok {
+			if _, ok := msg.Data()[w.parentId]; ok {
 
 				var parent_id string
 				indexReq := elastic.NewBulkIndexRequest().Index(w.index).Type(indexType).Id(id)
-				if parent_id, ok := msg.Data()["elastic_parent"]; ok {
+				if parent_id, ok := msg.Data()[w.parentId]; ok {
 					indexReq.Parent(parent_id)
-					msg.Data().Delete("elastic_parent")
+					msg.Data().Delete(w.parentId)
 				}
 				indexReq.Doc(msg.Data())
 				br = indexReq
@@ -110,12 +111,12 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 				br = elastic.NewBulkIndexRequest().Index(w.index).Type(indexType).Id(id).Doc(msg.Data())
 			}
 		case ops.Update:
-			if _, ok := msg.Data()["elastic_parent"]; ok {
+			if _, ok := msg.Data()[w.parentId]; ok {
 				var parent_id string
 				indexReq := elastic.NewBulkIndexRequest().Index(w.index).Type(indexType).Id(id)
-				if parent_id, ok := msg.Data()["elastic_parent"]; ok {
+				if parent_id, ok := msg.Data()[w.parentId]; ok {
 					indexReq.Parent(parent_id)
-					msg.Data().Delete("elastic_parent")
+					msg.Data().Delete(w.parentId)
 				}
 				indexReq.Doc(msg.Data())
 				br = indexReq
