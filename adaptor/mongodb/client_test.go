@@ -24,6 +24,11 @@ var errorTests = []struct {
 		"oplog access failed, database missing oplog.rs collection",
 		OplogAccessError{"database missing oplog.rs collection"},
 	},
+	{
+		"InvalidReadPreferenceError",
+		"Invalid Read Preference, fakeReadPreference",
+		InvalidReadPreferenceError{"fakeReadPreference"},
+	},
 }
 
 func TestErrors(t *testing.T) {
@@ -65,6 +70,7 @@ var (
 		uri:            DefaultURI,
 		sessionTimeout: DefaultSessionTimeout,
 		safety:         DefaultSafety,
+		readPreference: DefaultReadPreference,
 	}
 
 	certPool = func() *x509.CertPool {
@@ -93,6 +99,7 @@ var clientTests = []struct {
 			uri:            "mongodb://fakeurl:27017",
 			sessionTimeout: DefaultSessionTimeout,
 			safety:         DefaultSafety,
+			readPreference: DefaultReadPreference,
 		},
 		nil,
 	},
@@ -109,6 +116,8 @@ var clientTests = []struct {
 			uri:            DefaultURI,
 			sessionTimeout: 30 * time.Second,
 			safety:         DefaultSafety,
+			readPreference: DefaultReadPreference,
+
 		},
 		nil,
 	},
@@ -131,6 +140,7 @@ var clientTests = []struct {
 			uri:            DefaultURI,
 			sessionTimeout: DefaultSessionTimeout,
 			safety:         mgo.Safe{W: 2},
+			readPreference: DefaultReadPreference,
 		},
 		nil,
 	},
@@ -141,6 +151,7 @@ var clientTests = []struct {
 			uri:            DefaultURI,
 			sessionTimeout: DefaultSessionTimeout,
 			safety:         mgo.Safe{FSync: true},
+			readPreference: DefaultReadPreference,
 		},
 		nil,
 	},
@@ -152,6 +163,7 @@ var clientTests = []struct {
 			sessionTimeout: DefaultSessionTimeout,
 			safety:         DefaultSafety,
 			tail:           true,
+			readPreference: DefaultReadPreference,
 		},
 		nil,
 	},
@@ -163,6 +175,7 @@ var clientTests = []struct {
 			sessionTimeout: DefaultSessionTimeout,
 			safety:         DefaultSafety,
 			tlsConfig:      &tls.Config{InsecureSkipVerify: true, RootCAs: x509.NewCertPool()},
+			readPreference: DefaultReadPreference,
 		},
 		nil,
 	},
@@ -174,6 +187,7 @@ var clientTests = []struct {
 			sessionTimeout: DefaultSessionTimeout,
 			safety:         DefaultSafety,
 			tlsConfig:      &tls.Config{InsecureSkipVerify: false, RootCAs: certPool()},
+			readPreference: DefaultReadPreference,
 		},
 		nil,
 	},
@@ -185,6 +199,7 @@ var clientTests = []struct {
 			sessionTimeout: DefaultSessionTimeout,
 			safety:         DefaultSafety,
 			tlsConfig:      &tls.Config{InsecureSkipVerify: false, RootCAs: certPool()},
+			readPreference: DefaultReadPreference,
 		},
 		nil,
 	},
@@ -196,6 +211,7 @@ var clientTests = []struct {
 			sessionTimeout: DefaultSessionTimeout,
 			safety:         DefaultSafety,
 			tlsConfig:      &tls.Config{InsecureSkipVerify: false, RootCAs: certPool()},
+			readPreference: DefaultReadPreference,
 		},
 		&os.PathError{Op: "open", Path: "testdata/ca_no_perms.pem", Err: os.ErrPermission},
 	},
@@ -207,6 +223,7 @@ var clientTests = []struct {
 			sessionTimeout: DefaultSessionTimeout,
 			safety:         DefaultSafety,
 			tlsConfig:      &tls.Config{InsecureSkipVerify: false, RootCAs: certPool()},
+			readPreference: DefaultReadPreference,
 		},
 		nil,
 	},
@@ -218,8 +235,75 @@ var clientTests = []struct {
 			sessionTimeout: DefaultSessionTimeout,
 			safety:         DefaultSafety,
 			tlsConfig:      &tls.Config{InsecureSkipVerify: false, RootCAs: certPool()},
+			readPreference: DefaultReadPreference,
 		},
 		client.ErrInvalidCert,
+	},
+	{
+		"with_read_preference_invalid",
+		[]ClientOptionFunc{WithReadPreference("blah")},
+		&Client{},
+		InvalidReadPreferenceError{ReadPreference: "blah"},
+	},
+	{
+		"with_primary_read_preference",
+		[]ClientOptionFunc{WithReadPreference("Primary")},
+		&Client{
+			uri:            DefaultURI,
+			sessionTimeout: DefaultSessionTimeout,
+			readPreference: 2,
+		},
+		nil,
+	},
+	{
+		"with_primary_preferred_read_preference_valid",
+		[]ClientOptionFunc{WithReadPreference("PrimaryPreferred")},
+		&Client{
+			uri:            DefaultURI,
+			sessionTimeout: DefaultSessionTimeout,
+			readPreference: 3,
+		},
+		nil,
+	},
+	{
+		"with_secondary_read_preference_valid",
+		[]ClientOptionFunc{WithReadPreference("Secondary")},
+		&Client{
+			uri:            DefaultURI,
+			sessionTimeout: DefaultSessionTimeout,
+			readPreference: 4,
+		},
+		nil,
+	},
+	{
+		"with_secondary_preferred_read_preference_valid",
+		[]ClientOptionFunc{WithReadPreference("SecondaryPreferred")},
+		&Client{
+			uri:            DefaultURI,
+			sessionTimeout: DefaultSessionTimeout,
+			readPreference: 5,
+		},
+		nil,
+	},
+	{
+		"with_nearest_read_preference_valid",
+		[]ClientOptionFunc{WithReadPreference("Nearest")},
+		&Client{
+			uri:            DefaultURI,
+			sessionTimeout: DefaultSessionTimeout,
+			readPreference: 6,
+		},
+		nil,
+	},
+	{
+		"with_default_read_preference",
+		[]ClientOptionFunc{WithReadPreference("")},
+		&Client{
+			uri:            DefaultURI,
+			sessionTimeout: DefaultSessionTimeout,
+			readPreference: 2,
+		},
+		nil,
 	},
 }
 

@@ -292,7 +292,7 @@ func (r *Reader) tailCollection(c string, mgoSession *mgo.Session, oplogTime bso
 			}
 			if iter.Err() != nil {
 				log.With("path", db).Errorf("error tailing oplog, %s", iter.Err())
-				// return adaptor.NewError(adaptor.CRITICAL, m.path, fmt.Sprintf("MongoDB error (error reading collection %s)", iter.Err()), nil)
+				mgoSession.Refresh()
 			}
 
 			query = bson.M{"ts": bson.M{"$gte": oplogTime}}
