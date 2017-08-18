@@ -98,39 +98,28 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 			if _, ok := msg.Data()["elastic_parent"]; ok {
 
 				var parent_id string
-				switch msg.Data()["elastic_parent"].(type) {
-				case string:
-					parent_id = msg.Data()["elastic_parent"].(string)
-				case bson.ObjectId:
-					var parent bson.ObjectId
-					parent = msg.Data()["elastic_parent"].(bson.ObjectId)
-					parent_id = parent.Hex()
-				default:
-					parent_id = fmt.Sprintf("%v", msg.Data()["elastic_parent"])
+				indexReq := elastic.NewBulkIndexRequest().Index(w.index).Type(indexType).Id(id)
+				if parent_id, ok := msg.Data()["elastic_parent"]; ok {
+					indexReq.Parent(parent_id)
+					msg.Data().Delete("elastic_parent")
 				}
-
-				br = elastic.NewBulkIndexRequest().Index(w.index).Type(indexType).Id(id).Parent(parent_id).Doc(msg.Data())
-				msg.Data().Delete("elastic_parent")
-			}else{
+				indexReq.Doc(msg.Data())
+				br = indexReq
+			} else {
 
 				br = elastic.NewBulkIndexRequest().Index(w.index).Type(indexType).Id(id).Doc(msg.Data())
 			}
 		case ops.Update:
 			if _, ok := msg.Data()["elastic_parent"]; ok {
 				var parent_id string
-				switch msg.Data()["elastic_parent"].(type) {
-				case string:
-					parent_id = msg.Data()["elastic_parent"].(string)
-				case bson.ObjectId:
-					var parent bson.ObjectId
-					parent = msg.Data()["elastic_parent"].(bson.ObjectId)
-					parent_id = parent.Hex()
-				default:
-					parent_id = fmt.Sprintf("%v", msg.Data()["elastic_parent"])
+				indexReq := elastic.NewBulkIndexRequest().Index(w.index).Type(indexType).Id(id)
+				if parent_id, ok := msg.Data()["elastic_parent"]; ok {
+					indexReq.Parent(parent_id)
+					msg.Data().Delete("elastic_parent")
 				}
-				br = elastic.NewBulkUpdateRequest().Index(w.index).Type(indexType).Id(id).Parent(parent_id).Doc(msg.Data())
-				msg.Data().Delete("elastic_parent")
-			}else{
+				indexReq.Doc(msg.Data())
+				br = indexReq
+			} else {
 				br = elastic.NewBulkUpdateRequest().Index(w.index).Type(indexType).Id(id).Doc(msg.Data())
 			}
 
