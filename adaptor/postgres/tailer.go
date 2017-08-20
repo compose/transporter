@@ -72,7 +72,7 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 	}
 }
 
-// Use Postgres logical decoding to retreive the latest changes
+// Use Postgres logical decoding to retrieve the latest changes
 func (t *Tailer) pluckFromLogicalDecoding(s *Session, filterFn client.NsFilterFunc) ([]client.MessageSet, error) {
 	var result []client.MessageSet
 	dataMatcher := regexp.MustCompile("^table ([^\\.]+).([^\\.]+): (INSERT|DELETE|UPDATE): (.+)$") // 1 - schema, 2 - table, 3 - action, 4 - remaining
