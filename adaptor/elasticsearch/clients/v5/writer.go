@@ -14,7 +14,6 @@ import (
 	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/message/ops"
 	version "github.com/hashicorp/go-version"
-	"gopkg.in/mgo.v2/bson"
 )
 
 var (
@@ -31,6 +30,7 @@ type Writer struct {
 	confirmChan chan struct{}
 	logger      log.Logger
 	writeErr    error
+	parentId    string
 }
 
 func init() {
@@ -87,6 +87,11 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 			id = msg.ID()
 			msg.Data().Delete("_id")
 		}
+		var parent_id string
+		if _, ok := msg.Data()[w.parentId]; ok {
+			parent_id = msg.Data()[w.parentId].(string)
+			msg.Data().Delete(w.parentId)
+		}
 
 		var br elastic.BulkableRequest
 		switch msg.OP() {
@@ -96,34 +101,19 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 			w.bp.Flush()
 			br = elastic.NewBulkDeleteRequest().Index(w.index).Type(indexType).Id(id)
 		case ops.Insert:
-			if _, ok := msg.Data()[w.parentId]; ok {
-
-				var parent_id string
-				indexReq := elastic.NewBulkIndexRequest().Index(w.index).Type(indexType).Id(id)
-				if parent_id, ok := msg.Data()[w.parentId]; ok {
-					indexReq.Parent(parent_id)
-					msg.Data().Delete(w.parentId)
-				}
-				indexReq.Doc(msg.Data())
-				br = indexReq
-			} else {
-
-				br = elastic.NewBulkIndexRequest().Index(w.index).Type(indexType).Id(id).Doc(msg.Data())
+			indexReq := elastic.NewBulkIndexRequest().Index(w.index).Type(indexType).Id(id)
+			if parent_id != "" {
+				indexReq.Parent(parent_id)
 			}
+			indexReq.Doc(msg.Data())
+			br = indexReq
 		case ops.Update:
-			if _, ok := msg.Data()[w.parentId]; ok {
-				var parent_id string
-				indexReq := elastic.NewBulkIndexRequest().Index(w.index).Type(indexType).Id(id)
-				if parent_id, ok := msg.Data()[w.parentId]; ok {
-					indexReq.Parent(parent_id)
-					msg.Data().Delete(w.parentId)
-				}
-				indexReq.Doc(msg.Data())
-				br = indexReq
-			} else {
-				br = elastic.NewBulkUpdateRequest().Index(w.index).Type(indexType).Id(id).Doc(msg.Data())
+			indexReq := elastic.NewBulkUpdateRequest().Index(w.index).Type(indexType).Id(id)
+			if parent_id != "" {
+				indexReq.Parent(parent_id)
 			}
-
+			indexReq.Doc(msg.Data())
+			br = indexReq
 		}
 
 		w.bp.Add(br)
