@@ -111,14 +111,12 @@ func setupWriter(conf *Elasticsearch) (client.Writer, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	v, err := version.NewVersion(stringVersion)
 	if err != nil {
 		return nil, client.VersionError{URI: conf.URI, V: stringVersion, Err: err.Error()}
 	}
-	if conf.ParentId == "" {
-		parentIdentifier = "elastic_parent"
-	} else {
+	var parentIdentifier = "elastic_parent"
+	if conf.ParentId != "" {
 		parentIdentifier = conf.ParentId
 	}
 	for _, vc := range clients.Clients {
