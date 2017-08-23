@@ -29,6 +29,7 @@ type Writer struct {
 	sync.Mutex
 	confirmChan chan struct{}
 	logger      log.Logger
+	writeErr    error
 }
 
 func init() {
@@ -56,12 +57,12 @@ func init() {
 		p, err := esClient.BulkProcessor().
 			Name("TransporterWorker-1").
 			Workers(2).
-			BulkActions(1000).               // commit if # requests >= 1000
-			BulkSize(2 << 20).               // commit if size of requests >= 2 MB
-			FlushInterval(30 * time.Second). // commit every 30s
+			BulkActions(1000).              // commit if # requests >= 1000
+			BulkSize(2 << 20).              // commit if size of requests >= 2 MB
+			FlushInterval(5 * time.Second). // commit every 5s
 			Before(w.preBulkProcessor).
 			After(w.postBulkProcessor).
-			Do(context.TODO())
+			Do(context.Background())
 		if err != nil {
 			return nil, err
 		}
@@ -72,6 +73,9 @@ func init() {
 
 func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error) {
 	return func(s client.Session) (message.Msg, error) {
+		if w.writeErr != nil {
+			return msg, w.writeErr
+		}
 		w.Lock()
 		w.confirmChan = msg.Confirms()
 		w.Unlock()
@@ -117,13 +121,13 @@ func (w *Writer) postBulkProcessor(executionID int64, reqs []elastic.BulkableReq
 			With("took", fmt.Sprintf("%dms", resp.Took)).
 			With("succeeeded", len(resp.Succeeded())).
 			With("failed", len(resp.Failed())).
-			Infoln("_bulk flush completed")
+			Debugln("_bulk flush completed")
 		if w.confirmChan != nil && len(resp.Failed()) == 0 {
-			close(w.confirmChan)
-			w.confirmChan = nil
+			w.confirmChan <- struct{}{}
 		}
 	}
 	if err != nil {
 		w.logger.With("executionID", executionID).Errorln(err)
 	}
+	w.writeErr = err
 }

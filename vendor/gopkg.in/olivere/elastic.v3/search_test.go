@@ -5,12 +5,11 @@
 package elastic
 
 import (
+	"context"
 	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
-
-	"golang.org/x/net/context"
 )
 
 func TestSearchMatchAll(t *testing.T) {
@@ -1161,5 +1160,111 @@ func TestSearchAfter(t *testing.T) {
 	hit := searchResult.Hits.Hits[0]
 	if want, got := "3", hit.Id; want != got {
 		t.Fatalf("expected tweet %q; got: %q", want, got)
+	}
+}
+
+func TestSearchResultWithFieldCollapsing(t *testing.T) {
+	client := setupTestClientAndCreateIndexAndAddDocs(t) // , SetTraceLog(log.New(os.Stdout, "", 0)))
+
+	searchResult, err := client.Search().
+		Index(testIndexName).
+		Type("tweet").
+		Query(NewMatchAllQuery()).
+		Collapse(NewCollapseBuilder("user")).
+		Pretty(true).
+		Do(context.TODO())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if searchResult.Hits == nil {
+		t.Fatalf("expected SearchResult.Hits != nil; got nil")
+	}
+	if got := searchResult.Hits.TotalHits; got == 0 {
+		t.Fatalf("expected SearchResult.Hits.TotalHits > 0; got %d", got)
+	}
+
+	for _, hit := range searchResult.Hits.Hits {
+		if hit.Index != testIndexName {
+			t.Fatalf("expected SearchResult.Hits.Hit.Index = %q; got %q", testIndexName, hit.Index)
+		}
+		item := make(map[string]interface{})
+		err := json.Unmarshal(*hit.Source, &item)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(hit.Fields) == 0 {
+			t.Fatal("expected fields in SearchResult")
+		}
+		usersVal, ok := hit.Fields["user"]
+		if !ok {
+			t.Fatalf("expected %q field in fields of SearchResult", "user")
+		}
+		users, ok := usersVal.([]interface{})
+		if !ok {
+			t.Fatalf("expected slice of strings in field of SearchResult, got %T", usersVal)
+		}
+		if len(users) != 1 {
+			t.Fatalf("expected 1 entry in users slice, got %d", len(users))
+		}
+	}
+}
+
+func TestSearchResultWithFieldCollapsingAndInnerHits(t *testing.T) {
+	client := setupTestClientAndCreateIndexAndAddDocs(t) // , SetTraceLog(log.New(os.Stdout, "", 0)))
+
+	searchResult, err := client.Search().
+		Index(testIndexName).
+		Type("tweet").
+		Query(NewMatchAllQuery()).
+		Collapse(
+			NewCollapseBuilder("user").
+				InnerHit(
+					NewInnerHit().Name("last_tweets").Size(5).Sort("created", true),
+				).
+				MaxConcurrentGroupRequests(4)).
+		Pretty(true).
+		Do(context.TODO())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if searchResult.Hits == nil {
+		t.Fatalf("expected SearchResult.Hits != nil; got nil")
+	}
+	if got := searchResult.Hits.TotalHits; got == 0 {
+		t.Fatalf("expected SearchResult.Hits.TotalHits > 0; got %d", got)
+	}
+
+	for _, hit := range searchResult.Hits.Hits {
+		if hit.Index != testIndexName {
+			t.Fatalf("expected SearchResult.Hits.Hit.Index = %q; got %q", testIndexName, hit.Index)
+		}
+		item := make(map[string]interface{})
+		err := json.Unmarshal(*hit.Source, &item)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(hit.Fields) == 0 {
+			t.Fatal("expected fields in SearchResult")
+		}
+		usersVal, ok := hit.Fields["user"]
+		if !ok {
+			t.Fatalf("expected %q field in fields of SearchResult", "user")
+		}
+		users, ok := usersVal.([]interface{})
+		if !ok {
+			t.Fatalf("expected slice of strings in field of SearchResult, got %T", usersVal)
+		}
+		if len(users) != 1 {
+			t.Fatalf("expected 1 entry in users slice, got %d", len(users))
+		}
+		lastTweets, ok := hit.InnerHits["last_tweets"]
+		if !ok {
+			t.Fatalf("expected inner_hits named %q in SearchResult", "last_tweets")
+		}
+		if lastTweets == nil {
+			t.Fatal("expected inner_hits in SearchResult")
+		}
 	}
 }

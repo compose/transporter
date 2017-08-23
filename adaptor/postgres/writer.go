@@ -34,10 +34,19 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 	return func(s client.Session) (message.Msg, error) {
 		writeFunc, ok := w.writeMap[msg.OP()]
 		if !ok {
-			log.Infof("no function registered for operation, %s\n", msg.OP())
+			log.Infof("no function registered for operation, %s", msg.OP())
+			if msg.Confirms() != nil {
+				msg.Confirms() <- struct{}{}
+			}
 			return msg, nil
 		}
-		return msg, writeFunc(msg, s.(*Session).pqSession)
+		if err := writeFunc(msg, s.(*Session).pqSession); err != nil {
+			return nil, err
+		}
+		if msg.Confirms() != nil {
+			msg.Confirms() <- struct{}{}
+		}
+		return msg, nil
 	}
 }
 

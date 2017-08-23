@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/compose/transporter/adaptor"
 	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/message/data"
 	"github.com/compose/transporter/message/ops"
@@ -36,6 +37,8 @@ var (
 )
 
 func TestInsert(t *testing.T) {
+	confirms, cleanup := adaptor.MockConfirmWrites()
+	defer adaptor.VerifyWriteConfirmed(cleanup, t)
 	w := newWriter()
 	c, err := NewClient(WithURI(fmt.Sprintf("postgres://127.0.0.1:5432/%s?sslmode=disable", writerTestData.DB)))
 	if err != nil {
@@ -47,13 +50,36 @@ func TestInsert(t *testing.T) {
 		t.Fatalf("unable to obtain session to postgres, %s", err)
 	}
 	for i := 0; i < 10; i++ {
-		msg := message.From(
-			ops.Insert,
-			fmt.Sprintf("public.%s", writerTestData.Table),
-			data.Data{"id": i, "colvar": "hello world", "coltimestamp": time.Now().UTC()})
-		if _, err := w.Write(msg)(s); err != nil {
+		if _, err := w.Write(
+			message.WithConfirms(
+				confirms,
+				message.From(
+					ops.Insert,
+					fmt.Sprintf("public.%s", writerTestData.Table),
+					data.Data{"id": i, "colvar": "hello world", "coltimestamp": time.Now().UTC()}),
+			),
+		)(s); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
 		}
+	}
+
+	if _, err := w.Write(message.WithConfirms(
+		confirms,
+		message.From(
+			ops.Command,
+			fmt.Sprintf("public.%s", writerTestData.Table),
+			map[string]interface{}{},
+		)),
+	)(s); err != nil {
+		t.Errorf("unexpected Command error, %s", err)
+	}
+
+	if _, err := w.Write(message.From(
+		ops.Command,
+		fmt.Sprintf("public.%s", writerTestData.Table),
+		map[string]interface{}{},
+	))(s); err != nil {
+		t.Errorf("unexpected Command error, %s", err)
 	}
 
 	var (

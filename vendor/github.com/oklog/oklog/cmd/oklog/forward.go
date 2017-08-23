@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
-	level "github.com/go-kit/kit/log/experimental_level"
+	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -21,6 +21,7 @@ import (
 func runForward(args []string) error {
 	flagset := flag.NewFlagSet("forward", flag.ExitOnError)
 	var (
+		debug    = flagset.Bool("debug", false, "debug logging")
 		apiAddr  = flagset.String("api", "", "listen address for forward API (and metrics)")
 		prefixes = stringslice{}
 	)
@@ -36,9 +37,15 @@ func runForward(args []string) error {
 
 	// Logging.
 	var logger log.Logger
-	logger = log.NewLogfmtLogger(os.Stderr)
-	logger = log.NewContext(logger).With("ts", log.DefaultTimestampUTC)
-	logger = level.New(logger, level.Allowed(level.AllowAll()))
+	{
+		logLevel := level.AllowInfo()
+		if *debug {
+			logLevel = level.AllowAll()
+		}
+		logger = log.NewLogfmtLogger(os.Stderr)
+		logger = log.With(logger, "ts", log.DefaultTimestampUTC)
+		logger = level.NewFilter(logger, logLevel)
+	}
 
 	// Instrumentation.
 	forwardBytes := prometheus.NewCounter(prometheus.CounterOpts{

@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	_ "github.com/compose/transporter/log"
 	"github.com/compose/transporter/message/ops"
 
 	"gopkg.in/mgo.v2/bson"
@@ -65,5 +66,13 @@ func TestID(t *testing.T) {
 		if msg.ID() != v.want {
 			t.Errorf("ID() failed, expected %+v, got %+v", v.want, msg.ID())
 		}
+	}
+}
+
+func TestUpdateNamespace(t *testing.T) {
+	orig := From(ops.Insert, "foo", nil)
+	orig.UpdateNamespace("bar")
+	if orig.Namespace() != "bar" {
+		t.Errorf("UpdateNamespace failed, expected %s, got %s", "bar", orig.Namespace())
 	}
 }

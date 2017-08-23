@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"time"
+	"strings"
 
 	"github.com/compose/transporter/client"
 	"github.com/compose/transporter/log"
@@ -23,6 +24,9 @@ const (
 	// DefaultSessionTimeout is the default timeout after which the
 	// session times out when unable to connect to the provided URI.
 	DefaultSessionTimeout = 10 * time.Second
+
+	// DefaultReadPreference when connecting to a mongo replica set.
+	DefaultReadPreference = mgo.Primary
 )
 
 var (
@@ -43,6 +47,15 @@ func (e OplogAccessError) Error() string {
 	return fmt.Sprintf("oplog access failed, %s", e.reason)
 }
 
+// InvalidReadPreferenceError represents the error when an incorrect mongo read preference has been set.
+type InvalidReadPreferenceError struct {
+	ReadPreference string
+}
+
+func (e InvalidReadPreferenceError) Error() string {
+	return fmt.Sprintf("Invalid Read Preference, %s", e.ReadPreference)
+}
+
 // ClientOptionFunc is a function that configures a Client.
 // It is used in NewClient.
 type ClientOptionFunc func(*Client) error
@@ -55,6 +68,7 @@ type Client struct {
 	tlsConfig      *tls.Config
 	sessionTimeout time.Duration
 	tail           bool
+	readPreference mgo.Mode
 
 	mgoSession *mgo.Session
 }
@@ -81,6 +95,7 @@ func NewClient(options ...ClientOptionFunc) (*Client, error) {
 		safety:         DefaultSafety,
 		tlsConfig:      nil,
 		tail:           false,
+		readPreference: DefaultReadPreference,
 	}
 
 	// Run the options on it
@@ -189,6 +204,30 @@ func WithTail(tail bool) ClientOptionFunc {
 	}
 }
 
+func WithReadPreference(read_preference string) ClientOptionFunc {
+	return func(c *Client) error {
+		if read_preference == "" {
+			c.readPreference = DefaultReadPreference
+			return nil
+		}
+		switch strings.ToLower(read_preference) {
+		case "primary":
+			c.readPreference = mgo.Primary
+		case "primarypreferred":
+			c.readPreference = mgo.PrimaryPreferred
+		case "secondary":
+			c.readPreference = mgo.Secondary
+		case "secondarypreferred":
+			c.readPreference = mgo.SecondaryPreferred
+		case "nearest":
+			c.readPreference = mgo.Nearest
+		default:
+			return InvalidReadPreferenceError{ReadPreference: read_preference}
+		}
+		return nil
+	}
+}
+
 // Connect tests the mongodb connection and initializes the mongo session
 func (c *Client) Connect() (client.Session, error) {
 	if c.mgoSession == nil {
@@ -230,6 +269,7 @@ func (c *Client) initConnection() error {
 	mgoSession.SetBatch(1000)
 	mgoSession.SetPrefetch(0.5)
 	mgoSession.SetSocketTimeout(time.Hour)
+	mgoSession.SetMode(c.readPreference, true)
 
 	if c.tail {
 		log.With("uri", c.uri).Infoln("testing oplog access")

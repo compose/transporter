@@ -13,7 +13,14 @@ import (
 )
 
 const (
-	logNameFormat = "%020d.log"
+	// LogNameFormat defines the filename structure for active segments.
+	LogNameFormat = "%020d.log"
+
+	cleanNameFormat = "%020d.cleaned"
+
+	deleteNameFormat = "%020d.deleted"
+
+	swapNameFormat = "%020d.swap"
 )
 
 var (
@@ -26,6 +33,7 @@ type Segment struct {
 	writer   io.Writer
 	reader   io.Reader
 	log      *os.File
+	path     string
 	maxBytes int64
 
 	BaseOffset int64
@@ -37,8 +45,8 @@ type Segment struct {
 
 // NewSegment creates a new instance of Segment with the provided parameters
 // and initializes its NextOffset and Position should the file be non-empty.
-func NewSegment(path string, baseOffset int64, maxBytes int64) (*Segment, error) {
-	logPath := filepath.Join(path, fmt.Sprintf(logNameFormat, baseOffset))
+func NewSegment(path, format string, baseOffset int64, maxBytes int64) (*Segment, error) {
+	logPath := filepath.Join(path, fmt.Sprintf(format, baseOffset))
 	log, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		return nil, err
@@ -46,6 +54,7 @@ func NewSegment(path string, baseOffset int64, maxBytes int64) (*Segment, error)
 
 	s := &Segment{
 		log:        log,
+		path:       logPath,
 		writer:     log,
 		reader:     log,
 		maxBytes:   maxBytes,
@@ -92,6 +101,25 @@ func (s *Segment) init() error {
 	}
 }
 
+func (s *Segment) rename(path, newFormat string) {
+	s.Lock()
+	defer s.Unlock()
+	logPath := filepath.Join(path, fmt.Sprintf(newFormat, s.BaseOffset))
+	currentName := s.log.Name()
+	s.log.Close()
+	if err := os.Rename(currentName, logPath); err != nil {
+		log.Errorln(err)
+	}
+	newLog, err := os.OpenFile(logPath, os.O_RDWR, 0666)
+	if err != nil {
+		log.Errorln(err)
+	}
+	s.log = newLog
+	s.reader = newLog
+	s.writer = newLog
+	s.path = logPath
+}
+
 // IsFull determines whether the current size of the segment is greater than or equal to the
 // maxBytes configured.
 func (s *Segment) IsFull() bool {
@@ -117,6 +145,19 @@ func (s *Segment) ReadAt(p []byte, off int64) (n int, err error) {
 	defer s.Unlock()
 	return s.log.ReadAt(p, off)
 }
+
+// func (s *Segment) Open() error {
+// 	s.Lock()
+// 	defer s.Unlock()
+// 	l, err := os.OpenFile(s.path, os.O_RDWR, 0666)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	s.log = l
+// 	s.reader = l
+// 	s.writer = l
+// 	return nil
+// }
 
 // Close closes the read/write access to the underlying file.
 func (s *Segment) Close() error {

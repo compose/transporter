@@ -401,18 +401,17 @@ type fakeMarshaler struct {
 	err error
 }
 
-func (f *fakeMarshaler) Marshal() ([]byte, error) { return f.b, f.err }
-func (f *fakeMarshaler) String() string           { return fmt.Sprintf("Bytes: %v Error: %v", f.b, f.err) }
-func (f *fakeMarshaler) ProtoMessage()            {}
-func (f *fakeMarshaler) Reset()                   {}
-
-type msgWithFakeMarshaler struct {
-	M *fakeMarshaler `protobuf:"bytes,1,opt,name=fake"`
+func (f fakeMarshaler) Marshal() ([]byte, error) {
+	return f.b, f.err
 }
 
-func (m *msgWithFakeMarshaler) String() string { return CompactTextString(m) }
-func (m *msgWithFakeMarshaler) ProtoMessage()  {}
-func (m *msgWithFakeMarshaler) Reset()         {}
+func (f fakeMarshaler) String() string {
+	return fmt.Sprintf("Bytes: %v Error: %v", f.b, f.err)
+}
+
+func (f fakeMarshaler) ProtoMessage() {}
+
+func (f fakeMarshaler) Reset() {}
 
 // Simple tests for proto messages that implement the Marshaler interface.
 func TestMarshalerEncoding(t *testing.T) {
@@ -420,64 +419,35 @@ func TestMarshalerEncoding(t *testing.T) {
 		name    string
 		m       Message
 		want    []byte
-		errType reflect.Type
+		wantErr error
 	}{
 		{
 			name: "Marshaler that fails",
-			m: &fakeMarshaler{
+			m: fakeMarshaler{
 				err: errors.New("some marshal err"),
 				b:   []byte{5, 6, 7},
 			},
-			// Since the Marshal method returned bytes, they should be written to the
-			// buffer.  (For efficiency, we assume that Marshal implementations are
-			// always correct w.r.t. RequiredNotSetError and output.)
-			want:    []byte{5, 6, 7},
-			errType: reflect.TypeOf(errors.New("some marshal err")),
-		},
-		{
-			name: "Marshaler that fails with RequiredNotSetError",
-			m: &msgWithFakeMarshaler{
-				M: &fakeMarshaler{
-					err: &RequiredNotSetError{},
-					b:   []byte{5, 6, 7},
-				},
-			},
-			// Since there's an error that can be continued after,
-			// the buffer should be written.
-			want: []byte{
-				10, 3, // for &msgWithFakeMarshaler
-				5, 6, 7, // for &fakeMarshaler
-			},
-			errType: reflect.TypeOf(&RequiredNotSetError{}),
+			// Since there's an error, nothing should be written to buffer.
+			want:    nil,
+			wantErr: errors.New("some marshal err"),
 		},
 		{
 			name: "Marshaler that succeeds",
-			m: &fakeMarshaler{
+			m: fakeMarshaler{
 				b: []byte{0, 1, 2, 3, 4, 127, 255},
 			},
-			want: []byte{0, 1, 2, 3, 4, 127, 255},
+			want:    []byte{0, 1, 2, 3, 4, 127, 255},
+			wantErr: nil,
 		},
 	}
 	for _, test := range tests {
 		b := NewBuffer(nil)
 		err := b.Marshal(test.m)
-		if reflect.TypeOf(err) != test.errType {
-			t.Errorf("%s: got err %T(%v) wanted %T", test.name, err, err, test.errType)
+		if !reflect.DeepEqual(test.wantErr, err) {
+			t.Errorf("%s: got err %v wanted %v", test.name, err, test.wantErr)
 		}
 		if !reflect.DeepEqual(test.want, b.Bytes()) {
 			t.Errorf("%s: got bytes %v wanted %v", test.name, b.Bytes(), test.want)
-		}
-		if size := Size(test.m); size != len(b.Bytes()) {
-			t.Errorf("%s: Size(_) = %v, but marshaled to %v bytes", test.name, size, len(b.Bytes()))
-		}
-
-		m, mErr := Marshal(test.m)
-		if !bytes.Equal(b.Bytes(), m) {
-			t.Errorf("%s: Marshal returned %v, but (*Buffer).Marshal wrote %v", test.name, m, b.Bytes())
-		}
-		if !reflect.DeepEqual(err, mErr) {
-			t.Errorf("%s: Marshal err = %q, but (*Buffer).Marshal returned %q",
-				test.name, fmt.Sprint(mErr), fmt.Sprint(err))
 		}
 	}
 }
@@ -1311,7 +1281,7 @@ func TestEnum(t *testing.T) {
 // We don't care what the value actually is, just as long as it doesn't crash.
 func TestPrintingNilEnumFields(t *testing.T) {
 	pb := new(GoEnum)
-	_ = fmt.Sprintf("%+v", pb)
+	fmt.Sprintf("%+v", pb)
 }
 
 // Verify that absent required fields cause Marshal/Unmarshal to return errors.
@@ -1320,7 +1290,7 @@ func TestRequiredFieldEnforcement(t *testing.T) {
 	_, err := Marshal(pb)
 	if err == nil {
 		t.Error("marshal: expected error, got nil")
-	} else if _, ok := err.(*RequiredNotSetError); !ok || !strings.Contains(err.Error(), "Label") {
+	} else if strings.Index(err.Error(), "Label") < 0 {
 		t.Errorf("marshal: bad error type: %v", err)
 	}
 
@@ -1331,42 +1301,16 @@ func TestRequiredFieldEnforcement(t *testing.T) {
 	err = Unmarshal(buf, pb)
 	if err == nil {
 		t.Error("unmarshal: expected error, got nil")
-	} else if _, ok := err.(*RequiredNotSetError); !ok || !strings.Contains(err.Error(), "{Unknown}") {
-		t.Errorf("unmarshal: bad error type: %v", err)
-	}
-}
-
-// Verify that absent required fields in groups cause Marshal/Unmarshal to return errors.
-func TestRequiredFieldEnforcementGroups(t *testing.T) {
-	pb := &GoTestRequiredGroupField{Group: &GoTestRequiredGroupField_Group{}}
-	if _, err := Marshal(pb); err == nil {
-		t.Error("marshal: expected error, got nil")
-	} else if _, ok := err.(*RequiredNotSetError); !ok || !strings.Contains(err.Error(), "Group.Field") {
-		t.Errorf("marshal: bad error type: %v", err)
-	}
-
-	buf := []byte{11, 12}
-	if err := Unmarshal(buf, pb); err == nil {
-		t.Error("unmarshal: expected error, got nil")
-	} else if _, ok := err.(*RequiredNotSetError); !ok || !strings.Contains(err.Error(), "Group.{Unknown}") {
+	} else if strings.Index(err.Error(), "{Unknown}") < 0 {
 		t.Errorf("unmarshal: bad error type: %v", err)
 	}
 }
 
 func TestTypedNilMarshal(t *testing.T) {
 	// A typed nil should return ErrNil and not crash.
-	{
-		var m *GoEnum
-		if _, err := Marshal(m); err != ErrNil {
-			t.Errorf("Marshal(%#v): got %v, want ErrNil", m, err)
-		}
-	}
-
-	{
-		m := &Communique{Union: &Communique_Msg{nil}}
-		if _, err := Marshal(m); err == nil || err == ErrNil {
-			t.Errorf("Marshal(%#v): got %v, want errOneofHasNil", m, err)
-		}
+	_, err := Marshal((*GoEnum)(nil))
+	if err != ErrNil {
+		t.Errorf("Marshal: got err %v, want ErrNil", err)
 	}
 }
 
@@ -1982,153 +1926,14 @@ func TestMapFieldRoundTrips(t *testing.T) {
 }
 
 func TestMapFieldWithNil(t *testing.T) {
-	m1 := &MessageWithMap{
+	m := &MessageWithMap{
 		MsgMapping: map[int64]*FloatingPoint{
 			1: nil,
 		},
 	}
-	b, err := Marshal(m1)
-	if err != nil {
-		t.Fatalf("Marshal: %v", err)
-	}
-	m2 := new(MessageWithMap)
-	if err := Unmarshal(b, m2); err != nil {
-		t.Fatalf("Unmarshal: %v, got these bytes: %v", err, b)
-	}
-	if v, ok := m2.MsgMapping[1]; !ok {
-		t.Error("msg_mapping[1] not present")
-	} else if v != nil {
-		t.Errorf("msg_mapping[1] not nil: %v", v)
-	}
-}
-
-func TestMapFieldWithNilBytes(t *testing.T) {
-	m1 := &MessageWithMap{
-		ByteMapping: map[bool][]byte{
-			false: []byte{},
-			true:  nil,
-		},
-	}
-	n := Size(m1)
-	b, err := Marshal(m1)
-	if err != nil {
-		t.Fatalf("Marshal: %v", err)
-	}
-	if n != len(b) {
-		t.Errorf("Size(m1) = %d; want len(Marshal(m1)) = %d", n, len(b))
-	}
-	m2 := new(MessageWithMap)
-	if err := Unmarshal(b, m2); err != nil {
-		t.Fatalf("Unmarshal: %v, got these bytes: %v", err, b)
-	}
-	if v, ok := m2.ByteMapping[false]; !ok {
-		t.Error("byte_mapping[false] not present")
-	} else if len(v) != 0 {
-		t.Errorf("byte_mapping[false] not empty: %#v", v)
-	}
-	if v, ok := m2.ByteMapping[true]; !ok {
-		t.Error("byte_mapping[true] not present")
-	} else if len(v) != 0 {
-		t.Errorf("byte_mapping[true] not empty: %#v", v)
-	}
-}
-
-func TestDecodeMapFieldMissingKey(t *testing.T) {
-	b := []byte{
-		0x0A, 0x03, // message, tag 1 (name_mapping), of length 3 bytes
-		// no key
-		0x12, 0x01, 0x6D, // string value of length 1 byte, value "m"
-	}
-	got := &MessageWithMap{}
-	err := Unmarshal(b, got)
-	if err != nil {
-		t.Fatalf("failed to marshal map with missing key: %v", err)
-	}
-	want := &MessageWithMap{NameMapping: map[int32]string{0: "m"}}
-	if !Equal(got, want) {
-		t.Errorf("Unmarshaled map with no key was not as expected. got: %v, want %v", got, want)
-	}
-}
-
-func TestDecodeMapFieldMissingValue(t *testing.T) {
-	b := []byte{
-		0x0A, 0x02, // message, tag 1 (name_mapping), of length 2 bytes
-		0x08, 0x01, // varint key, value 1
-		// no value
-	}
-	got := &MessageWithMap{}
-	err := Unmarshal(b, got)
-	if err != nil {
-		t.Fatalf("failed to marshal map with missing value: %v", err)
-	}
-	want := &MessageWithMap{NameMapping: map[int32]string{1: ""}}
-	if !Equal(got, want) {
-		t.Errorf("Unmarshaled map with no value was not as expected. got: %v, want %v", got, want)
-	}
-}
-
-func TestOneof(t *testing.T) {
-	m := &Communique{}
 	b, err := Marshal(m)
-	if err != nil {
-		t.Fatalf("Marshal of empty message with oneof: %v", err)
-	}
-	if len(b) != 0 {
-		t.Errorf("Marshal of empty message yielded too many bytes: %v", b)
-	}
-
-	m = &Communique{
-		Union: &Communique_Name{"Barry"},
-	}
-
-	// Round-trip.
-	b, err = Marshal(m)
-	if err != nil {
-		t.Fatalf("Marshal of message with oneof: %v", err)
-	}
-	if len(b) != 7 { // name tag/wire (1) + name len (1) + name (5)
-		t.Errorf("Incorrect marshal of message with oneof: %v", b)
-	}
-	m.Reset()
-	if err := Unmarshal(b, m); err != nil {
-		t.Fatalf("Unmarshal of message with oneof: %v", err)
-	}
-	if x, ok := m.Union.(*Communique_Name); !ok || x.Name != "Barry" {
-		t.Errorf("After round trip, Union = %+v", m.Union)
-	}
-	if name := m.GetName(); name != "Barry" {
-		t.Errorf("After round trip, GetName = %q, want %q", name, "Barry")
-	}
-
-	// Let's try with a message in the oneof.
-	m.Union = &Communique_Msg{&Strings{StringField: String("deep deep string")}}
-	b, err = Marshal(m)
-	if err != nil {
-		t.Fatalf("Marshal of message with oneof set to message: %v", err)
-	}
-	if len(b) != 20 { // msg tag/wire (1) + msg len (1) + msg (1 + 1 + 16)
-		t.Errorf("Incorrect marshal of message with oneof set to message: %v", b)
-	}
-	m.Reset()
-	if err := Unmarshal(b, m); err != nil {
-		t.Fatalf("Unmarshal of message with oneof set to message: %v", err)
-	}
-	ss, ok := m.Union.(*Communique_Msg)
-	if !ok || ss.Msg.GetStringField() != "deep deep string" {
-		t.Errorf("After round trip with oneof set to message, Union = %+v", m.Union)
-	}
-}
-
-func TestInefficientPackedBool(t *testing.T) {
-	// https://github.com/golang/protobuf/issues/76
-	inp := []byte{
-		0x12, 0x02, // 0x12 = 2<<3|2; 2 bytes
-		// Usually a bool should take a single byte,
-		// but it is permitted to be any varint.
-		0xb9, 0x30,
-	}
-	if err := Unmarshal(inp, new(MoreRepeated)); err != nil {
-		t.Error(err)
+	if err == nil {
+		t.Fatalf("Marshal of bad map should have failed, got these bytes: %v", b)
 	}
 }
 

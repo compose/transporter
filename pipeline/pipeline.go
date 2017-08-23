@@ -3,9 +3,7 @@ package pipeline
 import (
 	"time"
 
-	"github.com/compose/transporter/adaptor"
 	"github.com/compose/transporter/events"
-	"github.com/compose/transporter/log"
 )
 
 // A Pipeline is a the end to end description of a transporter data flow.
@@ -90,7 +88,6 @@ func NewPipeline(version string, source *Node, emit events.EmitFunc, interval ti
 	pipeline.emitter = events.NewEmitter(source.pipe.Event, emit)
 
 	// start the emitters
-	go pipeline.startErrorListener(source.pipe.Err)
 	go pipeline.startMetricsGatherer()
 
 	pipeline.emitter.Start()
@@ -114,7 +111,6 @@ func (pipeline *Pipeline) Stop() {
 	pipeline.emitMetrics()
 	pipeline.source.pipe.Event <- events.NewExitEvent(time.Now().UnixNano(), pipeline.version, endpoints)
 	pipeline.emitter.Stop()
-	close(pipeline.source.pipe.Err)
 }
 
 // Run the pipeline
@@ -123,37 +119,26 @@ func (pipeline *Pipeline) Run() error {
 	// send a boot event
 	pipeline.source.pipe.Event <- events.NewBootEvent(time.Now().UnixNano(), pipeline.version, endpoints)
 
-	// start the source
-	err := pipeline.source.Start()
-	if err != nil && pipeline.Err == nil {
-		pipeline.Err = err // only set it if it hasn't been set already.
-	}
+	errors := make(chan error, 2)
+	go func() {
+		errors <- pipeline.startErrorListener()
+	}()
+	go func() {
+		errors <- pipeline.source.Start()
+	}()
 
-	return pipeline.Err
+	return <-errors
 }
 
 // start error listener consumes all the events on the pipe's Err channel, and stops the pipeline
 // when it receives one
-func (pipeline *Pipeline) startErrorListener(cherr chan error) {
+func (pipeline *Pipeline) startErrorListener() error {
 	for {
 		select {
-		case err, ok := <-cherr:
-			if !ok {
-				return
-			}
-			if aerr, ok := err.(adaptor.Error); ok {
-				pipeline.source.pipe.Event <- events.NewErrorEvent(time.Now().UnixNano(), aerr.Path, aerr.Record, aerr.Error())
-				if aerr.Lvl == adaptor.ERROR || aerr.Lvl == adaptor.CRITICAL {
-					log.With("path", aerr.Path).Errorln(aerr)
-				}
-			} else {
-				if pipeline.Err == nil {
-					pipeline.Err = err
-				}
-			}
-			pipeline.Stop()
+		case err := <-pipeline.source.pipe.Err:
+			return err
 		case <-pipeline.done:
-			return
+			return nil
 		}
 	}
 }

@@ -26,6 +26,15 @@ var uriTests = []testURI{
 		canon:    "amqp://user:pass@host:10000/vhost",
 	},
 
+	// this fails due to net/url not parsing pct-encoding in host
+	// testURI{url: "amqp://user%61:%61pass@ho%61st:10000/v%2Fhost",
+	//	username: "usera",
+	//	password: "apass",
+	//	host:     "hoast",
+	//	port:     10000,
+	//	vhost:    "v/host",
+	// },
+
 	{
 		url:      "amqp://",
 		username: defaultURI.Username,
@@ -243,12 +252,6 @@ func TestURIScheme(t *testing.T) {
 
 	if _, err := ParseURI("amqps://example.com/"); err != nil {
 		t.Fatalf("Expected to parse amqps scheme, got %v", err)
-	}
-}
-
-func TestURIWhitespace(t *testing.T) {
-	if _, err := ParseURI("amqp://admin:PASSWORD@rabbitmq-service/ -http_port=8080"); err == nil {
-		t.Fatal("Expected to fail if URI contains whitespace")
 	}
 }
 

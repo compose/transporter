@@ -30,8 +30,9 @@ type Writer struct {
 }
 
 type bulkOperation struct {
-	s    *r.Session
-	docs []map[string]interface{}
+	s        *r.Session
+	confirms chan struct{}
+	docs     []map[string]interface{}
 }
 
 func newWriter(done chan struct{}, wg *sync.WaitGroup) *Writer {
@@ -51,7 +52,11 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 		switch msg.OP() {
 		case ops.Delete:
 			w.flushAll()
-			return msg, do(r.DB(rSession.Database()).Table(table).Get(prepareDocument(msg)["id"]).Delete(), rSession)
+			return msg, do(
+				r.DB(rSession.Database()).Table(table).Get(prepareDocument(msg)["id"]).Delete(),
+				rSession,
+				msg.Confirms(),
+			)
 		case ops.Insert:
 			w.Lock()
 			bOp, ok := w.bulkMap[table]
@@ -62,15 +67,26 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 				}
 				w.bulkMap[table] = bOp
 			}
+			if msg.Confirms() != nil {
+				bOp.confirms = msg.Confirms()
+			}
 			bOp.docs = append(bOp.docs, prepareDocument(msg))
 			w.Unlock()
 			w.opCounter++
 			if w.opCounter >= maxObjSize {
-				w.flushAll()
+				if err := w.flushAll(); err != nil {
+					return nil, err
+				}
 			}
 		case ops.Update:
-			w.flushAll()
-			return msg, do(r.DB(rSession.Database()).Table(table).Insert(prepareDocument(msg), r.InsertOpts{Conflict: "replace"}), rSession)
+			if err := w.flushAll(); err != nil {
+				return nil, err
+			}
+			return msg, do(
+				r.DB(rSession.Database()).Table(table).Insert(prepareDocument(msg), r.InsertOpts{Conflict: "replace"}),
+				rSession,
+				msg.Confirms(),
+			)
 		}
 		return msg, nil
 	}
@@ -90,6 +106,7 @@ func prepareDocument(msg message.Msg) map[string]interface{} {
 }
 
 func (w *Writer) run(done chan struct{}, wg *sync.WaitGroup) {
+	defer wg.Done()
 	for {
 		select {
 		case <-time.After(2 * time.Second):
@@ -99,8 +116,9 @@ func (w *Writer) run(done chan struct{}, wg *sync.WaitGroup) {
 			}
 		case <-done:
 			log.Debugln("received done channel")
-			w.flushAll()
-			wg.Done()
+			if err := w.flushAll(); err != nil {
+				log.Errorf("flush error, %s", err)
+			}
 			return
 		}
 	}
@@ -118,7 +136,7 @@ func (w *Writer) flushAll() error {
 		if err != nil {
 			return err
 		}
-		if err := handleResponse(&resp); err != nil {
+		if err := handleResponse(&resp, bOp.confirms); err != nil {
 			return err
 		}
 	}
@@ -126,20 +144,23 @@ func (w *Writer) flushAll() error {
 	return nil
 }
 
-func do(t r.Term, s *r.Session) error {
+func do(t r.Term, s *r.Session, confirms chan struct{}) error {
 	resp, err := t.RunWrite(s)
 	if err != nil {
 		return err
 	}
-	return handleResponse(&resp)
+	return handleResponse(&resp, confirms)
 }
 
 // handleresponse takes the rethink response and turn it into something we can consume elsewhere
-func handleResponse(resp *r.WriteResponse) error {
+func handleResponse(resp *r.WriteResponse, confirms chan struct{}) error {
 	if resp.Errors != 0 {
 		if !strings.Contains(resp.FirstError, "Duplicate primary key") { // we don't care about this error
 			return fmt.Errorf("%s\n%s", "problem inserting docs", resp.FirstError)
 		}
+	}
+	if confirms != nil {
+		confirms <- struct{}{}
 	}
 	return nil
 }

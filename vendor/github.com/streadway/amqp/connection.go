@@ -14,7 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -58,8 +57,8 @@ type Config struct {
 
 	// Dial returns a net.Conn prepared for a TLS handshake with TSLClientConfig,
 	// then an AMQP connection handshake.
-	// If Dial is nil, net.DialTimeout with a 30s connection and 30s deadline is
-	// used during TLS and AMQP handshaking.
+	// If Dial is nil, net.DialTimeout with a 30s connection and 30s read
+	// deadline is used.
 	Dial func(network, addr string) (net.Conn, error)
 }
 
@@ -94,12 +93,14 @@ type Connection struct {
 	Major      int   // Server's major version
 	Minor      int   // Server's minor version
 	Properties Table // Server properties
-
-	closed int32 // Will be 1 if the connection is closed, 0 otherwise. Should only be accessed as atomic
 }
 
 type readDeadliner interface {
 	SetReadDeadline(time.Time) error
+}
+
+type localNetAddr interface {
+	LocalAddr() net.Addr
 }
 
 // defaultDial establishes a connection when config.Dial is not provided
@@ -110,9 +111,7 @@ func defaultDial(network, addr string) (net.Conn, error) {
 	}
 
 	// Heartbeating hasn't started yet, don't stall forever on a dead server.
-	// A deadline is set for TLS and AMQP handshaking. After AMQP is established,
-	// the deadline is cleared in openComplete.
-	if err := conn.SetDeadline(time.Now().Add(defaultConnectionTimeout)); err != nil {
+	if err := conn.SetReadDeadline(time.Now().Add(defaultConnectionTimeout)); err != nil {
 		return nil, err
 	}
 
@@ -121,8 +120,7 @@ func defaultDial(network, addr string) (net.Conn, error) {
 
 // Dial accepts a string in the AMQP URI format and returns a new Connection
 // over TCP using PlainAuth.  Defaults to a server heartbeat interval of 10
-// seconds and sets the handshake deadline to 30 seconds. After handshake,
-// deadlines are cleared.
+// seconds and sets the initial read deadline to 30 seconds.
 //
 // Dial uses the zero value of tls.Config when it encounters an amqps://
 // scheme.  It is equivalent to calling DialTLS(amqp, nil).
@@ -165,6 +163,10 @@ func DialConfig(url string, config Config) (*Connection, error) {
 		config.Vhost = uri.Vhost
 	}
 
+	if uri.Scheme == "amqps" && config.TLSClientConfig == nil {
+		config.TLSClientConfig = new(tls.Config)
+	}
+
 	addr := net.JoinHostPort(uri.Host, strconv.FormatInt(int64(uri.Port), 10))
 
 	dialer := config.Dial
@@ -177,15 +179,14 @@ func DialConfig(url string, config Config) (*Connection, error) {
 		return nil, err
 	}
 
-	if uri.Scheme == "amqps" {
-		if config.TLSClientConfig == nil {
-			config.TLSClientConfig = new(tls.Config)
-		}
-
-		// If ServerName has not been specified in TLSClientConfig,
-		// set it to the URI host used for this connection.
+	if config.TLSClientConfig != nil {
+		// Use the URI's host for hostname validation unless otherwise set. Make a
+		// copy so not to modify the caller's reference when the caller reuses a
+		// tls.Config for a different URL.
 		if config.TLSClientConfig.ServerName == "" {
-			config.TLSClientConfig.ServerName = uri.Host
+			c := *config.TLSClientConfig
+			c.ServerName = uri.Host
+			config.TLSClientConfig = &c
 		}
 
 		client := tls.Client(conn, config.TLSClientConfig)
@@ -207,7 +208,7 @@ to use your own custom transport.
 
 */
 func Open(conn io.ReadWriteCloser, config Config) (*Connection, error) {
-	c := &Connection{
+	me := &Connection{
 		conn:      conn,
 		writer:    &writer{bufio.NewWriter(conn)},
 		channels:  make(map[uint16]*Channel),
@@ -216,33 +217,19 @@ func Open(conn io.ReadWriteCloser, config Config) (*Connection, error) {
 		errors:    make(chan *Error, 1),
 		deadlines: make(chan readDeadliner, 1),
 	}
-	go c.reader(conn)
-	return c, c.open(config)
+	go me.reader(conn)
+	return me, me.open(config)
 }
 
 /*
 LocalAddr returns the local TCP peer address, or ":0" (the zero value of net.TCPAddr)
 as a fallback default value if the underlying transport does not support LocalAddr().
 */
-func (c *Connection) LocalAddr() net.Addr {
-	if conn, ok := c.conn.(interface {
-		LocalAddr() net.Addr
-	}); ok {
-		return conn.LocalAddr()
+func (me *Connection) LocalAddr() net.Addr {
+	if c, ok := me.conn.(localNetAddr); ok {
+		return c.LocalAddr()
 	}
 	return &net.TCPAddr{}
-}
-
-// ConnectionState returns basic TLS details of the underlying transport.
-// Returns a zero value when the underlying connection does not implement
-// ConnectionState() tls.ConnectionState.
-func (c *Connection) ConnectionState() tls.ConnectionState {
-	if conn, ok := c.conn.(interface {
-		ConnectionState() tls.ConnectionState
-	}); ok {
-		return conn.ConnectionState()
-	}
-	return tls.ConnectionState{}
 }
 
 /*
@@ -255,41 +242,41 @@ To reconnect after a transport or protocol error, register a listener here and
 re-run your setup process.
 
 */
-func (c *Connection) NotifyClose(receiver chan *Error) chan *Error {
-	c.m.Lock()
-	defer c.m.Unlock()
+func (me *Connection) NotifyClose(c chan *Error) chan *Error {
+	me.m.Lock()
+	defer me.m.Unlock()
 
-	if c.noNotify {
-		close(receiver)
+	if me.noNotify {
+		close(c)
 	} else {
-		c.closes = append(c.closes, receiver)
+		me.closes = append(me.closes, c)
 	}
 
-	return receiver
+	return c
 }
 
 /*
-NotifyBlocked registers a listener for RabbitMQ specific TCP flow control
-method extensions connection.blocked and connection.unblocked.  Flow control is
-active with a reason when Blocking.Blocked is true.  When a Connection is
-blocked, all methods will block across all connections until server resources
-become free again.
+NotifyBlock registers a listener for RabbitMQ specific TCP flow control method
+extensions connection.blocked and connection.unblocked.  Flow control is active
+with a reason when Blocking.Blocked is true.  When a Connection is blocked, all
+methods will block across all connections until server resources become free
+again.
 
 This optional extension is supported by the server when the
 "connection.blocked" server capability key is true.
 
 */
-func (c *Connection) NotifyBlocked(receiver chan Blocking) chan Blocking {
-	c.m.Lock()
-	defer c.m.Unlock()
+func (me *Connection) NotifyBlocked(c chan Blocking) chan Blocking {
+	me.m.Lock()
+	defer me.m.Unlock()
 
-	if c.noNotify {
-		close(receiver)
+	if me.noNotify {
+		close(c)
 	} else {
-		c.blocks = append(c.blocks, receiver)
+		me.blocks = append(me.blocks, c)
 	}
 
-	return receiver
+	return c
 }
 
 /*
@@ -305,13 +292,9 @@ After returning from this call, all resources associated with this connection,
 including the underlying io, Channels, Notify listeners and Channel consumers
 will also be closed.
 */
-func (c *Connection) Close() error {
-	if c.isClosed() {
-		return ErrClosed
-	}
-
-	defer c.shutdown(nil)
-	return c.call(
+func (me *Connection) Close() error {
+	defer me.shutdown(nil)
+	return me.call(
 		&connectionClose{
 			ReplyCode: replySuccess,
 			ReplyText: "kthxbai",
@@ -320,13 +303,9 @@ func (c *Connection) Close() error {
 	)
 }
 
-func (c *Connection) closeWith(err *Error) error {
-	if c.isClosed() {
-		return ErrClosed
-	}
-
-	defer c.shutdown(err)
-	return c.call(
+func (me *Connection) closeWith(err *Error) error {
+	defer me.shutdown(err)
+	return me.call(
 		&connectionClose{
 			ReplyCode: uint16(err.Code),
 			ReplyText: err.Reason,
@@ -335,22 +314,14 @@ func (c *Connection) closeWith(err *Error) error {
 	)
 }
 
-func (c *Connection) isClosed() bool {
-	return (atomic.LoadInt32(&c.closed) == 1)
-}
-
-func (c *Connection) send(f frame) error {
-	if c.isClosed() {
-		return ErrClosed
-	}
-
-	c.sendM.Lock()
-	err := c.writer.WriteFrame(f)
-	c.sendM.Unlock()
+func (me *Connection) send(f frame) error {
+	me.sendM.Lock()
+	err := me.writer.WriteFrame(f)
+	me.sendM.Unlock()
 
 	if err != nil {
 		// shutdown could be re-entrant from signaling notify chans
-		go c.shutdown(&Error{
+		go me.shutdown(&Error{
 			Code:   FrameError,
 			Reason: err.Error(),
 		})
@@ -359,7 +330,7 @@ func (c *Connection) send(f frame) error {
 		// if there is something that can receive - like a non-reentrant
 		// call or if the heartbeater isn't running
 		select {
-		case c.sends <- time.Now():
+		case me.sends <- time.Now():
 		default:
 		}
 	}
@@ -367,96 +338,88 @@ func (c *Connection) send(f frame) error {
 	return err
 }
 
-func (c *Connection) shutdown(err *Error) {
-	atomic.StoreInt32(&c.closed, 1)
-
-	c.destructor.Do(func() {
-		c.m.Lock()
-		closes := make([]chan *Error, len(c.closes))
-		copy(closes, c.closes)
-		c.m.Unlock()
+func (me *Connection) shutdown(err *Error) {
+	me.destructor.Do(func() {
 		if err != nil {
-			for _, c := range closes {
+			for _, c := range me.closes {
 				c <- err
 			}
 		}
 
-		for _, ch := range c.channels {
-			c.closeChannel(ch, err)
+		for _, ch := range me.channels {
+			me.closeChannel(ch, err)
 		}
 
 		if err != nil {
-			c.errors <- err
+			me.errors <- err
 		}
-		// Shutdown handler goroutine can still receive the result.
-		close(c.errors)
 
-		c.conn.Close()
+		me.conn.Close()
 
-		for _, c := range closes {
+		for _, c := range me.closes {
 			close(c)
 		}
 
-		for _, c := range c.blocks {
+		for _, c := range me.blocks {
 			close(c)
 		}
 
-		c.m.Lock()
-		c.noNotify = true
-		c.m.Unlock()
+		me.m.Lock()
+		me.noNotify = true
+		me.m.Unlock()
 	})
 }
 
 // All methods sent to the connection channel should be synchronous so we
 // can handle them directly without a framing component
-func (c *Connection) demux(f frame) {
+func (me *Connection) demux(f frame) {
 	if f.channel() == 0 {
-		c.dispatch0(f)
+		me.dispatch0(f)
 	} else {
-		c.dispatchN(f)
+		me.dispatchN(f)
 	}
 }
 
-func (c *Connection) dispatch0(f frame) {
+func (me *Connection) dispatch0(f frame) {
 	switch mf := f.(type) {
 	case *methodFrame:
 		switch m := mf.Method.(type) {
 		case *connectionClose:
 			// Send immediately as shutdown will close our side of the writer.
-			c.send(&methodFrame{
+			me.send(&methodFrame{
 				ChannelId: 0,
 				Method:    &connectionCloseOk{},
 			})
 
-			c.shutdown(newError(m.ReplyCode, m.ReplyText))
+			me.shutdown(newError(m.ReplyCode, m.ReplyText))
 		case *connectionBlocked:
-			for _, c := range c.blocks {
+			for _, c := range me.blocks {
 				c <- Blocking{Active: true, Reason: m.Reason}
 			}
 		case *connectionUnblocked:
-			for _, c := range c.blocks {
+			for _, c := range me.blocks {
 				c <- Blocking{Active: false}
 			}
 		default:
-			c.rpc <- m
+			me.rpc <- m
 		}
 	case *heartbeatFrame:
 		// kthx - all reads reset our deadline.  so we can drop this
 	default:
 		// lolwat - channel0 only responds to methods and heartbeats
-		c.closeWith(ErrUnexpectedFrame)
+		me.closeWith(ErrUnexpectedFrame)
 	}
 }
 
-func (c *Connection) dispatchN(f frame) {
-	c.m.Lock()
-	channel := c.channels[f.channel()]
-	c.m.Unlock()
+func (me *Connection) dispatchN(f frame) {
+	me.m.Lock()
+	channel := me.channels[f.channel()]
+	me.m.Unlock()
 
 	if channel != nil {
 		channel.recv(channel, f)
 	} else {
-		c.dispatchClosed(f)
+		me.dispatchClosed(f)
 	}
 }
 
@@ -471,12 +434,12 @@ func (c *Connection) dispatchN(f frame) {
 // method like basic.publish and a synchronous close with channel.close.
 // In that case, we'll get both a channel.close and channel.close-ok in any
 // order.
-func (c *Connection) dispatchClosed(f frame) {
+func (me *Connection) dispatchClosed(f frame) {
 	// Only consider method frames, drop content/header frames
 	if mf, ok := f.(*methodFrame); ok {
 		switch mf.Method.(type) {
 		case *channelClose:
-			c.send(&methodFrame{
+			me.send(&methodFrame{
 				ChannelId: f.channel(),
 				Method:    &channelCloseOk{},
 			})
@@ -484,7 +447,7 @@ func (c *Connection) dispatchClosed(f frame) {
 			// we are already closed, so do nothing
 		default:
 			// unexpected method on closed channel
-			c.closeWith(ErrClosed)
+			me.closeWith(ErrClosed)
 		}
 	}
 }
@@ -492,7 +455,7 @@ func (c *Connection) dispatchClosed(f frame) {
 // Reads each frame off the IO and hand off to the connection object that
 // will demux the streams and dispatch to one of the opened channels or
 // handle on channel 0 (the connection channel).
-func (c *Connection) reader(r io.Reader) {
+func (me *Connection) reader(r io.Reader) {
 	buf := bufio.NewReader(r)
 	frames := &reader{buf}
 	conn, haveDeadliner := r.(readDeadliner)
@@ -501,21 +464,21 @@ func (c *Connection) reader(r io.Reader) {
 		frame, err := frames.ReadFrame()
 
 		if err != nil {
-			c.shutdown(&Error{Code: FrameError, Reason: err.Error()})
+			me.shutdown(&Error{Code: FrameError, Reason: err.Error()})
 			return
 		}
 
-		c.demux(frame)
+		me.demux(frame)
 
 		if haveDeadliner {
-			c.deadlines <- conn
+			me.deadlines <- conn
 		}
 	}
 }
 
 // Ensures that at least one frame is being sent at the tuned interval with a
 // jitter tolerance of 1s
-func (c *Connection) heartbeater(interval time.Duration, done chan *Error) {
+func (me *Connection) heartbeater(interval time.Duration, done chan *Error) {
 	const maxServerHeartbeatsInFlight = 3
 
 	var sendTicks <-chan time.Time
@@ -529,7 +492,7 @@ func (c *Connection) heartbeater(interval time.Duration, done chan *Error) {
 
 	for {
 		select {
-		case at, stillSending := <-c.sends:
+		case at, stillSending := <-me.sends:
 			// When actively sending, depend on sent frames to reset server timer
 			if stillSending {
 				lastSent = at
@@ -540,14 +503,14 @@ func (c *Connection) heartbeater(interval time.Duration, done chan *Error) {
 		case at := <-sendTicks:
 			// When idle, fill the space with a heartbeat frame
 			if at.Sub(lastSent) > interval-time.Second {
-				if err := c.send(&heartbeatFrame{}); err != nil {
+				if err := me.send(&heartbeatFrame{}); err != nil {
 					// send heartbeats even after close/closeOk so we
 					// tick until the connection starts erroring
 					return
 				}
 			}
 
-		case conn := <-c.deadlines:
+		case conn := <-me.deadlines:
 			// When reading, reset our side of the deadline, if we've negotiated one with
 			// a deadline that covers at least 2 server heartbeats
 			if interval > 0 {
@@ -563,8 +526,8 @@ func (c *Connection) heartbeater(interval time.Duration, done chan *Error) {
 // Convenience method to inspect the Connection.Properties["capabilities"]
 // Table for server identified capabilities like "basic.ack" or
 // "confirm.select".
-func (c *Connection) isCapable(featureName string) bool {
-	capabilities, _ := c.Properties["capabilities"].(Table)
+func (me *Connection) isCapable(featureName string) bool {
+	capabilities, _ := me.Properties["capabilities"].(Table)
 	hasFeature, _ := capabilities[featureName].(bool)
 	return hasFeature
 }
@@ -572,40 +535,39 @@ func (c *Connection) isCapable(featureName string) bool {
 // allocateChannel records but does not open a new channel with a unique id.
 // This method is the initial part of the channel lifecycle and paired with
 // releaseChannel
-func (c *Connection) allocateChannel() (*Channel, error) {
-	c.m.Lock()
-	defer c.m.Unlock()
+func (me *Connection) allocateChannel() (*Channel, error) {
+	me.m.Lock()
+	defer me.m.Unlock()
 
-	id, ok := c.allocator.next()
+	id, ok := me.allocator.next()
 	if !ok {
 		return nil, ErrChannelMax
 	}
 
-	ch := newChannel(c, uint16(id))
-	c.channels[uint16(id)] = ch
+	ch := newChannel(me, uint16(id))
+	me.channels[uint16(id)] = ch
 
 	return ch, nil
 }
 
 // releaseChannel removes a channel from the registry as the final part of the
 // channel lifecycle
-func (c *Connection) releaseChannel(id uint16) {
-	c.m.Lock()
-	defer c.m.Unlock()
+func (me *Connection) releaseChannel(id uint16) {
+	me.m.Lock()
+	defer me.m.Unlock()
 
-	delete(c.channels, id)
-	c.allocator.release(int(id))
+	delete(me.channels, id)
+	me.allocator.release(int(id))
 }
 
 // openChannel allocates and opens a channel, must be paired with closeChannel
-func (c *Connection) openChannel() (*Channel, error) {
-	ch, err := c.allocateChannel()
+func (me *Connection) openChannel() (*Channel, error) {
+	ch, err := me.allocateChannel()
 	if err != nil {
 		return nil, err
 	}
 
 	if err := ch.open(); err != nil {
-		c.releaseChannel(ch.id)
 		return nil, err
 	}
 	return ch, nil
@@ -614,9 +576,9 @@ func (c *Connection) openChannel() (*Channel, error) {
 // closeChannel releases and initiates a shutdown of the channel.  All channel
 // closures should be initiated here for proper channel lifecycle management on
 // this connection.
-func (c *Connection) closeChannel(ch *Channel, e *Error) {
+func (me *Connection) closeChannel(ch *Channel, e *Error) {
 	ch.shutdown(e)
-	c.releaseChannel(ch.id)
+	me.releaseChannel(ch.id)
 }
 
 /*
@@ -625,27 +587,24 @@ messages.  Any error from methods on this receiver will render the receiver
 invalid and a new Channel should be opened.
 
 */
-func (c *Connection) Channel() (*Channel, error) {
-	return c.openChannel()
+func (me *Connection) Channel() (*Channel, error) {
+	return me.openChannel()
 }
 
-func (c *Connection) call(req message, res ...message) error {
+func (me *Connection) call(req message, res ...message) error {
 	// Special case for when the protocol header frame is sent insted of a
 	// request method
 	if req != nil {
-		if err := c.send(&methodFrame{ChannelId: 0, Method: req}); err != nil {
+		if err := me.send(&methodFrame{ChannelId: 0, Method: req}); err != nil {
 			return err
 		}
 	}
 
 	select {
-	case err, ok := <-c.errors:
-		if !ok {
-			return ErrClosed
-		}
+	case err := <-me.errors:
 		return err
 
-	case msg := <-c.rpc:
+	case msg := <-me.rpc:
 		// Try to match one of the result types
 		for _, try := range res {
 			if reflect.TypeOf(msg) == reflect.TypeOf(try) {
@@ -658,7 +617,8 @@ func (c *Connection) call(req message, res ...message) error {
 		}
 		return ErrCommandInvalid
 	}
-	// unreachable
+
+	panic("unreachable")
 }
 
 //    Connection          = open-Connection *use-Connection close-Connection
@@ -671,24 +631,24 @@ func (c *Connection) call(req message, res ...message) error {
 //    use-Connection      = *channel
 //    close-Connection    = C:CLOSE S:CLOSE-OK
 //                        / S:CLOSE C:CLOSE-OK
-func (c *Connection) open(config Config) error {
-	if err := c.send(&protocolHeader{}); err != nil {
+func (me *Connection) open(config Config) error {
+	if err := me.send(&protocolHeader{}); err != nil {
 		return err
 	}
 
-	return c.openStart(config)
+	return me.openStart(config)
 }
 
-func (c *Connection) openStart(config Config) error {
+func (me *Connection) openStart(config Config) error {
 	start := &connectionStart{}
 
-	if err := c.call(nil, start); err != nil {
+	if err := me.call(nil, start); err != nil {
 		return err
 	}
 
-	c.Major = int(start.VersionMajor)
-	c.Minor = int(start.VersionMinor)
-	c.Properties = Table(start.ServerProperties)
+	me.Major = int(start.VersionMajor)
+	me.Minor = int(start.VersionMinor)
+	me.Properties = Table(start.ServerProperties)
 
 	// eventually support challenge/response here by also responding to
 	// connectionSecure.
@@ -698,12 +658,12 @@ func (c *Connection) openStart(config Config) error {
 	}
 
 	// Save this mechanism off as the one we chose
-	c.Config.SASL = []Authentication{auth}
+	me.Config.SASL = []Authentication{auth}
 
-	return c.openTune(config, auth)
+	return me.openTune(config, auth)
 }
 
-func (c *Connection) openTune(config Config, auth Authentication) error {
+func (me *Connection) openTune(config Config, auth Authentication) error {
 	if len(config.Properties) == 0 {
 		config.Properties = Table{
 			"product": defaultProduct,
@@ -723,7 +683,7 @@ func (c *Connection) openTune(config Config, auth Authentication) error {
 	}
 	tune := &connectionTune{}
 
-	if err := c.call(ok, tune); err != nil {
+	if err := me.call(ok, tune); err != nil {
 		// per spec, a connection can only be closed when it has been opened
 		// so at this point, we know it's an auth error, but the socket
 		// was closed instead.  Return a meaningful error.
@@ -732,67 +692,58 @@ func (c *Connection) openTune(config Config, auth Authentication) error {
 
 	// When the server and client both use default 0, then the max channel is
 	// only limited by uint16.
-	c.Config.ChannelMax = pick(config.ChannelMax, int(tune.ChannelMax))
-	if c.Config.ChannelMax == 0 {
-		c.Config.ChannelMax = defaultChannelMax
+	me.Config.ChannelMax = pick(config.ChannelMax, int(tune.ChannelMax))
+	if me.Config.ChannelMax == 0 {
+		me.Config.ChannelMax = defaultChannelMax
 	}
-	c.Config.ChannelMax = min(c.Config.ChannelMax, maxChannelMax)
+	me.Config.ChannelMax = min(me.Config.ChannelMax, maxChannelMax)
 
 	// Frame size includes headers and end byte (len(payload)+8), even if
 	// this is less than FrameMinSize, use what the server sends because the
 	// alternative is to stop the handshake here.
-	c.Config.FrameSize = pick(config.FrameSize, int(tune.FrameMax))
+	me.Config.FrameSize = pick(config.FrameSize, int(tune.FrameMax))
 
 	// Save this off for resetDeadline()
-	c.Config.Heartbeat = time.Second * time.Duration(pick(
+	me.Config.Heartbeat = time.Second * time.Duration(pick(
 		int(config.Heartbeat/time.Second),
 		int(tune.Heartbeat)))
 
 	// "The client should start sending heartbeats after receiving a
 	// Connection.Tune method"
-	go c.heartbeater(c.Config.Heartbeat, c.NotifyClose(make(chan *Error, 1)))
+	go me.heartbeater(me.Config.Heartbeat, me.NotifyClose(make(chan *Error, 1)))
 
-	if err := c.send(&methodFrame{
+	if err := me.send(&methodFrame{
 		ChannelId: 0,
 		Method: &connectionTuneOk{
-			ChannelMax: uint16(c.Config.ChannelMax),
-			FrameMax:   uint32(c.Config.FrameSize),
-			Heartbeat:  uint16(c.Config.Heartbeat / time.Second),
+			ChannelMax: uint16(me.Config.ChannelMax),
+			FrameMax:   uint32(me.Config.FrameSize),
+			Heartbeat:  uint16(me.Config.Heartbeat / time.Second),
 		},
 	}); err != nil {
 		return err
 	}
 
-	return c.openVhost(config)
+	return me.openVhost(config)
 }
 
-func (c *Connection) openVhost(config Config) error {
+func (me *Connection) openVhost(config Config) error {
 	req := &connectionOpen{VirtualHost: config.Vhost}
 	res := &connectionOpenOk{}
 
-	if err := c.call(req, res); err != nil {
+	if err := me.call(req, res); err != nil {
 		// Cannot be closed yet, but we know it's a vhost problem
 		return ErrVhost
 	}
 
-	c.Config.Vhost = config.Vhost
+	me.Config.Vhost = config.Vhost
 
-	return c.openComplete()
+	return me.openComplete()
 }
 
 // openComplete performs any final Connection initialization dependent on the
-// connection handshake and clears any state needed for TLS and AMQP handshaking.
-func (c *Connection) openComplete() error {
-	// We clear the deadlines and let the heartbeater reset the read deadline if requested.
-	// RabbitMQ uses TCP flow control at this point for pushback so Writes can
-	// intentionally block.
-	if deadliner, ok := c.conn.(interface {
-		SetDeadline(time.Time) error
-	}); ok {
-		_ = deadliner.SetDeadline(time.Time{})
-	}
-
-	c.allocator = newAllocator(1, c.Config.ChannelMax)
+// connection handshake.
+func (me *Connection) openComplete() error {
+	me.allocator = newAllocator(1, me.Config.ChannelMax)
 	return nil
 }
 

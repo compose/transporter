@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/compose/transporter/adaptor"
 	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/message/ops"
 )
@@ -23,11 +24,13 @@ func TestWrite(t *testing.T) {
 	}
 	defer f.Close()
 	tmpSession := &Session{file: f}
+	confirms, cleanup := adaptor.MockConfirmWrites()
+	defer adaptor.VerifyWriteConfirmed(cleanup, t)
 	w := newWriter()
 	for i := 0; i < 2; i++ {
 		msg := message.From(ops.Insert, "test", map[string]interface{}{"_id": "546656989330a846dc7ce327", "test": "hello world"})
 		if i == 0 {
-			msg = message.WithConfirms(make(chan struct{}), msg)
+			msg = message.WithConfirms(confirms, msg)
 		}
 		if _, err := w.Write(msg)(tmpSession); err != nil {
 			t.Errorf("unexpected Write error, %s\n", err)

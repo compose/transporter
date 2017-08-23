@@ -54,6 +54,7 @@ func NewLogManager(path, name string) (*LogManager, error) {
 func (m *LogManager) buildMap() error {
 	var lastError error
 	for _, s := range m.log.Segments() {
+		// s.Open()
 		var readPosition int64
 		for {
 			// skip the offsetHeader
@@ -92,10 +93,10 @@ func (m *LogManager) buildMap() error {
 
 // CommitOffset verifies it does not contain an offset older than the current offset
 // and persists to the log.
-func (m *LogManager) CommitOffset(o Offset) error {
+func (m *LogManager) CommitOffset(o Offset, override bool) error {
 	m.Lock()
 	defer m.Unlock()
-	if currentOffset, ok := m.nsMap[o.Namespace]; ok && currentOffset >= o.LogOffset {
+	if currentOffset, ok := m.nsMap[o.Namespace]; !override && ok && currentOffset >= o.LogOffset {
 		log.With("currentOffest", currentOffset).
 			With("providedOffset", o.LogOffset).
 			Debugln("refusing to commit offset")
@@ -117,6 +118,7 @@ func (m *LogManager) OffsetMap() map[string]uint64 {
 	return m.nsMap
 }
 
+// NewestOffset loops over every offset and returns the highest one.
 func (m *LogManager) NewestOffset() int64 {
 	m.Lock()
 	defer m.Unlock()

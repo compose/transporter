@@ -72,7 +72,7 @@ func TestRead(t *testing.T) {
 			if err != nil && err == io.EOF {
 				break
 			} else if err != nil {
-				t.Fatalf("[%s] unexpected ReadHeader error, %s", rt.name, err)
+				t.Fatalf("[%s] unexpected ReadEntry error, %s", rt.name, err)
 			}
 		}
 	}

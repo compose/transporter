@@ -40,6 +40,10 @@ func (r *Reader) Read(p []byte) (int, error) {
 		r.idx++
 		segment = segments[r.idx]
 		r.position = 0
+		// err = segment.Open()
+		// if err != nil {
+		// 	break
+		// }
 	}
 
 	return n, err

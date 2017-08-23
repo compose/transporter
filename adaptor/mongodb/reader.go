@@ -71,12 +71,10 @@ func (r *Reader) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 				if m, ok := resumeMap[c]; ok {
 					lastID = m.Msg.Data().Get("_id")
 					mode = m.Mode
-					if m.Mode == commitlog.Sync {
-						oplogTime = timeAsMongoTimestamp(time.Unix(m.Timestamp, 0))
-					}
+					oplogTime = timeAsMongoTimestamp(time.Unix(m.Timestamp, 0))
 				}
 				if mode == commitlog.Copy {
-					if err := r.iterateCollection(lastID, session.Copy(), c, out, done); err != nil {
+					if err := r.iterateCollection(r.iterate(lastID, session.Copy(), c), out, done, int64(oplogTime)>>32); err != nil {
 						log.With("db", session.DB("").Name).Errorln(err)
 						return
 					}
@@ -126,16 +124,16 @@ func (r *Reader) listCollections(mgoSession *mgo.Session, filterFn func(name str
 	return colls, nil
 }
 
-func (r *Reader) iterateCollection(lastID interface{}, s *mgo.Session, c string, out chan<- client.MessageSet, done chan struct{}) error {
-	iter := r.iterate(lastID, s, c)
+func (r *Reader) iterateCollection(in <-chan message.Msg, out chan<- client.MessageSet, done chan struct{}, origOplogTime int64) error {
 	for {
 		select {
-		case msg, ok := <-iter:
+		case msg, ok := <-in:
 			if !ok {
 				return nil
 			}
 			out <- client.MessageSet{
-				Msg: msg,
+				Msg:       msg,
+				Timestamp: origOplogTime,
 			}
 		case <-done:
 			return errors.New("iteration cancelled")
@@ -238,7 +236,8 @@ func (r *Reader) tailCollection(c string, mgoSession *mgo.Session, oplogTime bso
 			collection = mgoSession.DB("local").C("oplog.rs")
 			result     oplogDoc // hold the document
 			db         = mgoSession.DB("").Name
-			query      = bson.M{"ns": fmt.Sprintf("%s.%s", db, c), "ts": bson.M{"$gte": oplogTime}}
+			ns         = fmt.Sprintf("%s.%s", db, c)
+			query      = bson.M{"ns": ns, "ts": bson.M{"$gte": oplogTime}}
 			iter       = collection.Find(query).LogReplay().Sort("$natural").Tail(r.oplogTimeout)
 		)
 		defer iter.Close()
@@ -251,7 +250,7 @@ func (r *Reader) tailCollection(c string, mgoSession *mgo.Session, oplogTime bso
 				return
 			default:
 				for iter.Next(&result) {
-					if result.validOp() {
+					if result.validOp(ns) {
 						var (
 							doc bson.M
 							err error
@@ -270,7 +269,6 @@ func (r *Reader) tailCollection(c string, mgoSession *mgo.Session, oplogTime bso
 							if err != nil {
 								// errors aren't fatal here, but we need to send it down the pipe
 								log.With("ns", result.Ns).Errorf("unable to getOriginalDoc, %s", err)
-								// m.pipe.Err <- adaptor.NewError(adaptor.ERROR, m.path, fmt.Sprintf("tail MongoDB error (%s)", err.Error()), nil)
 								continue
 							}
 						}
@@ -294,7 +292,7 @@ func (r *Reader) tailCollection(c string, mgoSession *mgo.Session, oplogTime bso
 			}
 			if iter.Err() != nil {
 				log.With("path", db).Errorf("error tailing oplog, %s", iter.Err())
-				// return adaptor.NewError(adaptor.CRITICAL, m.path, fmt.Sprintf("MongoDB error (error reading collection %s)", iter.Err()), nil)
+				mgoSession.Refresh()
 			}
 
 			query = bson.M{"ts": bson.M{"$gte": oplogTime}}
@@ -341,9 +339,8 @@ type oplogDoc struct {
 
 // validOp checks to see if we're an insert, delete, or update, otherwise the
 // document is skilled.
-// TODO: skip system collections
-func (o *oplogDoc) validOp() bool {
-	return o.Op == "i" || o.Op == "d" || o.Op == "u"
+func (o *oplogDoc) validOp(ns string) bool {
+	return ns == o.Ns && (o.Op == "i" || o.Op == "d" || o.Op == "u")
 }
 
 func timeAsMongoTimestamp(t time.Time) bson.MongoTimestamp {

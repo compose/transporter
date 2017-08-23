@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/compose/transporter/offset"
 	"github.com/compose/transporter/pipeline"
 )
 
@@ -21,7 +22,7 @@ func TestNewBuilder(t *testing.T) {
 
 	a := buildAdaptor("mongodb")(map[string]interface{}{"uri": "mongo://localhost:27017"})
 	source, err := pipeline.NewNodeWithOptions(
-		"source", a.name, DefaultNamespace,
+		"source", a.name, defaultNamespace,
 		pipeline.WithClient(a.a),
 		pipeline.WithReader(a.a),
 		pipeline.WithCommitLog(dataDir, 1024*1024*10248),
@@ -30,25 +31,36 @@ func TestNewBuilder(t *testing.T) {
 		t.Fatalf("unexpected error, %s\n", err)
 	}
 
+	om, err := offset.NewLogManager(dataDir, "source/sink")
+	if err != nil {
+		t.Fatalf("unexpected error, %s\n", err)
+	}
+
 	a = buildAdaptor("elasticsearch")(map[string]interface{}{"uri": "http://localhost:9200"})
-	sink, err := pipeline.NewNodeWithOptions(
-		"sink", a.name, DefaultNamespace,
+	_, err = pipeline.NewNodeWithOptions(
+		"sink", a.name, defaultNamespace,
 		pipeline.WithClient(a.a),
 		pipeline.WithWriter(a.a),
 		pipeline.WithParent(source),
-		pipeline.WithOffsetManager("source/sink", dataDir),
+		pipeline.WithOffsetManager(om),
+		pipeline.WithTransforms(
+			[]*pipeline.Transform{
+				&pipeline.Transform{
+					Name:     "trans",
+					Fn:       buildFunction("transformer")(map[string]interface{}{"filename": "pipeline.js"}),
+					NsFilter: regexp.MustCompile(defaultNamespace),
+				},
+			},
+		),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error, %s\n", err)
 	}
 
-	transformer := buildFunction("transformer")(map[string]interface{}{"filename": "pipeline.js"})
-	sink.Transforms = []*pipeline.Transform{&pipeline.Transform{Name: "trans", Fn: transformer, NsFilter: regexp.MustCompile(DefaultNamespace)}}
-
 	expected := "Transporter:\n"
 	expected += source.String()
 
-	builder, err := NewBuilder("testdata/test_pipeline.js")
+	builder, err := newBuilder("testdata/test_pipeline.js")
 	if err != nil {
 		t.Fatalf("unexpected error, %s", err)
 	}
@@ -67,7 +79,7 @@ func TestNewBuilderWithEnv(t *testing.T) {
 	os.Setenv("TEST_MONGO_URI", "mongo://localhost:27017")
 	a := buildAdaptor("mongodb")(map[string]interface{}{"uri": "mongo://localhost:27017"})
 	source, err := pipeline.NewNodeWithOptions(
-		"source", a.name, DefaultNamespace,
+		"source", a.name, defaultNamespace,
 		pipeline.WithClient(a.a),
 		pipeline.WithReader(a.a),
 		pipeline.WithCommitLog(dataDir, 1024*1024*10248),
@@ -75,25 +87,37 @@ func TestNewBuilderWithEnv(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error, %s\n", err)
 	}
+
+	om, err := offset.NewLogManager(dataDir, "source/sink")
+	if err != nil {
+		t.Fatalf("unexpected error, %s\n", err)
+	}
+
 	a = buildAdaptor("elasticsearch")(map[string]interface{}{"uri": "http://localhost:9200"})
-	sink, err := pipeline.NewNodeWithOptions(
-		"sink", a.name, DefaultNamespace,
+	_, err = pipeline.NewNodeWithOptions(
+		"sink", a.name, defaultNamespace,
 		pipeline.WithClient(a.a),
 		pipeline.WithWriter(a.a),
 		pipeline.WithParent(source),
-		pipeline.WithOffsetManager("source/sink", dataDir),
+		pipeline.WithOffsetManager(om),
+		pipeline.WithTransforms(
+			[]*pipeline.Transform{
+				&pipeline.Transform{
+					Name:     "trans",
+					Fn:       buildFunction("transformer")(map[string]interface{}{"filename": "pipeline.js"}),
+					NsFilter: regexp.MustCompile(defaultNamespace),
+				},
+			},
+		),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error, %s\n", err)
 	}
 
-	transformer := buildFunction("transformer")(map[string]interface{}{"filename": "pipeline.js"})
-	sink.Transforms = []*pipeline.Transform{&pipeline.Transform{Name: "trans", Fn: transformer, NsFilter: regexp.MustCompile(DefaultNamespace)}}
-
 	expected := "Transporter:\n"
 	expected += source.String()
 
-	builder, err := NewBuilder("testdata/test_pipeline_env.js")
+	builder, err := newBuilder("testdata/test_pipeline_env.js")
 	if err != nil {
 		t.Fatalf("unexpected error, %s", err)
 	}

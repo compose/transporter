@@ -24,15 +24,18 @@ module.exports = function(msg) {
 }
 ```
 
-***NOTE***
+***NOTES***
+
 By using the elasticsearch auto-generated `_id`, it is not currently possible for transporter to
 process update/delete operations. Future work is planned in [#39](https://github.com/compose/transporter/issues/39)
 to address this problem.
 
+If no `INDEX_NAME` is provided, transporter will configure a default index named `test`.
+
 ### Configuration:
 ```javascript
 es = elasticsearch({
-  "uri": "https://username:password@hostname:port/thisgetsignored"
+  "uri": "https://username:password@hostname:port/INDEX_NAME"
   "timeout": "10s" // optional, defaults to 30s
   "aws_access_key": "XXX" // optional, used for signing requests to AWS Elasticsearch service
   "aws_access_secret": "XXX" // optional, used for signing requests to AWS Elasticsearch service

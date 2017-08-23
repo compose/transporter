@@ -3,6 +3,9 @@ dist: trusty
 language: go
 go:
 - 1.8.x
+filter_secrets: false
+git:
+  lfs_skip_smudge: true
 env:
   global:
   - MONGODB_VERSION=3.2.11
@@ -17,21 +20,17 @@ env:
   - TESTDIR=adaptor/postgres/...
   - TESTDIR=adaptor/rabbitmq/...
   - TESTDIR=adaptor/rethinkdb/...
-  - TESTDIR=integration_tests/mongo_to_mongo
-  - TESTDIR=integration_tests/mongo_to_es
-  - TESTDIR=integration_tests/mongo_to_rethink
-  - TESTDIR=integration_tests/rethink_to_postgres
 before_install:
 - "./scripts/before_install.sh"
 cache:
   directories:
   - "$HOME/.cache/pip"
 before_cache:
-- if [[ $TESTDIR != integration* ]]; then rm -f $HOME/.cache/pip/log/debug.log; fi
+- rm -f $HOME/.cache/pip/log/debug.log
 script:
 - "./scripts/tests.sh"
 after_success:
-- if [[ $TESTDIR != integration* ]]; then bash <(curl -s https://codecov.io/bash); fi
+- bash <(curl -s https://codecov.io/bash)
 addons:
   postgresql: '9.4'
   rethinkdb: '2.3.5'

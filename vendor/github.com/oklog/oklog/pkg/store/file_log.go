@@ -48,7 +48,7 @@ type fileLog struct {
 // Note that we don't own segment files! They may disappear.
 func NewFileLog(filesys fs.Filesystem, root string, segmentTargetSize, segmentBufferSize int64) (Log, error) {
 	if err := filesys.MkdirAll(root); err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "creating path %s", root)
 	}
 	lock := filepath.Join(root, lockFile)
 	r, existed, err := filesys.Lock(lock)
@@ -56,7 +56,9 @@ func NewFileLog(filesys fs.Filesystem, root string, segmentTargetSize, segmentBu
 		return nil, errors.Wrapf(err, "locking %s", lock)
 	}
 	if existed {
-		return nil, errors.Errorf("%s already exists; another process is running, or the file is stale", lock)
+		// The previous owner crashed, but we still got the lock.
+		// So this is like Prometheus "crash recovery" mode.
+		// But we don't have anything special we need to do.
 	}
 	if err := recoverSegments(filesys, root); err != nil {
 		return nil, errors.Wrap(err, "during recovery")
@@ -82,18 +84,15 @@ func (log *fileLog) Create() (WriteSegment, error) {
 func (log *fileLog) Query(qp QueryParams, statsOnly bool) (QueryResult, error) {
 	var (
 		begin    = time.Now()
-		fromULID = ulid.MustNew(ulid.Timestamp(qp.From), nil)
-		toULID   = ulid.MustNew(ulid.Timestamp(qp.To), nil)
-		segments = log.queryMatchingSegments(fromULID, toULID)
-		pass     = recordFilterBoundedPlain(fromULID, toULID, []byte(qp.Q))
+		segments = log.queryMatchingSegments(qp.From.ULID, qp.To.ULID)
+		pass     = recordFilterBoundedPlain(qp.From.ULID, qp.To.ULID, []byte(qp.Q))
 	)
-
 	if qp.Regex {
-		pass = recordFilterBoundedRegex(fromULID, toULID, regexp.MustCompile(qp.Q))
+		pass = recordFilterBoundedRegex(qp.From.ULID, qp.To.ULID, regexp.MustCompile(qp.Q))
 	}
 
 	// Time range should be inclusive, so we need a max value here.
-	if err := toULID.SetEntropy(ulidMaxEntropy); err != nil {
+	if err := qp.To.ULID.SetEntropy(ulidMaxEntropy); err != nil {
 		panic(err)
 	}
 
@@ -411,7 +410,7 @@ func recordFilterBoundedRegex(from, to ulid.ULID, q *regexp.Regexp) recordFilter
 // queryMatchingSegments returns a sorted slice of all segment files
 // that could possibly have records in the provided time range.
 func (log *fileLog) queryMatchingSegments(from, to ulid.ULID) (segments []string) {
-	filepath.Walk(log.root, func(path string, info os.FileInfo, err error) error {
+	log.filesys.Walk(log.root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}

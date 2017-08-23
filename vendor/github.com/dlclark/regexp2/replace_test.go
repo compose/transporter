@@ -148,3 +148,25 @@ func TestReplaceFunc_Groups(t *testing.T) {
 		t.Fatalf("Replace failed, wanted %v, got %v", want, got)
 	}
 }
+
+func TestReplace_RefNumsDollarAmbiguous(t *testing.T) {
+	re := MustCompile("(123)hello(789)", None)
+	res, err := re.Replace("123hello789", "$1456$2", -1, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want, got := "$1456789", res; want != got {
+		t.Fatalf("Wrong result: %s", got)
+	}
+}
+
+func TestReplace_NestedGroups(t *testing.T) {
+	re := MustCompile(`(\p{Sc}\s?)?(\d+\.?((?<=\.)\d+)?)(?(1)|\s?\p{Sc})?`, None)
+	res, err := re.Replace("$17.43  €2 16.33  £0.98  0.43   £43   12€  17", "$2", -1, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want, got := "17.43  2 16.33  0.98  0.43   43   12  17", res; want != got {
+		t.Fatalf("Wrong result: %s", got)
+	}
+}

@@ -20,13 +20,13 @@ type Picker struct {
 }
 
 func (p *Picker) Apply(msg message.Msg) (message.Msg, error) {
-	log.With("msg", msg).Infof("picking...")
+	log.With("msg", msg).Debugln("picking...")
 	pluckedMsg := map[string]interface{}{}
 	for _, k := range p.Fields {
 		if v, ok := msg.Data().AsMap()[k]; ok {
 			pluckedMsg[k] = v
 		}
 	}
-	log.With("msg", pluckedMsg).Infof("...picked")
+	log.With("msg", pluckedMsg).Debugln("...picked")
 	return message.From(msg.OP(), msg.Namespace(), pluckedMsg), nil
 }
