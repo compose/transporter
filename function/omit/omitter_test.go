@@ -12,7 +12,7 @@ import (
 
 var initTests = []struct {
 	in     map[string]interface{}
-	expect *Omitter
+	expect *omitter
 }{
 	{map[string]interface{}{"fields": []string{"test"}}, &Omitter{Fields: []string{"test"}}},
 }
@@ -61,7 +61,7 @@ var omitTests = []struct {
 
 func TestApply(t *testing.T) {
 	for _, ot := range omitTests {
-		omit := &Omitter{ot.fields}
+		omit := &omitter{ot.fields}
 		msg, err := omit.Apply(message.From(ops.Insert, "test", ot.in))
 		if !reflect.DeepEqual(err, ot.err) {
 			t.Errorf("[%s] error mismatch, expected %s, got %s", ot.name, ot.err, err)

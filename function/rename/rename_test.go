@@ -12,11 +12,11 @@ import (
 
 var initTests = []struct {
 	in     map[string]interface{}
-	expect *Rename
+	expect *rename
 }{
 	{
 		map[string]interface{}{"field_map": map[string]string{"test": "newtest"}},
-		&Rename{SwapMap: map[string]string{"test": "newtest"}},
+		&rename{SwapMap: map[string]string{"test": "newtest"}},
 	},
 }
 
@@ -64,7 +64,7 @@ var renameTests = []struct {
 
 func TestApply(t *testing.T) {
 	for _, rt := range renameTests {
-		rename := &Rename{rt.fieldMap}
+		rename := &rename{rt.fieldMap}
 		msg, err := rename.Apply(message.From(ops.Insert, "test", rt.in))
 		if !reflect.DeepEqual(err, rt.err) {
 			t.Errorf("[%s] error mismatch, expected %s, got %s", rt.name, rt.err, err)

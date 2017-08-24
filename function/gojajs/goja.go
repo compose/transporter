@@ -11,11 +11,11 @@ import (
 	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/message/data"
 	"github.com/compose/transporter/message/ops"
-	"github.com/dop251/goja"
+	gojaVM "github.com/dop251/goja"
 )
 
 var (
-	_ function.Function = &Goja{}
+	_ function.Function = &goja{}
 
 	// ErrInvalidMessageType is a generic error returned when the `data` property returned in the document from
 	// the JS function was not of type map[string]interface{}
@@ -29,28 +29,28 @@ func init() {
 	function.Add(
 		"goja",
 		func() function.Function {
-			return &Goja{}
+			return &goja{}
 		},
 	)
 	function.Add(
 		"js",
 		func() function.Function {
-			return &Goja{}
+			return &goja{}
 		},
 	)
 }
 
-type Goja struct {
+type goja struct {
 	Filename string `json:"filename"`
-	vm       *goja.Runtime
+	vm       *gojaVM.Runtime
 }
 
 // JSFunc defines the structure a transformer function.
-type JSFunc func(map[string]interface{}) *goja.Object
+type JSFunc func(map[string]interface{}) *gojaVM.Object
 
 // Apply fulfills the function.Function interface by transforming the incoming message with the configured
 // JavaScript function.
-func (g *Goja) Apply(msg message.Msg) (message.Msg, error) {
+func (g *goja) Apply(msg message.Msg) (message.Msg, error) {
 	if g.vm == nil {
 		if err := g.initVM(); err != nil {
 			return nil, err
@@ -59,8 +59,8 @@ func (g *Goja) Apply(msg message.Msg) (message.Msg, error) {
 	return g.transformOne(msg)
 }
 
-func (g *Goja) initVM() error {
-	g.vm = goja.New()
+func (g *goja) initVM() error {
+	g.vm = gojaVM.New()
 
 	fn, err := extractFunction(g.Filename)
 	if err != nil {
@@ -83,9 +83,9 @@ func extractFunction(filename string) (string, error) {
 	return string(ba), nil
 }
 
-func (g *Goja) transformOne(msg message.Msg) (message.Msg, error) {
+func (g *goja) transformOne(msg message.Msg) (message.Msg, error) {
 	var (
-		outDoc goja.Value
+		outDoc gojaVM.Value
 		doc    interface{}
 		err    error
 	)
@@ -125,7 +125,7 @@ func (g *Goja) transformOne(msg message.Msg) (message.Msg, error) {
 	return newMsg, nil
 }
 
-func toMsg(vm *goja.Runtime, origMsg message.Msg, incoming map[string]interface{}) (message.Msg, error) {
+func toMsg(vm *gojaVM.Runtime, origMsg message.Msg, incoming map[string]interface{}) (message.Msg, error) {
 	var (
 		op      ops.Op
 		ts      = origMsg.Timestamp()

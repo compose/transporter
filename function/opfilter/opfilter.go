@@ -9,26 +9,25 @@ import (
 )
 
 var (
-	_ function.Function = &Opfilter{}
+	_ function.Function = &opfilter{}
 )
 
 func init() {
 	function.Add(
 		"opfilter",
 		func() function.Function {
-			return &Opfilter{}
+			return &opfilter{}
 		},
 	)
 }
 
-// Opfilter will skipped messages based on the defined filter.
-type Opfilter struct {
+// opfilter will skipped messages based on the defined filter.
+type opfilter struct {
 	Whitelist []string `json:"whitelist"`
 	Blacklist []string `json:"blacklist"`
 }
 
-// Apply changes the incoming namespace to a new one if it's been defined in the config.
-func (o *Opfilter) Apply(msg message.Msg) (message.Msg, error) {
+func (o *opfilter) Apply(msg message.Msg) (message.Msg, error) {
 	if len(o.Whitelist) > 0 && !isOpInList(msg.OP(), o.Whitelist) {
 		return nil, nil
 	} else if len(o.Blacklist) > 0 && isOpInList(msg.OP(), o.Blacklist) {

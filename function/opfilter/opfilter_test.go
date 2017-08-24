@@ -12,17 +12,17 @@ import (
 
 var initTests = []struct {
 	in     map[string]interface{}
-	expect *Opfilter
+	expect *opfilter
 }{
 	{
 		map[string]interface{}{"whitelist": []string{"insert"}},
-		&Opfilter{
+		&opfilter{
 			Whitelist: []string{ops.Insert.String()},
 		},
 	},
 	{
 		map[string]interface{}{"blacklist": []string{"delete"}},
-		&Opfilter{
+		&opfilter{
 			Blacklist: []string{ops.Delete.String()},
 		},
 	},
@@ -89,7 +89,7 @@ var opfilterTests = []struct {
 
 func TestApply(t *testing.T) {
 	for _, ot := range opfilterTests {
-		opfilter := &Opfilter{
+		opfilter := &opfilter{
 			Whitelist: ot.whitelist,
 			Blacklist: ot.blacklist,
 		}

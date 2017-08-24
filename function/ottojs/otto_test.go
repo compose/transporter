@@ -79,7 +79,7 @@ var (
 
 func TestApply(t *testing.T) {
 	for _, v := range writeTests {
-		o := Otto{Filename: v.fn}
+		o := otto{Filename: v.fn}
 		msg, err := o.Apply(v.in)
 		if (err != nil) != v.err {
 			t.Errorf("[%s] error expected %t but actually got %v", v.name, v.err, err)
@@ -136,7 +136,7 @@ func isEqualBSON(m1 map[string]interface{}, m2 map[string]interface{}) bool {
 }
 
 func BenchmarkTransformOne(b *testing.B) {
-	o := Otto{Filename: "testdata/transformer.js"}
+	o := otto{Filename: "testdata/transformer.js"}
 	msg := message.From(ops.Insert, "collection", map[string]interface{}{"id": bson.NewObjectId(), "name": "nick"})
 	b.ResetTimer()
 

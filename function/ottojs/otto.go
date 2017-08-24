@@ -12,13 +12,13 @@ import (
 	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/message/data"
 	"github.com/compose/transporter/message/ops"
-	"github.com/robertkrimen/otto"
+	ottoVM "github.com/robertkrimen/otto"
 
 	_ "github.com/robertkrimen/otto/underscore" // enable underscore
 )
 
 var (
-	_ function.Function = &Otto{}
+	_ function.Function = &otto{}
 	// ErrEmptyFilename will be returned when the profided filename is empty.
 	ErrEmptyFilename = errors.New("no filename specified")
 )
@@ -27,7 +27,7 @@ func init() {
 	function.Add(
 		"otto",
 		func() function.Function {
-			return &Otto{}
+			return &otto{}
 		},
 	)
 
@@ -35,17 +35,17 @@ func init() {
 	function.Add(
 		"transformer",
 		func() function.Function {
-			return &Otto{}
+			return &otto{}
 		},
 	)
 }
 
-type Otto struct {
+type otto struct {
 	Filename string `json:"filename"`
-	vm       *otto.Otto
+	vm       *ottoVM.Otto
 }
 
-func (o *Otto) Apply(msg message.Msg) (message.Msg, error) {
+func (o *otto) Apply(msg message.Msg) (message.Msg, error) {
 	if o.vm == nil {
 		if err := o.initVM(); err != nil {
 			return nil, err
@@ -54,8 +54,8 @@ func (o *Otto) Apply(msg message.Msg) (message.Msg, error) {
 	return o.transformOne(msg)
 }
 
-func (o *Otto) initVM() error {
-	o.vm = otto.New()
+func (o *otto) initVM() error {
+	o.vm = ottoVM.New()
 
 	fn, err := extractFunction(o.Filename)
 	if err != nil {
@@ -91,9 +91,9 @@ func extractFunction(filename string) (string, error) {
 	return string(ba), nil
 }
 
-func (o *Otto) transformOne(msg message.Msg) (message.Msg, error) {
+func (o *otto) transformOne(msg message.Msg) (message.Msg, error) {
 	var (
-		value, outDoc otto.Value
+		value, outDoc ottoVM.Value
 		result, doc   interface{}
 		err           error
 	)
@@ -155,7 +155,7 @@ func toMsg(origMsg message.Msg, incoming interface{}) (message.Msg, error) {
 		ts = m.Get("ts").(int64)
 		ns = m.Get("ns").(string)
 		switch newData := m.Get("data").(type) {
-		case otto.Value:
+		case ottoVM.Value:
 			exported, err := newData.Export()
 			if err != nil {
 				return nil, err
@@ -200,8 +200,8 @@ func toMsg(origMsg message.Msg, incoming interface{}) (message.Msg, error) {
 func resolveValues(m data.Data) (data.Data, error) {
 	for k, v := range m {
 		switch v.(type) {
-		case otto.Value:
-			val, err := v.(otto.Value).Export()
+		case ottoVM.Value:
+			val, err := v.(ottoVM.Value).Export()
 			if err != nil {
 				return nil, err
 			}

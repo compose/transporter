@@ -6,25 +6,24 @@ import (
 )
 
 var (
-	_ function.Function = &Remap{}
+	_ function.Function = &remap{}
 )
 
 func init() {
 	function.Add(
 		"remap",
 		func() function.Function {
-			return &Remap{}
+			return &remap{}
 		},
 	)
 }
 
-// Remap swaps out the namespaces based on the provided config
-type Remap struct {
+// remap swaps out the namespaces based on the provided config
+type remap struct {
 	SwapMap map[string]string `json:"ns_map"`
 }
 
-// Apply changes the incoming namespace to a new one if it's been defined in the config.
-func (r *Remap) Apply(msg message.Msg) (message.Msg, error) {
+func (r *remap) Apply(msg message.Msg) (message.Msg, error) {
 	if ns, ok := r.SwapMap[msg.Namespace()]; ok {
 		msg.UpdateNamespace(ns)
 	}
