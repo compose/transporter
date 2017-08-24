@@ -53,7 +53,7 @@ func init() {
 		}
 		w := &Writer{
 			index:    opts.Index,
-			parentId: opts.ParentId,
+			parentID: opts.ParentID,
 			logger:   log.With("writer", "elasticsearch").With("version", 5),
 		}
 		p, err := esClient.BulkProcessor().
@@ -88,9 +88,9 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 			msg.Data().Delete("_id")
 		}
 		var pID string
-		if _, ok := msg.Data()[w.parentId]; ok {
-			pID = msg.Data()[w.parentId].(string)
-			msg.Data().Delete(w.parentId)
+		if _, ok := msg.Data()[w.parentID]; ok {
+			pID = msg.Data()[w.parentID].(string)
+			msg.Data().Delete(w.parentID)
 		}
 
 		var br elastic.BulkableRequest

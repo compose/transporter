@@ -30,7 +30,7 @@ const (
   // "timeout": "10s", // defaults to 30s
   // "aws_access_key": "ABCDEF", // used for signing requests to AWS Elasticsearch service
   // "aws_access_secret": "ABCDEF" // used for signing requests to AWS Elasticsearch service
-  // "parent_id": "elastic_parent" // defaults to "elastic_parent" parent identifier for Elasticsearchl
+  // "parent_id": "elastic_parent" // defaults to "elastic_parent" parent identifier for Elasticsearch
 }`
 )
 
