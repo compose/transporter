@@ -140,6 +140,7 @@ func (s *Segment) Write(p []byte) (n int, err error) {
 	return n, nil
 }
 
+// ReadAt calls ReadAt on the underlying log.
 func (s *Segment) ReadAt(p []byte, off int64) (n int, err error) {
 	s.Lock()
 	defer s.Unlock()
@@ -166,6 +167,8 @@ func (s *Segment) Close() error {
 	return s.log.Close()
 }
 
+// FindOffsetPosition attempts to find the provided offset position in the
+// Segment.
 func (s *Segment) FindOffsetPosition(offset uint64) (int64, error) {
 	if _, err := s.log.Seek(0, 0); err != nil {
 		return 0, err

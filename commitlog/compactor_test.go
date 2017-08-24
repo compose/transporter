@@ -58,7 +58,7 @@ func TestCompact(t *testing.T) {
 		t.Fatalf("unable to create commitlog, %s", err)
 	}
 
-	c := &NamespaceCompactor{log: l}
+	c := &namespaceCompactor{log: l}
 	segments := l.Segments()
 	c.Compact(uint64(l.NewestOffset()+1), segments[0:len(segments)-1])
 

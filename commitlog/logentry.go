@@ -35,6 +35,7 @@ func (le LogEntry) ModeOpToByte() byte {
 	return byte(int(le.Mode) | (int(le.Op) << opShift))
 }
 
+// ReadEntry takes an io.Reader and returns a LogEntry.
 func ReadEntry(r io.Reader) (uint64, LogEntry, error) {
 	header := make([]byte, logEntryHeaderLen)
 	if _, err := r.Read(header); err != nil {

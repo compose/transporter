@@ -14,7 +14,7 @@ var initTests = []struct {
 	in     map[string]interface{}
 	expect *omitter
 }{
-	{map[string]interface{}{"fields": []string{"test"}}, &Omitter{Fields: []string{"test"}}},
+	{map[string]interface{}{"fields": []string{"test"}}, &omitter{Fields: []string{"test"}}},
 }
 
 func TestInit(t *testing.T) {
