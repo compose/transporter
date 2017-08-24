@@ -11,6 +11,9 @@ JS function to do it, fixed via [#401](https://github.com/compose/transporter/pu
 - if using AWS Elasticsearch service, the process to determine the version of elasticsearch failed,
 fixed via [#403](https://github.com/compose/transporter/pull/403)
 
+### Changes
+- the `-log_dir` flag is now `-xlog_dir` and the `log_dir` config property is now `xlog_dir` to match. This is to avoid confusion with the application logging's -log flags.
+
 ## v0.4.0 [2017-08-15]
 
 ### Features
