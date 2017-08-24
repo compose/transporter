@@ -44,7 +44,7 @@ type Elasticsearch struct {
 	adaptor.BaseConfig
 	AWSAccessKeyID  string `json:"aws_access_key" doc:"credentials for use with AWS Elasticsearch service"`
 	AWSAccessSecret string `json:"aws_access_secret" doc:"credentials for use with AWS Elasticsearch service"`
-	ParentId        string
+	ParentID        string
 }
 
 // Description for the Elasticsearcb adaptor
@@ -116,8 +116,8 @@ func setupWriter(conf *Elasticsearch) (client.Writer, error) {
 		return nil, client.VersionError{URI: conf.URI, V: stringVersion, Err: err.Error()}
 	}
 	var parentIdentifier = "elastic_parent"
-	if conf.ParentId != "" {
-		parentIdentifier = conf.ParentId
+	if conf.ParentID != "" {
+		parentIdentifier = conf.ParentID
 	}
 	for _, vc := range clients.Clients {
 		if vc.Constraint.Check(v) {
@@ -130,7 +130,7 @@ func setupWriter(conf *Elasticsearch) (client.Writer, error) {
 				UserInfo:   uri.User,
 				HTTPClient: httpClient,
 				Index:      uri.Path[1:],
-				ParentId:   parentIdentifier,
+				ParentID:   parentIdentifier,
 			}
 			versionedClient, _ := vc.Creator(opts)
 			return versionedClient, nil

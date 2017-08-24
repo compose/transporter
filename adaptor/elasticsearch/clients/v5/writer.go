@@ -30,7 +30,7 @@ type Writer struct {
 	confirmChan chan struct{}
 	logger      log.Logger
 	writeErr    error
-	parentId    string
+	parentID    string
 }
 
 func init() {
@@ -87,9 +87,9 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 			id = msg.ID()
 			msg.Data().Delete("_id")
 		}
-		var parent_id string
+		var pID string
 		if _, ok := msg.Data()[w.parentId]; ok {
-			parent_id = msg.Data()[w.parentId].(string)
+			pID = msg.Data()[w.parentId].(string)
 			msg.Data().Delete(w.parentId)
 		}
 
@@ -102,15 +102,15 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 			br = elastic.NewBulkDeleteRequest().Index(w.index).Type(indexType).Id(id)
 		case ops.Insert:
 			indexReq := elastic.NewBulkIndexRequest().Index(w.index).Type(indexType).Id(id)
-			if parent_id != "" {
-				indexReq.Parent(parent_id)
+			if pID != "" {
+				indexReq.Parent(pID)
 			}
 			indexReq.Doc(msg.Data())
 			br = indexReq
 		case ops.Update:
 			indexReq := elastic.NewBulkUpdateRequest().Index(w.index).Type(indexType).Id(id)
-			if parent_id != "" {
-				indexReq.Parent(parent_id)
+			if pID != "" {
+				indexReq.Parent(pID)
 			}
 			indexReq.Doc(msg.Data())
 			br = indexReq

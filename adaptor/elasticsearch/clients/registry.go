@@ -32,5 +32,5 @@ type ClientOptions struct {
 	UserInfo   *url.Userinfo
 	HTTPClient *http.Client
 	Index      string
-	ParentId   string
+	ParentID   string
 }
