@@ -29,6 +29,7 @@ func newMessageChan() messageChan {
 	return make(chan TrackedMessage, 10)
 }
 
+// TrackedMessage wraps the message.Msg and offset.Offset flowing through the pipeline.
 type TrackedMessage struct {
 	Msg message.Msg
 	Off offset.Offset

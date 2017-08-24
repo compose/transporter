@@ -9,6 +9,7 @@ var (
 	_ Manager = &MockManager{}
 )
 
+// MockManager implements offset.Manager for use in tests.
 type MockManager struct {
 	MemoryMap   map[string]uint64
 	CommitDelay time.Duration
@@ -16,6 +17,7 @@ type MockManager struct {
 	sync.Mutex
 }
 
+// CommitOffset satisfies offset.Manager interface.
 func (m *MockManager) CommitOffset(o Offset, override bool) error {
 	if m.CommitErr != nil {
 		return m.CommitErr
@@ -41,12 +43,14 @@ func (m *MockManager) CommitOffset(o Offset, override bool) error {
 	return nil
 }
 
+// OffsetMap satisfies offset.Manager interface.
 func (m *MockManager) OffsetMap() map[string]uint64 {
 	m.Lock()
 	defer m.Unlock()
 	return m.MemoryMap
 }
 
+// NewestOffset satisfies offset.Manager interface.
 func (m *MockManager) NewestOffset() int64 {
 	m.Lock()
 	defer m.Unlock()
