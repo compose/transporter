@@ -19,12 +19,12 @@ var errorTests = []struct {
 	{
 		"WrongTypeError",
 		"value is of incompatible type, wanted blah, got blah",
-		WrongTypeError{"blah", "blah"},
+		wrongTypeError{"blah", "blah"},
 	},
 	{
 		"UnknownOperatorError",
 		"unkown operator, dosomething",
-		UnknownOperatorError{"dosomething"},
+		unknownOperatorError{"dosomething"},
 	},
 }
 
@@ -38,11 +38,11 @@ func TestErrors(t *testing.T) {
 
 var initTests = []struct {
 	in     map[string]interface{}
-	expect *Skip
+	expect *skip
 }{
 	{
 		map[string]interface{}{"field": "test", "operator": "==", "match": 10},
-		&Skip{Field: "test", Operator: "==", Match: float64(10)},
+		&skip{Field: "test", Operator: "==", Match: float64(10)},
 	},
 }
 
@@ -68,7 +68,7 @@ var skipTests = []struct {
 	skipped   bool
 }{
 	{
-		"unknown operator", "type", []string{"="}, "good", map[string]interface{}{"_id": "blah", "type": "good"}, UnknownOperatorError{"="}, true,
+		"unknown operator", "type", []string{"="}, "good", map[string]interface{}{"_id": "blah", "type": "good"}, unknownOperatorError{"="}, true,
 	},
 	{
 		"match", "type", []string{"==", "eq", "$eq"}, "good", map[string]interface{}{"_id": "blah", "type": "good"}, nil, false,
@@ -131,23 +131,23 @@ var skipTests = []struct {
 		"wrong type", "count", []string{"<="}, 10, map[string]interface{}{"_id": "blah", "count": "10.1"}, nil, true,
 	},
 	{
-		"uncovertable string", "count", []string{"<="}, "ten", map[string]interface{}{"_id": "blah", "count": 10.1}, &strconv.NumError{"ParseFloat", "ten", strconv.ErrSyntax}, true,
+		"uncovertable string", "count", []string{"<="}, "ten", map[string]interface{}{"_id": "blah", "count": 10.1}, &strconv.NumError{Func: "ParseFloat", Num: "ten", Err: strconv.ErrSyntax}, true,
 	},
 	{
-		"uncovertable string", "count", []string{"<="}, 10, map[string]interface{}{"_id": "blah", "count": "ten"}, &strconv.NumError{"ParseFloat", "ten", strconv.ErrSyntax}, true,
+		"uncovertable string", "count", []string{"<="}, 10, map[string]interface{}{"_id": "blah", "count": "ten"}, &strconv.NumError{Func: "ParseFloat", Num: "ten", Err: strconv.ErrSyntax}, true,
 	},
 	{
-		"wrong type", "count", []string{"<="}, true, map[string]interface{}{"_id": "blah", "count": 10.1}, WrongTypeError{"float64 or int", "bool"}, true,
+		"wrong type", "count", []string{"<="}, true, map[string]interface{}{"_id": "blah", "count": 10.1}, wrongTypeError{"float64 or int", "bool"}, true,
 	},
 	{
-		"wrong type", "count", []string{"<="}, 10, map[string]interface{}{"_id": "blah", "count": false}, WrongTypeError{"float64 or int", "bool"}, true,
+		"wrong type", "count", []string{"<="}, 10, map[string]interface{}{"_id": "blah", "count": false}, wrongTypeError{"float64 or int", "bool"}, true,
 	},
 }
 
 func TestApply(t *testing.T) {
 	for _, st := range skipTests {
 		for _, op := range st.operators {
-			skip := &Skip{st.field, op, st.match}
+			skip := &skip{st.field, op, st.match}
 			msg, err := skip.Apply(message.From(ops.Insert, "test", st.data))
 			if !reflect.DeepEqual(err, st.err) {
 				t.Errorf("[%s %s] error mismatch, expected %s, got %s", op, st.name, st.err, err)
