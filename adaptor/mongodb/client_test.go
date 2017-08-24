@@ -3,6 +3,7 @@ package mongodb
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"io/ioutil"
 	"os"
 	"reflect"
@@ -117,7 +118,6 @@ var clientTests = []struct {
 			sessionTimeout: 30 * time.Second,
 			safety:         DefaultSafety,
 			readPreference: DefaultReadPreference,
-
 		},
 		nil,
 	},
@@ -228,8 +228,20 @@ var clientTests = []struct {
 		nil,
 	},
 	{
+		"with_certs_not_found",
+		[]ClientOptionFunc{WithCACerts([]string{"thisfiledoesnotexist"})},
+		&Client{
+			uri:            DefaultURI,
+			sessionTimeout: DefaultSessionTimeout,
+			safety:         DefaultSafety,
+			tlsConfig:      &tls.Config{InsecureSkipVerify: false, RootCAs: certPool()},
+			readPreference: DefaultReadPreference,
+		},
+		errors.New("Cert file not found"),
+	},
+	{
 		"with_certs_invalid",
-		[]ClientOptionFunc{WithCACerts([]string{"notacert"})},
+		[]ClientOptionFunc{WithCACerts([]string{"testdata/ca_invalid.pem"})},
 		&Client{
 			uri:            DefaultURI,
 			sessionTimeout: DefaultSessionTimeout,
