@@ -14,6 +14,7 @@ import (
 	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/message/ops"
 	version "github.com/hashicorp/go-version"
+	"gopkg.in/mgo.v2/bson"
 )
 
 var (
@@ -94,10 +95,47 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 			w.bp.Flush()
 			br = elastic.NewBulkDeleteRequest().Index(w.index).Type(indexType).Id(id)
 		case ops.Insert:
-			br = elastic.NewBulkIndexRequest().Index(w.index).Type(indexType).Id(id).Doc(msg.Data())
+			if _, ok := msg.Data()["elastic_parent"]; ok {
+
+				var parent_id string
+				switch msg.Data()["elastic_parent"].(type) {
+				case string:
+					parent_id = msg.Data()["elastic_parent"].(string)
+				case bson.ObjectId:
+					var parent bson.ObjectId
+					parent = msg.Data()["elastic_parent"].(bson.ObjectId)
+					parent_id = parent.Hex()
+				default:
+					parent_id = fmt.Sprintf("%v", msg.Data()["elastic_parent"])
+				}
+
+				br = elastic.NewBulkIndexRequest().Index(w.index).Type(indexType).Id(id).Parent(parent_id).Doc(msg.Data())
+				msg.Data().Delete("elastic_parent")
+			}else{
+
+				br = elastic.NewBulkIndexRequest().Index(w.index).Type(indexType).Id(id).Doc(msg.Data())
+			}
 		case ops.Update:
-			br = elastic.NewBulkUpdateRequest().Index(w.index).Type(indexType).Id(id).Doc(msg.Data())
+			if _, ok := msg.Data()["elastic_parent"]; ok {
+				var parent_id string
+				switch msg.Data()["elastic_parent"].(type) {
+				case string:
+					parent_id = msg.Data()["elastic_parent"].(string)
+				case bson.ObjectId:
+					var parent bson.ObjectId
+					parent = msg.Data()["elastic_parent"].(bson.ObjectId)
+					parent_id = parent.Hex()
+				default:
+					parent_id = fmt.Sprintf("%v", msg.Data()["elastic_parent"])
+				}
+				br = elastic.NewBulkUpdateRequest().Index(w.index).Type(indexType).Id(id).Parent(parent_id).Doc(msg.Data())
+				msg.Data().Delete("elastic_parent")
+			}else{
+				br = elastic.NewBulkUpdateRequest().Index(w.index).Type(indexType).Id(id).Doc(msg.Data())
+			}
+
 		}
+
 		w.bp.Add(br)
 		return msg, nil
 	}
