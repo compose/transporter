@@ -21,6 +21,7 @@ env:
   - TESTDIR=adaptor/rabbitmq/...
   - TESTDIR=adaptor/rethinkdb/...
 before_install:
+- go get github.com/golang/lint/golint
 - "./scripts/before_install.sh"
 cache:
   directories:
