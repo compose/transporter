@@ -15,14 +15,14 @@ import (
 
 func runXlog(args []string) error {
 	flagset := baseFlagSet("xlog")
-	logDir := flagset.String("log_dir", "", "path to commit log directory")
-	flagset.Usage = usageFor(flagset, "transporter xlog --log_dir=/path/to/log oldest|current|show [OFFSET]")
+	logDir := flagset.String("xlog_dir", "", "path to commit log directory")
+	flagset.Usage = usageFor(flagset, "transporter xlog --xlog_dir=/path/to/log oldest|current|show [OFFSET]")
 	if err := flagset.Parse(args); err != nil {
 		return err
 	}
 
 	if *logDir == "" {
-		return errors.New("missing required flag --log_dir")
+		return errors.New("missing required flag --xlog_dir")
 	}
 
 	args = flagset.Args()
