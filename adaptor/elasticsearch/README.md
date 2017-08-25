@@ -43,6 +43,16 @@ es = elasticsearch({
 })
 ```
 
+***NOTES***
+
+When writing to Elasticsearch with larger documents or any complex inserts that requires longer Elasticsearch timeouts, increase your write timeouts with `Config({"write_timeout":"30s"})` in addition to adapter level configuration to prevent concurrency issues.
+
+```javascript
+t.Config({"write_timeout":"30s"}).Source("source", source).Save("sink", sink)
+```
+
+Addressing [#391](https://github.com/compose/transporter/issues/391)
+
 ### Parent-Child Relationships
 
 *Note*
