@@ -31,7 +31,7 @@ import (
 
 const (
 	defaultCompactionInterval = 1 * time.Hour
-	defaultWriteTimeout       = 5 * time.Second
+	defaultWriteTimeout       = 30 * time.Second
 )
 
 var (
