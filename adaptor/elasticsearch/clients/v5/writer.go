@@ -30,6 +30,7 @@ type Writer struct {
 	confirmChan chan struct{}
 	logger      log.Logger
 	writeErr    error
+	parentID    string
 }
 
 func init() {
@@ -51,15 +52,16 @@ func init() {
 			return nil, err
 		}
 		w := &Writer{
-			index:  opts.Index,
-			logger: log.With("writer", "elasticsearch").With("version", 5),
+			index:    opts.Index,
+			parentID: opts.ParentID,
+			logger:   log.With("writer", "elasticsearch").With("version", 5),
 		}
 		p, err := esClient.BulkProcessor().
 			Name("TransporterWorker-1").
 			Workers(2).
-			BulkActions(1000).              // commit if # requests >= 1000
-			BulkSize(2 << 20).              // commit if size of requests >= 2 MB
-			FlushInterval(5 * time.Second). // commit every 5s
+			BulkActions(1000).               // commit if # requests >= 1000
+			BulkSize(2 << 20).               // commit if size of requests >= 2 MB
+			FlushInterval(30 * time.Second). // commit every 30s
 			Before(w.preBulkProcessor).
 			After(w.postBulkProcessor).
 			Do(context.Background())
@@ -85,6 +87,11 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 			id = msg.ID()
 			msg.Data().Delete("_id")
 		}
+		var pID string
+		if _, ok := msg.Data()[w.parentID]; ok {
+			pID = msg.Data()[w.parentID].(string)
+			msg.Data().Delete(w.parentID)
+		}
 
 		var br elastic.BulkableRequest
 		switch msg.OP() {
@@ -94,10 +101,21 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 			w.bp.Flush()
 			br = elastic.NewBulkDeleteRequest().Index(w.index).Type(indexType).Id(id)
 		case ops.Insert:
-			br = elastic.NewBulkIndexRequest().Index(w.index).Type(indexType).Id(id).Doc(msg.Data())
+			indexReq := elastic.NewBulkIndexRequest().Index(w.index).Type(indexType).Id(id)
+			if pID != "" {
+				indexReq.Parent(pID)
+			}
+			indexReq.Doc(msg.Data())
+			br = indexReq
 		case ops.Update:
-			br = elastic.NewBulkUpdateRequest().Index(w.index).Type(indexType).Id(id).Doc(msg.Data())
+			indexReq := elastic.NewBulkUpdateRequest().Index(w.index).Type(indexType).Id(id)
+			if pID != "" {
+				indexReq.Parent(pID)
+			}
+			indexReq.Doc(msg.Data())
+			br = indexReq
 		}
+
 		w.bp.Add(br)
 		return msg, nil
 	}

@@ -57,9 +57,9 @@ func init() {
 		p, err := esClient.BulkProcessor().
 			Name("TransporterWorker-1").
 			Workers(2).
-			BulkActions(1000).              // commit if # requests >= 1000
-			BulkSize(2 << 20).              // commit if size of requests >= 2 MB
-			FlushInterval(5 * time.Second). // commit every 5s
+			BulkActions(1000).               // commit if # requests >= 1000
+			BulkSize(2 << 20).               // commit if size of requests >= 2 MB
+			FlushInterval(30 * time.Second). // commit every 30s
 			Before(w.preBulkProcessor).
 			After(w.postBulkProcessor).
 			Do(context.TODO())
