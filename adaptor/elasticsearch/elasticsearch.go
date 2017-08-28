@@ -44,7 +44,7 @@ type Elasticsearch struct {
 	adaptor.BaseConfig
 	AWSAccessKeyID  string `json:"aws_access_key" doc:"credentials for use with AWS Elasticsearch service"`
 	AWSAccessSecret string `json:"aws_access_secret" doc:"credentials for use with AWS Elasticsearch service"`
-	ParentID        string
+	ParentID        string `json:"parent_id"`
 }
 
 // Description for the Elasticsearcb adaptor

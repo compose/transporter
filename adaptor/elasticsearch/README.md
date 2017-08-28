@@ -39,7 +39,7 @@ es = elasticsearch({
   "timeout": "10s" // optional, defaults to 30s
   "aws_access_key": "XXX" // optional, used for signing requests to AWS Elasticsearch service
   "aws_access_secret": "XXX" // optional, used for signing requests to AWS Elasticsearch service
-  "parentID": "elastic_parent" // optional, used for specifying parent-child relationships
+  "parent_id": "elastic_parent" // optional, used for specifying parent-child relationships
 })
 ```
 
@@ -58,9 +58,9 @@ Addressing [#391](https://github.com/compose/transporter/issues/391)
 *Note*
 Only Elasticsearch 5.x is being supported at the moment.
 
-If you have parent-child relationships in your data, specify `parentID` in the configs.
+If you have parent-child relationships in your data, specify `parent_id` in the configs.
 
-Be sure to add your [parent-child mapping](https://www.elastic.co/guide/en/elasticsearch/guide/current/parent-child-mapping.html) and make sure that your elasticsearch `_id` in your parent corresponds with the `parentID` that you specified in your configs.
+Be sure to add your [parent-child mapping](https://www.elastic.co/guide/en/elasticsearch/guide/current/parent-child-mapping.html) and make sure that your elasticsearch `_id` in your parent corresponds with the `parent_id` that you specified in your configs.
 
 Check that after you add your parent-child mapping, that data is getting inserted properly.
 
@@ -91,7 +91,7 @@ es = elasticsearch({
   "timeout": "10s"
   "aws_access_key": "XXX"
   "aws_access_secret": "XXX"
-  "parentID": "company_id"
+  "parent_id": "company_id"
 })
 ```
 
