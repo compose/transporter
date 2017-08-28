@@ -87,6 +87,11 @@ var clientTests = []struct {
 		nil,
 	},
 	{
+		"parent_id config",
+		adaptor.Config{"uri": authURI(), "parent_id": "parent_id"},
+		nil,
+	},
+	{
 		"bad URI",
 		adaptor.Config{"uri": "%gh&%ij"},
 		client.InvalidURIError{URI: "%gh&%ij", Err: `parse %gh&%ij: invalid URL escape "%gh"`},
