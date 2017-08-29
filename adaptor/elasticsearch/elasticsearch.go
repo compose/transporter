@@ -30,6 +30,7 @@ const (
   // "timeout": "10s", // defaults to 30s
   // "aws_access_key": "ABCDEF", // used for signing requests to AWS Elasticsearch service
   // "aws_access_secret": "ABCDEF" // used for signing requests to AWS Elasticsearch service
+  // "parent_id": "elastic_parent" // defaults to "elastic_parent" parent identifier for Elasticsearch
 }`
 )
 
@@ -43,6 +44,7 @@ type Elasticsearch struct {
 	adaptor.BaseConfig
 	AWSAccessKeyID  string `json:"aws_access_key" doc:"credentials for use with AWS Elasticsearch service"`
 	AWSAccessSecret string `json:"aws_access_secret" doc:"credentials for use with AWS Elasticsearch service"`
+	ParentID        string `json:"parent_id"`
 }
 
 // Description for the Elasticsearcb adaptor
@@ -109,12 +111,10 @@ func setupWriter(conf *Elasticsearch) (client.Writer, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	v, err := version.NewVersion(stringVersion)
 	if err != nil {
 		return nil, client.VersionError{URI: conf.URI, V: stringVersion, Err: err.Error()}
 	}
-
 	for _, vc := range clients.Clients {
 		if vc.Constraint.Check(v) {
 			urls := make([]string, len(hostsAndPorts))
@@ -126,6 +126,7 @@ func setupWriter(conf *Elasticsearch) (client.Writer, error) {
 				UserInfo:   uri.User,
 				HTTPClient: httpClient,
 				Index:      uri.Path[1:],
+				ParentID:   conf.ParentID,
 			}
 			versionedClient, _ := vc.Creator(opts)
 			return versionedClient, nil
