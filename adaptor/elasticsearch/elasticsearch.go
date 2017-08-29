@@ -115,10 +115,6 @@ func setupWriter(conf *Elasticsearch) (client.Writer, error) {
 	if err != nil {
 		return nil, client.VersionError{URI: conf.URI, V: stringVersion, Err: err.Error()}
 	}
-	var parentIdentifier = "elastic_parent"
-	if conf.ParentID != "" {
-		parentIdentifier = conf.ParentID
-	}
 	for _, vc := range clients.Clients {
 		if vc.Constraint.Check(v) {
 			urls := make([]string, len(hostsAndPorts))
@@ -130,7 +126,7 @@ func setupWriter(conf *Elasticsearch) (client.Writer, error) {
 				UserInfo:   uri.User,
 				HTTPClient: httpClient,
 				Index:      uri.Path[1:],
-				ParentID:   parentIdentifier,
+				ParentID:   conf.ParentID,
 			}
 			versionedClient, _ := vc.Creator(opts)
 			return versionedClient, nil

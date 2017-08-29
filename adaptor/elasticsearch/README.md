@@ -117,6 +117,6 @@ Note: `company_id` is the parent reference, below .
 
 Caution: If you try to insert / update data without the mapping step, the inserts will fail. Run transporter with the debug flag to see errors.
 
-`transporter pipeline -log.level=debug`
+`transporter run -log.level=debug`
 
 
