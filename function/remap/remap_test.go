@@ -12,11 +12,11 @@ import (
 
 var initTests = []struct {
 	in     map[string]interface{}
-	expect *Remap
+	expect *remap
 }{
 	{
 		map[string]interface{}{"ns_map": map[string]string{"test": "newtest"}},
-		&Remap{SwapMap: map[string]string{"test": "newtest"}},
+		&remap{SwapMap: map[string]string{"test": "newtest"}},
 	},
 }
 
@@ -68,7 +68,7 @@ var remapTests = []struct {
 
 func TestApply(t *testing.T) {
 	for _, rt := range remapTests {
-		remap := &Remap{rt.nsMap}
+		remap := &remap{rt.nsMap}
 		msg, err := remap.Apply(message.From(ops.Insert, rt.inNs, rt.in))
 		if !reflect.DeepEqual(err, rt.err) {
 			t.Errorf("[%s] error mismatch, expected %s, got %s", rt.name, rt.err, err)

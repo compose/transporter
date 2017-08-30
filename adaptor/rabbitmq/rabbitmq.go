@@ -22,11 +22,11 @@ const (
 )
 
 var (
-	_ adaptor.Adaptor = &RabbitMQ{}
+	_ adaptor.Adaptor = &rabbitMQ{}
 )
 
 // RabbitMQ defines all configurable elements for connecting to and sending/receiving JSON.
-type RabbitMQ struct {
+type rabbitMQ struct {
 	adaptor.BaseConfig
 	RoutingKey   string   `json:"routing_key"`
 	KeyInField   bool     `json:"key_in_field"`
@@ -40,7 +40,7 @@ func init() {
 	adaptor.Add(
 		"rabbitmq",
 		func() adaptor.Adaptor {
-			return &RabbitMQ{
+			return &rabbitMQ{
 				BaseConfig:   adaptor.BaseConfig{URI: DefaultURI},
 				RoutingKey:   DefaultRoutingKey,
 				DeliveryMode: DefaultDeliveryMode,
@@ -50,29 +50,24 @@ func init() {
 	)
 }
 
-// Client creates an instance of Client to be used for connecting to RabbitMQ.
-func (r *RabbitMQ) Client() (client.Client, error) {
+func (r *rabbitMQ) Client() (client.Client, error) {
 	return NewClient(WithURI(r.URI),
 		WithSSL(r.SSL),
 		WithCACerts(r.CACerts))
 }
 
-// Reader instantiates a Reader for use with subscribing to one or more topics.
-func (r *RabbitMQ) Reader() (client.Reader, error) {
+func (r *rabbitMQ) Reader() (client.Reader, error) {
 	return &Reader{r.URI, r.APIPort}, nil
 }
 
-// Writer instantiates a Writer for use with publishing to one or more exchanges.
-func (r *RabbitMQ) Writer(done chan struct{}, wg *sync.WaitGroup) (client.Writer, error) {
+func (r *rabbitMQ) Writer(done chan struct{}, wg *sync.WaitGroup) (client.Writer, error) {
 	return &Writer{r.DeliveryMode, r.RoutingKey, r.KeyInField}, nil
 }
 
-// Description for file adaptor
-func (r *RabbitMQ) Description() string {
+func (r *rabbitMQ) Description() string {
 	return description
 }
 
-// SampleConfig for file adaptor
-func (r *RabbitMQ) SampleConfig() string {
+func (r *rabbitMQ) SampleConfig() string {
 	return sampleConfig
 }

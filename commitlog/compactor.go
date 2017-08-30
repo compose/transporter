@@ -17,20 +17,22 @@ type Compactor interface {
 }
 
 var (
-	_ Compactor = &NamespaceCompactor{}
+	_ Compactor = &namespaceCompactor{}
 )
 
 // NamespaceCompactor compact individual segments based on the key which
 // is the source adaptor namespace.
-type NamespaceCompactor struct {
+type namespaceCompactor struct {
 	log *CommitLog
 }
 
-func NewNamespaceCompactor(clog *CommitLog) *NamespaceCompactor {
-	return &NamespaceCompactor{log: clog}
+// NewNamespaceCompactor creates a new Compactor to be used for tracking
+// messages based on the namespace.
+func NewNamespaceCompactor(clog *CommitLog) Compactor {
+	return &namespaceCompactor{log: clog}
 }
 
-func (c *NamespaceCompactor) Compact(offset uint64, segments []*Segment) {
+func (c *namespaceCompactor) Compact(offset uint64, segments []*Segment) {
 	log.With("num_segments", len(segments)).Infoln("starting compaction...")
 	var wg sync.WaitGroup
 	wg.Add(len(segments))
@@ -46,7 +48,7 @@ type compactedEntry struct {
 	o  uint64
 }
 
-func (c *NamespaceCompactor) compactSegment(offset uint64, wg *sync.WaitGroup, segment *Segment) {
+func (c *namespaceCompactor) compactSegment(offset uint64, wg *sync.WaitGroup, segment *Segment) {
 	defer wg.Done()
 	// if err := segment.Open(); err != nil {
 	// 	log.With("segment", segment.path).Errorf("unable to open segment, %s", err)

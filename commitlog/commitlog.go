@@ -221,6 +221,7 @@ func (c *CommitLog) DeleteAll() error {
 	return os.RemoveAll(c.path)
 }
 
+// NewReader returns an io.Reader based on the provider offset.
 func (c *CommitLog) NewReader(offset int64) (io.Reader, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()

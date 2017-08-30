@@ -207,13 +207,14 @@ func WithTail(tail bool) ClientOptionFunc {
 	}
 }
 
-func WithReadPreference(read_preference string) ClientOptionFunc {
+// WithReadPreference sets the MongoDB read preference based on the provided string.
+func WithReadPreference(readPreference string) ClientOptionFunc {
 	return func(c *Client) error {
-		if read_preference == "" {
+		if readPreference == "" {
 			c.readPreference = DefaultReadPreference
 			return nil
 		}
-		switch strings.ToLower(read_preference) {
+		switch strings.ToLower(readPreference) {
 		case "primary":
 			c.readPreference = mgo.Primary
 		case "primarypreferred":
@@ -225,7 +226,7 @@ func WithReadPreference(read_preference string) ClientOptionFunc {
 		case "nearest":
 			c.readPreference = mgo.Nearest
 		default:
-			return InvalidReadPreferenceError{ReadPreference: read_preference}
+			return InvalidReadPreferenceError{ReadPreference: readPreference}
 		}
 		return nil
 	}

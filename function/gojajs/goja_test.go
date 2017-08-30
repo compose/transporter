@@ -14,17 +14,17 @@ import (
 var initTests = []struct {
 	fnName string
 	in     map[string]interface{}
-	expect *Goja
+	expect *goja
 }{
 	{
 		"goja",
 		map[string]interface{}{"filename": "testdata/transformer.js"},
-		&Goja{Filename: "testdata/transformer.js"},
+		&goja{Filename: "testdata/transformer.js"},
 	},
 	{
 		"js",
 		map[string]interface{}{"filename": "testdata/transformer.js"},
-		&Goja{Filename: "testdata/transformer.js"},
+		&goja{Filename: "testdata/transformer.js"},
 	},
 }
 
@@ -124,7 +124,7 @@ var (
 
 func TestApply(t *testing.T) {
 	for _, v := range writeTests {
-		g := Goja{Filename: v.fn}
+		g := goja{Filename: v.fn}
 		msg, err := g.Apply(v.in)
 		if err != v.err {
 			t.Errorf("[%s] wrong error, expected: %+v, got; %v", v.name, v.err, err)
@@ -186,7 +186,7 @@ func isEqualBSON(m1 map[string]interface{}, m2 map[string]interface{}) bool {
 }
 
 func BenchmarkTransformOne(b *testing.B) {
-	g := &Goja{Filename: "testdata/transformer.js"}
+	g := &goja{Filename: "testdata/transformer.js"}
 	msg := message.From(ops.Insert, "collection", map[string]interface{}{"id": bson.NewObjectId(), "name": "nick"})
 	b.ResetTimer()
 

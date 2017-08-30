@@ -5,6 +5,7 @@ import (
 	"sync"
 )
 
+// Reader implements io.Reader for use with reading from the commit log.
 type Reader struct {
 	commitlog *CommitLog
 	idx       int

@@ -7,14 +7,14 @@ import (
 )
 
 func TestDescription(t *testing.T) {
-	p := &Postgres{}
+	p := &postgres{}
 	if p.Description() != description {
 		t.Errorf("unexpected Description, expected %s, got %s\n", description, p.Description())
 	}
 }
 
 func TestSampleConfig(t *testing.T) {
-	p := &Postgres{}
+	p := &postgres{}
 	if p.SampleConfig() != sampleConfig {
 		t.Errorf("unexpected SampleConfig, expected %s, got %s\n", sampleConfig, p.SampleConfig())
 	}

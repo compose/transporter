@@ -1,6 +1,8 @@
 package all
 
 import (
+	// blank import to ensure init() gets called for each package so it can
+	// be properly registered.
 	_ "github.com/compose/transporter/function/gojajs"
 	_ "github.com/compose/transporter/function/omit"
 	_ "github.com/compose/transporter/function/opfilter"

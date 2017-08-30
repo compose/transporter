@@ -21,12 +21,12 @@ const (
 )
 
 var (
-	_ adaptor.Adaptor = &Postgres{}
+	_ adaptor.Adaptor = &postgres{}
 )
 
 // Postgres is an adaptor to read / write to postgres.
 // it works as a source by copying files, and then optionally tailing the oplog
-type Postgres struct {
+type postgres struct {
 	adaptor.BaseConfig
 	Debug           bool   `json:"debug" doc:"display debug information"`
 	Tail            bool   `json:"tail" doc:"if tail is true, then the postgres source will tail the oplog after copying the namespace"`
@@ -37,32 +37,32 @@ func init() {
 	adaptor.Add(
 		"postgres",
 		func() adaptor.Adaptor {
-			return &Postgres{}
+			return &postgres{}
 		},
 	)
 }
 
-func (p *Postgres) Client() (client.Client, error) {
+func (p *postgres) Client() (client.Client, error) {
 	return NewClient(WithURI(p.URI))
 }
 
-func (p *Postgres) Reader() (client.Reader, error) {
+func (p *postgres) Reader() (client.Reader, error) {
 	if p.Tail {
 		return newTailer(p.ReplicationSlot), nil
 	}
 	return newReader(), nil
 }
 
-func (p *Postgres) Writer(done chan struct{}, wg *sync.WaitGroup) (client.Writer, error) {
+func (p *postgres) Writer(done chan struct{}, wg *sync.WaitGroup) (client.Writer, error) {
 	return newWriter(), nil
 }
 
 // Description for postgres adaptor
-func (p *Postgres) Description() string {
+func (p *postgres) Description() string {
 	return description
 }
 
 // SampleConfig for postgres adaptor
-func (p *Postgres) SampleConfig() string {
+func (p *postgres) SampleConfig() string {
 	return sampleConfig
 }

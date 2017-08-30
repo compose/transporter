@@ -9,14 +9,14 @@ import (
 )
 
 func TestDescription(t *testing.T) {
-	m := MongoDB{}
+	m := mongoDB{}
 	if m.Description() != description {
 		t.Errorf("unexpected Description, expected %s, got %s\n", description, m.Description())
 	}
 }
 
 func TestSampleConfig(t *testing.T) {
-	m := MongoDB{}
+	m := mongoDB{}
 	if m.SampleConfig() != sampleConfig {
 		t.Errorf("unexpected SampleConfig, expected %s, got %s\n", sampleConfig, m.SampleConfig())
 	}
@@ -25,7 +25,7 @@ func TestSampleConfig(t *testing.T) {
 var initTests = []struct {
 	name      string
 	cfg       map[string]interface{}
-	mongodb   *MongoDB
+	mongodb   *mongoDB
 	clientErr error
 	readerErr error
 	writerErr error
@@ -33,37 +33,37 @@ var initTests = []struct {
 	{
 		"base",
 		map[string]interface{}{"uri": DefaultURI},
-		&MongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI}},
+		&mongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI}},
 		nil, nil, nil,
 	},
 	{
 		"with timeout",
 		map[string]interface{}{"uri": DefaultURI, "timeout": "60s"},
-		&MongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI, Timeout: "60s"}},
+		&mongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI, Timeout: "60s"}},
 		nil, nil, nil,
 	},
 	{
 		"with tail",
 		map[string]interface{}{"uri": DefaultURI, "tail": true},
-		&MongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI}, Tail: true},
+		&mongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI}, Tail: true},
 		nil, nil, nil,
 	},
 	{
 		"with bulk",
 		map[string]interface{}{"uri": DefaultURI, "bulk": true},
-		&MongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI}, Bulk: true},
+		&mongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI}, Bulk: true},
 		nil, nil, nil,
 	},
 	{
 		"with collection filters",
 		map[string]interface{}{"uri": DefaultURI, "collection_filters": `{"foo":{"i":{"$gt":10}}}`},
-		&MongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI}, CollectionFilters: `{"foo":{"i":{"$gt":10}}}`},
+		&mongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI}, CollectionFilters: `{"foo":{"i":{"$gt":10}}}`},
 		nil, nil, nil,
 	},
 	{
 		"bad collection filter",
 		map[string]interface{}{"uri": DefaultURI, "collection_filters": `{"foo":{"i":{"$gt":10}}`},
-		&MongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI}, CollectionFilters: `{"foo":{"i":{"$gt":10}}`},
+		&mongoDB{BaseConfig: adaptor.BaseConfig{URI: DefaultURI}, CollectionFilters: `{"foo":{"i":{"$gt":10}}`},
 		nil, ErrCollectionFilter, nil,
 	},
 }

@@ -27,15 +27,15 @@ const (
 )
 
 var (
-	_ adaptor.Adaptor = &MongoDB{}
+	_ adaptor.Adaptor = &mongoDB{}
 
 	// ErrCollectionFilter is returned when an error occurs attempting to Unmarshal the string.
 	ErrCollectionFilter = errors.New("malformed collection_filters")
 )
 
-// MongoDB is an adaptor to read / write to mongodb.
+// mongoDB is an adaptor to read / write to mongodb.
 // it works as a source by copying files, and then optionally tailing the oplog
-type MongoDB struct {
+type mongoDB struct {
 	adaptor.BaseConfig
 	SSL               bool     `json:"ssl"`
 	CACerts           []string `json:"cacerts"`
@@ -51,12 +51,12 @@ func init() {
 	adaptor.Add(
 		"mongodb",
 		func() adaptor.Adaptor {
-			return &MongoDB{}
+			return &mongoDB{}
 		},
 	)
 }
 
-func (m *MongoDB) Client() (client.Client, error) {
+func (m *mongoDB) Client() (client.Client, error) {
 	return NewClient(WithURI(m.URI),
 		WithTimeout(m.Timeout),
 		WithSSL(m.SSL),
@@ -67,7 +67,7 @@ func (m *MongoDB) Client() (client.Client, error) {
 		WithReadPreference(m.ReadPreference))
 }
 
-func (m *MongoDB) Reader() (client.Reader, error) {
+func (m *mongoDB) Reader() (client.Reader, error) {
 	var f map[string]CollectionFilter
 	if m.CollectionFilters != "" {
 		if jerr := json.Unmarshal([]byte(m.CollectionFilters), &f); jerr != nil {
@@ -77,19 +77,17 @@ func (m *MongoDB) Reader() (client.Reader, error) {
 	return newReader(m.Tail, f), nil
 }
 
-func (m *MongoDB) Writer(done chan struct{}, wg *sync.WaitGroup) (client.Writer, error) {
+func (m *mongoDB) Writer(done chan struct{}, wg *sync.WaitGroup) (client.Writer, error) {
 	if m.Bulk {
 		return newBulker(done, wg), nil
 	}
 	return newWriter(), nil
 }
 
-// Description for mongodb adaptor
-func (m *MongoDB) Description() string {
+func (m *mongoDB) Description() string {
 	return description
 }
 
-// SampleConfig for mongodb adaptor
-func (m *MongoDB) SampleConfig() string {
+func (m *mongoDB) SampleConfig() string {
 	return sampleConfig
 }

@@ -24,7 +24,7 @@ var errorTests = []struct {
 	{
 		"ConnectError with timeout",
 		"connection error, no reachable servers",
-		client.ConnectError{"no reachable servers"},
+		client.ConnectError{Reason: "no reachable servers"},
 	},
 	{
 		"VersionError",

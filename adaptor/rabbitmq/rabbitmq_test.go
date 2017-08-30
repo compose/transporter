@@ -7,14 +7,14 @@ import (
 )
 
 func TestDescription(t *testing.T) {
-	r := RabbitMQ{}
+	r := rabbitMQ{}
 	if r.Description() != description {
 		t.Errorf("unexpected Description, expected %s, got %s\n", description, r.Description())
 	}
 }
 
 func TestSampleConfig(t *testing.T) {
-	r := RabbitMQ{}
+	r := rabbitMQ{}
 	if r.SampleConfig() != sampleConfig {
 		t.Errorf("unexpected SampleConfig, expected %s, got %s\n", sampleConfig, r.SampleConfig())
 	}

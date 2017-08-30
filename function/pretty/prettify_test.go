@@ -15,9 +15,9 @@ import (
 
 var initTests = []struct {
 	in     map[string]interface{}
-	expect *Prettify
+	expect *prettify
 }{
-	{map[string]interface{}{}, DefaultPrettifier},
+	{map[string]interface{}{}, defaultPrettifier},
 }
 
 func TestInit(t *testing.T) {
@@ -33,23 +33,23 @@ func TestInit(t *testing.T) {
 }
 
 var prettyTests = []struct {
-	p    *Prettify
+	p    *prettify
 	data map[string]interface{}
 }{
 	{
-		DefaultPrettifier,
+		defaultPrettifier,
 		map[string]interface{}{"_id": "blah", "type": "good"},
 	},
 	{
-		DefaultPrettifier,
+		defaultPrettifier,
 		map[string]interface{}{"_id": "blah", "type": "good", "name": "hello"},
 	},
 	{
-		DefaultPrettifier,
+		defaultPrettifier,
 		map[string]interface{}{"_id": bson.NewObjectId(), "hello": "world", "ts": bson.MongoTimestamp(time.Now().Unix() << 32)},
 	},
 	{
-		&Prettify{Spaces: 0},
+		&prettify{Spaces: 0},
 		map[string]interface{}{"_id": bson.NewObjectId(), "hello": "world", "ts": bson.MongoTimestamp(time.Now().Unix() << 32)},
 	},
 }

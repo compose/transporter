@@ -11,27 +11,27 @@ import (
 )
 
 const (
-	DefaultIndent = 2
+	defaultIndent = 2
 )
 
 var (
-	DefaultPrettifier = &Prettify{Spaces: DefaultIndent}
+	defaultPrettifier = &prettify{Spaces: defaultIndent}
 )
 
 func init() {
 	function.Add(
 		"pretty",
 		func() function.Function {
-			return DefaultPrettifier
+			return defaultPrettifier
 		},
 	)
 }
 
-type Prettify struct {
+type prettify struct {
 	Spaces int `json:"spaces"`
 }
 
-func (p *Prettify) Apply(msg message.Msg) (message.Msg, error) {
+func (p *prettify) Apply(msg message.Msg) (message.Msg, error) {
 	d, _ := mejson.Unmarshal(msg.Data())
 	b, _ := json.Marshal(d)
 	if p.Spaces > 0 {

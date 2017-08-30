@@ -12,9 +12,9 @@ import (
 
 var initTests = []struct {
 	in     map[string]interface{}
-	expect *Picker
+	expect *picker
 }{
-	{map[string]interface{}{"fields": []string{"test"}}, &Picker{Fields: []string{"test"}}},
+	{map[string]interface{}{"fields": []string{"test"}}, &picker{Fields: []string{"test"}}},
 }
 
 func TestInit(t *testing.T) {
@@ -61,7 +61,7 @@ var pickTests = []struct {
 
 func TestApply(t *testing.T) {
 	for _, pt := range pickTests {
-		pick := &Picker{pt.fields}
+		pick := &picker{pt.fields}
 		msg, err := pick.Apply(message.From(ops.Insert, "test", pt.in))
 		if !reflect.DeepEqual(err, pt.err) {
 			t.Errorf("[%s] error mismatch, expected %s, got %s", pt.name, pt.err, err)

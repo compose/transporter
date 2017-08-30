@@ -20,12 +20,12 @@ const (
 )
 
 var (
-	_ adaptor.Adaptor = &RethinkDB{}
+	_ adaptor.Adaptor = &rethinkDB{}
 )
 
 // RethinkDB is an adaptor that writes metrics to rethinkdb (http://rethinkdb.com/)
 // An open-source distributed database
-type RethinkDB struct {
+type rethinkDB struct {
 	adaptor.BaseConfig
 	Tail    bool     `json:"tail"`
 	SSL     bool     `json:"ssl"`
@@ -36,12 +36,12 @@ func init() {
 	adaptor.Add(
 		"rethinkdb",
 		func() adaptor.Adaptor {
-			return &RethinkDB{}
+			return &rethinkDB{}
 		},
 	)
 }
 
-func (r *RethinkDB) Client() (client.Client, error) {
+func (r *rethinkDB) Client() (client.Client, error) {
 	// TODO: pull db from the URI
 	return NewClient(
 		WithURI(r.URI),
@@ -51,20 +51,20 @@ func (r *RethinkDB) Client() (client.Client, error) {
 	)
 }
 
-func (r *RethinkDB) Reader() (client.Reader, error) {
+func (r *rethinkDB) Reader() (client.Reader, error) {
 	return newReader(r.Tail), nil
 }
 
-func (r *RethinkDB) Writer(done chan struct{}, wg *sync.WaitGroup) (client.Writer, error) {
+func (r *rethinkDB) Writer(done chan struct{}, wg *sync.WaitGroup) (client.Writer, error) {
 	return newWriter(done, wg), nil
 }
 
 // Description for rethinkdb adaptor
-func (r *RethinkDB) Description() string {
+func (r *rethinkDB) Description() string {
 	return description
 }
 
 // SampleConfig for rethinkdb adaptor
-func (r *RethinkDB) SampleConfig() string {
+func (r *rethinkDB) SampleConfig() string {
 	return sampleConfig
 }

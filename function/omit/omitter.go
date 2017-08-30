@@ -5,20 +5,24 @@ import (
 	"github.com/compose/transporter/message"
 )
 
+var (
+	_ function.Function = &omitter{}
+)
+
 func init() {
 	function.Add(
 		"omit",
 		func() function.Function {
-			return &Omitter{}
+			return &omitter{}
 		},
 	)
 }
 
-type Omitter struct {
+type omitter struct {
 	Fields []string `json:"fields"`
 }
 
-func (o *Omitter) Apply(msg message.Msg) (message.Msg, error) {
+func (o *omitter) Apply(msg message.Msg) (message.Msg, error) {
 	for _, k := range o.Fields {
 		msg.Data().Delete(k)
 	}
