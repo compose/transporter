@@ -124,10 +124,13 @@ func (w *Writer) postBulkProcessor(executionID int64, reqs []elastic.BulkableReq
 			Debugln("_bulk flush completed")
 
 		if len(resp.Failed()) > 0 {
-			for _, f := range resp.Failed() {
+			for i, f := range resp.Failed() {
 				w.logger.With("executionID", executionID).
-					With("detail", fmt.Sprintf("%#v", f)).
-					Debugln("_bulk failed")
+					With("index", f.Index).
+					With("type", f.Type).
+					With("id", f.Id).
+					With("error", fmt.Sprintf("%#v", f.Error)).
+					Debugln(fmt.Sprintf("_bulk failed list [%d]", i))
 			}
 		}
 
