@@ -3,12 +3,13 @@ package mongodb
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
-	"time"
 	"strings"
+	"time"
 
 	"github.com/compose/transporter/client"
 	"github.com/compose/transporter/log"
@@ -154,14 +155,16 @@ func WithCACerts(certs []string) ClientOptionFunc {
 		if len(certs) > 0 {
 			roots := x509.NewCertPool()
 			for _, cert := range certs {
-				if _, err := os.Stat(cert); err == nil {
-					c, err := ioutil.ReadFile(cert)
-					if err != nil {
-						return err
-					}
-					cert = string(c)
+				if _, err := os.Stat(cert); err != nil {
+					return errors.New("Cert file not found")
 				}
-				if ok := roots.AppendCertsFromPEM([]byte(cert)); !ok {
+
+				c, err := ioutil.ReadFile(cert)
+				if err != nil {
+					return err
+				}
+
+				if ok := roots.AppendCertsFromPEM(c); !ok {
 					return client.ErrInvalidCert
 				}
 			}
