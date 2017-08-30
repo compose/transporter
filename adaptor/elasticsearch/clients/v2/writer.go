@@ -122,6 +122,15 @@ func (w *Writer) postBulkProcessor(executionID int64, reqs []elastic.BulkableReq
 			With("succeeeded", len(resp.Succeeded())).
 			With("failed", len(resp.Failed())).
 			Debugln("_bulk flush completed")
+
+		if len(resp.Failed()) > 0 {
+			for _, f := range resp.Failed() {
+				w.logger.With("executionID", executionID).
+					With("detail", fmt.Sprintf("%#v", f)).
+					Debugln("_bulk failed")
+			}
+		}
+
 		if w.confirmChan != nil && len(resp.Failed()) == 0 {
 			w.confirmChan <- struct{}{}
 		}
