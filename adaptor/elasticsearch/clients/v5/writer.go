@@ -148,7 +148,7 @@ func (w *Writer) postBulkProcessor(executionID int64, reqs []elastic.BulkableReq
 					With("type", f.Type).
 					With("id", f.Id).
 					With("error", fmt.Sprintf("%#v", f.Error)).
-					Debugln(fmt.Sprintf("_bulk failed list [%d]", i))
+					Errorln(fmt.Sprintf("_bulk failed list [%d]", i))
 			}
 		}
 
