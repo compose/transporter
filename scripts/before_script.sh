@@ -32,7 +32,7 @@ case "$TESTDIR" in
   # Install haproxy-1.5
   sudo add-apt-repository -y ppa:vbernat/haproxy-1.5
   sudo apt-get update -qq
-  sudo apt-get install haproxy
+  sudo apt-get install -y haproxy
   sudo service rabbitmq-server start
   sleep 10
   sudo haproxy -f config/rabbitmq/haproxy.cfg -db &
