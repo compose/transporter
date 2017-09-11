@@ -1,10 +1,12 @@
-## v0.4.1 [UNRELEASED]
+## v0.5.0 [2017-09-11]
 
 ### Features
 - new `remap` function for changing the namespace with a native function versus needing a custom
 JS function to do it, fixed via [#400](https://github.com/compose/transporter/pull/400)
 - new `opfilter` function for whitelisting or blacklisting message operations versus needing a custom 
 JS function to do it, fixed via [#401](https://github.com/compose/transporter/pull/401)
+- `elasticsearch` adaptor now supports parent/child relationships, see 
+fixed via [#406](https://github.com/compose/transporter/pull/406), thanks @johnjjung!
 
 ### Bugfixes
 - when using an adaptor that was configured for flushing bulk messages based on an interval, it was possible for the bulk flush to error but not propagated back up to the pipeline, fixed via [#399](https://github.com/compose/transporter/pull/399)
@@ -13,6 +15,8 @@ fixed via [#403](https://github.com/compose/transporter/pull/403)
 
 ### Changes
 - the `-log_dir` flag is now `-xlog_dir` and the `log_dir` config property is now `xlog_dir` to match. This is to avoid confusion with the application logging's -log flags.
+- `elasticsearch` adaptor now logs all errors returned from a bulk operation, [#413](https://github.com/compose/transporter/pull/413), 
+thanks @pmjhonwang!
 
 ## v0.4.0 [2017-08-15]
 
