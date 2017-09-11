@@ -3,9 +3,7 @@
 set -ev
 
 if [[ $TESTDIR == adaptor/mongodb* ]]; then
-  pip install --user
-
-  pip install "mongo-orchestration>=0.6.7,<1.0"
+  sudo pip install "mongo-orchestration>=0.6.7,<1.0"
 
   wget https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION.tgz
 
