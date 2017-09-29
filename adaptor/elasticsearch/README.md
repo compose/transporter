@@ -64,6 +64,15 @@ Be sure to add your [parent-child mapping](https://www.elastic.co/guide/en/elast
 
 Check that after you add your parent-child mapping, that data is getting inserted properly.
 
+**Update**
+
+About Routing:
+
+Elasticsearch recommends that routing values default to `_id` if there are no parent values specified. However, if a `parent` is specified, the parent and child should use the same routing value which is the parent `_id`. In our case, we will be using `parent_id` as our routing value to that it ensures both parent and child documents are on the same shard.
+
+https://www.elastic.co/guide/en/elasticsearch/guide/current/indexing-parent-child.html
+
+
 ### Example of Parent-Child Mapping:
 
 This step is manual, you must set your mapping manually using a `PUT` request to Elasticsearch.
