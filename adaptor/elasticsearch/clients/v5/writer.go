@@ -104,6 +104,7 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 			indexReq := elastic.NewBulkIndexRequest().Index(w.index).Type(indexType).Id(id)
 			if pID != "" {
 				indexReq.Parent(pID)
+				indexReq.Routing(pID)
 			}
 			indexReq.Doc(msg.Data())
 			br = indexReq
@@ -111,6 +112,7 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 			indexReq := elastic.NewBulkUpdateRequest().Index(w.index).Type(indexType).Id(id)
 			if pID != "" {
 				indexReq.Parent(pID)
+				indexReq.Routing(pID)
 			}
 			indexReq.Doc(msg.Data())
 			br = indexReq
