@@ -33,6 +33,7 @@ type Writer struct {
 
 func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error) {
 	return func(s client.Session) (message.Msg, error) {
+		var err error = nil
 		if msg.OP() == ops.Insert || msg.OP() == ops.Update {
 			b := new(bytes.Buffer)
 			json.NewEncoder(b).Encode(msg.Data())
@@ -51,8 +52,9 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 						false,
 						amqpMsg)
 			}
-			return msg, s.(*Session).channel.Publish(msg.Namespace(), w.RoutingKey, false, false, amqpMsg)
+			err = s.(*Session).channel.Publish(msg.Namespace(), w.RoutingKey, false, false, amqpMsg)
 		}
-		return msg, nil
+		s.(*Session).channel.Close()
+		return msg, err
 	}
 }
