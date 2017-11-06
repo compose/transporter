@@ -82,7 +82,7 @@ type Transporter struct {
 }
 
 type config struct {
-	LogDir             string `json:"log_dir"`
+	LogDir             string `json:"xlog_dir"`
 	MaxSegmentBytes    int    `json:"max_segment_bytes"`
 	CompactionInterval string `json:"compaction_interval"`
 	WriteTimeout       string `json:"write_timeout"`
