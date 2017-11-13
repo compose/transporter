@@ -552,7 +552,6 @@ func (n *Node) write(msg message.Msg, off offset.Offset) (message.Msg, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), n.writeTimeout)
 	defer cancel()
 	c := make(chan writeResult)
-	defer close(c)
 	go func() {
 		m, err := client.Write(n.c, n.writer, msg)
 		c <- writeResult{m, err}
