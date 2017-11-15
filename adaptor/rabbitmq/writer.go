@@ -43,16 +43,24 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 				Body:         b.Bytes(),
 			}
 			if w.KeyInField {
-				return msg,
-					s.(*Session).channel.Publish(
-						msg.Namespace(),
-						msg.Data().Get(w.RoutingKey).(string),
-						false,
-						false,
-						amqpMsg)
-			}
-			return msg, s.(*Session).channel.Publish(msg.Namespace(), w.RoutingKey, false, false, amqpMsg)
+				err := s.(*Session).channel.Publish(msg.Namespace(), 
+								    msg.Data().Get(w.RoutingKey).(string), 
+								    false, 
+								    false,
+								    amqpMsg)
+				s.(*Session).channel.Close()
+			  	return msg, err
+			} 
+			err := s.(*Session).channel.Publish(msg.Namespace(), 
+						            w.RoutingKey, 
+							    false, 
+							    false, 
+						            amqpMsg)
+			s.(*Session).channel.Close()
+			return msg, err
+			
 		}
+		s.(*Session).channel.Close()
 		return msg, nil
 	}
 }
