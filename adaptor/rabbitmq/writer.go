@@ -50,8 +50,7 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 								    amqpMsg)
 				s.(*Session).channel.Close()
 			  	return msg, err
-			}
-			else {
+			} else {
 				err := s.(*Session).channel.Publish(msg.Namespace(), 
 								    w.RoutingKey, 
 								    false, 
