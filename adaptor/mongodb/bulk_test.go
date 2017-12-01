@@ -16,11 +16,14 @@ import (
 
 var (
 	bulkTestData     = &TestData{"bulk_test", "foo", 0}
-	testBulkMsgCount = 10
+	testBulkMsgCount = 20
 	bulkTests        = []*BulkTest{
 		&BulkTest{ops.Insert, bson.M{}, testBulkMsgCount, nil},
 		&BulkTest{ops.Update, bson.M{"hello": "world"}, testBulkMsgCount, map[string]interface{}{"hello": "world"}},
 		&BulkTest{ops.Delete, bson.M{}, 0, nil},
+		&BulkTest{ops.Insert, bson.M{}, testBulkMsgCount, map[string]interface{}{"requestTooLarge": randStr(5e6)}},
+		&BulkTest{ops.Delete, bson.M{}, 0, nil},
+		&BulkTest{ops.Insert, bson.M{}, testBulkMsgCount, map[string]interface{}{"bulkTooLarge": randStr(1e6)}},
 	}
 )
 
