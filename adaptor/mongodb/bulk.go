@@ -7,15 +7,14 @@ import (
 	"github.com/compose/transporter/client"
 	"github.com/compose/transporter/log"
 	"github.com/compose/transporter/message"
-	"github.com/compose/transporter/message/data"
 	"github.com/compose/transporter/message/ops"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
 const (
-	maxObjSize     int = 1000
-	maxBSONObjSize int = 1e6
+	maxObjSize     int = 10000
+	maxBSONObjSize int = 4800000
 )
 
 var (
@@ -34,9 +33,6 @@ type bulkOperation struct {
 	s          *mgo.Session
 	bulk       *mgo.Bulk
 	opCounter  int
-	avgOpCount int
-	avgTotal   int
-	avgOpSize  float64
 	bsonOpSize int
 }
 
@@ -64,6 +60,28 @@ func (b *Bulk) Write(msg message.Msg) func(client.Session) (message.Msg, error) 
 			}
 			b.bulkMap[coll] = bOp
 		}
+		bs, err := bson.Marshal(msg.Data())
+		if err != nil {
+			log.Infof("unable to marshal doc to BSON, can't calculate size", err)
+		}
+		// add the 4 bytes for the MsgHeader
+		// https://docs.mongodb.com/manual/reference/mongodb-wire-protocol/#standard-message-header
+		msgSize := len(bs) + 4
+
+		// if the next op is going to put us over, flush and recreate bOp
+		if bOp.opCounter >= maxObjSize || bOp.bsonOpSize+msgSize >= maxBSONObjSize {
+			err = b.flush(coll, bOp)
+			if err == nil && b.confirmChan != nil {
+				b.confirmChan <- struct{}{}
+			}
+			s := s.(*Session).mgoSession.Copy()
+			bOp = &bulkOperation{
+				s:    s,
+				bulk: s.DB("").C(coll).Bulk(),
+			}
+			b.bulkMap[coll] = bOp
+		}
+
 		switch msg.OP() {
 		case ops.Delete:
 			bOp.bulk.Remove(bson.M{"_id": msg.Data().Get("_id")})
@@ -72,36 +90,11 @@ func (b *Bulk) Write(msg message.Msg) func(client.Session) (message.Msg, error) 
 		case ops.Update:
 			bOp.bulk.Update(bson.M{"_id": msg.Data().Get("_id")}, msg.Data())
 		}
+		bOp.bsonOpSize += msgSize
 		bOp.opCounter++
-		if bOp.opCounter%20 == 0 {
-			log.With("opCounter", bOp.opCounter).Debugln("calculating avg obj size")
-			bOp.calculateAvgObjSize(msg.Data())
-		}
-		bOp.bsonOpSize = int(bOp.avgOpSize) * bOp.opCounter
-		var err error
-		if bOp.opCounter >= maxObjSize || bOp.bsonOpSize >= maxBSONObjSize {
-			err = b.flush(coll, bOp)
-			if err == nil && b.confirmChan != nil {
-				b.confirmChan <- struct{}{}
-			}
-		}
 		b.Unlock()
 		return msg, err
 	}
-}
-
-func (bOp *bulkOperation) calculateAvgObjSize(d data.Data) {
-	bs, err := bson.Marshal(d)
-	if err != nil {
-		log.Infof("unable to marshal doc to BSON, not adding to average", err)
-		return
-	}
-	bOp.avgOpCount++
-	// add the 4 bytes for the MsgHeader
-	// https://docs.mongodb.com/manual/reference/mongodb-wire-protocol/#standard-message-header
-	bOp.avgTotal += (len(bs) + 4)
-	bOp.avgOpSize = float64(bOp.avgTotal / bOp.avgOpCount)
-	log.With("avgOpCount", bOp.avgOpCount).With("avgTotal", bOp.avgTotal).With("avgObSize", bOp.avgOpSize).Debugln("bulk stats")
 }
 
 func (b *Bulk) run(done chan struct{}, wg *sync.WaitGroup) {
