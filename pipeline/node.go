@@ -544,9 +544,11 @@ func (n *Node) write(msg message.Msg, off offset.Offset) (message.Msg, error) {
 		return nil, err
 	}
 
-	n.offsetLock.Lock()
-	n.pendingOffsets = append(n.pendingOffsets, off)
-	n.offsetLock.Unlock()
+	if n.om != nil {
+		n.offsetLock.Lock()
+		n.pendingOffsets = append(n.pendingOffsets, off)
+		n.offsetLock.Unlock()
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), n.writeTimeout)
 	defer cancel()
 	c := make(chan writeResult)
