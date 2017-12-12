@@ -125,27 +125,28 @@ var (
 			},
 			client.ErrMockConnect,
 		},
-		// uncomment this once the error handling mess is sorted out
-		// {
-		// 	func() *Node {
-		// 		a := &adaptor.Mock{}
-		// 		n, _ := NewNodeWithOptions(
-		// 			"starter", "stopWriter", defaultNsString,
-		// 			WithClient(a),
-		// 			WithReader(a),
-		// 			WithCommitLog("testdata/restart_from_end", 1024),
-		// 		)
-		// 		NewNodeWithOptions(
-		// 			"stopperWriteErr", "stopWriter", defaultNsString,
-		// 			WithClient(a),
-		// 			WithWriter(&adaptor.MockWriterErr{}),
-		// 			WithParent(n),
-		// 			WithOffsetManager(&offset.MockManager{MemoryMap: map[string]uint64{}}),
-		// 		)
-		// 		return n
-		// 	},
-		// 	client.ErrMockWrite,
-		// },
+		{
+			func() *Node {
+				a := &adaptor.Mock{}
+				n, _ := NewNodeWithOptions(
+					"starter", "stopWriter", defaultNsString,
+					WithClient(a),
+					WithReader(a),
+					WithCommitLog([]commitlog.OptionFunc{
+						commitlog.WithPath("testdata/pipeline_run"),
+					}...),
+				)
+				NewNodeWithOptions(
+					"stopperWriteErr", "stopWriter", defaultNsString,
+					WithClient(a),
+					WithWriter(&adaptor.MockWriterErr{}),
+					WithParent(n),
+					WithOffsetManager(&offset.MockManager{MemoryMap: map[string]uint64{}}),
+				)
+				return n
+			},
+			client.ErrMockWrite,
+		},
 	}
 )
 

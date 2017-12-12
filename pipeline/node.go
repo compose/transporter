@@ -554,6 +554,9 @@ func (n *Node) write(msg message.Msg, off offset.Offset) (message.Msg, error) {
 	c := make(chan writeResult)
 	go func() {
 		m, err := client.Write(n.c, n.writer, msg)
+		if err != nil {
+			n.l.Errorf("write error, %s", err)
+		}
 		c <- writeResult{m, err}
 	}()
 	select {
