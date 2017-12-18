@@ -242,20 +242,14 @@ func insertUpdateData(s *Session) error {
 	if err := s.mgoSession.DB(tailTestData.DB).C("bar").Insert(bson.M{"_id": 0, "hello": "world"}); err != nil {
 		return err
 	}
-	if err := s.mgoSession.DB(tailTestData.DB).C("bar").Update(bson.M{"_id": 0}, bson.M{"$set": bson.M{"hello": "goodbye"}}); err != nil {
-		return err
-	}
-	return nil
+	return s.mgoSession.DB(tailTestData.DB).C("bar").Update(bson.M{"_id": 0}, bson.M{"$set": bson.M{"hello": "goodbye"}})
 }
 
 func insertDeleteData(s *Session) error {
 	if err := s.mgoSession.DB(tailTestData.DB).C("baz").Insert(bson.M{"_id": 0, "hello": "world"}); err != nil {
 		return err
 	}
-	if err := s.mgoSession.DB(tailTestData.DB).C("baz").RemoveId(0); err != nil {
-		return err
-	}
-	return nil
+	return s.mgoSession.DB(tailTestData.DB).C("baz").RemoveId(0)
 }
 
 func TestTail(t *testing.T) {
