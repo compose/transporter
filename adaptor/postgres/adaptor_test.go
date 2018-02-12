@@ -80,7 +80,8 @@ var (
 	}
 
 	randomHeros = []string{"Superwoman", "Wonder Woman", "Batman", "Superman",
-		"Thor", "Iron Man", "Spiderman", "Hulk", "Star-Lord", "Black Widow"}
+		"Thor", "Iron Man", "Spiderman", "Hulk", "Star-Lord", "Black Widow",
+		"Ant\nMan"}
 )
 
 type TestData struct {
