@@ -52,7 +52,7 @@ imports:
   - registry
   - token
   - underscore
-- name: github.com/Sirupsen/logrus
+- name: github.com/sirupsen/logrus
   version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
 - name: github.com/smartystreets/go-aws-auth
   version: 2043e6d0bb7e4c18464a7bba562acbe482e3cabd

@@ -6,7 +6,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 type levelFlag string
