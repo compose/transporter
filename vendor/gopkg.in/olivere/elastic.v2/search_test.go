@@ -195,6 +195,51 @@ func TestSearchResultEach(t *testing.T) {
 	}
 }
 
+func TestSearchResultEachNoSource(t *testing.T) {
+	client := setupTestClientAndCreateIndexAndAddDocsNoSource(t)
+
+	all := NewMatchAllQuery()
+	searchResult, err := client.Search().Index(testIndexName).Type("tweet-nosource").Query(all).Do(context.TODO())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Iterate over non-ptr type
+	var aTweet tweet
+	count := 0
+	for _, item := range searchResult.Each(reflect.TypeOf(aTweet)) {
+		count++
+		tw, ok := item.(tweet)
+		if !ok {
+			t.Fatalf("expected hit to be serialized as tweet; got: %v", reflect.ValueOf(item))
+		}
+
+		if tw.User != "" {
+			t.Fatalf("expected no _source hit to be empty tweet; got: %v", reflect.ValueOf(item))
+		}
+	}
+	if count != 2 {
+		t.Errorf("expected to find 2 hits; got: %d", count)
+	}
+
+	// Iterate over ptr-type
+	count = 0
+	var aTweetPtr *tweet
+	for _, item := range searchResult.Each(reflect.TypeOf(aTweetPtr)) {
+		count++
+		tw, ok := item.(*tweet)
+		if !ok {
+			t.Fatalf("expected hit to be serialized as tweet; got: %v", reflect.ValueOf(item))
+		}
+		if tw != nil {
+			t.Fatal("expected hit to be nil")
+		}
+	}
+	if count != 2 {
+		t.Errorf("expected to find 2 hits; got: %d", count)
+	}
+}
+
 func TestSearchSorting(t *testing.T) {
 	client := setupTestClientAndCreateIndex(t)
 
@@ -550,6 +595,61 @@ func TestSearchSource(t *testing.T) {
 	searchResult, err := client.Search().
 		Index(testIndexName).
 		Source(source). // sets the JSON request
+		Do(context.TODO())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if searchResult.Hits == nil {
+		t.Errorf("expected SearchResult.Hits != nil; got nil")
+	}
+	if searchResult.Hits.TotalHits != 3 {
+		t.Errorf("expected SearchResult.Hits.TotalHits = %d; got %d", 3, searchResult.Hits.TotalHits)
+	}
+}
+
+func TestSearchSourceWithString(t *testing.T) {
+	client := setupTestClientAndCreateIndex(t)
+
+	tweet1 := tweet{
+		User: "olivere", Retweets: 108,
+		Message: "Welcome to Golang and Elasticsearch.",
+		Created: time.Date(2012, 12, 12, 17, 38, 34, 0, time.UTC),
+	}
+	tweet2 := tweet{
+		User: "olivere", Retweets: 0,
+		Message: "Another unrelated topic.",
+		Created: time.Date(2012, 10, 10, 8, 12, 03, 0, time.UTC),
+	}
+	tweet3 := tweet{
+		User: "sandrae", Retweets: 12,
+		Message: "Cycling is fun.",
+		Created: time.Date(2011, 11, 11, 10, 58, 12, 0, time.UTC),
+	}
+
+	// Add all documents
+	_, err := client.Index().Index(testIndexName).Type("tweet").Id("1").BodyJson(&tweet1).Do(context.TODO())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("2").BodyJson(&tweet2).Do(context.TODO())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("3").BodyJson(&tweet3).Do(context.TODO())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = client.Flush().Index(testIndexName).Do(context.TODO())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	searchResult, err := client.Search().
+		Index(testIndexName).
+		Source(`{"query":{"match_all":{}}}`). // sets the JSON request
 		Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)

@@ -129,6 +129,12 @@ $ oklog query -from 1h -q /api/v1/login | cut -d' ' -f3- | jq '. | select(.statu
 ...
 ```
 
+## UI
+
+OK Log ships with a basic UI for making queries.
+You can access it on any store or ingeststore node, on the public API port (default 7650), path `/ui`.
+So, e.g. http://localhost:7650/ui.
+
 ## Further reading
 
 ### Integrations
@@ -136,6 +142,8 @@ $ oklog query -from 1h -q /api/v1/login | cut -d' ' -f3- | jq '. | select(.statu
 - [Docker](https://github.com/oklog/oklog/wiki/Integrations#docker)
 - [Kubernetes](https://github.com/oklog/oklog/wiki/Integrations#kubernetes)
 
+### Translation
+- [中文介绍](https://github.com/1046102779/OKLog) 
 ---
 
 [OK icon](https://thenounproject.com/term/like/594444/) by

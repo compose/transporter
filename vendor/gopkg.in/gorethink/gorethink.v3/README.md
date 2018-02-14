@@ -3,15 +3,15 @@
 [![GitHub tag](https://img.shields.io/github/tag/GoRethink/gorethink.svg?style=flat)](https://github.com/GoRethink/gorethink/releases)
 [![GoDoc](https://godoc.org/github.com/GoRethink/gorethink?status.svg)](https://godoc.org/github.com/GoRethink/gorethink)
 [![Build status](https://travis-ci.org/GoRethink/gorethink.svg?branch=master)](https://travis-ci.org/GoRethink/gorethink)
-[![No Maintenance Intended](http://unmaintained.tech/badge.svg)](http://unmaintained.tech/)
+<!-- [![No Maintenance Intended](http://unmaintained.tech/badge.svg)](http://unmaintained.tech/) -->
 
 [Go](http://golang.org/) driver for [RethinkDB](http://www.rethinkdb.com/)
 
 ![GoRethink Logo](https://raw.github.com/wiki/gorethink/gorethink/gopher-and-thinker-s.png "Golang Gopher and RethinkDB Thinker")
 
-Current version: v3.0.2 (RethinkDB v2.3)
+Current version: v3.0.5 (RethinkDB v2.3)
 
-This project is no longer maintained, for more information see the [v3.0.0 release](https://github.com/gorethink/gorethink/releases/tag/v3.0.0)
+<!-- This project is no longer maintained, for more information see the [v3.0.0 release](https://github.com/gorethink/gorethink/releases/tag/v3.0.0)-->
 
 Please note that this version of the driver only supports versions of RethinkDB using the v0.4 protocol (any versions of the driver older than RethinkDB 2.0 will not work).
 
@@ -70,7 +70,7 @@ func Example() {
 
 Setting up a basic connection with RethinkDB is simple:
 
-[embedmd]:# (example_connect_test.go go /func ExampleConnect\(\) {/ /(?m)^}/)
+[embedmd]:# (example_connect_test.go go /func ExampleConnect\(\) {/ /^}/)
 ```go
 func ExampleConnect() {
 	var err error
@@ -92,7 +92,7 @@ The driver uses a connection pool at all times, by default it creates and frees 
 
 To configure the connection pool `InitialCap`, `MaxOpen` and `Timeout` can be specified during connection. If you wish to change the value of `InitialCap` or `MaxOpen` during runtime then the functions `SetInitialPoolCap` and `SetMaxOpenConns` can be used.
 
-[embedmd]:# (example_connect_test.go go /func ExampleConnect_connectionPool\(\) {/ /(?m)^}/)
+[embedmd]:# (example_connect_test.go go /func ExampleConnect_connectionPool\(\) {/ /^}/)
 ```go
 func ExampleConnect_connectionPool() {
 	var err error
@@ -112,7 +112,7 @@ func ExampleConnect_connectionPool() {
 
 To connect to a RethinkDB cluster which has multiple nodes you can use the following syntax. When connecting to a cluster with multiple nodes queries will be distributed between these nodes.
 
-[embedmd]:# (example_connect_test.go go /func ExampleConnect_cluster\(\) {/ /(?m)^}/)
+[embedmd]:# (example_connect_test.go go /func ExampleConnect_cluster\(\) {/ /^}/)
 ```go
 func ExampleConnect_cluster() {
 	var err error
@@ -210,6 +210,12 @@ r.Table("test").Insert(doc, r.InsertOpts{
 ### Optional Arguments
 
 As shown above in the Between example optional arguments are passed to the function as a struct. Each function that has optional arguments as a related struct. This structs are named in the format FunctionNameOpts, for example BetweenOpts is the related struct for Between.
+
+#### Cancelling queries
+
+For query cancellation use `Context` argument at `RunOpts`. If `Context` is `nil` and `ReadTimeout` or `WriteTimeout` is not 0 from `ConnectionOpts`, `Context` will be formed by summation of these timeouts.
+
+For unlimited timeouts for `Changes()` pass `context.Background()`.
 
 ## Results
 
@@ -398,7 +404,7 @@ An good example of how to use these interfaces is in the [`types`](https://githu
 
 By default the driver logs are disabled however when enabled the driver will log errors when it fails to connect to the database. If you would like more verbose error logging you can call `r.SetVerbose(true)`.
 
-Alternatively if you wish to modify the logging behaviour you can modify the logger provided by `github.com/Sirupsen/logrus`. For example the following code completely disable the logger:
+Alternatively if you wish to modify the logging behaviour you can modify the logger provided by `github.com/sirupsen/logrus`. For example the following code completely disable the logger:
 
 ```go
 // Enabled
@@ -417,26 +423,26 @@ Here is an example that shows how to mock a query that returns multiple rows and
 
 ```go
 func TestSomething(t *testing.T) {
-    mock := r.NewMock()
-    mock.on(r.Table("people")).Return([]interface{}{
-        map[string]interface{}{"id": 1, "name": "John Smith"},
-        map[string]interface{}{"id": 2, "name": "Jane Smith"},
-    }, nil)
+	mock := r.NewMock()
+	mock.On(r.Table("people")).Return([]interface{}{
+		map[string]interface{}{"id": 1, "name": "John Smith"},
+		map[string]interface{}{"id": 2, "name": "Jane Smith"},
+	}, nil)
 
-    cursor, err := r.Table("people").Run(mock)
-    if err != nil {
-        t.Errorf(err)
-    }
+	cursor, err := r.Table("people").Run(mock)
+	if err != nil {
+		t.Errorf("err is: %v", err)
+	}
 
-    var rows []interface{}
-    err := res.All(&rows)
-    if err != nil {
-        t.Errorf(err)
-    }
+	var rows []interface{}
+	err = cursor.All(&rows)
+	if err != nil {
+		t.Errorf("err is: %v", err)
+	}
 
-    // Test result of rows
+	// Test result of rows
 
-    mock.AssertExpectations(t)
+	mock.AssertExpectations(t)
 }
 ```
 
