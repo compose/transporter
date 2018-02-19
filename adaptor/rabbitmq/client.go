@@ -31,6 +31,7 @@ type Client struct {
 	uri       string
 	tlsConfig *tls.Config
 	conn      *amqp.Connection
+	ch        *amqp.Channel
 }
 
 // NewClient creates a new client to work with RabbitMQ.
@@ -121,8 +122,7 @@ func (c *Client) Connect() (client.Session, error) {
 			return nil, err
 		}
 	}
-	ch, err := c.conn.Channel()
-	return &Session{c.conn, ch}, err
+	return &Session{c.conn, c.ch}, nil
 }
 
 func (c *Client) initConnection() error {
@@ -136,6 +136,9 @@ func (c *Client) initConnection() error {
 	}
 	conn, err := amqp.Dial(c.uri)
 	if err != nil {
+		return client.ConnectError{Reason: err.Error()}
+	}
+	if c.ch, err = conn.Channel(); err != nil {
 		return client.ConnectError{Reason: err.Error()}
 	}
 	c.conn = conn

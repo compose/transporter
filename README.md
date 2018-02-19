@@ -67,7 +67,7 @@ Each native function can be used as part of a `Transform` step in the pipeline.
 
 * [goja](./function/gojajs)
 * [omit](./function/omit)
-* [omit](./function/opfilter)
+* [opfilter](./function/opfilter)
 * [otto](./function/ottojs)
 * [pick](./function/pick)
 * [pretty](./function/pretty)
