@@ -47,7 +47,6 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 			for msg := range msgChan {
 				out <- msg
 			}
-
 			// start tailing
 			log.With("db", session.db).With("logical_decoding_slot", t.replicationSlot).Infoln("Listening for changes...")
 			for {
@@ -75,7 +74,7 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 // Use Postgres logical decoding to retrieve the latest changes
 func (t *Tailer) pluckFromLogicalDecoding(s *Session, filterFn client.NsFilterFunc) ([]client.MessageSet, error) {
 	var result []client.MessageSet
-	dataMatcher := regexp.MustCompile("^table ([^\\.]+).([^\\.]+): (INSERT|DELETE|UPDATE): (.+)$") // 1 - schema, 2 - table, 3 - action, 4 - remaining
+	dataMatcher := regexp.MustCompile("(?s)^table ([^\\.]+)\\.([^:]+): (INSERT|DELETE|UPDATE): (.+)$") // 1 - schema, 2 - table, 3 - action, 4 - remaining
 
 	changesResult, err := s.pqSession.Query(fmt.Sprintf("SELECT * FROM pg_logical_slot_get_changes('%v', NULL, NULL);", t.replicationSlot))
 	if err != nil {
