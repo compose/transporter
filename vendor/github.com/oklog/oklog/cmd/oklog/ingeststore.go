@@ -13,6 +13,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rs/cors"
 
 	"github.com/oklog/oklog/pkg/cluster"
 	"github.com/oklog/oklog/pkg/fs"
@@ -30,7 +31,8 @@ func runIngestStore(args []string) error {
 		fastAddr                 = flagset.String("ingest.fast", defaultFastAddr, "listen address for fast (async) writes")
 		durableAddr              = flagset.String("ingest.durable", defaultDurableAddr, "listen address for durable (sync) writes")
 		bulkAddr                 = flagset.String("ingest.bulk", defaultBulkAddr, "listen address for bulk (whole-segment) writes")
-		clusterAddr              = flagset.String("cluster", defaultClusterAddr, "listen address for cluster")
+		clusterBindAddr          = flagset.String("cluster", defaultClusterAddr, "listen address for cluster")
+		clusterAdvertiseAddr     = flagset.String("cluster.advertise-addr", "", "optional, explicit address to advertise in cluster")
 		ingestPath               = flagset.String("ingest.path", defaultIngestPath, "path holding segment files for ingest tier")
 		segmentFlushSize         = flagset.Int("ingest.segment-flush-size", defaultIngestSegmentFlushSize, "flush segments after they grow to this size")
 		segmentFlushAge          = flagset.Duration("ingest.segment-flush-age", defaultIngestSegmentFlushAge, "flush segments after they are active for this long")
@@ -223,17 +225,30 @@ func runIngestStore(args []string) error {
 	if err != nil {
 		return err
 	}
-	_, _, clusterHost, clusterPort, err := parseAddr(*clusterAddr, defaultClusterPort)
+	_, _, clusterBindHost, clusterBindPort, err := parseAddr(*clusterBindAddr, defaultClusterPort)
 	if err != nil {
 		return err
 	}
-	level.Info(logger).Log("cluster", fmt.Sprintf("%s:%d", clusterHost, clusterPort))
+	level.Info(logger).Log("cluster_bind", fmt.Sprintf("%s:%d", clusterBindHost, clusterBindPort))
+	var (
+		clusterAdvertiseHost string
+		clusterAdvertisePort int
+	)
+	if *clusterAdvertiseAddr != "" {
+		_, _, clusterAdvertiseHost, clusterAdvertisePort, err = parseAddr(*clusterAdvertiseAddr, defaultClusterPort)
+		if err != nil {
+			return err
+		}
+		level.Info(logger).Log("cluster_advertise", fmt.Sprintf("%s:%d", clusterAdvertiseHost, clusterAdvertisePort))
+	}
 
 	// Safety warning.
-	if hasNonlocal(clusterPeers) && isUnroutable(clusterHost) {
-		level.Warn(logger).Log("err", "this node advertises itself on an unroutable address", "addr", clusterHost)
+	if addr, err := cluster.CalculateAdvertiseAddress(clusterBindHost, clusterAdvertiseHost); err != nil {
+		level.Warn(logger).Log("err", "couldn't deduce an advertise address: "+err.Error())
+	} else if hasNonlocal(clusterPeers) && isUnroutable(addr.String()) {
+		level.Warn(logger).Log("err", "this node advertises itself on an unroutable address", "addr", addr.String())
 		level.Warn(logger).Log("err", "this node will be unreachable in the cluster")
-		level.Warn(logger).Log("err", "provide -cluster as a routable IP address or hostname")
+		level.Warn(logger).Log("err", "provide -cluster.advertise-addr as a routable IP address or hostname")
 	}
 
 	// Bind listeners.
@@ -262,9 +277,7 @@ func runIngestStore(args []string) error {
 	var fsys fs.Filesystem
 	switch strings.ToLower(*filesystem) {
 	case "real":
-		fsys = fs.NewRealFilesystem(false)
-	case "real-mmap":
-		fsys = fs.NewRealFilesystem(true)
+		fsys = fs.NewRealFilesystem()
 	case "virtual":
 		fsys = fs.NewVirtualFilesystem()
 	case "nop":
@@ -284,7 +297,12 @@ func runIngestStore(args []string) error {
 	level.Info(logger).Log("ingest_path", *ingestPath)
 
 	// Create storelog.
-	storeLog, err := store.NewFileLog(fsys, *storePath, *segmentTargetSize, *segmentBufferSize)
+	storeLog, err := store.NewFileLog(
+		fsys,
+		*storePath,
+		*segmentTargetSize, *segmentBufferSize,
+		store.LogReporter{Logger: log.With(logger, "component", "FileLog")},
+	)
 	if err != nil {
 		return err
 	}
@@ -297,7 +315,8 @@ func runIngestStore(args []string) error {
 
 	// Create peer.
 	peer, err := cluster.NewPeer(
-		clusterHost, clusterPort,
+		clusterBindHost, clusterBindPort,
+		clusterAdvertiseHost, clusterAdvertisePort,
 		clusterPeers,
 		cluster.PeerTypeIngestStore, apiPort,
 		log.With(logger, "component", "cluster"),
@@ -390,7 +409,7 @@ func runIngestStore(args []string) error {
 			consumedBytes,
 			replicatedSegments.WithLabelValues("egress"),
 			replicatedBytes.WithLabelValues("egress"),
-			log.With(logger, "component", "Consumer"),
+			store.LogReporter{Logger: log.With(logger, "component", "Consumer")},
 		)
 		g.Add(func() error {
 			c.Run()
@@ -408,7 +427,7 @@ func runIngestStore(args []string) error {
 			compactDuration,
 			trashedSegments,
 			purgedSegments,
-			log.With(logger, "component", "Compacter"),
+			store.LogReporter{Logger: log.With(logger, "component", "Compacter")},
 		)
 		g.Add(func() error {
 			c.Run()
@@ -437,7 +456,7 @@ func runIngestStore(args []string) error {
 				replicatedSegments.WithLabelValues("ingress"),
 				replicatedBytes.WithLabelValues("ingress"),
 				apiDuration,
-				logger,
+				store.LogReporter{Logger: log.With(logger, "component", "API")},
 			)
 			defer func() {
 				if err := api.Close(); err != nil {
@@ -448,7 +467,7 @@ func runIngestStore(args []string) error {
 			mux.Handle("/ui/", ui.NewAPI(logger, *uiLocal))
 			registerMetrics(mux)
 			registerProfile(mux)
-			return http.Serve(apiListener, mux)
+			return http.Serve(apiListener, cors.Default().Handler(mux))
 		}, func(error) {
 			apiListener.Close()
 		})

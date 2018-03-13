@@ -11,11 +11,16 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
+	"reflect"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/fortytw2/leaktest"
 )
 
 func findConn(s string, slice ...*conn) (int, bool) {
@@ -274,9 +279,86 @@ func TestClientHealthcheckStartupTimeout(t *testing.T) {
 	if !IsConnErr(err) {
 		t.Fatal(err)
 	}
+	if !strings.Contains(err.Error(), "connection refused") {
+		t.Fatalf("expected error to contain %q, have %q", "connection refused", err.Error())
+	}
 	if duration < 5*time.Second {
 		t.Fatalf("expected a timeout in more than 5 seconds; got: %v", duration)
 	}
+}
+
+func TestClientHealthcheckTimeoutLeak(t *testing.T) {
+	// This test test checks if healthcheck requests are canceled
+	// after timeout.
+	// It contains couple of hacks which won't be needed once we
+	// stop supporting Go1.7.
+	// On Go1.7 it uses server side effects to monitor if connection
+	// was closed,
+	// and on Go 1.8+ we're additionally honestly monitoring routine
+	// leaks via leaktest.
+	mux := http.NewServeMux()
+
+	var reqDoneMu sync.Mutex
+	var reqDone bool
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		cn, ok := w.(http.CloseNotifier)
+		if !ok {
+			t.Fatalf("Writer is not CloseNotifier, but %v", reflect.TypeOf(w).Name())
+		}
+		<-cn.CloseNotify()
+		reqDoneMu.Lock()
+		reqDone = true
+		reqDoneMu.Unlock()
+	})
+
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Couldn't setup listener: %v", err)
+	}
+	addr := lis.Addr().String()
+
+	srv := &http.Server{
+		Handler: mux,
+	}
+	go srv.Serve(lis)
+
+	cli := &Client{
+		c: &http.Client{},
+		conns: []*conn{
+			&conn{
+				url: "http://" + addr + "/",
+			},
+		},
+	}
+
+	type closer interface {
+		Shutdown(context.Context) error
+	}
+
+	// pre-Go1.8 Server can't Shutdown
+	cl, isServerCloseable := (interface{}(srv)).(closer)
+
+	// Since Go1.7 can't Shutdown() - there will be leak from server
+	// Monitor leaks on Go 1.8+
+	if isServerCloseable {
+		defer leaktest.CheckTimeout(t, time.Second*10)()
+	}
+
+	cli.healthcheck(time.Millisecond*500, true)
+
+	if isServerCloseable {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		cl.Shutdown(ctx)
+	}
+
+	<-time.After(time.Second)
+	reqDoneMu.Lock()
+	if !reqDone {
+		reqDoneMu.Unlock()
+		t.Fatal("Request wasn't canceled or stopped")
+	}
+	reqDoneMu.Unlock()
 }
 
 // -- NewSimpleClient --
@@ -415,7 +497,7 @@ func TestClientSniffNode(t *testing.T) {
 	}
 
 	ch := make(chan []*conn)
-	go func() { ch <- client.sniffNode(DefaultURL) }()
+	go func() { ch <- client.sniffNode(context.Background(), DefaultURL) }()
 
 	select {
 	case nodes := <-ch:
@@ -469,6 +551,81 @@ func TestClientSniffOnDefaultURL(t *testing.T) {
 	}
 }
 
+func TestClientSniffTimeoutLeak(t *testing.T) {
+	// This test test checks if sniff requests are canceled
+	// after timeout.
+	// It contains couple of hacks which won't be needed once we
+	// stop supporting Go1.7.
+	// On Go1.7 it uses server side effects to monitor if connection
+	// was closed,
+	// and on Go 1.8+ we're additionally honestly monitoring routine
+	// leaks via leaktest.
+	mux := http.NewServeMux()
+
+	var reqDoneMu sync.Mutex
+	var reqDone bool
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		cn, ok := w.(http.CloseNotifier)
+		if !ok {
+			t.Fatalf("Writer is not CloseNotifier, but %v", reflect.TypeOf(w).Name())
+		}
+		<-cn.CloseNotify()
+		reqDoneMu.Lock()
+		reqDone = true
+		reqDoneMu.Unlock()
+	})
+
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Couldn't setup listener: %v", err)
+	}
+	addr := lis.Addr().String()
+
+	srv := &http.Server{
+		Handler: mux,
+	}
+	go srv.Serve(lis)
+
+	cli := &Client{
+		c: &http.Client{},
+		conns: []*conn{
+			&conn{
+				url: "http://" + addr + "/",
+			},
+		},
+		snifferEnabled: true,
+	}
+
+	type closer interface {
+		Shutdown(context.Context) error
+	}
+
+	// pre-Go1.8 Server can't Shutdown
+	cl, isServerCloseable := (interface{}(srv)).(closer)
+
+	// Since Go1.7 can't Shutdown() - there will be leak from server
+	// Monitor leaks on Go 1.8+
+	if isServerCloseable {
+		defer leaktest.CheckTimeout(t, time.Second*10)()
+	}
+
+	cli.sniff(time.Millisecond * 500)
+
+	if isServerCloseable {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		cl.Shutdown(ctx)
+	}
+
+	<-time.After(time.Second)
+	reqDoneMu.Lock()
+	if !reqDone {
+		reqDoneMu.Unlock()
+		t.Fatal("Request wasn't canceled or stopped")
+	}
+	reqDoneMu.Unlock()
+}
+
 func TestClientExtractHostname(t *testing.T) {
 	tests := []struct {
 		Scheme  string
@@ -520,7 +677,7 @@ func TestClientSelectConnHealthy(t *testing.T) {
 	client, err := NewClient(
 		SetSniff(false),
 		SetHealthcheck(false),
-		SetURL("http://127.0.0.1:9200", "http://127.0.0.1:9201"))
+		SetURL("http://127.0.0.1:9200/node1", "http://127.0.0.1:9201/node2/"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -528,6 +685,54 @@ func TestClientSelectConnHealthy(t *testing.T) {
 	// Both are healthy, so we should get both URLs in round-robin
 	client.conns[0].MarkAsHealthy()
 	client.conns[1].MarkAsHealthy()
+
+	// #1: Return 1st
+	c, err := client.next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.URL() != client.conns[0].URL() {
+		t.Fatalf("expected %s; got: %s", c.URL(), client.conns[0].URL())
+	}
+	// #2: Return 2nd
+	c, err = client.next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.URL() != client.conns[1].URL() {
+		t.Fatalf("expected %s; got: %s", c.URL(), client.conns[1].URL())
+	}
+	// #3: Return 1st
+	c, err = client.next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.URL() != client.conns[0].URL() {
+		t.Fatalf("expected %s; got: %s", c.URL(), client.conns[0].URL())
+	}
+}
+
+func TestClientSelectConnHealthyWithURLPrefix(t *testing.T) {
+	client, err := NewClient(
+		SetSniff(false),
+		SetHealthcheck(false),
+		SetURL("http://127.0.0.1:9200/node1", "http://127.0.0.1:9201/node2/prefix/"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Both are healthy, so we should get both URLs in round-robin
+	client.conns[0].MarkAsHealthy()
+	client.conns[1].MarkAsHealthy()
+
+	// Check that the connection used the URLs, including its prefix
+	if want, have := "http://127.0.0.1:9200/node1", client.conns[0].URL(); want != have {
+		t.Fatalf("want Node[0] = %q, have %q", want, have)
+	}
+	// Note that it stripped the / off the suffix
+	if want, have := "http://127.0.0.1:9201/node2/prefix", client.conns[1].URL(); want != have {
+		t.Fatalf("want Node[1] = %q, have %q", want, have)
+	}
 
 	// #1: Return 1st
 	c, err := client.next()
@@ -832,6 +1037,22 @@ func TestPerformRequestWithLoggerAndTracer(t *testing.T) {
 		t.Errorf("expected tracer output; got: %q", tgot)
 	}
 }
+func TestPerformRequestWithTracerOnError(t *testing.T) {
+	var tw bytes.Buffer
+	tout := log.New(&tw, "TRACER ", log.LstdFlags)
+
+	client, err := NewClient(SetTraceLog(tout), SetSniff(false))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	client.PerformRequest(context.TODO(), "GET", "/no-such-index", nil, nil)
+
+	tgot := tw.String()
+	if tgot == "" {
+		t.Errorf("expected tracer output; got: %q", tgot)
+	}
+}
 
 type customLogger struct {
 	out bytes.Buffer
@@ -1038,7 +1259,8 @@ func TestPerformRequestWithTimeout(t *testing.T) {
 		res *Response
 		err error
 	}
-	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
 
 	resc := make(chan result, 1)
 	go func() {

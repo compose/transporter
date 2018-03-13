@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	"github.com/compose/transporter/log"
 )
@@ -23,14 +23,14 @@ var (
 				log.Base().Infof("This %s-level line should show up in the output.", "info")
 			},
 			logrus.InfoLevel,
-			regexp.MustCompile(`^time=".*" level=info msg="This info-level line should show up in the output." \n$`),
+			regexp.MustCompile(`^time=".*" level=info msg="This info-level line should show up in the output."\n$`),
 		},
 		{
 			func() {
 				log.Debugf("This %s-level line should show up in the output.", "debug")
 			},
 			logrus.DebugLevel,
-			regexp.MustCompile(`^time=".*" level=debug msg="This debug-level line should show up in the output." \n$`),
+			regexp.MustCompile(`^time=".*" level=debug msg="This debug-level line should show up in the output."\n$`),
 		},
 		{
 			func() {
@@ -39,7 +39,7 @@ var (
 				log.Errorf("This %s-level line should show up in the output.", "error")
 			},
 			logrus.ErrorLevel,
-			regexp.MustCompile(`^time=".*" level=error msg="This error-level line should show up in the output." \n$`),
+			regexp.MustCompile(`^time=".*" level=error msg="This error-level line should show up in the output."\n$`),
 		},
 		{
 			func() {
@@ -47,21 +47,21 @@ var (
 				log.Infoln("This info-level line should not show up in the output.")
 			},
 			logrus.ErrorLevel,
-			regexp.MustCompile(`^time=".*" level=error msg="This error-level line should show up in the output." \n$`),
+			regexp.MustCompile(`^time=".*" level=error msg="This error-level line should show up in the output."\n$`),
 		},
 		{
 			func() {
 				log.With("key", "value").Infoln("This info-level line should show up in the output.")
 			},
 			logrus.InfoLevel,
-			regexp.MustCompile(`^time=".*" level=info msg="This info-level line should show up in the output." key=value \n$`),
+			regexp.MustCompile(`^time=".*" level=info msg="This info-level line should show up in the output." key=value\n$`),
 		},
 		{
 			func() {
 				log.Base().Output(0, "This info-level line should show up in the output.")
 			},
 			logrus.InfoLevel,
-			regexp.MustCompile(`^time=".*" level=info msg="This info-level line should show up in the output." \n$`),
+			regexp.MustCompile(`^time=".*" level=info msg="This info-level line should show up in the output."\n$`),
 		},
 	}
 )

@@ -1,12 +1,12 @@
-hash: 5483061aa80b2a3f549e96ab084ded09f7993977c5c874c13b8fd24371092ec6
-updated: 2017-05-15T15:59:45.5582236-05:00
+hash: 4bd160ca31bb38394ea228937fab3f4b05a8d256bf6a5b8e523efe0ac29e65cf
+updated: 2018-02-14T13:21:27.511313Z
 imports:
 - name: github.com/cenkalti/backoff
   version: 6c45d6bc1e78d94431dff8fc28a99f20bafa355a
 - name: github.com/compose/mejson
   version: afcf51c7c640b1e09c17065d4e5b8de3259d6261
 - name: github.com/dlclark/regexp2
-  version: 902a5ce7a7812e2ba9f73b9d96c09d5136df39cd
+  version: 487489b64fb796de2e55f4e8a4ad1e145f80e957
   subpackages:
   - syntax
 - name: github.com/dop251/goja
@@ -28,6 +28,12 @@ imports:
   version: 8df6253d1317616f36b0c3740eb30c239a7372cb
   subpackages:
   - oid
+- name: github.com/mailru/easyjson
+  version: 32fa128f234d041f196a9f3e0fea5ac9772c08e1
+  subpackages:
+  - buffer
+  - jlexer
+  - jwriter
 - name: github.com/mattn/go-runewidth
   version: 9e777a8366cce605130a531d2cd6363d07ad7317
 - name: github.com/mitchellh/cli
@@ -35,9 +41,11 @@ imports:
 - name: github.com/nu7hatch/gouuid
   version: 179d4d0c4d8d407a32af483c2354df1d2c91e6c3
 - name: github.com/oklog/oklog
-  version: 2f1f28c53d1ad98bfcddec663d51bd16651052dc
+  version: 2ae37025d0eeba31e5b70420277a9533a9d5e900
   subpackages:
   - pkg/group
+- name: github.com/oklog/run
+  version: 4dadeb3030eda0273a12382bb2348ffc7c9d1a39
 - name: github.com/olekukonko/tablewriter
   version: febf2d34b54a69ce7530036c7503b1c9fbfdf0bb
 - name: github.com/pkg/errors
@@ -52,8 +60,8 @@ imports:
   - registry
   - token
   - underscore
-- name: github.com/Sirupsen/logrus
-  version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
+- name: github.com/sirupsen/logrus
+  version: d682213848ed68c0a260ca37d6dd5ace8423f5ba
 - name: github.com/smartystreets/go-aws-auth
   version: 2043e6d0bb7e4c18464a7bba562acbe482e3cabd
 - name: github.com/streadway/amqp
@@ -62,6 +70,7 @@ imports:
   version: 1351f936d976c60a0a48d728281922cf63eafb8d
   subpackages:
   - pbkdf2
+  - ssh/terminal
 - name: golang.org/x/net
   version: f2499483f923065a842d38eb4c7f1927e6fc6e6d
   subpackages:
@@ -84,7 +93,7 @@ imports:
 - name: gopkg.in/fatih/pool.v2
   version: 20a0a429c5f93de45c90f5f09ea297c25e0929b3
 - name: gopkg.in/gorethink/gorethink.v3
-  version: 7ab832f7b65573104a555d84a27992ae9ea1f659
+  version: 7f5bdfd858bb064d80559b2a32b86669c5de5d3b
   subpackages:
   - encoding
   - ql2
@@ -97,12 +106,13 @@ imports:
   - internal/sasl
   - internal/scram
 - name: gopkg.in/olivere/elastic.v2
-  version: 3f49414dc29d45ba96fde19ba72bc646077dbffd
+  version: ad2886760fe843ee9e396ac2e2bf2ff95ee7bc5d
 - name: gopkg.in/olivere/elastic.v3
-  version: 3f49414dc29d45ba96fde19ba72bc646077dbffd
+  version: ad2886760fe843ee9e396ac2e2bf2ff95ee7bc5d
 - name: gopkg.in/olivere/elastic.v5
-  version: 3f49414dc29d45ba96fde19ba72bc646077dbffd
+  version: ad2886760fe843ee9e396ac2e2bf2ff95ee7bc5d
   subpackages:
+  - config
   - uritemplates
 - name: gopkg.in/sourcemap.v1
   version: eef8f47ab679652a7d3a4ee34c34314d255d2536
