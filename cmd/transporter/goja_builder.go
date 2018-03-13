@@ -21,7 +21,7 @@ import (
 	"github.com/compose/transporter/pipeline"
 	"github.com/dop251/goja"
 	uuid "github.com/nu7hatch/gouuid"
-	"github.com/oklog/oklog/pkg/group"
+	"github.com/oklog/run"
 )
 
 const (
@@ -110,7 +110,7 @@ type Adaptor struct {
 }
 
 func (t *Transporter) run() error {
-	var g group.Group
+	var g run.Group
 	p, err := pipeline.NewPipeline(version, t.sourceNode, events.LogEmitter(), 5*time.Second)
 	if err != nil {
 		return err

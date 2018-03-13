@@ -37,7 +37,7 @@ func TestRead(t *testing.T) {
 		t.Fatalf("unexpected Read error, %s\n", err)
 	}
 	var numMsgs int
-	for _ = range msgChan {
+	for range msgChan {
 		numMsgs++
 	}
 	if numMsgs != readerTestData.InsertCount {

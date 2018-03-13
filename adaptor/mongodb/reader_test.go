@@ -47,7 +47,7 @@ func TestRead(t *testing.T) {
 		t.Fatalf("unexpected Read error, %s\n", err)
 	}
 	var numMsgs int
-	for _ = range msgChan {
+	for range msgChan {
 		numMsgs++
 	}
 	if numMsgs != readerTestData.InsertCount {
@@ -83,7 +83,7 @@ func TestFilteredRead(t *testing.T) {
 		t.Fatalf("unexpected Read error, %s\n", err)
 	}
 	var numMsgs int
-	for _ = range msgChan {
+	for range msgChan {
 		numMsgs++
 	}
 	expectedCount := 100 - filteredReaderTestData.InsertCount
@@ -120,7 +120,7 @@ func TestSkipCollection(t *testing.T) {
 		t.Fatalf("unexpected Read error, %s\n", err)
 	}
 	var numMsgs int
-	for _ = range msgChan {
+	for range msgChan {
 		numMsgs++
 	}
 	if numMsgs != skipReaderTestData.InsertCount {
@@ -152,7 +152,7 @@ func TestCancelledRead(t *testing.T) {
 		close(done)
 	}()
 	var numMsgs int
-	for _ = range msgChan {
+	for range msgChan {
 		time.Sleep(100 * time.Millisecond)
 		numMsgs++
 	}
@@ -217,7 +217,7 @@ func TestReadRestart(t *testing.T) {
 	}()
 
 	var numMsgs int
-	for _ = range msgChan {
+	for range msgChan {
 		time.Sleep(100 * time.Millisecond)
 		numMsgs++
 	}

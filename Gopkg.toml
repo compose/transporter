@@ -34,10 +34,6 @@
   name = "github.com/nu7hatch/gouuid"
 
 [[constraint]]
-  name = "github.com/oklog/oklog"
-  version = "0.3.0"
-
-[[constraint]]
   branch = "master"
   name = "github.com/robertkrimen/otto"
 
