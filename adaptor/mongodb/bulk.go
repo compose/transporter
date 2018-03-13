@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	maxObjSize     int = 10000
+	maxObjSize     int = 1000
 	maxBSONObjSize int = 4800000
 )
 
