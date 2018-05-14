@@ -2,7 +2,7 @@
 
 1) Install Go
 
-First step, download and install Go. Go to [https://golang.org/dl/](https://golang.org/dl/) and install the `go1.4.windows-amd64.msi ` file offered.
+First step, download and install Go. Go to [https://golang.org/dl/](https://golang.org/dl/) and install the current featured Go for Microsoft Windows. At time of writing, this is `go1.10.2.windows-amd64.msi`. Run the downloaded MSI installer.
 
 2) Install Git
 
@@ -47,6 +47,8 @@ git clone https://github.com/compose/transporter
 Finally, we can issue the build command
 
 ```
+cd transporter
+go get -a ./...
 go build ./cmd/transporter
 ```
 
