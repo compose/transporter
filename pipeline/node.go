@@ -514,11 +514,6 @@ type writeResult struct {
 }
 
 func (n *Node) write(msg message.Msg, off offset.Offset) (message.Msg, error) {
-	if n.om != nil {
-		n.offsetLock.Lock()
-		msg = message.WithConfirms(n.confirms, msg)
-		n.offsetLock.Unlock()
-	}
 	if !n.nsFilter.MatchString(msg.Namespace()) {
 		n.l.With("ns", msg.Namespace()).Debugln("message skipped by namespace filter")
 		if msg.Confirms() != nil {
@@ -553,6 +548,11 @@ func (n *Node) write(msg message.Msg, off offset.Offset) (message.Msg, error) {
 	defer cancel()
 	c := make(chan writeResult)
 	go func() {
+		if n.om != nil {
+			n.offsetLock.Lock()
+			msg = message.WithConfirms(n.confirms, msg)
+			n.offsetLock.Unlock()
+		}
 		m, err := client.Write(n.c, n.writer, msg)
 		if err != nil {
 			n.l.Errorf("write error, %s", err)
