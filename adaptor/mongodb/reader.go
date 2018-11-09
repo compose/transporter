@@ -193,24 +193,14 @@ func (r *Reader) catQuery(c string, lastID interface{}, mgoSession *mgo.Session)
 
 func (r *Reader) requeryable(c string, mgoSession *mgo.Session) bool {
 	db := mgoSession.DB("")
-	indexes, err := db.C(c).Indexes()
+	var result bson.M
+	err := db.C(c).Find(nil).Select(bson.M{"_id": 1}).One(&result)
 	if err != nil {
-		log.With("database", db.Name).With("collection", c).Errorf("unable to list indexes, %s", err)
+		log.With("database", db.Name).With("collection", c).Errorf("unable to sample document, %s", err)
 		return false
 	}
-	for _, index := range indexes {
-		if index.Key[0] == "_id" {
-			var result bson.M
-			err := db.C(c).Find(nil).Select(bson.M{"_id": 1}).One(&result)
-			if err != nil {
-				log.With("database", db.Name).With("collection", c).Errorf("unable to sample document, %s", err)
-				break
-			}
-			if id, ok := result["_id"]; ok && sortable(id) {
-				return true
-			}
-			break
-		}
+	if id, ok := result["_id"]; ok && sortable(id) {
+		return true
 	}
 	log.With("database", db.Name).With("collection", c).Infoln("invalid _id, any issues copying will be aborted")
 	return false
