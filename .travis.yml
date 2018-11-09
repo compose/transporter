@@ -2,7 +2,7 @@ sudo: required
 dist: trusty
 language: go
 go:
-- 1.8.x
+- 1.9.x
 filter_secrets: false
 git:
   lfs_skip_smudge: true
@@ -21,7 +21,7 @@ env:
   - TESTDIR=adaptor/rabbitmq/...
   - TESTDIR=adaptor/rethinkdb/...
 before_install:
-- go get github.com/golang/lint/golint
+- go get golang.org/x/lint/golint
 - "./scripts/before_install.sh"
 cache:
   directories:
