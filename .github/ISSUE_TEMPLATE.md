@@ -23,7 +23,7 @@ Erase the other section and everything on and above this line.
 1. ...
 2. ...
 
-### What did you expect to happened?
+### What did you expect to happen?
 
 ### What actually happened?
 
