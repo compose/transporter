@@ -49,7 +49,8 @@ func TestTailer(t *testing.T) {
 	}
 	time.Sleep(1 * time.Second)
 
-	r := newTailer("test_slot")
+	reader := newReader(newCaseInsensitiveTable)
+	r := newTailer(reader, "test_slot")
 	readFunc := r.Read(map[string]client.MessageSet{}, func(table string) bool {
 		if strings.HasPrefix(table, "information_schema.") || strings.HasPrefix(table, "pg_catalog.") {
 			return false

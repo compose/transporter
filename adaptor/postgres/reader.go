@@ -18,10 +18,11 @@ var (
 
 // Reader implements the behavior defined by client.Reader for interfacing with MongoDB.
 type Reader struct {
+	newTable func() table
 }
 
-func newReader() client.Reader {
-	return &Reader{}
+func newReader(newTable func() table) client.Reader {
+	return &Reader{newTable}
 }
 
 func (r *Reader) Read(resumeMap map[string]client.MessageSet, filterFn client.NsFilterFunc) client.MessageChanFunc {
@@ -57,17 +58,8 @@ func (r *Reader) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 	}
 }
 
-type table struct {
-	schema string
-	name   string
-}
-
-func (t table) String() string {
-	return fmt.Sprintf("%s.\"%s\"", t.schema, t.name)
-}
-
-func (r *Reader) listTables(db string, session *sql.DB, filterFn func(name string) bool) (<-chan *table, error) {
-	out := make(chan *table)
+func (r *Reader) listTables(db string, session *sql.DB, filterFn func(name string) bool) (<-chan table, error) {
+	out := make(chan table)
 	tablesResult, err := session.Query("SELECT table_schema,table_name FROM information_schema.tables")
 	if err != nil {
 		return nil, err
@@ -75,13 +67,16 @@ func (r *Reader) listTables(db string, session *sql.DB, filterFn func(name strin
 	go func() {
 		defer close(out)
 		for tablesResult.Next() {
-			table := &table{}
-			err = tablesResult.Scan(&table.schema, &table.name)
+			var schema, name string
+			table := r.newTable()
+			err = tablesResult.Scan(&schema, &name)
+			table.setSchema(schema)
+			table.setName(name)
 			if err != nil {
 				log.With("db", db).Infoln("error scanning table name...")
 				continue
 			}
-			if filterFn(table.String()) && matchFunc(table.schema) {
+			if filterFn(table.String()) && matchFunc(table.schema()) {
 				log.With("db", db).With("table", table).Infoln("sending for iteration...")
 				out <- table
 			} else {
@@ -102,7 +97,7 @@ type doc struct {
 	data  data.Data
 }
 
-func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan *table, done chan struct{}) <-chan doc {
+func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan table, done chan struct{}) <-chan doc {
 	out := make(chan doc)
 	go func() {
 		defer close(out)
@@ -120,7 +115,7 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan *table, done
                    = (e.object_catalog, e.object_schema, e.object_name, e.object_type, e.collection_type_identifier))
             WHERE c.table_schema = '%v' AND c.table_name = '%v'
             ORDER BY c.ordinal_position;
-            `, table.schema, table.name))
+            `, table.schema(), table.name()))
 				if err != nil {
 					log.With("db", db).With("table", table).Errorf("error getting columns %v", err)
 					continue
@@ -189,4 +184,57 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan *table, done
 		}
 	}()
 	return out
+}
+
+type table interface {
+	setSchema(string)
+	setName(string)
+	schema() string
+	name() string
+	String() string
+}
+
+type tableBase struct {
+	tableSchema string
+	tableName   string
+}
+
+func (t *tableBase) setSchema(schema string) {
+	t.tableSchema = schema
+}
+
+func (t *tableBase) setName(name string) {
+	t.tableName = name
+}
+
+func (t *tableBase) schema() string {
+	return t.tableSchema
+}
+
+func (t *tableBase) name() string {
+	return t.tableName
+}
+
+type caseInsensitiveTable struct {
+	tableBase
+}
+
+func (t *caseInsensitiveTable) String() string {
+	return fmt.Sprintf("%s.%s", t.schema(), t.name())
+}
+
+func newCaseInsensitiveTable() table {
+	return &caseInsensitiveTable{}
+}
+
+type caseSensitiveTable struct {
+	tableBase
+}
+
+func (t *caseSensitiveTable) String() string {
+	return fmt.Sprintf("%s.\"%s\"", t.schema(), t.name())
+}
+
+func newCaseSensitiveTable() table {
+	return &caseSensitiveTable{}
 }

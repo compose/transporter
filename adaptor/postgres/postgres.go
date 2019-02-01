@@ -16,7 +16,8 @@ const (
   "uri": "${POSTGRESQL_URI}"
   // "debug": false,
   // "tail": false,
-  // "replication_slot": "slot"
+  // "replication_slot": "slot",
+  // "case_sensitive_identifiers": false
 }`
 )
 
@@ -28,9 +29,10 @@ var (
 // it works as a source by copying files, and then optionally tailing the oplog
 type postgres struct {
 	adaptor.BaseConfig
-	Debug           bool   `json:"debug" doc:"display debug information"`
-	Tail            bool   `json:"tail" doc:"if tail is true, then the postgres source will tail the oplog after copying the namespace"`
-	ReplicationSlot string `json:"replication_slot" doc:"required if tail is true; sets the replication slot to use for logical decoding"`
+	Debug                    bool   `json:"debug" doc:"display debug information"`
+	Tail                     bool   `json:"tail" doc:"if tail is true, then the postgres source will tail the oplog after copying the namespace"`
+	ReplicationSlot          string `json:"replication_slot" doc:"required if tail is true; sets the replication slot to use for logical decoding"`
+	CaseSensitiveIdentifiers bool   `json:"case_sensitive_identifiers" doc:"if true, will add quotation marks to table identifiers"`
 }
 
 func init() {
@@ -47,10 +49,20 @@ func (p *postgres) Client() (client.Client, error) {
 }
 
 func (p *postgres) Reader() (client.Reader, error) {
-	if p.Tail {
-		return newTailer(p.ReplicationSlot), nil
+	var newTableFunc func() table
+
+	if p.CaseSensitiveIdentifiers {
+		newTableFunc = newCaseSensitiveTable
+	} else {
+		newTableFunc = newCaseInsensitiveTable
 	}
-	return newReader(), nil
+
+	reader := newReader(newTableFunc)
+	if p.Tail {
+		return newTailer(reader, p.ReplicationSlot), nil
+	}
+
+	return reader, nil
 }
 
 func (p *postgres) Writer(done chan struct{}, wg *sync.WaitGroup) (client.Writer, error) {

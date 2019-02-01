@@ -19,7 +19,7 @@ func TestRead(t *testing.T) {
 		t.Skip("skipping Read in short mode")
 	}
 
-	reader := newReader()
+	reader := newReader(newCaseInsensitiveTable)
 	readFunc := reader.Read(map[string]client.MessageSet{}, func(table string) bool {
 		if strings.HasPrefix(table, "information_schema.") || strings.HasPrefix(table, "pg_catalog.") {
 			return false
@@ -59,7 +59,7 @@ func TestReadComplex(t *testing.T) {
 		t.Skip("skipping Read in short mode")
 	}
 
-	reader := newReader()
+	reader := newReader(newCaseInsensitiveTable)
 	readFunc := reader.Read(map[string]client.MessageSet{}, func(table string) bool {
 		if strings.HasPrefix(table, "information_schema.") || strings.HasPrefix(table, "pg_catalog.") {
 			return false
