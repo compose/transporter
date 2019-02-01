@@ -27,8 +27,8 @@ type Tailer struct {
 	replicationSlot string
 }
 
-func newTailer(replicationSlot string) client.Reader {
-	return &Tailer{newReader(), replicationSlot}
+func newTailer(reader client.Reader, replicationSlot string) client.Reader {
+	return &Tailer{reader, replicationSlot}
 }
 
 // Tail does the things

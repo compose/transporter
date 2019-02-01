@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"regexp"
-	"strings"
 
 	"github.com/compose/transporter/client"
 	"github.com/compose/transporter/log"
@@ -19,10 +18,11 @@ var (
 
 // Reader implements the behavior defined by client.Reader for interfacing with MongoDB.
 type Reader struct {
+	newTable func() table
 }
 
-func newReader() client.Reader {
-	return &Reader{}
+func newReader(newTable func() table) client.Reader {
+	return &Reader{newTable}
 }
 
 func (r *Reader) Read(resumeMap map[string]client.MessageSet, filterFn client.NsFilterFunc) client.MessageChanFunc {
@@ -32,12 +32,12 @@ func (r *Reader) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 		go func() {
 			defer close(out)
 			log.With("db", session.db).Infoln("starting Read func")
-			tables, err := r.listTables(session.db, session.pqSession, filterFn)
+			table, err := r.listTables(session.db, session.pqSession, filterFn)
 			if err != nil {
 				log.With("db", session.db).Errorf("unable to list tables, %s", err)
 				return
 			}
-			results := r.iterateTable(session.db, session.pqSession, tables, done)
+			results := r.iterateTable(session.db, session.pqSession, table, done)
 			for {
 				select {
 				case <-done:
@@ -58,8 +58,8 @@ func (r *Reader) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 	}
 }
 
-func (r *Reader) listTables(db string, session *sql.DB, filterFn func(name string) bool) (<-chan string, error) {
-	out := make(chan string)
+func (r *Reader) listTables(db string, session *sql.DB, filterFn func(name string) bool) (<-chan table, error) {
+	out := make(chan table)
 	tablesResult, err := session.Query("SELECT table_schema,table_name FROM information_schema.tables")
 	if err != nil {
 		return nil, err
@@ -67,19 +67,20 @@ func (r *Reader) listTables(db string, session *sql.DB, filterFn func(name strin
 	go func() {
 		defer close(out)
 		for tablesResult.Next() {
-			var schema string
-			var tname string
-			err = tablesResult.Scan(&schema, &tname)
+			var schema, name string
+			table := r.newTable()
+			err = tablesResult.Scan(&schema, &name)
+			table.setSchema(schema)
+			table.setName(name)
 			if err != nil {
 				log.With("db", db).Infoln("error scanning table name...")
 				continue
 			}
-			name := fmt.Sprintf("%s.%s", schema, tname)
-			if filterFn(name) && matchFunc(name) {
-				log.With("db", db).With("table", name).Infoln("sending for iteration...")
-				out <- name
+			if filterFn(table.String()) && matchFunc(table.schema()) {
+				log.With("db", db).With("table", table).Infoln("sending for iteration...")
+				out <- table
 			} else {
-				log.With("db", db).With("table", name).Debugln("skipping iteration...")
+				log.With("db", db).With("table", table).Debugln("skipping iteration...")
 			}
 		}
 		log.With("db", db).Infoln("done iterating collections")
@@ -87,11 +88,8 @@ func (r *Reader) listTables(db string, session *sql.DB, filterFn func(name strin
 	return out, nil
 }
 
-func matchFunc(table string) bool {
-	if strings.HasPrefix(table, "information_schema.") || strings.HasPrefix(table, "pg_catalog.") {
-		return false
-	}
-	return true
+func matchFunc(schema string) bool {
+	return schema != "information_schema" && schema != "pg_catalog"
 }
 
 type doc struct {
@@ -99,18 +97,17 @@ type doc struct {
 	data  data.Data
 }
 
-func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done chan struct{}) <-chan doc {
+func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan table, done chan struct{}) <-chan doc {
 	out := make(chan doc)
 	go func() {
 		defer close(out)
 		for {
 			select {
-			case c, ok := <-in:
+			case table, ok := <-in:
 				if !ok {
 					return
 				}
-				log.With("db", db).With("table", c).With("table", c).Infoln("iterating...")
-				schemaTable := strings.Split(c, ".")
+				log.With("db", db).With("table", table).Infoln("iterating...")
 				columnsResult, err := session.Query(fmt.Sprintf(`
             SELECT c.column_name, c.data_type, e.data_type AS element_type
             FROM information_schema.columns c LEFT JOIN information_schema.element_types e
@@ -118,9 +115,9 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done
                    = (e.object_catalog, e.object_schema, e.object_name, e.object_type, e.collection_type_identifier))
             WHERE c.table_schema = '%v' AND c.table_name = '%v'
             ORDER BY c.ordinal_position;
-            `, schemaTable[0], schemaTable[1]))
+            `, table.schema(), table.name()))
 				if err != nil {
-					log.With("db", db).With("table", c).Errorf("error getting columns %v", err)
+					log.With("db", db).With("table", table).Errorf("error getting columns %v", err)
 					continue
 				}
 				var columns [][]string
@@ -132,7 +129,7 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done
 					err = columnsResult.Scan(&columnName, &columnType, &columnArrayType)
 					recoveredRegex := regexp.MustCompile("recovered")
 					if err != nil && !recoveredRegex.MatchString(err.Error()) {
-						log.With("table", c).Errorf("error scanning columns %v", err)
+						log.With("table", table).Errorf("error scanning columns %v", err)
 						continue
 					}
 
@@ -145,7 +142,7 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done
 				}
 
 				// build docs for table
-				docsResult, err := session.Query(fmt.Sprintf("SELECT * FROM %v", c))
+				docsResult, err := session.Query(fmt.Sprintf("SELECT * FROM %v", table))
 
 				for docsResult.Next() {
 					dest := make([]interface{}, len(columns))
@@ -157,7 +154,7 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done
 					var docMap map[string]interface{}
 					err = docsResult.Scan(dest...)
 					if err != nil {
-						log.With("table", c).Errorf("error scanning row %v", err)
+						log.With("table", table).Errorf("error scanning row %v", err)
 						continue
 					}
 
@@ -177,9 +174,9 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done
 							}
 						}
 					}
-					out <- doc{table: c, data: docMap}
+					out <- doc{table: table.String(), data: docMap}
 				}
-				log.With("db", db).With("table", c).Infoln("iterating complete")
+				log.With("db", db).With("table", table).Infoln("iterating complete")
 			case <-done:
 				log.With("db", db).Infoln("iterating no more")
 				return
@@ -187,4 +184,57 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done
 		}
 	}()
 	return out
+}
+
+type table interface {
+	setSchema(string)
+	setName(string)
+	schema() string
+	name() string
+	String() string
+}
+
+type tableBase struct {
+	tableSchema string
+	tableName   string
+}
+
+func (t *tableBase) setSchema(schema string) {
+	t.tableSchema = schema
+}
+
+func (t *tableBase) setName(name string) {
+	t.tableName = name
+}
+
+func (t *tableBase) schema() string {
+	return t.tableSchema
+}
+
+func (t *tableBase) name() string {
+	return t.tableName
+}
+
+type caseInsensitiveTable struct {
+	tableBase
+}
+
+func (t *caseInsensitiveTable) String() string {
+	return fmt.Sprintf("%s.%s", t.schema(), t.name())
+}
+
+func newCaseInsensitiveTable() table {
+	return &caseInsensitiveTable{}
+}
+
+type caseSensitiveTable struct {
+	tableBase
+}
+
+func (t *caseSensitiveTable) String() string {
+	return fmt.Sprintf("%s.\"%s\"", t.schema(), t.name())
+}
+
+func newCaseSensitiveTable() table {
+	return &caseSensitiveTable{}
 }
