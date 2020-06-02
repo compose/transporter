@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -10,7 +10,7 @@ import "errors"
 // a bounding box.
 //
 // For more details, see:
-// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/query-dsl-geo-bounding-box-query.html
+// https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-geo-bounding-box-query.html
 type GeoBoundingBoxQuery struct {
 	name      string
 	top       *float64
@@ -83,7 +83,7 @@ func (q *GeoBoundingBoxQuery) QueryName(queryName string) *GeoBoundingBoxQuery {
 // Source returns JSON for the function score query.
 func (q *GeoBoundingBoxQuery) Source() (interface{}, error) {
 	// {
-	//   "geo_bounding_box" : {
+	//   "geo_bbox" : {
 	//     ...
 	//   }
 	// }
@@ -103,7 +103,7 @@ func (q *GeoBoundingBoxQuery) Source() (interface{}, error) {
 
 	source := make(map[string]interface{})
 	params := make(map[string]interface{})
-	source["geo_bounding_box"] = params
+	source["geo_bbox"] = params
 
 	box := make(map[string]interface{})
 	box["top_left"] = []float64{*q.left, *q.top}

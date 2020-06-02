@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -67,7 +67,7 @@ func (c *conn) MarkAsDead() {
 		utcNow := time.Now().UTC()
 		c.deadSince = &utcNow
 	}
-	c.failures += 1
+	c.failures++
 	c.Unlock()
 }
 

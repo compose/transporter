@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -13,7 +13,7 @@ package elastic
 // a bucket aggregator. One or more bucket aggregators determines by
 // which properties a result set get sliced into.
 //
-// See: https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-aggregations-metrics-top-hits-aggregation.html
+// See: http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-aggregations-metrics-top-hits-aggregation.html
 type TopHitsAggregation struct {
 	searchSource *SearchSource
 }
@@ -49,8 +49,8 @@ func (a *TopHitsAggregation) Version(version bool) *TopHitsAggregation {
 	return a
 }
 
-func (a *TopHitsAggregation) NoStoredFields() *TopHitsAggregation {
-	a.searchSource = a.searchSource.NoStoredFields()
+func (a *TopHitsAggregation) NoFields() *TopHitsAggregation {
+	a.searchSource = a.searchSource.NoFields()
 	return a
 }
 
@@ -64,13 +64,13 @@ func (a *TopHitsAggregation) FetchSourceContext(fetchSourceContext *FetchSourceC
 	return a
 }
 
-func (a *TopHitsAggregation) DocvalueFields(docvalueFields ...string) *TopHitsAggregation {
-	a.searchSource = a.searchSource.DocvalueFields(docvalueFields...)
+func (a *TopHitsAggregation) FieldDataFields(fieldDataFields ...string) *TopHitsAggregation {
+	a.searchSource = a.searchSource.FieldDataFields(fieldDataFields...)
 	return a
 }
 
-func (a *TopHitsAggregation) DocvalueField(docvalueField string) *TopHitsAggregation {
-	a.searchSource = a.searchSource.DocvalueField(docvalueField)
+func (a *TopHitsAggregation) FieldDataField(fieldDataField string) *TopHitsAggregation {
+	a.searchSource = a.searchSource.FieldDataField(fieldDataField)
 	return a
 }
 

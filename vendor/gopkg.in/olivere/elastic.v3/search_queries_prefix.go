@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -8,7 +8,7 @@ package elastic
 // with a specified prefix (not analyzed).
 //
 // For more details, see
-// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/query-dsl-prefix-query.html
+// https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-prefix-query.html
 type PrefixQuery struct {
 	name      string
 	prefix    string
@@ -50,7 +50,7 @@ func (q *PrefixQuery) Source() (interface{}, error) {
 		query[q.name] = q.prefix
 	} else {
 		subQuery := make(map[string]interface{})
-		subQuery["value"] = q.prefix
+		subQuery["prefix"] = q.prefix
 		if q.boost != nil {
 			subQuery["boost"] = *q.boost
 		}

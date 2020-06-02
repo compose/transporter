@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -7,7 +7,7 @@ package elastic
 // A boosting query can be used to effectively
 // demote results that match a given query.
 // For more details, see:
-// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/query-dsl-boosting-query.html
+// http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-boosting-query.html
 type BoostingQuery struct {
 	Query
 	positiveClause Query

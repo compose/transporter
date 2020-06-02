@@ -21,13 +21,9 @@ _testmain.go
 
 *.exe
 
-/.vscode/
-/debug.test
 /generator
 /cluster-test/cluster-test
 /cluster-test/*.log
 /cluster-test/es-chaos-monkey
 /spec
 /tmp
-/CHANGELOG-3.0.html
-

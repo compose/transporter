@@ -13,8 +13,8 @@ import (
 	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/message/data"
 	"github.com/compose/transporter/message/ops"
-	mgo "gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
+	mgo "github.com/globalsign/mgo"
+	"github.com/globalsign/mgo/bson"
 )
 
 var (

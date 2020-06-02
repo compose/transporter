@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -8,13 +8,12 @@ package elastic
 // of the provided terms (not analyzed).
 //
 // For more details, see
-// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/query-dsl-terms-query.html
+// https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-terms-query.html
 type TermsQuery struct {
-	name        string
-	values      []interface{}
-	termsLookup *TermsLookup
-	queryName   string
-	boost       *float64
+	name      string
+	values    []interface{}
+	queryName string
+	boost     *float64
 }
 
 // NewTermsQuery creates and initializes a new TermsQuery.
@@ -26,12 +25,6 @@ func NewTermsQuery(name string, values ...interface{}) *TermsQuery {
 	if len(values) > 0 {
 		q.values = append(q.values, values...)
 	}
-	return q
-}
-
-// TermsLookup adds terms lookup details to the query.
-func (q *TermsQuery) TermsLookup(lookup *TermsLookup) *TermsQuery {
-	q.termsLookup = lookup
 	return q
 }
 
@@ -54,22 +47,12 @@ func (q *TermsQuery) Source() (interface{}, error) {
 	source := make(map[string]interface{})
 	params := make(map[string]interface{})
 	source["terms"] = params
-
-	if q.termsLookup != nil {
-		src, err := q.termsLookup.Source()
-		if err != nil {
-			return nil, err
-		}
-		params[q.name] = src
-	} else {
-		params[q.name] = q.values
-		if q.boost != nil {
-			params["boost"] = *q.boost
-		}
-		if q.queryName != "" {
-			params["_name"] = q.queryName
-		}
+	params[q.name] = q.values
+	if q.boost != nil {
+		params["boost"] = *q.boost
 	}
-
+	if q.queryName != "" {
+		params["_name"] = q.queryName
+	}
 	return source, nil
 }

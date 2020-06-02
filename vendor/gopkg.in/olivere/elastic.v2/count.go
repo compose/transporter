@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -8,10 +8,9 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v2/uritemplates"
 )
 
 // CountService is a convenient service for determining the
@@ -36,7 +35,6 @@ type CountService struct {
 	q                      string
 	query                  Query
 	routing                string
-	terminateAfter         *int
 	bodyJson               interface{}
 	bodyString             string
 }
@@ -45,24 +43,44 @@ type CountService struct {
 func NewCountService(client *Client) *CountService {
 	return &CountService{
 		client: client,
+		index:  make([]string, 0),
+		typ:    make([]string, 0),
 	}
 }
 
-// Index sets the names of the indices to restrict the results.
-func (s *CountService) Index(index ...string) *CountService {
+// Index sets the name of the index to use to restrict the results.
+func (s *CountService) Index(index string) *CountService {
 	if s.index == nil {
 		s.index = make([]string, 0)
 	}
-	s.index = append(s.index, index...)
+	s.index = append(s.index, index)
 	return s
 }
 
-// Type sets the types to use to restrict the results.
-func (s *CountService) Type(typ ...string) *CountService {
+// Indices sets the names of the indices to restrict the results.
+func (s *CountService) Indices(indices ...string) *CountService {
+	if s.index == nil {
+		s.index = make([]string, 0)
+	}
+	s.index = append(s.index, indices...)
+	return s
+}
+
+// Type sets the type to use to restrict the results.
+func (s *CountService) Type(typ string) *CountService {
 	if s.typ == nil {
 		s.typ = make([]string, 0)
 	}
-	s.typ = append(s.typ, typ...)
+	s.typ = append(s.typ, typ)
+	return s
+}
+
+// Types sets the types to use to restrict the results.
+func (s *CountService) Types(types ...string) *CountService {
+	if s.typ == nil {
+		s.typ = make([]string, 0)
+	}
+	s.typ = append(s.typ, types...)
 	return s
 }
 
@@ -160,12 +178,6 @@ func (s *CountService) Routing(routing string) *CountService {
 	return s
 }
 
-// TerminateAfter specifies the maximum count for each shard
-func (s *CountService) TerminateAfter(terminateAfter int) *CountService {
-	s.terminateAfter = &terminateAfter
-	return s
-}
-
 // Pretty indicates that the JSON response be indented and human readable.
 func (s *CountService) Pretty(pretty bool) *CountService {
 	s.pretty = pretty
@@ -256,9 +268,6 @@ func (s *CountService) buildURL() (string, url.Values, error) {
 	if s.routing != "" {
 		params.Set("routing", s.routing)
 	}
-	if s.terminateAfter != nil {
-		params.Set("terminate_after", strconv.Itoa(*s.terminateAfter))
-	}
 	return path, params, nil
 }
 
@@ -267,8 +276,13 @@ func (s *CountService) Validate() error {
 	return nil
 }
 
-// Do executes the operation.
-func (s *CountService) Do(ctx context.Context) (int64, error) {
+// Do runs DoC() with default context.
+func (s *CountService) Do() (int64, error) {
+	return s.DoC(nil)
+}
+
+// DoC executes the operation.
+func (s *CountService) DoC(ctx context.Context) (int64, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return 0, err
@@ -283,12 +297,8 @@ func (s *CountService) Do(ctx context.Context) (int64, error) {
 	// Setup HTTP request body
 	var body interface{}
 	if s.query != nil {
-		src, err := s.query.Source()
-		if err != nil {
-			return 0, err
-		}
 		query := make(map[string]interface{})
-		query["query"] = src
+		query["query"] = s.query.Source()
 		body = query
 	} else if s.bodyJson != nil {
 		body = s.bodyJson
@@ -297,7 +307,7 @@ func (s *CountService) Do(ctx context.Context) (int64, error) {
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "POST", path, params, body)
+	res, err := s.client.PerformRequestC(ctx, "POST", path, params, body)
 	if err != nil {
 		return 0, err
 	}

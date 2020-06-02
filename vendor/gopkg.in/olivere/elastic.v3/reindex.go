@@ -11,22 +11,26 @@ import (
 )
 
 // ReindexService is a method to copy documents from one index to another.
-// It is documented at https://www.elastic.co/guide/en/elasticsearch/reference/5.0/docs-reindex.html.
+// It was introduced in Elasticsearch 2.3.0.
+//
+// Notice that Elastic already had a Reindexer service that pre-dated
+// the Reindex API. Use that if you're on an earlier version of Elasticsearch.
+//
+// It is documented at https://www.elastic.co/guide/en/elasticsearch/plugins/master/plugins-reindex.html.
 type ReindexService struct {
-	client              *Client
-	pretty              bool
-	refresh             string
-	timeout             string
-	waitForActiveShards string
-	waitForCompletion   *bool
-	requestsPerSecond   *int
-	slices              *int
-	body                interface{}
-	source              *ReindexSource
-	destination         *ReindexDestination
-	conflicts           string
-	size                *int
-	script              *Script
+	client            *Client
+	pretty            bool
+	consistency       string
+	refresh           *bool
+	timeout           string
+	waitForCompletion *bool
+	bodyJson          interface{}
+	bodyString        string
+	source            *ReindexSource
+	destination       *ReindexDestination
+	conflicts         string
+	size              *int
+	script            *Script
 }
 
 // NewReindexService creates a new ReindexService.
@@ -36,32 +40,16 @@ func NewReindexService(client *Client) *ReindexService {
 	}
 }
 
-// WaitForActiveShards sets the number of shard copies that must be active before
-// proceeding with the reindex operation. Defaults to 1, meaning the primary shard only.
-// Set to `all` for all shard copies, otherwise set to any non-negative value less than or
-// equal to the total number of copies for the shard (number of replicas + 1).
-func (s *ReindexService) WaitForActiveShards(waitForActiveShards string) *ReindexService {
-	s.waitForActiveShards = waitForActiveShards
-	return s
-}
-
-// RequestsPerSecond specifies the throttle to set on this request in sub-requests per second.
-// -1 means set no throttle as does "unlimited" which is the only non-float this accepts.
-func (s *ReindexService) RequestsPerSecond(requestsPerSecond int) *ReindexService {
-	s.requestsPerSecond = &requestsPerSecond
-	return s
-}
-
-// Slices specifies the number of slices this task should be divided into. Defaults to 1.
-func (s *ReindexService) Slices(slices int) *ReindexService {
-	s.slices = &slices
+// Consistency specifies an explicit write consistency setting for the operation.
+func (s *ReindexService) Consistency(consistency string) *ReindexService {
+	s.consistency = consistency
 	return s
 }
 
 // Refresh indicates whether Elasticsearch should refresh the effected indexes
 // immediately.
-func (s *ReindexService) Refresh(refresh string) *ReindexService {
-	s.refresh = refresh
+func (s *ReindexService) Refresh(refresh bool) *ReindexService {
+	s.refresh = &refresh
 	return s
 }
 
@@ -160,10 +148,18 @@ func (s *ReindexService) Script(script *Script) *ReindexService {
 	return s
 }
 
-// Body specifies the body of the request to send to Elasticsearch.
-// It overrides settings specified with other setters, e.g. Query.
-func (s *ReindexService) Body(body interface{}) *ReindexService {
-	s.body = body
+// BodyJson specifies e.g. the query to restrict the results specified with the
+// Query DSL (optional). The interface{} will be serialized to a JSON document,
+// so use a map[string]interface{}.
+func (s *ReindexService) BodyJson(body interface{}) *ReindexService {
+	s.bodyJson = body
+	return s
+}
+
+// Body specifies e.g. a query to restrict the results specified with
+// the Query DSL (optional).
+func (s *ReindexService) BodyString(body string) *ReindexService {
+	s.bodyString = body
 	return s
 }
 
@@ -177,20 +173,14 @@ func (s *ReindexService) buildURL() (string, url.Values, error) {
 	if s.pretty {
 		params.Set("pretty", "1")
 	}
-	if s.refresh != "" {
-		params.Set("refresh", s.refresh)
+	if s.consistency != "" {
+		params.Set("consistency", s.consistency)
+	}
+	if s.refresh != nil {
+		params.Set("refresh", fmt.Sprintf("%v", *s.refresh))
 	}
 	if s.timeout != "" {
 		params.Set("timeout", s.timeout)
-	}
-	if s.requestsPerSecond != nil {
-		params.Set("requests_per_second", fmt.Sprintf("%v", *s.requestsPerSecond))
-	}
-	if s.slices != nil {
-		params.Set("slices", fmt.Sprintf("%v", *s.slices))
-	}
-	if s.waitForActiveShards != "" {
-		params.Set("wait_for_active_shards", s.waitForActiveShards)
 	}
 	if s.waitForCompletion != nil {
 		params.Set("wait_for_completion", fmt.Sprintf("%v", *s.waitForCompletion))
@@ -201,9 +191,6 @@ func (s *ReindexService) buildURL() (string, url.Values, error) {
 // Validate checks if the operation is valid.
 func (s *ReindexService) Validate() error {
 	var invalid []string
-	if s.body != nil {
-		return nil
-	}
 	if s.source == nil {
 		invalid = append(invalid, "Source")
 	} else {
@@ -220,10 +207,13 @@ func (s *ReindexService) Validate() error {
 	return nil
 }
 
-// getBody returns the body part of the document request.
-func (s *ReindexService) getBody() (interface{}, error) {
-	if s.body != nil {
-		return s.body, nil
+// body returns the body part of the document request.
+func (s *ReindexService) body() (interface{}, error) {
+	if s.bodyJson != nil {
+		return s.bodyJson, nil
+	}
+	if s.bodyString != "" {
+		return s.bodyString, nil
 	}
 
 	body := make(map[string]interface{})
@@ -258,7 +248,12 @@ func (s *ReindexService) getBody() (interface{}, error) {
 }
 
 // Do executes the operation.
-func (s *ReindexService) Do(ctx context.Context) (*BulkIndexByScrollResponse, error) {
+func (s *ReindexService) Do() (*ReindexResponse, error) {
+	return s.DoC(nil)
+}
+
+// DoC executes the operation.
+func (s *ReindexService) DoC(ctx context.Context) (*ReindexResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -271,19 +266,19 @@ func (s *ReindexService) Do(ctx context.Context) (*BulkIndexByScrollResponse, er
 	}
 
 	// Setup HTTP request body
-	body, err := s.getBody()
+	body, err := s.body()
 	if err != nil {
 		return nil, err
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "POST", path, params, body)
+	res, err := s.client.PerformRequestC(ctx, "POST", path, params, body)
 	if err != nil {
 		return nil, err
 	}
 
 	// Return operation response
-	ret := new(BulkIndexByScrollResponse)
+	ret := new(ReindexResponse)
 	if err := s.client.decoder.Decode(res.Body, ret); err != nil {
 		return nil, err
 	}
@@ -293,7 +288,14 @@ func (s *ReindexService) Do(ctx context.Context) (*BulkIndexByScrollResponse, er
 // DoAsync executes the reindexing operation asynchronously by starting a new task.
 // Callers need to use the Task Management API to watch the outcome of the reindexing
 // operation.
-func (s *ReindexService) DoAsync(ctx context.Context) (*StartTaskResult, error) {
+func (s *ReindexService) DoAsync() (*StartTaskResult, error) {
+	return s.DoAsyncC(nil)
+}
+
+// DoAsyncC executes the reindexing operation asynchronously by starting a new task.
+// Callers need to use the Task Management API to watch the outcome of the reindexing
+// operation.
+func (s *ReindexService) DoAsyncC(ctx context.Context) (*StartTaskResult, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -313,13 +315,13 @@ func (s *ReindexService) DoAsync(ctx context.Context) (*StartTaskResult, error) 
 	}
 
 	// Setup HTTP request body
-	body, err := s.getBody()
+	body, err := s.body()
 	if err != nil {
 		return nil, err
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "POST", path, params, body)
+	res, err := s.client.PerformRequestC(ctx, "POST", path, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -330,6 +332,22 @@ func (s *ReindexService) DoAsync(ctx context.Context) (*StartTaskResult, error) 
 		return nil, err
 	}
 	return ret, nil
+}
+
+// ReindexResponse is the response of ReindexService.Do.
+type ReindexResponse struct {
+	Took             interface{}             `json:"took"` // 2.3.0 returns "37.7ms" while 2.2 returns 38 for took
+	TimedOut         bool                    `json:"timed_out"`
+	Total            int64                   `json:"total"`
+	Updated          int64                   `json:"updated"`
+	Created          int64                   `json:"created"`
+	Deleted          int64                   `json:"deleted"`
+	Batches          int64                   `json:"batches"`
+	VersionConflicts int64                   `json:"version_conflicts"`
+	Noops            int64                   `json:"noops"`
+	Retries          int64                   `json:"retries"`
+	Canceled         string                  `json:"canceled"`
+	Failures         []shardOperationFailure `json:"failures"`
 }
 
 // -- Source of Reindex --
@@ -347,12 +365,16 @@ type ReindexSource struct {
 	sorts        []SortInfo
 	sorters      []Sorter
 	searchSource *SearchSource
-	remoteInfo   *ReindexRemoteInfo
 }
 
 // NewReindexSource creates a new ReindexSource.
 func NewReindexSource() *ReindexSource {
-	return &ReindexSource{}
+	return &ReindexSource{
+		indices: make([]string, 0),
+		types:   make([]string, 0),
+		sorts:   make([]SortInfo, 0),
+		sorters: make([]Sorter, 0),
+	}
 }
 
 // SearchType is the search operation type. Possible values are
@@ -412,15 +434,9 @@ func (s *ReindexSource) SortWithInfo(info SortInfo) *ReindexSource {
 	return s
 }
 
-// SortBy adds a sort order.
+// SortBy	adds a sort order.
 func (s *ReindexSource) SortBy(sorter ...Sorter) *ReindexSource {
 	s.sorters = append(s.sorters, sorter...)
-	return s
-}
-
-// RemoteInfo sets up reindexing from a remote cluster.
-func (s *ReindexSource) RemoteInfo(ri *ReindexRemoteInfo) *ReindexSource {
-	s.remoteInfo = ri
 	return s
 }
 
@@ -474,14 +490,6 @@ func (r *ReindexSource) Source() (interface{}, error) {
 		source["scroll"] = r.scroll
 	}
 
-	if r.remoteInfo != nil {
-		src, err := r.remoteInfo.Source()
-		if err != nil {
-			return nil, err
-		}
-		source["remote"] = src
-	}
-
 	if len(r.sorters) > 0 {
 		var sortarr []interface{}
 		for _, sorter := range r.sorters {
@@ -507,78 +515,12 @@ func (r *ReindexSource) Source() (interface{}, error) {
 	return source, nil
 }
 
-// ReindexRemoteInfo contains information for reindexing from a remote cluster.
-type ReindexRemoteInfo struct {
-	host           string
-	username       string
-	password       string
-	socketTimeout  string // e.g. "1m" or "30s"
-	connectTimeout string // e.g. "1m" or "30s"
-}
-
-// NewReindexRemoteInfo creates a new ReindexRemoteInfo.
-func NewReindexRemoteInfo() *ReindexRemoteInfo {
-	return &ReindexRemoteInfo{}
-}
-
-// Host sets the host information of the remote cluster.
-// It must be of the form "http(s)://<hostname>:<port>"
-func (ri *ReindexRemoteInfo) Host(host string) *ReindexRemoteInfo {
-	ri.host = host
-	return ri
-}
-
-// Username sets the username to authenticate with the remote cluster.
-func (ri *ReindexRemoteInfo) Username(username string) *ReindexRemoteInfo {
-	ri.username = username
-	return ri
-}
-
-// Password sets the password to authenticate with the remote cluster.
-func (ri *ReindexRemoteInfo) Password(password string) *ReindexRemoteInfo {
-	ri.password = password
-	return ri
-}
-
-// SocketTimeout sets the socket timeout to connect with the remote cluster.
-// Use ES compatible values like e.g. "30s" or "1m".
-func (ri *ReindexRemoteInfo) SocketTimeout(timeout string) *ReindexRemoteInfo {
-	ri.socketTimeout = timeout
-	return ri
-}
-
-// ConnectTimeout sets the connection timeout to connect with the remote cluster.
-// Use ES compatible values like e.g. "30s" or "1m".
-func (ri *ReindexRemoteInfo) ConnectTimeout(timeout string) *ReindexRemoteInfo {
-	ri.connectTimeout = timeout
-	return ri
-}
-
-// Source returns the serializable JSON data for the request.
-func (ri *ReindexRemoteInfo) Source() (interface{}, error) {
-	res := make(map[string]interface{})
-	res["host"] = ri.host
-	if len(ri.username) > 0 {
-		res["username"] = ri.username
-	}
-	if len(ri.password) > 0 {
-		res["password"] = ri.password
-	}
-	if len(ri.socketTimeout) > 0 {
-		res["socket_timeout"] = ri.socketTimeout
-	}
-	if len(ri.connectTimeout) > 0 {
-		res["connect_timeout"] = ri.connectTimeout
-	}
-	return res, nil
-}
-
 // -source Destination of Reindex --
 
 // ReindexDestination is the destination of a Reindex API call.
 // It is basically the meta data of a BulkIndexRequest.
 //
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/docs-reindex.html
+// See https://www.elastic.co/guide/en/elasticsearch/reference/2.3/docs-reindex.html
 // fsourcer details.
 type ReindexDestination struct {
 	index       string
@@ -637,7 +579,7 @@ func (r *ReindexDestination) Parent(parent string) *ReindexDestination {
 
 // OpType specifies if this request should follow create-only or upsert
 // behavior. This follows the OpType of the standard document index API.
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/docs-index_.html#operation-type
+// See https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-index_.html#operation-type
 // for details.
 func (r *ReindexDestination) OpType(opType string) *ReindexDestination {
 	r.opType = opType

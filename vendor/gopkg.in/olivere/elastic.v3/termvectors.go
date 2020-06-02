@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -10,14 +10,14 @@ import (
 	"net/url"
 	"strings"
 
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v3/uritemplates"
 )
 
 // TermvectorsService returns information and statistics on terms in the
 // fields of a particular document. The document could be stored in the
 // index or artificially provided by the user.
 //
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/docs-termvectors.html
+// See https://www.elastic.co/guide/en/elasticsearch/reference/2.1/docs-termvectors.html
 // for documentation.
 type TermvectorsService struct {
 	client           *Client
@@ -277,7 +277,12 @@ func (s *TermvectorsService) Validate() error {
 }
 
 // Do executes the operation.
-func (s *TermvectorsService) Do(ctx context.Context) (*TermvectorsResponse, error) {
+func (s *TermvectorsService) Do() (*TermvectorsResponse, error) {
+	return s.DoC(nil)
+}
+
+// DoC executes the operation.
+func (s *TermvectorsService) DoC(ctx context.Context) (*TermvectorsResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -316,7 +321,7 @@ func (s *TermvectorsService) Do(ctx context.Context) (*TermvectorsResponse, erro
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "GET", path, params, body)
+	res, err := s.client.PerformRequestC(ctx, "GET", path, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -333,7 +338,7 @@ func (s *TermvectorsService) Do(ctx context.Context) (*TermvectorsResponse, erro
 
 // TermvectorsFilterSettings adds additional filters to a Termsvector request.
 // It allows to filter terms based on their tf-idf scores.
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/docs-termvectors.html#_terms_filtering
+// See https://www.elastic.co/guide/en/elasticsearch/reference/2.1/docs-termvectors.html#_terms_filtering
 // for more information.
 type TermvectorsFilterSettings struct {
 	maxNumTerms   *int64

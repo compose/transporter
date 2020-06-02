@@ -7,13 +7,14 @@ package amqp
 
 import (
 	"errors"
-	"fmt"
+	"net"
 	"net/url"
 	"strconv"
 	"strings"
 )
 
 var errURIScheme = errors.New("AMQP scheme must be either 'amqp://' or 'amqps://'")
+var errURIWhitespace = errors.New("URI must not contain whitespace")
 
 var schemePorts = map[string]int{
 	"amqp":  5672,
@@ -52,41 +53,46 @@ type URI struct {
 //   Vhost: /
 //
 func ParseURI(uri string) (URI, error) {
-	me := defaultURI
+	builder := defaultURI
+
+	if strings.Contains(uri, " ") == true {
+		return builder, errURIWhitespace
+	}
 
 	u, err := url.Parse(uri)
 	if err != nil {
-		return me, err
+		return builder, err
 	}
 
 	defaultPort, okScheme := schemePorts[u.Scheme]
 
 	if okScheme {
-		me.Scheme = u.Scheme
+		builder.Scheme = u.Scheme
 	} else {
-		return me, errURIScheme
+		return builder, errURIScheme
 	}
 
-	host, port := splitHostPort(u.Host)
+	host := u.Hostname()
+	port := u.Port()
 
 	if host != "" {
-		me.Host = host
+		builder.Host = host
 	}
 
 	if port != "" {
 		port32, err := strconv.ParseInt(port, 10, 32)
 		if err != nil {
-			return me, err
+			return builder, err
 		}
-		me.Port = int(port32)
+		builder.Port = int(port32)
 	} else {
-		me.Port = defaultPort
+		builder.Port = defaultPort
 	}
 
 	if u.User != nil {
-		me.Username = u.User.Username()
+		builder.Username = u.User.Username()
 		if password, ok := u.User.Password(); ok {
-			me.Password = password
+			builder.Password = password
 		}
 	}
 
@@ -97,74 +103,74 @@ func ParseURI(uri string) (URI, error) {
 				// to the scheme handler.  In our case, we translate amqp:/// into the
 				// default host and whatever the vhost should be
 				if len(u.Path) > 3 {
-					me.Vhost = u.Path[3:]
+					builder.Vhost = u.Path[3:]
 				}
 			} else if len(u.Path) > 1 {
-				me.Vhost = u.Path[1:]
+				builder.Vhost = u.Path[1:]
 			}
 		} else {
-			me.Vhost = u.Path
+			builder.Vhost = u.Path
 		}
 	}
 
-	return me, nil
-}
-
-// Splits host:port, host, [ho:st]:port, or [ho:st].  Unlike net.SplitHostPort
-// which splits :port, host:port or [host]:port
-//
-// Handles hosts that have colons that are in brackets like [::1]:http
-func splitHostPort(addr string) (host, port string) {
-	i := strings.LastIndex(addr, ":")
-
-	if i >= 0 {
-		host, port = addr[:i], addr[i+1:]
-
-		if len(port) > 0 && port[len(port)-1] == ']' && addr[0] == '[' {
-			// we've split on an inner colon, the port was missing outside of the
-			// brackets so use the full addr.  We could assert that host should not
-			// contain any colons here
-			host, port = addr, ""
-		}
-	} else {
-		host = addr
-	}
-
-	return
+	return builder, nil
 }
 
 // PlainAuth returns a PlainAuth structure based on the parsed URI's
 // Username and Password fields.
-func (me URI) PlainAuth() *PlainAuth {
+func (uri URI) PlainAuth() *PlainAuth {
 	return &PlainAuth{
-		Username: me.Username,
-		Password: me.Password,
+		Username: uri.Username,
+		Password: uri.Password,
 	}
 }
 
-func (me URI) String() string {
-	var authority string
+// AMQPlainAuth returns a PlainAuth structure based on the parsed URI's
+// Username and Password fields.
+func (uri URI) AMQPlainAuth() *AMQPlainAuth {
+	return &AMQPlainAuth{
+		Username: uri.Username,
+		Password: uri.Password,
+	}
+}
 
-	if me.Username != defaultURI.Username || me.Password != defaultURI.Password {
-		authority += me.Username
+func (uri URI) String() string {
+	authority, err := url.Parse("")
+	if err != nil {
+		return err.Error()
+	}
 
-		if me.Password != defaultURI.Password {
-			authority += ":" + me.Password
+	authority.Scheme = uri.Scheme
+
+	if uri.Username != defaultURI.Username || uri.Password != defaultURI.Password {
+		authority.User = url.User(uri.Username)
+
+		if uri.Password != defaultURI.Password {
+			authority.User = url.UserPassword(uri.Username, uri.Password)
 		}
-
-		authority += "@"
 	}
 
-	authority += me.Host
+	authority.Host = net.JoinHostPort(uri.Host, strconv.Itoa(uri.Port))
 
-	if defaultPort, found := schemePorts[me.Scheme]; !found || defaultPort != me.Port {
-		authority += ":" + strconv.FormatInt(int64(me.Port), 10)
+	if defaultPort, found := schemePorts[uri.Scheme]; !found || defaultPort != uri.Port {
+		authority.Host = net.JoinHostPort(uri.Host, strconv.Itoa(uri.Port))
+	} else {
+		// JoinHostPort() automatically add brackets to the host if it's
+		// an IPv6 address.
+		//
+		// If not port is specified, JoinHostPort() return an IP address in the
+		// form of "[::1]:", so we use TrimSuffix() to remove the extra ":".
+		authority.Host = strings.TrimSuffix(net.JoinHostPort(uri.Host, ""), ":")
 	}
 
-	var vhost string
-	if me.Vhost != defaultURI.Vhost {
-		vhost = me.Vhost
+	if uri.Vhost != defaultURI.Vhost {
+		// Make sure net/url does not double escape, e.g.
+		// "%2F" does not become "%252F".
+		authority.Path = uri.Vhost
+		authority.RawPath = url.QueryEscape(uri.Vhost)
+	} else {
+		authority.Path = "/"
 	}
 
-	return fmt.Sprintf("%s://%s/%s", me.Scheme, authority, url.QueryEscape(vhost))
+	return authority.String()
 }

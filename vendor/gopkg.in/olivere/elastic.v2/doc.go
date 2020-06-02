@@ -1,10 +1,10 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 /*
 Package elastic provides an interface to the Elasticsearch server
-(https://www.elastic.co/products/elasticsearch).
+(http://www.elasticsearch.org/).
 
 The first thing you do is to create a Client. If you have Elasticsearch
 installed and running with its default settings
@@ -35,7 +35,7 @@ methods to prepare the query and a Do function to execute it against the
 Elasticsearch REST interface and return a response. Here is an example
 of the IndexExists service that checks if a given index already exists.
 
-	exists, err := client.IndexExists("twitter").Do(context.Background())
+	exists, err := client.IndexExists("twitter").Do()
 	if err != nil {
 		// Handle error
 	}

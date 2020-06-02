@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -11,12 +11,12 @@ package elastic
 // same manner as has_child query.
 //
 // For more details, see
-// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/query-dsl-has-parent-query.html
+// https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-has-parent-query.html
 type HasParentQuery struct {
 	query      Query
 	parentType string
 	boost      *float64
-	score      *bool
+	scoreType  string
 	queryName  string
 	innerHit   *InnerHit
 }
@@ -35,9 +35,9 @@ func (q *HasParentQuery) Boost(boost float64) *HasParentQuery {
 	return q
 }
 
-// Score defines if the parent score is mapped into the child documents.
-func (q *HasParentQuery) Score(score bool) *HasParentQuery {
-	q.score = &score
+// ScoreType defines how the parent score is mapped into the child documents.
+func (q *HasParentQuery) ScoreType(scoreType string) *HasParentQuery {
+	q.scoreType = scoreType
 	return q
 }
 
@@ -80,8 +80,8 @@ func (q *HasParentQuery) Source() (interface{}, error) {
 	if q.boost != nil {
 		query["boost"] = *q.boost
 	}
-	if q.score != nil {
-		query["score"] = *q.score
+	if q.scoreType != "" {
+		query["score_type"] = q.scoreType
 	}
 	if q.queryName != "" {
 		query["_name"] = q.queryName

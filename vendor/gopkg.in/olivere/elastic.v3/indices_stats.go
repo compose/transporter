@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -10,11 +10,11 @@ import (
 	"net/url"
 	"strings"
 
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v3/uritemplates"
 )
 
 // IndicesStatsService provides stats on various metrics of one or more
-// indices. See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/indices-stats.html.
+// indices. See http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-stats.html.
 type IndicesStatsService struct {
 	client           *Client
 	pretty           bool
@@ -167,7 +167,12 @@ func (s *IndicesStatsService) Validate() error {
 }
 
 // Do executes the operation.
-func (s *IndicesStatsService) Do(ctx context.Context) (*IndicesStatsResponse, error) {
+func (s *IndicesStatsService) Do() (*IndicesStatsResponse, error) {
+	return s.DoC(nil)
+}
+
+// DoC executes the operation.
+func (s *IndicesStatsService) DoC(ctx context.Context) (*IndicesStatsResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -180,7 +185,7 @@ func (s *IndicesStatsService) Do(ctx context.Context) (*IndicesStatsResponse, er
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "GET", path, params, nil)
+	res, err := s.client.PerformRequestC(ctx, "GET", path, params, nil)
 	if err != nil {
 		return nil, err
 	}

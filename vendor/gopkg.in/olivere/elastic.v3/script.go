@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -9,7 +9,7 @@ import "errors"
 // Script holds all the paramaters necessary to compile or find in cache
 // and then execute a script.
 //
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.6/modules-scripting.html
+// See https://www.elastic.co/guide/en/elasticsearch/reference/current/modules-scripting.html
 // for details of scripting.
 type Script struct {
 	script string
@@ -60,7 +60,7 @@ func (s *Script) Type(typ string) *Script {
 // Lang sets the language of the script. Permitted values are "groovy",
 // "expression", "mustache", "mvel" (default), "javascript", "python".
 // To use certain languages, you need to configure your server and/or
-// add plugins. See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/modules-scripting.html
+// add plugins. See https://www.elastic.co/guide/en/elasticsearch/reference/current/modules-scripting.html
 // for details.
 func (s *Script) Lang(lang string) *Script {
 	s.lang = lang
@@ -84,26 +84,21 @@ func (s *Script) Params(params map[string]interface{}) *Script {
 
 // Source returns the JSON serializable data for this Script.
 func (s *Script) Source() (interface{}, error) {
+	if s.typ == "" && s.lang == "" && len(s.params) == 0 {
+		return s.script, nil
+	}
 	source := make(map[string]interface{})
-
-	// In 5.5 and earlier, the type can "inline", "id", or "file".
-	// In 5.6+, the type can be "source", "id", or "file".
-	// So we use "inline" here to keep compatibility with 5.5 and earlier.
-	// Notice that this will trigger a deprecation warning in 5.6.
-	if s.typ == "" || s.typ == "inline" {
+	if s.typ == "" {
 		source["inline"] = s.script
 	} else {
-		// "id" or "file"
 		source[s.typ] = s.script
 	}
-
 	if s.lang != "" {
 		source["lang"] = s.lang
 	}
 	if len(s.params) > 0 {
 		source["params"] = s.params
 	}
-
 	return source, nil
 }
 

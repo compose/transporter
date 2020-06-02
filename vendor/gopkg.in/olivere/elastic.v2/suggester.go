@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -11,5 +11,5 @@ package elastic
 // will do.
 type Suggester interface {
 	Name() string
-	Source(includeName bool) (interface{}, error)
+	Source(includeName bool) interface{}
 }

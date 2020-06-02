@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -9,7 +9,7 @@ import "errors"
 // ScriptQuery allows to define scripts as filters.
 //
 // For details, see
-// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/query-dsl-script-query.html
+// https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-script-query.html
 type ScriptQuery struct {
 	script    *Script
 	queryName string

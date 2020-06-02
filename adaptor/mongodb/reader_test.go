@@ -10,8 +10,8 @@ import (
 
 	"github.com/compose/transporter/client"
 	"github.com/compose/transporter/log"
-	mgo "gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
+	mgo "github.com/globalsign/mgo"
+	"github.com/globalsign/mgo/bson"
 )
 
 var (

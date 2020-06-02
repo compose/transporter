@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -7,17 +7,28 @@ package elastic
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/url"
+	"strings"
+
+	"gopkg.in/olivere/elastic.v2/uritemplates"
 )
 
-// ClearScrollService clears one or more scroll contexts by their ids.
-//
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-request-scroll.html#_clear_scroll_api
-// for details.
+var (
+	_ = fmt.Print
+	_ = log.Print
+	_ = strings.Index
+	_ = uritemplates.Expand
+	_ = url.Parse
+)
+
+// ClearScrollService is documented at http://www.elasticsearch.org/guide/en/elasticsearch/reference/1.4/search-request-scroll.html.
 type ClearScrollService struct {
-	client   *Client
-	pretty   bool
-	scrollId []string
+	client     *Client
+	pretty     bool
+	scrollId   []string
+	bodyJson   interface{}
+	bodyString string
 }
 
 // NewClearScrollService creates a new ClearScrollService.
@@ -30,44 +41,33 @@ func NewClearScrollService(client *Client) *ClearScrollService {
 
 // ScrollId is a list of scroll IDs to clear.
 // Use _all to clear all search contexts.
-func (s *ClearScrollService) ScrollId(scrollIds ...string) *ClearScrollService {
-	s.scrollId = append(s.scrollId, scrollIds...)
-	return s
-}
-
-// Pretty indicates that the JSON response be indented and human readable.
-func (s *ClearScrollService) Pretty(pretty bool) *ClearScrollService {
-	s.pretty = pretty
+func (s *ClearScrollService) ScrollId(scrollId ...string) *ClearScrollService {
+	s.scrollId = make([]string, 0)
+	s.scrollId = append(s.scrollId, scrollId...)
 	return s
 }
 
 // buildURL builds the URL for the operation.
 func (s *ClearScrollService) buildURL() (string, url.Values, error) {
-	// Build URL
-	path := "/_search/scroll/"
-
-	// Add query string parameters
-	params := url.Values{}
-	if s.pretty {
-		params.Set("pretty", "1")
+	path, err := uritemplates.Expand("/_search/scroll", map[string]string{})
+	if err != nil {
+		return "", url.Values{}, err
 	}
-	return path, params, nil
+	return path, url.Values{}, nil
 }
 
 // Validate checks if the operation is valid.
 func (s *ClearScrollService) Validate() error {
-	var invalid []string
-	if len(s.scrollId) == 0 {
-		invalid = append(invalid, "ScrollId")
-	}
-	if len(invalid) > 0 {
-		return fmt.Errorf("missing required fields: %v", invalid)
-	}
 	return nil
 }
 
-// Do executes the operation.
-func (s *ClearScrollService) Do(ctx context.Context) (*ClearScrollResponse, error) {
+// Do runs DoC() with default context.
+func (s *ClearScrollService) Do() (*ClearScrollResponse, error) {
+	return s.DoC(nil)
+}
+
+// DoC executes the operation.
+func (s *ClearScrollService) DoC(ctx context.Context) (*ClearScrollResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -80,12 +80,10 @@ func (s *ClearScrollService) Do(ctx context.Context) (*ClearScrollResponse, erro
 	}
 
 	// Setup HTTP request body
-	body := map[string][]string{
-		"scroll_id": s.scrollId,
-	}
+	body := strings.Join(s.scrollId, ",")
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "DELETE", path, params, body)
+	res, err := s.client.PerformRequestC(ctx, "DELETE", path, params, body)
 	if err != nil {
 		return nil, err
 	}

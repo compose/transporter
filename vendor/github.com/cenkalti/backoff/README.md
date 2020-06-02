@@ -1,69 +1,33 @@
-# backoff
+# Exponential Backoff [![GoDoc][godoc image]][godoc] [![Build Status][travis image]][travis] [![Coverage Status][coveralls image]][coveralls]
 
-[![GoDoc](https://godoc.org/github.com/cenkalti/backoff?status.png)](https://godoc.org/github.com/cenkalti/backoff)
-[![Build Status](https://travis-ci.org/cenkalti/backoff.png)](https://travis-ci.org/cenkalti/backoff)
+This is a Go port of the exponential backoff algorithm from [Google's HTTP Client Library for Java][google-http-java-client].
 
-This is a Go port of the exponential backoff algorithm from
-[google-http-java-client](https://code.google.com/p/google-http-java-client/wiki/ExponentialBackoff).
-
-[Exponential backoff](http://en.wikipedia.org/wiki/Exponential_backoff)
+[Exponential backoff][exponential backoff wiki]
 is an algorithm that uses feedback to multiplicatively decrease the rate of some process,
 in order to gradually find an acceptable rate.
 The retries exponentially increase and stop increasing when a certain threshold is met.
 
+## Usage
 
+Import path is `github.com/cenkalti/backoff/v4`. Please note the version part at the end.
 
+godoc.org does not support modules yet,
+so you can use https://godoc.org/gopkg.in/cenkalti/backoff.v4 to view the documentation.
 
-## Install
+## Contributing
 
-```bash
-go get github.com/cenkalti/backoff
-```
+* I would like to keep this library as small as possible.
+* Please don't send a PR without opening an issue and discussing it first.
+* If proposed change is not a common use case, I will probably not accept it.
 
-## Example
+[godoc]: https://godoc.org/github.com/cenkalti/backoff
+[godoc image]: https://godoc.org/github.com/cenkalti/backoff?status.png
+[travis]: https://travis-ci.org/cenkalti/backoff
+[travis image]: https://travis-ci.org/cenkalti/backoff.png?branch=master
+[coveralls]: https://coveralls.io/github/cenkalti/backoff?branch=master
+[coveralls image]: https://coveralls.io/repos/github/cenkalti/backoff/badge.svg?branch=master
 
-Simple retry helper that uses exponential back-off algorithm:
+[google-http-java-client]: https://github.com/google/google-http-java-client/blob/da1aa993e90285ec18579f1553339b00e19b3ab5/google-http-client/src/main/java/com/google/api/client/util/ExponentialBackOff.java
+[exponential backoff wiki]: http://en.wikipedia.org/wiki/Exponential_backoff
 
-```go
-operation := func() error {
-    // An operation that might fail
-}
-
-err := backoff.Retry(operation, backoff.NewExponentialBackOff())
-if err != nil {
-    // handle error
-}
-
-// operation is successfull
-```
-
-Ticker example:
-
-```go
-operation := func() error {
-    // An operation that may fail
-}
-
-b := backoff.NewExponentialBackOff()
-ticker := backoff.NewTicker(b)
-
-var err error
-
-// Ticks will continue to arrive when the previous operation is still running,
-// so operations that take a while to fail could run in quick succession.
-for t = range ticker.C {
-    if err = operation(); err != nil {
-        log.Println(err, "will retry...")
-        continue
-    }
-
-    ticker.Stop()
-    break
-}
-
-if err != nil {
-    // Operation has failed.
-}
-
-// Operation is successfull.
-```
+[advanced example]: https://godoc.org/github.com/cenkalti/backoff#example_

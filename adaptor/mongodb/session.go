@@ -2,7 +2,7 @@ package mongodb
 
 import (
 	"github.com/compose/transporter/client"
-	mgo "gopkg.in/mgo.v2"
+	mgo "github.com/globalsign/mgo"
 )
 
 // Session serves as a wrapper for the underlying mgo.Session

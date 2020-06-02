@@ -1,78 +1,102 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
-// NestedQuery allows to query nested objects / docs.
+// Nested query allows to query nested objects / docs (see nested mapping).
 // The query is executed against the nested objects / docs as if they were
 // indexed as separate docs (they are, internally) and resulting in the
 // root parent doc (or parent nested mapping).
 //
-// For more details, see
-// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/query-dsl-nested-query.html
+// For more details, see:
+// http://www.elasticsearch.org/guide/reference/query-dsl/nested-query/
 type NestedQuery struct {
-	query          Query
-	path           string
-	scoreMode      string
-	boost          *float64
-	queryName      string
-	innerHit       *InnerHit
-	ignoreUnmapped *bool
+	query     Query
+	filter    Filter
+	path      string
+	scoreMode string
+	boost     *float32
+	queryName string
+	innerHit  *InnerHit
 }
 
-// NewNestedQuery creates and initializes a new NestedQuery.
-func NewNestedQuery(path string, query Query) *NestedQuery {
-	return &NestedQuery{path: path, query: query}
+// Creates a new nested_query query.
+func NewNestedQuery(path string) NestedQuery {
+	return NestedQuery{path: path}
 }
 
-// ScoreMode specifies the score mode.
-func (q *NestedQuery) ScoreMode(scoreMode string) *NestedQuery {
+func (q NestedQuery) Query(query Query) NestedQuery {
+	q.query = query
+	return q
+}
+
+func (q NestedQuery) Filter(filter Filter) NestedQuery {
+	q.filter = filter
+	return q
+}
+
+func (q NestedQuery) Path(path string) NestedQuery {
+	q.path = path
+	return q
+}
+
+func (q NestedQuery) ScoreMode(scoreMode string) NestedQuery {
 	q.scoreMode = scoreMode
 	return q
 }
 
-// Boost sets the boost for this query.
-func (q *NestedQuery) Boost(boost float64) *NestedQuery {
+func (q NestedQuery) Boost(boost float32) NestedQuery {
 	q.boost = &boost
 	return q
 }
 
-// QueryName sets the query name for the filter that can be used
-// when searching for matched_filters per hit
-func (q *NestedQuery) QueryName(queryName string) *NestedQuery {
+func (q NestedQuery) QueryName(queryName string) NestedQuery {
 	q.queryName = queryName
 	return q
 }
 
-// InnerHit sets the inner hit definition in the scope of this nested query
-// and reusing the defined path and query.
-func (q *NestedQuery) InnerHit(innerHit *InnerHit) *NestedQuery {
+func (q NestedQuery) InnerHit(innerHit *InnerHit) NestedQuery {
 	q.innerHit = innerHit
 	return q
 }
 
-// IgnoreUnmapped sets the ignore_unmapped option for the filter that ignores
-// unmapped nested fields
-func (q *NestedQuery) IgnoreUnmapped(value bool) *NestedQuery {
-	q.ignoreUnmapped = &value
-	return q
-}
+// Creates the query source for the nested_query query.
+func (q NestedQuery) Source() interface{} {
+	// {
+	//   "nested" : {
+	//     "query" : {
+	//       "bool" : {
+	//         "must" : [
+	//           {
+	//             "match" : {"obj1.name" : "blue"}
+	//           },
+	//           {
+	//             "range" : {"obj1.count" : {"gt" : 5}}
+	//           }
+	//         ]
+	//       }
+	//     },
+	//     "filter" : {
+	//       ...
+	//     },
+	//     "path" : "obj1",
+	//     "score_mode" : "avg",
+	//     "boost" : 1.0
+	//   }
+	// }
 
-// Source returns JSON for the query.
-func (q *NestedQuery) Source() (interface{}, error) {
 	query := make(map[string]interface{})
+
 	nq := make(map[string]interface{})
 	query["nested"] = nq
-
-	src, err := q.query.Source()
-	if err != nil {
-		return nil, err
+	if q.query != nil {
+		nq["query"] = q.query.Source()
 	}
-	nq["query"] = src
-
+	if q.filter != nil {
+		nq["filter"] = q.filter.Source()
+	}
 	nq["path"] = q.path
-
 	if q.scoreMode != "" {
 		nq["score_mode"] = q.scoreMode
 	}
@@ -82,15 +106,8 @@ func (q *NestedQuery) Source() (interface{}, error) {
 	if q.queryName != "" {
 		nq["_name"] = q.queryName
 	}
-	if q.ignoreUnmapped != nil {
-		nq["ignore_unmapped"] = *q.ignoreUnmapped
-	}
 	if q.innerHit != nil {
-		src, err := q.innerHit.Source()
-		if err != nil {
-			return nil, err
-		}
-		nq["inner_hits"] = src
+		nq["inner_hits"] = q.innerHit.Source()
 	}
-	return query, nil
+	return query
 }

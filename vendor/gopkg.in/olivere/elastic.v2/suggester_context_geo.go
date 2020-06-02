@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -7,7 +7,7 @@ package elastic
 // -- SuggesterGeoMapping --
 
 // SuggesterGeoMapping provides a mapping for a geolocation context in a suggester.
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/suggester-context.html#_geo_location_mapping.
+// See http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/suggester-context.html#_geo_location_mapping.
 type SuggesterGeoMapping struct {
 	name             string
 	defaultLocations []*GeoPoint
@@ -19,7 +19,9 @@ type SuggesterGeoMapping struct {
 // NewSuggesterGeoMapping creates a new SuggesterGeoMapping.
 func NewSuggesterGeoMapping(name string) *SuggesterGeoMapping {
 	return &SuggesterGeoMapping{
-		name: name,
+		name:             name,
+		defaultLocations: make([]*GeoPoint, 0),
+		precision:        make([]string, 0),
 	}
 }
 
@@ -44,7 +46,7 @@ func (q *SuggesterGeoMapping) FieldName(fieldName string) *SuggesterGeoMapping {
 }
 
 // Source returns a map that will be used to serialize the context query as JSON.
-func (q *SuggesterGeoMapping) Source() (interface{}, error) {
+func (q *SuggesterGeoMapping) Source() interface{} {
 	source := make(map[string]interface{})
 
 	x := make(map[string]interface{})
@@ -64,7 +66,7 @@ func (q *SuggesterGeoMapping) Source() (interface{}, error) {
 	case 1:
 		x["default"] = q.defaultLocations[0].Source()
 	default:
-		var arr []interface{}
+		arr := make([]interface{}, 0)
 		for _, p := range q.defaultLocations {
 			arr = append(arr, p.Source())
 		}
@@ -74,13 +76,13 @@ func (q *SuggesterGeoMapping) Source() (interface{}, error) {
 	if q.fieldName != "" {
 		x["path"] = q.fieldName
 	}
-	return source, nil
+	return source
 }
 
 // -- SuggesterGeoQuery --
 
 // SuggesterGeoQuery provides querying a geolocation context in a suggester.
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/suggester-context.html#_geo_location_query
+// See http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/suggester-context.html#_geo_location_query
 type SuggesterGeoQuery struct {
 	name      string
 	location  *GeoPoint
@@ -102,7 +104,7 @@ func (q *SuggesterGeoQuery) Precision(precision ...string) *SuggesterGeoQuery {
 }
 
 // Source returns a map that will be used to serialize the context query as JSON.
-func (q *SuggesterGeoQuery) Source() (interface{}, error) {
+func (q *SuggesterGeoQuery) Source() interface{} {
 	source := make(map[string]interface{})
 
 	if len(q.precision) == 0 {
@@ -126,5 +128,5 @@ func (q *SuggesterGeoQuery) Source() (interface{}, error) {
 		}
 	}
 
-	return source, nil
+	return source
 }

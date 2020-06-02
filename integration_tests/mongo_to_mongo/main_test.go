@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	mgo "gopkg.in/mgo.v2"
+	mgo "github.com/globalsign/mgo"
 
 	"github.com/compose/transporter/log"
 )

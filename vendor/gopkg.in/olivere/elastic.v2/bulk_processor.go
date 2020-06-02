@@ -1,15 +1,15 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2016 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
 import (
-	"context"
-	"net"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"gopkg.in/olivere/elastic.v2/backoff"
 )
 
 // BulkProcessorService allows to easily process bulk requests. It allows setting
@@ -30,29 +30,28 @@ import (
 // Elasticsearch Java API as documented in
 // https://www.elastic.co/guide/en/elasticsearch/client/java-api/current/java-docs-bulk-processor.html.
 type BulkProcessorService struct {
-	c             *Client
-	beforeFn      BulkBeforeFunc
-	afterFn       BulkAfterFunc
-	name          string        // name of processor
-	numWorkers    int           // # of workers (>= 1)
-	bulkActions   int           // # of requests after which to commit
-	bulkSize      int           // # of bytes after which to commit
-	flushInterval time.Duration // periodic flush interval
-	wantStats     bool          // indicates whether to gather statistics
-	backoff       Backoff       // a custom Backoff to use for errors
+	c              *Client
+	beforeFn       BulkBeforeFunc
+	afterFn        BulkAfterFunc
+	name           string        // name of processor
+	numWorkers     int           // # of workers (>= 1)
+	bulkActions    int           // # of requests after which to commit
+	bulkSize       int           // # of bytes after which to commit
+	flushInterval  time.Duration // periodic flush interval
+	wantStats      bool          // indicates whether to gather statistics
+	initialTimeout time.Duration // initial wait time before retry on errors
+	maxTimeout     time.Duration // max time to wait for retry on errors
 }
 
 // NewBulkProcessorService creates a new BulkProcessorService.
 func NewBulkProcessorService(client *Client) *BulkProcessorService {
 	return &BulkProcessorService{
-		c:           client,
-		numWorkers:  1,
-		bulkActions: 1000,
-		bulkSize:    5 << 20, // 5 MB
-		backoff: NewExponentialBackoff(
-			time.Duration(200)*time.Millisecond,
-			time.Duration(10000)*time.Millisecond,
-		),
+		c:              client,
+		numWorkers:     1,
+		bulkActions:    1000,
+		bulkSize:       5 << 20, // 5 MB
+		initialTimeout: time.Duration(200) * time.Millisecond,
+		maxTimeout:     time.Duration(10000) * time.Millisecond,
 	}
 }
 
@@ -122,12 +121,6 @@ func (s *BulkProcessorService) Stats(wantStats bool) *BulkProcessorService {
 	return s
 }
 
-// Backoff sets the backoff strategy to use for errors
-func (s *BulkProcessorService) Backoff(backoff Backoff) *BulkProcessorService {
-	s.backoff = backoff
-	return s
-}
-
 // Do creates a new BulkProcessor and starts it.
 // Consider the BulkProcessor as a running instance that accepts bulk requests
 // and commits them to Elasticsearch, spreading the work across one or more
@@ -136,14 +129,9 @@ func (s *BulkProcessorService) Backoff(backoff Backoff) *BulkProcessorService {
 // You can interoperate with the BulkProcessor returned by Do, e.g. Start and
 // Stop (or Close) it.
 //
-// Context is an optional context that is passed into the bulk request
-// service calls. In contrast to other operations, this context is used in
-// a long running process. You could use it to pass e.g. loggers, but you
-// shouldn't use it for cancellation.
-//
 // Calling Do several times returns new BulkProcessors. You probably don't
 // want to do this. BulkProcessorService implements just a builder pattern.
-func (s *BulkProcessorService) Do(ctx context.Context) (*BulkProcessor, error) {
+func (s *BulkProcessorService) Do() (*BulkProcessor, error) {
 	p := newBulkProcessor(
 		s.c,
 		s.beforeFn,
@@ -154,9 +142,10 @@ func (s *BulkProcessorService) Do(ctx context.Context) (*BulkProcessor, error) {
 		s.bulkSize,
 		s.flushInterval,
 		s.wantStats,
-		s.backoff)
+		s.initialTimeout,
+		s.maxTimeout)
 
-	err := p.Start(ctx)
+	err := p.Start()
 	if err != nil {
 		return nil, err
 	}
@@ -228,29 +217,28 @@ func (st *BulkProcessorWorkerStats) dup() *BulkProcessorWorkerStats {
 // BulkProcessor is returned by setting up a BulkProcessorService and
 // calling the Do method.
 type BulkProcessor struct {
-	c             *Client
-	beforeFn      BulkBeforeFunc
-	afterFn       BulkAfterFunc
-	name          string
-	bulkActions   int
-	bulkSize      int
-	numWorkers    int
-	executionId   int64
-	requestsC     chan BulkableRequest
-	workerWg      sync.WaitGroup
-	workers       []*bulkWorker
-	flushInterval time.Duration
-	flusherStopC  chan struct{}
-	wantStats     bool
-	backoff       Backoff
+	c              *Client
+	beforeFn       BulkBeforeFunc
+	afterFn        BulkAfterFunc
+	name           string
+	bulkActions    int
+	bulkSize       int
+	numWorkers     int
+	executionId    int64
+	requestsC      chan BulkableRequest
+	workerWg       sync.WaitGroup
+	workers        []*bulkWorker
+	flushInterval  time.Duration
+	flusherStopC   chan struct{}
+	wantStats      bool
+	initialTimeout time.Duration // initial wait time before retry on errors
+	maxTimeout     time.Duration // max time to wait for retry on errors
 
 	startedMu sync.Mutex // guards the following block
 	started   bool
 
 	statsMu sync.Mutex // guards the following block
 	stats   *BulkProcessorStats
-
-	stopReconnC chan struct{} // channel to signal stop reconnection attempts
 }
 
 func newBulkProcessor(
@@ -263,24 +251,26 @@ func newBulkProcessor(
 	bulkSize int,
 	flushInterval time.Duration,
 	wantStats bool,
-	backoff Backoff) *BulkProcessor {
+	initialTimeout time.Duration,
+	maxTimeout time.Duration) *BulkProcessor {
 	return &BulkProcessor{
-		c:             client,
-		beforeFn:      beforeFn,
-		afterFn:       afterFn,
-		name:          name,
-		numWorkers:    numWorkers,
-		bulkActions:   bulkActions,
-		bulkSize:      bulkSize,
-		flushInterval: flushInterval,
-		wantStats:     wantStats,
-		backoff:       backoff,
+		c:              client,
+		beforeFn:       beforeFn,
+		afterFn:        afterFn,
+		name:           name,
+		numWorkers:     numWorkers,
+		bulkActions:    bulkActions,
+		bulkSize:       bulkSize,
+		flushInterval:  flushInterval,
+		wantStats:      wantStats,
+		initialTimeout: initialTimeout,
+		maxTimeout:     maxTimeout,
 	}
 }
 
 // Start starts the bulk processor. If the processor is already started,
 // nil is returned.
-func (p *BulkProcessor) Start(ctx context.Context) error {
+func (p *BulkProcessor) Start() error {
 	p.startedMu.Lock()
 	defer p.startedMu.Unlock()
 
@@ -296,14 +286,13 @@ func (p *BulkProcessor) Start(ctx context.Context) error {
 	p.requestsC = make(chan BulkableRequest)
 	p.executionId = 0
 	p.stats = newBulkProcessorStats(p.numWorkers)
-	p.stopReconnC = make(chan struct{})
 
 	// Create and start up workers.
 	p.workers = make([]*bulkWorker, p.numWorkers)
 	for i := 0; i < p.numWorkers; i++ {
 		p.workerWg.Add(1)
 		p.workers[i] = newBulkWorker(p, i)
-		go p.workers[i].work(ctx)
+		go p.workers[i].work()
 	}
 
 	// Start the ticker for flush (if enabled)
@@ -333,12 +322,6 @@ func (p *BulkProcessor) Close() error {
 	// Already stopped? Do nothing.
 	if !p.started {
 		return nil
-	}
-
-	// Tell connection checkers to stop
-	if p.stopReconnC != nil {
-		close(p.stopReconnC)
-		p.stopReconnC = nil
 	}
 
 	// Stop flusher (if enabled)
@@ -437,7 +420,7 @@ func newBulkWorker(p *BulkProcessor, i int) *bulkWorker {
 
 // work waits for bulk requests and manual flush calls on the respective
 // channels and is invoked as a goroutine when the bulk processor is started.
-func (w *bulkWorker) work(ctx context.Context) {
+func (w *bulkWorker) work() {
 	defer func() {
 		w.p.workerWg.Done()
 		close(w.flushAckC)
@@ -446,60 +429,47 @@ func (w *bulkWorker) work(ctx context.Context) {
 
 	var stop bool
 	for !stop {
-		var err error
 		select {
 		case req, open := <-w.p.requestsC:
 			if open {
 				// Received a new request
 				w.service.Add(req)
 				if w.commitRequired() {
-					err = w.commit(ctx)
+					w.commit() // TODO swallow errors here?
 				}
 			} else {
 				// Channel closed: Stop.
 				stop = true
 				if w.service.NumberOfActions() > 0 {
-					err = w.commit(ctx)
+					w.commit() // TODO swallow errors here?
 				}
 			}
+
 		case <-w.flushC:
 			// Commit outstanding requests
 			if w.service.NumberOfActions() > 0 {
-				err = w.commit(ctx)
+				w.commit() // TODO swallow errors here?
 			}
 			w.flushAckC <- struct{}{}
-		}
-		if !stop && err != nil {
-			waitForActive := func() {
-				// Add back pressure to prevent Add calls from filling up the request queue
-				ready := make(chan struct{})
-				go w.waitForActiveConnection(ready)
-				<-ready
-			}
-			if _, ok := err.(net.Error); ok {
-				waitForActive()
-			} else if IsConnErr(err) {
-				waitForActive()
-			}
 		}
 	}
 }
 
 // commit commits the bulk requests in the given service,
 // invoking callbacks as specified.
-func (w *bulkWorker) commit(ctx context.Context) error {
+func (w *bulkWorker) commit() error {
 	var res *BulkResponse
 
 	// commitFunc will commit bulk requests and, on failure, be retried
 	// via exponential backoff
 	commitFunc := func() error {
 		var err error
-		res, err = w.service.Do(ctx)
+		res, err = w.service.Do()
 		return err
 	}
 	// notifyFunc will be called if retry fails
-	notifyFunc := func(err error) {
-		w.p.c.errorf("elastic: bulk processor %q failed but may retry: %v", w.p.name, err)
+	notifyFunc := func(err error, d time.Duration) {
+		w.p.c.errorf("elastic: bulk processor %q failed but will retry in %v: %v", w.p.name, d, err)
 	}
 
 	id := atomic.AddInt64(&w.p.executionId, 1)
@@ -520,7 +490,8 @@ func (w *bulkWorker) commit(ctx context.Context) error {
 	}
 
 	// Commit bulk requests
-	err := RetryNotify(commitFunc, w.p.backoff, notifyFunc)
+	policy := backoff.NewExponentialBackoff(w.p.initialTimeout, w.p.maxTimeout).SendStop(true)
+	err := backoff.RetryNotify(commitFunc, policy, notifyFunc)
 	w.updateStats(res)
 	if err != nil {
 		w.p.c.errorf("elastic: bulk processor %q failed: %v", w.p.name, err)
@@ -532,35 +503,6 @@ func (w *bulkWorker) commit(ctx context.Context) error {
 	}
 
 	return err
-}
-
-func (w *bulkWorker) waitForActiveConnection(ready chan<- struct{}) {
-	defer close(ready)
-
-	t := time.NewTicker(5 * time.Second)
-	defer t.Stop()
-
-	client := w.p.c
-	stopReconnC := w.p.stopReconnC
-	w.p.c.errorf("elastic: bulk processor %q is waiting for an active connection", w.p.name)
-
-	// loop until a health check finds at least 1 active connection or the reconnection channel is closed
-	for {
-		select {
-		case _, ok := <-stopReconnC:
-			if !ok {
-				w.p.c.errorf("elastic: bulk processor %q active connection check interrupted", w.p.name)
-				return
-			}
-		case <-t.C:
-			client.healthcheck(time.Duration(3)*time.Second, true)
-			if client.mustActiveConn() == nil {
-				// found an active connection
-				// exit and signal done to the WaitGroup
-				return
-			}
-		}
-	}
 }
 
 func (w *bulkWorker) updateStats(res *BulkResponse) {

@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -9,29 +9,28 @@ import (
 	"fmt"
 	"net/url"
 
-	"net/http"
-
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v3/uritemplates"
 )
 
 // DeleteService allows to delete a typed JSON document from a specified
 // index based on its id.
 //
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/docs-delete.html
+// See https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-delete.html
 // for details.
 type DeleteService struct {
-	client              *Client
-	pretty              bool
-	id                  string
-	index               string
-	typ                 string
-	routing             string
-	timeout             string
-	version             interface{}
-	versionType         string
-	waitForActiveShards string
-	parent              string
-	refresh             string
+	client      *Client
+	pretty      bool
+	id          string
+	index       string
+	typ         string
+	routing     string
+	timeout     string
+	version     interface{}
+	versionType string
+	consistency string
+	parent      string
+	refresh     *bool
+	replication string
 }
 
 // NewDeleteService creates a new DeleteService.
@@ -59,6 +58,12 @@ func (s *DeleteService) Index(index string) *DeleteService {
 	return s
 }
 
+// Replication specifies a replication type.
+func (s *DeleteService) Replication(replication string) *DeleteService {
+	s.replication = replication
+	return s
+}
+
 // Routing is a specific routing value.
 func (s *DeleteService) Routing(routing string) *DeleteService {
 	s.routing = routing
@@ -83,13 +88,9 @@ func (s *DeleteService) VersionType(versionType string) *DeleteService {
 	return s
 }
 
-// WaitForActiveShards sets the number of shard copies that must be active
-// before proceeding with the delete operation. Defaults to 1, meaning the
-// primary shard only. Set to `all` for all shard copies, otherwise set to
-// any non-negative value less than or equal to the total number of copies
-// for the shard (number of replicas + 1).
-func (s *DeleteService) WaitForActiveShards(waitForActiveShards string) *DeleteService {
-	s.waitForActiveShards = waitForActiveShards
+// Consistency defines a specific write consistency setting for the operation.
+func (s *DeleteService) Consistency(consistency string) *DeleteService {
+	s.consistency = consistency
 	return s
 }
 
@@ -100,8 +101,8 @@ func (s *DeleteService) Parent(parent string) *DeleteService {
 }
 
 // Refresh the index after performing the operation.
-func (s *DeleteService) Refresh(refresh string) *DeleteService {
-	s.refresh = refresh
+func (s *DeleteService) Refresh(refresh bool) *DeleteService {
+	s.refresh = &refresh
 	return s
 }
 
@@ -128,8 +129,11 @@ func (s *DeleteService) buildURL() (string, url.Values, error) {
 	if s.pretty {
 		params.Set("pretty", "1")
 	}
-	if s.refresh != "" {
-		params.Set("refresh", s.refresh)
+	if s.refresh != nil {
+		params.Set("refresh", fmt.Sprintf("%v", *s.refresh))
+	}
+	if s.replication != "" {
+		params.Set("replication", s.replication)
 	}
 	if s.routing != "" {
 		params.Set("routing", s.routing)
@@ -143,8 +147,8 @@ func (s *DeleteService) buildURL() (string, url.Values, error) {
 	if s.versionType != "" {
 		params.Set("version_type", s.versionType)
 	}
-	if s.waitForActiveShards != "" {
-		params.Set("wait_for_active_shards", s.waitForActiveShards)
+	if s.consistency != "" {
+		params.Set("consistency", s.consistency)
 	}
 	if s.parent != "" {
 		params.Set("parent", s.parent)
@@ -170,10 +174,13 @@ func (s *DeleteService) Validate() error {
 	return nil
 }
 
-// Do executes the operation. If the document is not found (404), Elasticsearch will
-// still return a response. This response is serialized and returned as well. In other
-// words, for HTTP status code 404, both an error and a response might be returned.
-func (s *DeleteService) Do(ctx context.Context) (*DeleteResponse, error) {
+// Do executes the operation.
+func (s *DeleteService) Do() (*DeleteResponse, error) {
+	return s.DoC(nil)
+}
+
+// DoC executes the operation.
+func (s *DeleteService) DoC(ctx context.Context) (*DeleteResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -186,7 +193,7 @@ func (s *DeleteService) Do(ctx context.Context) (*DeleteResponse, error) {
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "DELETE", path, params, nil, http.StatusNotFound)
+	res, err := s.client.PerformRequestC(ctx, "DELETE", path, params, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -196,12 +203,6 @@ func (s *DeleteService) Do(ctx context.Context) (*DeleteResponse, error) {
 	if err := s.client.decoder.Decode(res.Body, ret); err != nil {
 		return nil, err
 	}
-
-	// If we have a 404, we return both a result and an error, just like ES does
-	if res.StatusCode == http.StatusNotFound {
-		return ret, &Error{Status: http.StatusNotFound}
-	}
-
 	return ret, nil
 }
 
@@ -209,15 +210,10 @@ func (s *DeleteService) Do(ctx context.Context) (*DeleteResponse, error) {
 
 // DeleteResponse is the outcome of running DeleteService.Do.
 type DeleteResponse struct {
-	Index         string      `json:"_index,omitempty"`
-	Type          string      `json:"_type,omitempty"`
-	Id            string      `json:"_id,omitempty"`
-	Version       int64       `json:"_version,omitempty"`
-	Result        string      `json:"result,omitempty"`
-	Shards        *shardsInfo `json:"_shards,omitempty"`
-	SeqNo         int64       `json:"_seq_no,omitempty"`
-	PrimaryTerm   int64       `json:"_primary_term,omitempty"`
-	Status        int         `json:"status,omitempty"`
-	ForcedRefresh bool        `json:"forced_refresh,omitempty"`
-	Found         bool        `json:"found,omitempty"`
+	// TODO _shards { total, failed, successful }
+	Found   bool   `json:"found"`
+	Index   string `json:"_index"`
+	Type    string `json:"_type"`
+	Id      string `json:"_id"`
+	Version int64  `json:"_version"`
 }

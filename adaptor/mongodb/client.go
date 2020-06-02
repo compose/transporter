@@ -13,8 +13,8 @@ import (
 
 	"github.com/compose/transporter/client"
 	"github.com/compose/transporter/log"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
+	"github.com/globalsign/mgo"
+	"github.com/globalsign/mgo/bson"
 )
 
 const (

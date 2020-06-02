@@ -8,10 +8,9 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v3/uritemplates"
 )
 
 // CountService is a convenient service for determining the
@@ -36,7 +35,6 @@ type CountService struct {
 	q                      string
 	query                  Query
 	routing                string
-	terminateAfter         *int
 	bodyJson               interface{}
 	bodyString             string
 }
@@ -160,12 +158,6 @@ func (s *CountService) Routing(routing string) *CountService {
 	return s
 }
 
-// TerminateAfter specifies the maximum count for each shard
-func (s *CountService) TerminateAfter(terminateAfter int) *CountService {
-	s.terminateAfter = &terminateAfter
-	return s
-}
-
 // Pretty indicates that the JSON response be indented and human readable.
 func (s *CountService) Pretty(pretty bool) *CountService {
 	s.pretty = pretty
@@ -256,9 +248,6 @@ func (s *CountService) buildURL() (string, url.Values, error) {
 	if s.routing != "" {
 		params.Set("routing", s.routing)
 	}
-	if s.terminateAfter != nil {
-		params.Set("terminate_after", strconv.Itoa(*s.terminateAfter))
-	}
 	return path, params, nil
 }
 
@@ -268,7 +257,11 @@ func (s *CountService) Validate() error {
 }
 
 // Do executes the operation.
-func (s *CountService) Do(ctx context.Context) (int64, error) {
+func (s *CountService) Do() (int64, error) {
+	return s.DoC(nil)
+}
+
+func (s *CountService) DoC(ctx context.Context) (int64, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return 0, err
@@ -297,7 +290,7 @@ func (s *CountService) Do(ctx context.Context) (int64, error) {
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "POST", path, params, body)
+	res, err := s.client.PerformRequestC(ctx, "POST", path, params, body)
 	if err != nil {
 		return 0, err
 	}

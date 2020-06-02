@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -8,7 +8,7 @@ package elastic
 // that can be applied on numeric values extracted from the documents.
 // It dynamically builds fixed size (a.k.a. interval) buckets over the
 // values.
-// See: https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-aggregations-bucket-histogram-aggregation.html
+// See: http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-aggregations-bucket-histogram-aggregation.html
 type HistogramAggregation struct {
 	field           string
 	script          *Script
@@ -16,13 +16,13 @@ type HistogramAggregation struct {
 	subAggregations map[string]Aggregation
 	meta            map[string]interface{}
 
-	interval    float64
-	order       string
-	orderAsc    bool
-	minDocCount *int64
-	minBounds   *float64
-	maxBounds   *float64
-	offset      *float64
+	interval          int64
+	order             string
+	orderAsc          bool
+	minDocCount       *int64
+	extendedBoundsMin *int64
+	extendedBoundsMax *int64
+	offset            *int64
 }
 
 func NewHistogramAggregation() *HistogramAggregation {
@@ -58,8 +58,7 @@ func (a *HistogramAggregation) Meta(metaData map[string]interface{}) *HistogramA
 	return a
 }
 
-// Interval for this builder, must be greater than 0.
-func (a *HistogramAggregation) Interval(interval float64) *HistogramAggregation {
+func (a *HistogramAggregation) Interval(interval int64) *HistogramAggregation {
 	a.interval = interval
 	return a
 }
@@ -150,34 +149,23 @@ func (a *HistogramAggregation) MinDocCount(minDocCount int64) *HistogramAggregat
 	return a
 }
 
-func (a *HistogramAggregation) ExtendedBounds(min, max float64) *HistogramAggregation {
-	a.minBounds = &min
-	a.maxBounds = &max
+func (a *HistogramAggregation) ExtendedBounds(min, max int64) *HistogramAggregation {
+	a.extendedBoundsMin = &min
+	a.extendedBoundsMax = &max
 	return a
 }
 
-func (a *HistogramAggregation) ExtendedBoundsMin(min float64) *HistogramAggregation {
-	a.minBounds = &min
+func (a *HistogramAggregation) ExtendedBoundsMin(min int64) *HistogramAggregation {
+	a.extendedBoundsMin = &min
 	return a
 }
 
-func (a *HistogramAggregation) MinBounds(min float64) *HistogramAggregation {
-	a.minBounds = &min
+func (a *HistogramAggregation) ExtendedBoundsMax(max int64) *HistogramAggregation {
+	a.extendedBoundsMax = &max
 	return a
 }
 
-func (a *HistogramAggregation) ExtendedBoundsMax(max float64) *HistogramAggregation {
-	a.maxBounds = &max
-	return a
-}
-
-func (a *HistogramAggregation) MaxBounds(max float64) *HistogramAggregation {
-	a.maxBounds = &max
-	return a
-}
-
-// Offset into the histogram
-func (a *HistogramAggregation) Offset(offset float64) *HistogramAggregation {
+func (a *HistogramAggregation) Offset(offset int64) *HistogramAggregation {
 	a.offset = &offset
 	return a
 }
@@ -232,13 +220,13 @@ func (a *HistogramAggregation) Source() (interface{}, error) {
 	if a.minDocCount != nil {
 		opts["min_doc_count"] = *a.minDocCount
 	}
-	if a.minBounds != nil || a.maxBounds != nil {
+	if a.extendedBoundsMin != nil || a.extendedBoundsMax != nil {
 		bounds := make(map[string]interface{})
-		if a.minBounds != nil {
-			bounds["min"] = a.minBounds
+		if a.extendedBoundsMin != nil {
+			bounds["min"] = a.extendedBoundsMin
 		}
-		if a.maxBounds != nil {
-			bounds["max"] = a.maxBounds
+		if a.extendedBoundsMax != nil {
+			bounds["max"] = a.extendedBoundsMax
 		}
 		opts["extended_bounds"] = bounds
 	}

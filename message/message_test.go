@@ -8,7 +8,7 @@ import (
 	_ "github.com/compose/transporter/log"
 	"github.com/compose/transporter/message/ops"
 
-	"gopkg.in/mgo.v2/bson"
+	"github.com/globalsign/mgo/bson"
 )
 
 func TestBase(t *testing.T) {

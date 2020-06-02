@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -10,12 +10,12 @@ import (
 	"net/url"
 	"strings"
 
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v3/uritemplates"
 )
 
 // IndicesDeleteService allows to delete existing indices.
 //
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/indices-delete-index.html
+// See https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-delete-index.html
 // for details.
 type IndicesDeleteService struct {
 	client        *Client
@@ -95,7 +95,12 @@ func (s *IndicesDeleteService) Validate() error {
 }
 
 // Do executes the operation.
-func (s *IndicesDeleteService) Do(ctx context.Context) (*IndicesDeleteResponse, error) {
+func (s *IndicesDeleteService) Do() (*IndicesDeleteResponse, error) {
+	return s.DoC(nil)
+}
+
+// DoC executes the operation.
+func (s *IndicesDeleteService) DoC(ctx context.Context) (*IndicesDeleteResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -108,7 +113,7 @@ func (s *IndicesDeleteService) Do(ctx context.Context) (*IndicesDeleteResponse, 
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "DELETE", path, params, nil)
+	res, err := s.client.PerformRequestC(ctx, "DELETE", path, params, nil)
 	if err != nil {
 		return nil, err
 	}

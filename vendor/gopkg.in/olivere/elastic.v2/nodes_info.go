@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -7,16 +7,25 @@ package elastic
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/url"
 	"strings"
 	"time"
 
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v2/uritemplates"
+)
+
+var (
+	_ = fmt.Print
+	_ = log.Print
+	_ = strings.Index
+	_ = uritemplates.Expand
+	_ = url.Parse
 )
 
 // NodesInfoService allows to retrieve one or more or all of the
 // cluster nodes information.
-// It is documented at https://www.elastic.co/guide/en/elasticsearch/reference/5.2/cluster-nodes-info.html.
+// It is documented at http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/cluster-nodes-info.html.
 type NodesInfoService struct {
 	client       *Client
 	pretty       bool
@@ -39,6 +48,7 @@ func NewNodesInfoService(client *Client) *NodesInfoService {
 // Use "_local" to return information from the node you're connecting to,
 // leave empty to get information from all nodes.
 func (s *NodesInfoService) NodeId(nodeId ...string) *NodesInfoService {
+	s.nodeId = make([]string, 0)
 	s.nodeId = append(s.nodeId, nodeId...)
 	return s
 }
@@ -47,6 +57,7 @@ func (s *NodesInfoService) NodeId(nodeId ...string) *NodesInfoService {
 // Valid metrics are: settings, os, process, jvm, thread_pool, network,
 // transport, http, and plugins.
 func (s *NodesInfoService) Metric(metric ...string) *NodesInfoService {
+	s.metric = make([]string, 0)
 	s.metric = append(s.metric, metric...)
 	return s
 }
@@ -99,8 +110,13 @@ func (s *NodesInfoService) Validate() error {
 	return nil
 }
 
-// Do executes the operation.
-func (s *NodesInfoService) Do(ctx context.Context) (*NodesInfoResponse, error) {
+// Do runs DoC() with default context.
+func (s *NodesInfoService) Do() (*NodesInfoResponse, error) {
+	return s.DoC(nil)
+}
+
+// DoC executes the operation.
+func (s *NodesInfoService) DoC(ctx context.Context) (*NodesInfoResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -113,7 +129,7 @@ func (s *NodesInfoService) Do(ctx context.Context) (*NodesInfoResponse, error) {
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "GET", path, params, nil)
+	res, err := s.client.PerformRequestC(ctx, "GET", path, params, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +151,7 @@ type NodesInfoResponse struct {
 type NodesInfoNode struct {
 	// Name of the node, e.g. "Mister Fear"
 	Name string `json:"name"`
-	// TransportAddress, e.g. "127.0.0.1:9300"
+	// TransportAddress, e.g. "inet[/127.0.0.1:9300]"
 	TransportAddress string `json:"transport_address"`
 	// Host is the host name, e.g. "macbookair"
 	Host string `json:"host"`
@@ -145,13 +161,10 @@ type NodesInfoNode struct {
 	Version string `json:"version"`
 	// Build is the Elasticsearch build, e.g. "36a29a7"
 	Build string `json:"build"`
-	// HTTPAddress, e.g. "127.0.0.1:9200"
+	// HTTPAddress, e.g. "inet[/127.0.0.1:9200]"
 	HTTPAddress string `json:"http_address"`
-	// HTTPSAddress, e.g. "127.0.0.1:9200"
+	// HTTPSAddress, e.g. "inet[/127.0.0.1:9200]"
 	HTTPSAddress string `json:"https_address"`
-
-	// Attributes of the node.
-	Attributes map[string]interface{} `json:"attributes"`
 
 	// Settings of the node, e.g. paths and pidfile.
 	Settings map[string]interface{} `json:"settings"`
@@ -163,7 +176,7 @@ type NodesInfoNode struct {
 	Process *NodesInfoNodeProcess `json:"process"`
 
 	// JVM information, e.g. VM version.
-	JVM *NodesInfoNodeJVM `json:"jvm"`
+	JVM *NodesInfoNodeProcess `json:"jvm"`
 
 	// ThreadPool information.
 	ThreadPool *NodesInfoNodeThreadPool `json:"thread_pool"`
@@ -283,21 +296,15 @@ type NodesInfoNodeNetwork struct {
 }
 
 type NodesInfoNodeTransport struct {
-	BoundAddress   []string                                  `json:"bound_address"`
-	PublishAddress string                                    `json:"publish_address"`
-	Profiles       map[string]*NodesInfoNodeTransportProfile `json:"profiles"`
-}
-
-type NodesInfoNodeTransportProfile struct {
-	BoundAddress   []string `json:"bound_address"`
-	PublishAddress string   `json:"publish_address"`
+	BoundAddress   string `json:"bound_address"`   // e.g. inet[/127.0.0.1:9300]
+	PublishAddress string `json:"publish_address"` // e.g. inet[/127.0.0.1:9300]
 }
 
 type NodesInfoNodeHTTP struct {
-	BoundAddress            []string `json:"bound_address"`      // e.g. ["127.0.0.1:9200", "[fe80::1]:9200", "[::1]:9200"]
-	PublishAddress          string   `json:"publish_address"`    // e.g. "127.0.0.1:9300"
-	MaxContentLength        string   `json:"max_content_length"` // e.g. "100mb"
-	MaxContentLengthInBytes int64    `json:"max_content_length_in_bytes"`
+	BoundAddress            string `json:"bound_address"`      // e.g. inet[/127.0.0.1:9300]
+	PublishAddress          string `json:"publish_address"`    // e.g. inet[/127.0.0.1:9300]
+	MaxContentLength        string `json:"max_content_length"` // e.g. "100mb"
+	MaxContentLengthInBytes int64  `json:"max_content_length_in_bytes"`
 }
 
 type NodesInfoNodePlugin struct {

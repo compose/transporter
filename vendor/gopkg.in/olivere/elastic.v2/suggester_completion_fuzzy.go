@@ -1,17 +1,15 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
-// FuzzyCompletionSuggester is a CompletionSuggester that allows fuzzy
+// FuzzyFuzzyCompletionSuggester is a FuzzyCompletionSuggester that allows fuzzy
 // completion.
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-suggesters-completion.html
+// See http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-suggesters-completion.html
 // for details, and
-// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-suggesters-completion.html#fuzzy
+// http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-suggesters-completion.html#fuzzy
 // for details about the fuzzy completion suggester.
-//
-// @Deprecated Use CompletionSuggester with FuzzyOptions instead.
 type FuzzyCompletionSuggester struct {
 	Suggester
 	name           string
@@ -34,83 +32,83 @@ type Fuzziness struct {
 }
 
 // Creates a new completion suggester.
-func NewFuzzyCompletionSuggester(name string) *FuzzyCompletionSuggester {
-	return &FuzzyCompletionSuggester{
+func NewFuzzyCompletionSuggester(name string) FuzzyCompletionSuggester {
+	return FuzzyCompletionSuggester{
 		name:           name,
 		contextQueries: make([]SuggesterContextQuery, 0),
 	}
 }
 
-func (q *FuzzyCompletionSuggester) Name() string {
+func (q FuzzyCompletionSuggester) Name() string {
 	return q.name
 }
 
-func (q *FuzzyCompletionSuggester) Text(text string) *FuzzyCompletionSuggester {
+func (q FuzzyCompletionSuggester) Text(text string) FuzzyCompletionSuggester {
 	q.text = text
 	return q
 }
 
-func (q *FuzzyCompletionSuggester) Field(field string) *FuzzyCompletionSuggester {
+func (q FuzzyCompletionSuggester) Field(field string) FuzzyCompletionSuggester {
 	q.field = field
 	return q
 }
 
-func (q *FuzzyCompletionSuggester) Analyzer(analyzer string) *FuzzyCompletionSuggester {
+func (q FuzzyCompletionSuggester) Analyzer(analyzer string) FuzzyCompletionSuggester {
 	q.analyzer = analyzer
 	return q
 }
 
-func (q *FuzzyCompletionSuggester) Size(size int) *FuzzyCompletionSuggester {
+func (q FuzzyCompletionSuggester) Size(size int) FuzzyCompletionSuggester {
 	q.size = &size
 	return q
 }
 
-func (q *FuzzyCompletionSuggester) ShardSize(shardSize int) *FuzzyCompletionSuggester {
+func (q FuzzyCompletionSuggester) ShardSize(shardSize int) FuzzyCompletionSuggester {
 	q.shardSize = &shardSize
 	return q
 }
 
-func (q *FuzzyCompletionSuggester) ContextQuery(query SuggesterContextQuery) *FuzzyCompletionSuggester {
+func (q FuzzyCompletionSuggester) ContextQuery(query SuggesterContextQuery) FuzzyCompletionSuggester {
 	q.contextQueries = append(q.contextQueries, query)
 	return q
 }
 
-func (q *FuzzyCompletionSuggester) ContextQueries(queries ...SuggesterContextQuery) *FuzzyCompletionSuggester {
+func (q FuzzyCompletionSuggester) ContextQueries(queries ...SuggesterContextQuery) FuzzyCompletionSuggester {
 	q.contextQueries = append(q.contextQueries, queries...)
 	return q
 }
 
 // Fuzziness defines the strategy used to describe what "fuzzy" actually
 // means for the suggester, e.g. 1, 2, "0", "1..2", ">4", or "AUTO".
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/common-options.html#fuzziness
+// See http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/common-options.html#fuzziness
 // for a detailed description.
-func (q *FuzzyCompletionSuggester) Fuzziness(fuzziness interface{}) *FuzzyCompletionSuggester {
+func (q FuzzyCompletionSuggester) Fuzziness(fuzziness interface{}) FuzzyCompletionSuggester {
 	q.fuzziness = fuzziness
 	return q
 }
 
-func (q *FuzzyCompletionSuggester) FuzzyTranspositions(fuzzyTranspositions bool) *FuzzyCompletionSuggester {
+func (q FuzzyCompletionSuggester) FuzzyTranspositions(fuzzyTranspositions bool) FuzzyCompletionSuggester {
 	q.fuzzyTranspositions = &fuzzyTranspositions
 	return q
 }
 
-func (q *FuzzyCompletionSuggester) FuzzyMinLength(minLength int) *FuzzyCompletionSuggester {
+func (q FuzzyCompletionSuggester) FuzzyMinLength(minLength int) FuzzyCompletionSuggester {
 	q.fuzzyMinLength = &minLength
 	return q
 }
 
-func (q *FuzzyCompletionSuggester) FuzzyPrefixLength(prefixLength int) *FuzzyCompletionSuggester {
+func (q FuzzyCompletionSuggester) FuzzyPrefixLength(prefixLength int) FuzzyCompletionSuggester {
 	q.fuzzyPrefixLength = &prefixLength
 	return q
 }
 
-func (q *FuzzyCompletionSuggester) UnicodeAware(unicodeAware bool) *FuzzyCompletionSuggester {
+func (q FuzzyCompletionSuggester) UnicodeAware(unicodeAware bool) FuzzyCompletionSuggester {
 	q.unicodeAware = &unicodeAware
 	return q
 }
 
 // Creates the source for the completion suggester.
-func (q *FuzzyCompletionSuggester) Source(includeName bool) (interface{}, error) {
+func (q FuzzyCompletionSuggester) Source(includeName bool) interface{} {
 	cs := &completionSuggesterRequest{}
 
 	if q.text != "" {
@@ -135,19 +133,11 @@ func (q *FuzzyCompletionSuggester) Source(includeName bool) (interface{}, error)
 	switch len(q.contextQueries) {
 	case 0:
 	case 1:
-		src, err := q.contextQueries[0].Source()
-		if err != nil {
-			return nil, err
-		}
-		suggester["context"] = src
+		suggester["context"] = q.contextQueries[0].Source()
 	default:
-		var ctxq []interface{}
+		ctxq := make([]interface{}, 0)
 		for _, query := range q.contextQueries {
-			src, err := query.Source()
-			if err != nil {
-				return nil, err
-			}
-			ctxq = append(ctxq, src)
+			ctxq = append(ctxq, query.Source())
 		}
 		suggester["context"] = ctxq
 	}
@@ -172,10 +162,10 @@ func (q *FuzzyCompletionSuggester) Source(includeName bool) (interface{}, error)
 	}
 
 	if !includeName {
-		return cs, nil
+		return cs
 	}
 
 	source := make(map[string]interface{})
 	source[q.name] = cs
-	return source, nil
+	return source
 }

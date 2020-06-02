@@ -1,22 +1,19 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
-import "fmt"
-
 // A bool query matches documents matching boolean
 // combinations of other queries.
 // For more details, see:
-// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/query-dsl-bool-query.html
+// http://www.elasticsearch.org/guide/reference/query-dsl/bool-query.html
 type BoolQuery struct {
 	Query
 	mustClauses        []Query
-	mustNotClauses     []Query
-	filterClauses      []Query
 	shouldClauses      []Query
-	boost              *float64
+	mustNotClauses     []Query
+	boost              *float32
 	disableCoord       *bool
 	minimumShouldMatch string
 	adjustPureNegative *bool
@@ -24,67 +21,57 @@ type BoolQuery struct {
 }
 
 // Creates a new bool query.
-func NewBoolQuery() *BoolQuery {
-	return &BoolQuery{
+func NewBoolQuery() BoolQuery {
+	q := BoolQuery{
 		mustClauses:    make([]Query, 0),
-		mustNotClauses: make([]Query, 0),
-		filterClauses:  make([]Query, 0),
 		shouldClauses:  make([]Query, 0),
+		mustNotClauses: make([]Query, 0),
 	}
+	return q
 }
 
-func (q *BoolQuery) Must(queries ...Query) *BoolQuery {
+func (q BoolQuery) Must(queries ...Query) BoolQuery {
 	q.mustClauses = append(q.mustClauses, queries...)
 	return q
 }
 
-func (q *BoolQuery) MustNot(queries ...Query) *BoolQuery {
+func (q BoolQuery) MustNot(queries ...Query) BoolQuery {
 	q.mustNotClauses = append(q.mustNotClauses, queries...)
 	return q
 }
 
-func (q *BoolQuery) Filter(filters ...Query) *BoolQuery {
-	q.filterClauses = append(q.filterClauses, filters...)
-	return q
-}
-
-func (q *BoolQuery) Should(queries ...Query) *BoolQuery {
+func (q BoolQuery) Should(queries ...Query) BoolQuery {
 	q.shouldClauses = append(q.shouldClauses, queries...)
 	return q
 }
 
-func (q *BoolQuery) Boost(boost float64) *BoolQuery {
+func (q BoolQuery) Boost(boost float32) BoolQuery {
 	q.boost = &boost
 	return q
 }
 
-func (q *BoolQuery) DisableCoord(disableCoord bool) *BoolQuery {
+func (q BoolQuery) DisableCoord(disableCoord bool) BoolQuery {
 	q.disableCoord = &disableCoord
 	return q
 }
 
-func (q *BoolQuery) MinimumShouldMatch(minimumShouldMatch string) *BoolQuery {
+func (q BoolQuery) MinimumShouldMatch(minimumShouldMatch string) BoolQuery {
 	q.minimumShouldMatch = minimumShouldMatch
 	return q
 }
 
-func (q *BoolQuery) MinimumNumberShouldMatch(minimumNumberShouldMatch int) *BoolQuery {
-	q.minimumShouldMatch = fmt.Sprintf("%d", minimumNumberShouldMatch)
-	return q
-}
-
-func (q *BoolQuery) AdjustPureNegative(adjustPureNegative bool) *BoolQuery {
+func (q BoolQuery) AdjustPureNegative(adjustPureNegative bool) BoolQuery {
 	q.adjustPureNegative = &adjustPureNegative
 	return q
 }
 
-func (q *BoolQuery) QueryName(queryName string) *BoolQuery {
+func (q BoolQuery) QueryName(queryName string) BoolQuery {
 	q.queryName = queryName
 	return q
 }
 
 // Creates the query source for the bool query.
-func (q *BoolQuery) Source() (interface{}, error) {
+func (q BoolQuery) Source() interface{} {
 	// {
 	//	"bool" : {
 	//		"must" : {
@@ -95,9 +82,6 @@ func (q *BoolQuery) Source() (interface{}, error) {
 	//				"age" : { "from" : 10, "to" : 20 }
 	//			}
 	//		},
-	//    "filter" : [
-	//      ...
-	//    ]
 	//		"should" : [
 	//			{
 	//				"term" : { "tag" : "wow" }
@@ -118,76 +102,33 @@ func (q *BoolQuery) Source() (interface{}, error) {
 
 	// must
 	if len(q.mustClauses) == 1 {
-		src, err := q.mustClauses[0].Source()
-		if err != nil {
-			return nil, err
-		}
-		boolClause["must"] = src
+		boolClause["must"] = q.mustClauses[0].Source()
 	} else if len(q.mustClauses) > 1 {
-		var clauses []interface{}
+		clauses := make([]interface{}, 0)
 		for _, subQuery := range q.mustClauses {
-			src, err := subQuery.Source()
-			if err != nil {
-				return nil, err
-			}
-			clauses = append(clauses, src)
+			clauses = append(clauses, subQuery.Source())
 		}
 		boolClause["must"] = clauses
 	}
 
 	// must_not
 	if len(q.mustNotClauses) == 1 {
-		src, err := q.mustNotClauses[0].Source()
-		if err != nil {
-			return nil, err
-		}
-		boolClause["must_not"] = src
+		boolClause["must_not"] = q.mustNotClauses[0].Source()
 	} else if len(q.mustNotClauses) > 1 {
-		var clauses []interface{}
+		clauses := make([]interface{}, 0)
 		for _, subQuery := range q.mustNotClauses {
-			src, err := subQuery.Source()
-			if err != nil {
-				return nil, err
-			}
-			clauses = append(clauses, src)
+			clauses = append(clauses, subQuery.Source())
 		}
 		boolClause["must_not"] = clauses
 	}
 
-	// filter
-	if len(q.filterClauses) == 1 {
-		src, err := q.filterClauses[0].Source()
-		if err != nil {
-			return nil, err
-		}
-		boolClause["filter"] = src
-	} else if len(q.filterClauses) > 1 {
-		var clauses []interface{}
-		for _, subQuery := range q.filterClauses {
-			src, err := subQuery.Source()
-			if err != nil {
-				return nil, err
-			}
-			clauses = append(clauses, src)
-		}
-		boolClause["filter"] = clauses
-	}
-
 	// should
 	if len(q.shouldClauses) == 1 {
-		src, err := q.shouldClauses[0].Source()
-		if err != nil {
-			return nil, err
-		}
-		boolClause["should"] = src
+		boolClause["should"] = q.shouldClauses[0].Source()
 	} else if len(q.shouldClauses) > 1 {
-		var clauses []interface{}
+		clauses := make([]interface{}, 0)
 		for _, subQuery := range q.shouldClauses {
-			src, err := subQuery.Source()
-			if err != nil {
-				return nil, err
-			}
-			clauses = append(clauses, src)
+			clauses = append(clauses, subQuery.Source())
 		}
 		boolClause["should"] = clauses
 	}
@@ -208,5 +149,5 @@ func (q *BoolQuery) Source() (interface{}, error) {
 		boolClause["_name"] = q.queryName
 	}
 
-	return query, nil
+	return query
 }

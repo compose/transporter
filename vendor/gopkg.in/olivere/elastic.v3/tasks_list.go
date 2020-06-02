@@ -10,12 +10,12 @@ import (
 	"net/url"
 	"strings"
 
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v3/uritemplates"
 )
 
 // TasksListService retrieves the list of currently executing tasks
 // on one ore more nodes in the cluster. It is part of the Task Management API
-// documented at https://www.elastic.co/guide/en/elasticsearch/reference/5.6/tasks.html.
+// documented at https://www.elastic.co/guide/en/elasticsearch/reference/2.4/tasks.html.
 //
 // It is supported as of Elasticsearch 2.3.0.
 type TasksListService struct {
@@ -26,9 +26,8 @@ type TasksListService struct {
 	detailed          *bool
 	nodeId            []string
 	parentNode        string
-	parentTaskId      *string
+	parentTask        *string
 	waitForCompletion *bool
-	groupBy           string
 }
 
 // NewTasksListService creates a new TasksListService.
@@ -70,9 +69,9 @@ func (s *TasksListService) ParentNode(parentNode string) *TasksListService {
 	return s
 }
 
-// ParentTaskId returns tasks with specified parent task id (node_id:task_number). Set to -1 to return all.
-func (s *TasksListService) ParentTaskId(parentTaskId string) *TasksListService {
-	s.parentTaskId = &parentTaskId
+// ParentTask returns tasks with specified parent task id. Set to -1 to return all.
+func (s *TasksListService) ParentTask(parentTask string) *TasksListService {
+	s.parentTask = &parentTask
 	return s
 }
 
@@ -80,13 +79,6 @@ func (s *TasksListService) ParentTaskId(parentTaskId string) *TasksListService {
 // to complete (default: false).
 func (s *TasksListService) WaitForCompletion(waitForCompletion bool) *TasksListService {
 	s.waitForCompletion = &waitForCompletion
-	return s
-}
-
-// GroupBy groups tasks by nodes or parent/child relationships.
-// As of now, it can either be "nodes" (default) or "parents".
-func (s *TasksListService) GroupBy(groupBy string) *TasksListService {
-	s.groupBy = groupBy
 	return s
 }
 
@@ -129,14 +121,11 @@ func (s *TasksListService) buildURL() (string, url.Values, error) {
 	if s.parentNode != "" {
 		params.Set("parent_node", s.parentNode)
 	}
-	if s.parentTaskId != nil {
-		params.Set("parent_task_id", *s.parentTaskId)
+	if s.parentTask != nil {
+		params.Set("parent_task", *s.parentTask)
 	}
 	if s.waitForCompletion != nil {
 		params.Set("wait_for_completion", fmt.Sprintf("%v", *s.waitForCompletion))
-	}
-	if s.groupBy != "" {
-		params.Set("group_by", s.groupBy)
 	}
 	return path, params, nil
 }
@@ -147,7 +136,12 @@ func (s *TasksListService) Validate() error {
 }
 
 // Do executes the operation.
-func (s *TasksListService) Do(ctx context.Context) (*TasksListResponse, error) {
+func (s *TasksListService) Do() (*TasksListResponse, error) {
+	return s.DoC(nil)
+}
+
+// DoC executes the operation.
+func (s *TasksListService) DoC(ctx context.Context) (*TasksListResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -160,7 +154,7 @@ func (s *TasksListService) Do(ctx context.Context) (*TasksListResponse, error) {
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "GET", path, params, nil)
+	res, err := s.client.PerformRequestC(ctx, "GET", path, params, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -210,13 +204,12 @@ type TaskInfo struct {
 	Id                 int64       `json:"id"` // the task id (yes, this is a long in the Java source)
 	Type               string      `json:"type"`
 	Action             string      `json:"action"`
-	Status             interface{} `json:"status"`      // has separate implementations of Task.Status in Java for reindexing, replication, and "RawTaskStatus"
-	Description        interface{} `json:"description"` // same as Status
+	Status             interface{} `json:"status"`
+	Description        interface{} `json:"description"`
 	StartTime          string      `json:"start_time"`
 	StartTimeInMillis  int64       `json:"start_time_in_millis"`
 	RunningTime        string      `json:"running_time"`
 	RunningTimeInNanos int64       `json:"running_time_in_nanos"`
-	Cancellable        bool        `json:"cancellable"`
 	ParentTaskId       string      `json:"parent_task_id"` // like "YxJnVYjwSBm_AUbzddTajQ:12356"
 }
 

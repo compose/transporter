@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -9,11 +9,11 @@ import (
 	"fmt"
 	"net/url"
 
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v2/uritemplates"
 )
 
 // DeleteTemplateService deletes a search template. More information can
-// be found at https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-template.html.
+// be found at http://www.elasticsearch.org/guide/en/elasticsearch/reference/master/search-template.html.
 type DeleteTemplateService struct {
 	client      *Client
 	pretty      bool
@@ -81,8 +81,13 @@ func (s *DeleteTemplateService) Validate() error {
 	return nil
 }
 
-// Do executes the operation.
-func (s *DeleteTemplateService) Do(ctx context.Context) (*AcknowledgedResponse, error) {
+// Do runs DoC() with default context.
+func (s *DeleteTemplateService) Do() (*DeleteTemplateResponse, error) {
+	return s.DoC(nil)
+}
+
+// DoC executes the operation.
+func (s *DeleteTemplateService) DoC(ctx context.Context) (*DeleteTemplateResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -95,15 +100,24 @@ func (s *DeleteTemplateService) Do(ctx context.Context) (*AcknowledgedResponse, 
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "DELETE", path, params, nil)
+	res, err := s.client.PerformRequestC(ctx, "DELETE", path, params, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	// Return operation response
-	ret := new(AcknowledgedResponse)
+	ret := new(DeleteTemplateResponse)
 	if err := s.client.decoder.Decode(res.Body, ret); err != nil {
 		return nil, err
 	}
 	return ret, nil
+}
+
+// DeleteTemplateResponse is the response of DeleteTemplateService.Do.
+type DeleteTemplateResponse struct {
+	Found   bool   `json:"found"`
+	Index   string `json:"_index"`
+	Type    string `json:"_type"`
+	Id      string `json:"_id"`
+	Version int    `json:"_version"`
 }

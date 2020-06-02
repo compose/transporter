@@ -26,6 +26,10 @@ func isDecimalDigit(chr rune) bool {
 	return '0' <= chr && chr <= '9'
 }
 
+func IsIdentifier(s string) bool {
+	return matchIdentifier.MatchString(s)
+}
+
 func digitValue(chr rune) int {
 	switch {
 	case '0' <= chr && chr <= '9':
@@ -631,7 +635,7 @@ func parseStringLiteral(literal string) (string, error) {
 	str := literal
 	buffer := bytes.NewBuffer(make([]byte, 0, 3*len(literal)/2))
 	var surrogate rune
-	S:
+S:
 	for len(str) > 0 {
 		switch chr := str[0]; {
 		// We do not explicitly handle the case of the quote

@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -10,11 +10,11 @@ import (
 	"net/http"
 	"net/url"
 
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v3/uritemplates"
 )
 
 // IndicesExistsTemplateService checks if a given template exists.
-// See http://www.elastic.co/guide/en/elasticsearch/reference/5.2/indices-templates.html#indices-templates-exists
+// See http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-templates.html#indices-templates-exists
 // for documentation.
 type IndicesExistsTemplateService struct {
 	client *Client
@@ -83,7 +83,12 @@ func (s *IndicesExistsTemplateService) Validate() error {
 }
 
 // Do executes the operation.
-func (s *IndicesExistsTemplateService) Do(ctx context.Context) (bool, error) {
+func (s *IndicesExistsTemplateService) Do() (bool, error) {
+	return s.DoC(nil)
+}
+
+// DoC executes the operation.
+func (s *IndicesExistsTemplateService) DoC(ctx context.Context) (bool, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return false, err
@@ -96,7 +101,7 @@ func (s *IndicesExistsTemplateService) Do(ctx context.Context) (bool, error) {
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "HEAD", path, params, nil, 404)
+	res, err := s.client.PerformRequestC(ctx, "HEAD", path, params, nil, 404)
 	if err != nil {
 		return false, err
 	}

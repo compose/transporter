@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -7,44 +7,43 @@ package elastic
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
 
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v2/uritemplates"
 )
 
 // IndicesExistsTypeService checks if one or more types exist in one or more indices.
-//
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/indices-types-exists.html
-// for details.
+// See http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/indices-types-exists.html.
 type IndicesExistsTypeService struct {
 	client            *Client
 	pretty            bool
-	typ               []string
 	index             []string
+	typ               []string
+	allowNoIndices    *bool
 	expandWildcards   string
 	local             *bool
 	ignoreUnavailable *bool
-	allowNoIndices    *bool
 }
 
 // NewIndicesExistsTypeService creates a new IndicesExistsTypeService.
 func NewIndicesExistsTypeService(client *Client) *IndicesExistsTypeService {
 	return &IndicesExistsTypeService{
 		client: client,
+		index:  make([]string, 0),
+		typ:    make([]string, 0),
 	}
 }
 
 // Index is a list of index names; use `_all` to check the types across all indices.
-func (s *IndicesExistsTypeService) Index(indices ...string) *IndicesExistsTypeService {
-	s.index = append(s.index, indices...)
+func (s *IndicesExistsTypeService) Index(index ...string) *IndicesExistsTypeService {
+	s.index = append(s.index, index...)
 	return s
 }
 
 // Type is a list of document types to check.
-func (s *IndicesExistsTypeService) Type(types ...string) *IndicesExistsTypeService {
-	s.typ = append(s.typ, types...)
+func (s *IndicesExistsTypeService) Type(typ ...string) *IndicesExistsTypeService {
+	s.typ = append(s.typ, typ...)
 	return s
 }
 
@@ -85,10 +84,14 @@ func (s *IndicesExistsTypeService) Pretty(pretty bool) *IndicesExistsTypeService
 
 // buildURL builds the URL for the operation.
 func (s *IndicesExistsTypeService) buildURL() (string, url.Values, error) {
+	if err := s.Validate(); err != nil {
+		return "", url.Values{}, err
+	}
+
 	// Build URL
-	path, err := uritemplates.Expand("/{index}/_mapping/{type}", map[string]string{
-		"index": strings.Join(s.index, ","),
+	path, err := uritemplates.Expand("/{index}/{type}", map[string]string{
 		"type":  strings.Join(s.typ, ","),
+		"index": strings.Join(s.index, ","),
 	})
 	if err != nil {
 		return "", url.Values{}, err
@@ -99,17 +102,17 @@ func (s *IndicesExistsTypeService) buildURL() (string, url.Values, error) {
 	if s.pretty {
 		params.Set("pretty", "1")
 	}
-	if s.ignoreUnavailable != nil {
-		params.Set("ignore_unavailable", fmt.Sprintf("%v", *s.ignoreUnavailable))
-	}
-	if s.allowNoIndices != nil {
-		params.Set("allow_no_indices", fmt.Sprintf("%v", *s.allowNoIndices))
-	}
 	if s.expandWildcards != "" {
 		params.Set("expand_wildcards", s.expandWildcards)
 	}
 	if s.local != nil {
 		params.Set("local", fmt.Sprintf("%v", *s.local))
+	}
+	if s.ignoreUnavailable != nil {
+		params.Set("ignore_unavailable", fmt.Sprintf("%v", *s.ignoreUnavailable))
+	}
+	if s.allowNoIndices != nil {
+		params.Set("allow_no_indices", fmt.Sprintf("%v", *s.allowNoIndices))
 	}
 	return path, params, nil
 }
@@ -129,13 +132,13 @@ func (s *IndicesExistsTypeService) Validate() error {
 	return nil
 }
 
-// Do executes the operation.
-func (s *IndicesExistsTypeService) Do(ctx context.Context) (bool, error) {
-	// Check pre-conditions
-	if err := s.Validate(); err != nil {
-		return false, err
-	}
+// Do runs DoC() with default context.
+func (s *IndicesExistsTypeService) Do() (bool, error) {
+	return s.DoC(nil)
+}
 
+// DoC executes the operation.
+func (s *IndicesExistsTypeService) DoC(ctx context.Context) (bool, error) {
 	// Get URL for request
 	path, params, err := s.buildURL()
 	if err != nil {
@@ -143,18 +146,16 @@ func (s *IndicesExistsTypeService) Do(ctx context.Context) (bool, error) {
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "HEAD", path, params, nil, 404)
+	res, err := s.client.PerformRequestC(ctx, "HEAD", path, params, nil)
 	if err != nil {
 		return false, err
 	}
 
 	// Return operation response
-	switch res.StatusCode {
-	case http.StatusOK:
+	if res.StatusCode == 200 {
 		return true, nil
-	case http.StatusNotFound:
+	} else if res.StatusCode == 404 {
 		return false, nil
-	default:
-		return false, fmt.Errorf("elastic: got HTTP code %d when it should have been either 200 or 404", res.StatusCode)
 	}
+	return false, fmt.Errorf("elastic: got HTTP code %d when it should have been either 200 or 404", res.StatusCode)
 }

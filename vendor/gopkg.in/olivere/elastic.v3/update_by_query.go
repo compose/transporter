@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"strings"
 
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v3/uritemplates"
 )
 
 // UpdateByQueryService is documented at https://www.elastic.co/guide/en/elasticsearch/plugins/master/plugins-reindex.html.
@@ -19,9 +19,6 @@ type UpdateByQueryService struct {
 	pretty                 bool
 	index                  []string
 	typ                    []string
-	script                 *Script
-	query                  Query
-	body                   interface{}
 	xSource                []string
 	xSourceExclude         []string
 	xSourceInclude         []string
@@ -29,22 +26,21 @@ type UpdateByQueryService struct {
 	analyzeWildcard        *bool
 	analyzer               string
 	conflicts              string
+	consistency            string
 	defaultOperator        string
-	docvalueFields         []string
 	df                     string
 	expandWildcards        string
 	explain                *bool
 	fielddataFields        []string
+	fields                 []string
 	from                   *int
 	ignoreUnavailable      *bool
 	lenient                *bool
 	lowercaseExpandedTerms *bool
-	pipeline               string
 	preference             string
 	q                      string
-	refresh                string
+	refresh                *bool
 	requestCache           *bool
-	requestsPerSecond      *int
 	routing                []string
 	scroll                 string
 	scrollSize             *int
@@ -53,7 +49,6 @@ type UpdateByQueryService struct {
 	size                   *int
 	sort                   []string
 	stats                  []string
-	storedFields           []string
 	suggestField           string
 	suggestMode            string
 	suggestSize            *int
@@ -63,22 +58,26 @@ type UpdateByQueryService struct {
 	trackScores            *bool
 	version                *bool
 	versionType            *bool
-	waitForActiveShards    string
 	waitForCompletion      *bool
+	script                 *Script
+	query                  Query
+	bodyJson               interface{}
+	bodyString             string
 }
 
 // NewUpdateByQueryService creates a new UpdateByQueryService.
 func NewUpdateByQueryService(client *Client) *UpdateByQueryService {
 	return &UpdateByQueryService{
-		client: client,
+		client:          client,
+		xSource:         make([]string, 0),
+		xSourceExclude:  make([]string, 0),
+		xSourceInclude:  make([]string, 0),
+		fielddataFields: make([]string, 0),
+		fields:          make([]string, 0),
+		routing:         make([]string, 0),
+		sort:            make([]string, 0),
+		stats:           make([]string, 0),
 	}
-}
-
-// Index is a list of index names to search; use `_all` or empty string to
-// perform the operation on all indices.
-func (s *UpdateByQueryService) Index(index ...string) *UpdateByQueryService {
-	s.index = append(s.index, index...)
-	return s
 }
 
 // Type is a list of document types to search; leave empty to perform
@@ -88,22 +87,10 @@ func (s *UpdateByQueryService) Type(typ ...string) *UpdateByQueryService {
 	return s
 }
 
-// Pretty indicates that the JSON response be indented and human readable.
-func (s *UpdateByQueryService) Pretty(pretty bool) *UpdateByQueryService {
-	s.pretty = pretty
-	return s
-}
-
-// Script sets an update script.
-func (s *UpdateByQueryService) Script(script *Script) *UpdateByQueryService {
-	s.script = script
-	return s
-}
-
-// Body specifies the body of the request. It overrides data being specified via
-// SearchService or Script.
-func (s *UpdateByQueryService) Body(body string) *UpdateByQueryService {
-	s.body = body
+// Index is a list of index names to search; use `_all` or empty string to
+// perform the operation on all indices.
+func (s *UpdateByQueryService) Index(index ...string) *UpdateByQueryService {
+	s.index = append(s.index, index...)
 	return s
 }
 
@@ -168,21 +155,22 @@ func (s *UpdateByQueryService) ProceedOnVersionConflict() *UpdateByQueryService 
 	return s
 }
 
+// Consistency sets an explicit write consistency setting for the operation.
+// Possible values are "one", "quorum", and "all".
+func (s *UpdateByQueryService) Consistency(consistency string) *UpdateByQueryService {
+	s.consistency = consistency
+	return s
+}
+
 // DefaultOperator is the default operator for query string query (AND or OR).
 func (s *UpdateByQueryService) DefaultOperator(defaultOperator string) *UpdateByQueryService {
 	s.defaultOperator = defaultOperator
 	return s
 }
 
-// DF specifies the field to use as default where no field prefix is given in the query string.
-func (s *UpdateByQueryService) DF(df string) *UpdateByQueryService {
+// Df specifies the field to use as default where no field prefix is given in the query string.
+func (s *UpdateByQueryService) Df(df string) *UpdateByQueryService {
 	s.df = df
-	return s
-}
-
-// DocvalueFields specifies the list of fields to return as the docvalue representation of a field for each hit.
-func (s *UpdateByQueryService) DocvalueFields(docvalueFields ...string) *UpdateByQueryService {
-	s.docvalueFields = docvalueFields
 	return s
 }
 
@@ -204,6 +192,12 @@ func (s *UpdateByQueryService) Explain(explain bool) *UpdateByQueryService {
 // representation of a field for each hit.
 func (s *UpdateByQueryService) FielddataFields(fielddataFields ...string) *UpdateByQueryService {
 	s.fielddataFields = append(s.fielddataFields, fielddataFields...)
+	return s
+}
+
+// Fields is a list of fields to return as part of a hit.
+func (s *UpdateByQueryService) Fields(fields ...string) *UpdateByQueryService {
+	s.fields = append(s.fields, fields...)
 	return s
 }
 
@@ -233,12 +227,6 @@ func (s *UpdateByQueryService) LowercaseExpandedTerms(lowercaseExpandedTerms boo
 	return s
 }
 
-// Pipeline specifies the ingest pipeline to set on index requests made by this action (default: none).
-func (s *UpdateByQueryService) Pipeline(pipeline string) *UpdateByQueryService {
-	s.pipeline = pipeline
-	return s
-}
-
 // Preference specifies the node or shard the operation should be performed on
 // (default: random).
 func (s *UpdateByQueryService) Preference(preference string) *UpdateByQueryService {
@@ -246,21 +234,15 @@ func (s *UpdateByQueryService) Preference(preference string) *UpdateByQueryServi
 	return s
 }
 
-// Q specifies the query in the Lucene query string syntax.
+// Query in the Lucene query string syntax.
 func (s *UpdateByQueryService) Q(q string) *UpdateByQueryService {
 	s.q = q
 	return s
 }
 
-// Query sets a query definition using the Query DSL.
-func (s *UpdateByQueryService) Query(query Query) *UpdateByQueryService {
-	s.query = query
-	return s
-}
-
 // Refresh indicates whether the effected indexes should be refreshed.
-func (s *UpdateByQueryService) Refresh(refresh string) *UpdateByQueryService {
-	s.refresh = refresh
+func (s *UpdateByQueryService) Refresh(refresh bool) *UpdateByQueryService {
+	s.refresh = &refresh
 	return s
 }
 
@@ -268,13 +250,6 @@ func (s *UpdateByQueryService) Refresh(refresh string) *UpdateByQueryService {
 // or not, defaults to index level setting.
 func (s *UpdateByQueryService) RequestCache(requestCache bool) *UpdateByQueryService {
 	s.requestCache = &requestCache
-	return s
-}
-
-// RequestsPerSecond sets the throttle on this request in sub-requests per second.
-// -1 means set no throttle as does "unlimited" which is the only non-float this accepts.
-func (s *UpdateByQueryService) RequestsPerSecond(requestsPerSecond int) *UpdateByQueryService {
-	s.requestsPerSecond = &requestsPerSecond
 	return s
 }
 
@@ -336,12 +311,6 @@ func (s *UpdateByQueryService) SortByField(field string, ascending bool) *Update
 // Stats specifies specific tag(s) of the request for logging and statistical purposes.
 func (s *UpdateByQueryService) Stats(stats ...string) *UpdateByQueryService {
 	s.stats = append(s.stats, stats...)
-	return s
-}
-
-// StoredFields specifies the list of stored fields to return as part of a hit.
-func (s *UpdateByQueryService) StoredFields(storedFields ...string) *UpdateByQueryService {
-	s.storedFields = storedFields
 	return s
 }
 
@@ -410,18 +379,42 @@ func (s *UpdateByQueryService) VersionType(versionType bool) *UpdateByQueryServi
 	return s
 }
 
-// WaitForActiveShards sets the number of shard copies that must be active before proceeding
-// with the update by query operation. Defaults to 1, meaning the primary shard only.
-// Set to `all` for all shard copies, otherwise set to any non-negative value less than or equal
-// to the total number of copies for the shard (number of replicas + 1).
-func (s *UpdateByQueryService) WaitForActiveShards(waitForActiveShards string) *UpdateByQueryService {
-	s.waitForActiveShards = waitForActiveShards
-	return s
-}
-
 // WaitForCompletion indicates if the request should block until the reindex is complete.
 func (s *UpdateByQueryService) WaitForCompletion(waitForCompletion bool) *UpdateByQueryService {
 	s.waitForCompletion = &waitForCompletion
+	return s
+}
+
+// Pretty indicates that the JSON response be indented and human readable.
+func (s *UpdateByQueryService) Pretty(pretty bool) *UpdateByQueryService {
+	s.pretty = pretty
+	return s
+}
+
+// Script sets an update script.
+func (s *UpdateByQueryService) Script(script *Script) *UpdateByQueryService {
+	s.script = script
+	return s
+}
+
+// Query sets a query definition using the Query DSL.
+func (s *UpdateByQueryService) Query(query Query) *UpdateByQueryService {
+	s.query = query
+	return s
+}
+
+// BodyJson specifies e.g. the query to restrict the results specified with the
+// Query DSL (optional). The interface{} will be serialized to a JSON document,
+// so use a map[string]interface{}.
+func (s *UpdateByQueryService) BodyJson(body interface{}) *UpdateByQueryService {
+	s.bodyJson = body
+	return s
+}
+
+// Body specifies e.g. a query to restrict the results specified with
+// the Query DSL (optional).
+func (s *UpdateByQueryService) BodyString(body string) *UpdateByQueryService {
+	s.bodyString = body
 	return s
 }
 
@@ -430,15 +423,21 @@ func (s *UpdateByQueryService) buildURL() (string, url.Values, error) {
 	// Build URL
 	var err error
 	var path string
-	if len(s.typ) > 0 {
+	if len(s.index) > 0 && len(s.typ) > 0 {
 		path, err = uritemplates.Expand("/{index}/{type}/_update_by_query", map[string]string{
 			"index": strings.Join(s.index, ","),
 			"type":  strings.Join(s.typ, ","),
 		})
-	} else {
+	} else if len(s.index) > 0 && len(s.typ) == 0 {
 		path, err = uritemplates.Expand("/{index}/_update_by_query", map[string]string{
 			"index": strings.Join(s.index, ","),
 		})
+	} else if len(s.index) == 0 && len(s.typ) > 0 {
+		path, err = uritemplates.Expand("/_all/{type}/_update_by_query", map[string]string{
+			"type": strings.Join(s.typ, ","),
+		})
+	} else {
+		path = "/_all/_update_by_query"
 	}
 	if err != nil {
 		return "", url.Values{}, err
@@ -461,14 +460,17 @@ func (s *UpdateByQueryService) buildURL() (string, url.Values, error) {
 	if s.allowNoIndices != nil {
 		params.Set("allow_no_indices", fmt.Sprintf("%v", *s.allowNoIndices))
 	}
-	if s.analyzer != "" {
-		params.Set("analyzer", s.analyzer)
-	}
 	if s.analyzeWildcard != nil {
 		params.Set("analyze_wildcard", fmt.Sprintf("%v", *s.analyzeWildcard))
 	}
+	if s.analyzer != "" {
+		params.Set("analyzer", s.analyzer)
+	}
 	if s.conflicts != "" {
 		params.Set("conflicts", s.conflicts)
+	}
+	if s.consistency != "" {
+		params.Set("consistency", s.consistency)
 	}
 	if s.defaultOperator != "" {
 		params.Set("default_operator", s.defaultOperator)
@@ -482,14 +484,11 @@ func (s *UpdateByQueryService) buildURL() (string, url.Values, error) {
 	if s.explain != nil {
 		params.Set("explain", fmt.Sprintf("%v", *s.explain))
 	}
-	if len(s.storedFields) > 0 {
-		params.Set("stored_fields", strings.Join(s.storedFields, ","))
-	}
-	if len(s.docvalueFields) > 0 {
-		params.Set("docvalue_fields", strings.Join(s.docvalueFields, ","))
-	}
 	if len(s.fielddataFields) > 0 {
 		params.Set("fielddata_fields", strings.Join(s.fielddataFields, ","))
+	}
+	if len(s.fields) > 0 {
+		params.Set("fields", strings.Join(s.fields, ","))
 	}
 	if s.from != nil {
 		params.Set("from", fmt.Sprintf("%d", *s.from))
@@ -503,17 +502,14 @@ func (s *UpdateByQueryService) buildURL() (string, url.Values, error) {
 	if s.lowercaseExpandedTerms != nil {
 		params.Set("lowercase_expanded_terms", fmt.Sprintf("%v", *s.lowercaseExpandedTerms))
 	}
-	if s.pipeline != "" {
-		params.Set("pipeline", s.pipeline)
-	}
 	if s.preference != "" {
 		params.Set("preference", s.preference)
 	}
 	if s.q != "" {
 		params.Set("q", s.q)
 	}
-	if s.refresh != "" {
-		params.Set("refresh", s.refresh)
+	if s.refresh != nil {
+		params.Set("refresh", fmt.Sprintf("%v", *s.refresh))
 	}
 	if s.requestCache != nil {
 		params.Set("request_cache", fmt.Sprintf("%v", *s.requestCache))
@@ -569,36 +565,28 @@ func (s *UpdateByQueryService) buildURL() (string, url.Values, error) {
 	if s.versionType != nil {
 		params.Set("version_type", fmt.Sprintf("%v", *s.versionType))
 	}
-	if s.waitForActiveShards != "" {
-		params.Set("wait_for_active_shards", s.waitForActiveShards)
-	}
 	if s.waitForCompletion != nil {
 		params.Set("wait_for_completion", fmt.Sprintf("%v", *s.waitForCompletion))
-	}
-	if s.requestsPerSecond != nil {
-		params.Set("requests_per_second", fmt.Sprintf("%v", *s.requestsPerSecond))
 	}
 	return path, params, nil
 }
 
 // Validate checks if the operation is valid.
 func (s *UpdateByQueryService) Validate() error {
-	var invalid []string
-	if len(s.index) == 0 {
-		invalid = append(invalid, "Index")
-	}
-	if len(invalid) > 0 {
-		return fmt.Errorf("missing required fields: %v", invalid)
-	}
 	return nil
 }
 
-// getBody returns the body part of the document request.
-func (s *UpdateByQueryService) getBody() (interface{}, error) {
-	if s.body != nil {
-		return s.body, nil
+// body returns the body part of the document request.
+func (s *UpdateByQueryService) body() (interface{}, error) {
+	if s.bodyJson != nil {
+		return s.bodyJson, nil
 	}
+	if s.bodyString != "" {
+		return s.bodyString, nil
+	}
+
 	source := make(map[string]interface{})
+
 	if s.script != nil {
 		src, err := s.script.Source()
 		if err != nil {
@@ -606,6 +594,7 @@ func (s *UpdateByQueryService) getBody() (interface{}, error) {
 		}
 		source["script"] = src
 	}
+
 	if s.query != nil {
 		src, err := s.query.Source()
 		if err != nil {
@@ -613,11 +602,17 @@ func (s *UpdateByQueryService) getBody() (interface{}, error) {
 		}
 		source["query"] = src
 	}
+
 	return source, nil
 }
 
 // Do executes the operation.
-func (s *UpdateByQueryService) Do(ctx context.Context) (*BulkIndexByScrollResponse, error) {
+func (s *UpdateByQueryService) Do() (*UpdateByQueryResponse, error) {
+	return s.DoC(nil)
+}
+
+// DoC executes the operation.
+func (s *UpdateByQueryService) DoC(ctx context.Context) (*UpdateByQueryResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -630,21 +625,37 @@ func (s *UpdateByQueryService) Do(ctx context.Context) (*BulkIndexByScrollRespon
 	}
 
 	// Setup HTTP request body
-	body, err := s.getBody()
+	body, err := s.body()
 	if err != nil {
 		return nil, err
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "POST", path, params, body)
+	res, err := s.client.PerformRequestC(ctx, "POST", path, params, body)
 	if err != nil {
 		return nil, err
 	}
 
-	// Return operation response (BulkIndexByScrollResponse is defined in DeleteByQuery)
-	ret := new(BulkIndexByScrollResponse)
+	// Return operation response
+	ret := new(UpdateByQueryResponse)
 	if err := s.client.decoder.Decode(res.Body, ret); err != nil {
 		return nil, err
 	}
 	return ret, nil
+}
+
+// UpdateByQueryResponse is the response of UpdateByQueryService.Do.
+type UpdateByQueryResponse struct {
+	Took             int64                   `json:"took"`
+	TimedOut         bool                    `json:"timed_out"`
+	Total            int64                   `json:"total"`
+	Updated          int64                   `json:"updated"`
+	Created          int64                   `json:"created"`
+	Deleted          int64                   `json:"deleted"`
+	Batches          int64                   `json:"batches"`
+	VersionConflicts int64                   `json:"version_conflicts"`
+	Noops            int64                   `json:"noops"`
+	Retries          int64                   `json:"retries"`
+	Canceled         string                  `json:"canceled"`
+	Failures         []shardOperationFailure `json:"failures"`
 }

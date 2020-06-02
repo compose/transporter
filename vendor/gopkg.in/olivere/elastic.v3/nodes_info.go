@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v3/uritemplates"
 )
 
 // NodesInfoService allows to retrieve one or more or all of the
 // cluster nodes information.
-// It is documented at https://www.elastic.co/guide/en/elasticsearch/reference/5.2/cluster-nodes-info.html.
+// It is documented at http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/cluster-nodes-info.html.
 type NodesInfoService struct {
 	client       *Client
 	pretty       bool
@@ -100,7 +100,12 @@ func (s *NodesInfoService) Validate() error {
 }
 
 // Do executes the operation.
-func (s *NodesInfoService) Do(ctx context.Context) (*NodesInfoResponse, error) {
+func (s *NodesInfoService) Do() (*NodesInfoResponse, error) {
+	return s.DoC(nil)
+}
+
+// DoC executes the operation.
+func (s *NodesInfoService) DoC(ctx context.Context) (*NodesInfoResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -113,7 +118,7 @@ func (s *NodesInfoService) Do(ctx context.Context) (*NodesInfoResponse, error) {
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "GET", path, params, nil)
+	res, err := s.client.PerformRequestC(ctx, "GET", path, params, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -10,7 +10,7 @@ import (
 	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/message/ops"
 
-	bson "gopkg.in/mgo.v2/bson"
+	bson "github.com/globalsign/mgo/bson"
 )
 
 var initTests = []struct {

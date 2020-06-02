@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -12,8 +12,7 @@ import (
 
 // GeoPoint is a geographic position described via latitude and longitude.
 type GeoPoint struct {
-	Lat float64 `json:"lat"`
-	Lon float64 `json:"lon"`
+	Lat, Lon float64
 }
 
 // Source returns the object to be serialized in Elasticsearch DSL.

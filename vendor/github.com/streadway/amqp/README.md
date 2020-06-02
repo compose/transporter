@@ -1,24 +1,36 @@
-# AMQP
+[![Build Status](https://api.travis-ci.org/streadway/amqp.svg)](http://travis-ci.org/streadway/amqp) [![GoDoc](https://godoc.org/github.com/streadway/amqp?status.svg)](http://godoc.org/github.com/streadway/amqp)
 
-AMQP 0.9.1 client with RabbitMQ extensions in Go.
+# Go RabbitMQ Client Library
 
-# Status
+This is an AMQP 0.9.1 client with RabbitMQ extensions in Go.
 
-*Beta*
+## Project Maturity
 
-[![Build Status](https://secure.travis-ci.org/streadway/amqp.png)](http://travis-ci.org/streadway/amqp)
+This project has been used in production systems for many years. It is reasonably mature
+and feature complete, and as of November 2016 has [a team of maintainers](https://github.com/streadway/amqp/issues/215).
 
-API changes unlikely and will be discussed on [Github
+Future API changes are unlikely but possible. They will be discussed on [Github
 issues](https://github.com/streadway/amqp/issues) along with any bugs or
 enhancements.
 
-# Goals
+## Supported Go Versions
 
-Provide an functional interface that closely represents the AMQP 0.9.1 model
+This library supports two most recent Go release series, currently 1.10 and 1.11.
+
+
+## Supported RabbitMQ Versions
+
+This project supports RabbitMQ versions starting with `2.0` but primarily tested
+against reasonably recent `3.x` releases. Some features and behaviours may be
+server version-specific.
+
+## Goals
+
+Provide a functional interface that closely represents the AMQP 0.9.1 model
 targeted to RabbitMQ as a server.  This includes the minimum necessary to
 interact the semantics of the protocol.
 
-# Non-goals
+## Non-goals
 
 Things not intended to be supported.
 
@@ -40,15 +52,15 @@ Things not intended to be supported.
   * Anything other than PLAIN and EXTERNAL authentication mechanisms.
     * Keeping the mechanisms interface modular makes it possible to extend
       outside of this package.  If other mechanisms prove to be popular, then
-      we would accept patches to include them in this pacakge.
+      we would accept patches to include them in this package.
 
-# Usage
+## Usage
 
 See the 'examples' subdirectory for simple producers and consumers executables.
 If you have a use-case in mind which isn't well-represented by the examples,
 please file an issue.
 
-# Documentation
+## Documentation
 
 Use [Godoc documentation](http://godoc.org/github.com/streadway/amqp) for
 reference and usage.
@@ -57,7 +69,7 @@ reference and usage.
 Go](https://github.com/rabbitmq/rabbitmq-tutorials/tree/master/go) are also
 available.
 
-# Contributing
+## Contributing
 
 Pull requests are very much welcomed.  Create your pull request on a non-master
 branch, make sure a test or example is included that covers your change and
@@ -69,12 +81,12 @@ integration`.  TravisCI will also run the integration tests.
 
 Thanks to the [community of contributors](https://github.com/streadway/amqp/graphs/contributors).
 
-# External packages
+## External packages
 
-  * Google App Engine Dialer support: [https://github.com/soundtrackyourbrand/gaeamqp](https://github.com/soundtrackyourbrand/gaeamqp)
-  * RabbitMQ examples in Go: [https://github.com/rabbitmq/rabbitmq-tutorials/tree/master/go](https://github.com/rabbitmq/rabbitmq-tutorials/tree/master/go)
+  * [Google App Engine Dialer support](https://github.com/soundtrackyourbrand/gaeamqp)
+  * [RabbitMQ examples in Go](https://github.com/rabbitmq/rabbitmq-tutorials/tree/master/go)
 
-# License
+## License
 
 BSD 2 clause - see LICENSE for more details.
 

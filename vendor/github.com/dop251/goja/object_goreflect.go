@@ -2,8 +2,10 @@ package goja
 
 import (
 	"fmt"
+	"github.com/dop251/goja/parser"
 	"go/ast"
 	"reflect"
+	"strings"
 )
 
 // JsonEncodable allows custom JSON encoding by JSON.stringify()
@@ -18,9 +20,47 @@ type FieldNameMapper interface {
 	// If this method returns "" the field becomes hidden.
 	FieldName(t reflect.Type, f reflect.StructField) string
 
-	// FieldName returns a JavaScript name for the given method in the given type.
+	// MethodName returns a JavaScript name for the given method in the given type.
 	// If this method returns "" the method becomes hidden.
 	MethodName(t reflect.Type, m reflect.Method) string
+}
+
+type tagFieldNameMapper struct {
+	tagName      string
+	uncapMethods bool
+}
+
+func (tfm tagFieldNameMapper) FieldName(_ reflect.Type, f reflect.StructField) string {
+	tag := f.Tag.Get(tfm.tagName)
+	if idx := strings.IndexByte(tag, ','); idx != -1 {
+		tag = tag[:idx]
+	}
+	if parser.IsIdentifier(tag) {
+		return tag
+	}
+	return ""
+}
+
+func uncapitalize(s string) string {
+	return strings.ToLower(s[0:1]) + s[1:]
+}
+
+func (tfm tagFieldNameMapper) MethodName(_ reflect.Type, m reflect.Method) string {
+	if tfm.uncapMethods {
+		return uncapitalize(m.Name)
+	}
+	return m.Name
+}
+
+type uncapFieldNameMapper struct {
+}
+
+func (u uncapFieldNameMapper) FieldName(_ reflect.Type, f reflect.StructField) string {
+	return uncapitalize(f.Name)
+}
+
+func (u uncapFieldNameMapper) MethodName(_ reflect.Type, m reflect.Method) string {
+	return uncapitalize(m.Name)
 }
 
 type reflectFieldInfo struct {
@@ -89,9 +129,6 @@ func (o *objectGoReflect) get(n Value) Value {
 func (o *objectGoReflect) _getField(jsName string) reflect.Value {
 	if info, exists := o.valueTypeInfo.Fields[jsName]; exists {
 		v := o.value.FieldByIndex(info.Index)
-		if info.Anonymous {
-			v = v.Addr()
-		}
 		return v
 	}
 
@@ -145,9 +182,13 @@ func (o *objectGoReflect) getPropStr(name string) Value {
 func (o *objectGoReflect) getOwnProp(name string) Value {
 	if o.value.Kind() == reflect.Struct {
 		if v := o._getField(name); v.IsValid() {
+			canSet := v.CanSet()
+			if (v.Kind() == reflect.Struct || v.Kind() == reflect.Slice) && v.CanAddr() {
+				v = v.Addr()
+			}
 			return &valueProperty{
 				value:      o.val.runtime.ToValue(v.Interface()),
-				writable:   true,
+				writable:   canSet,
 				enumerable: true,
 			}
 		}
@@ -176,6 +217,10 @@ func (o *objectGoReflect) putStr(name string, val Value, throw bool) {
 func (o *objectGoReflect) _put(name string, val Value, throw bool) bool {
 	if o.value.Kind() == reflect.Struct {
 		if v := o._getField(name); v.IsValid() {
+			if !v.CanSet() {
+				o.val.runtime.typeErrorResult(throw, "Cannot assign to a non-addressable or read-only property %s of a host object", name)
+				return false
+			}
 			vv, err := o.val.runtime.toReflectValue(val, v.Type())
 			if err != nil {
 				o.val.runtime.typeErrorResult(throw, "Go struct conversion error: %v", err)
@@ -195,42 +240,40 @@ func (o *objectGoReflect) _putProp(name string, value Value, writable, enumerabl
 	return o.baseObject._putProp(name, value, writable, enumerable, configurable)
 }
 
-func (r *Runtime) checkHostObjectPropertyDescr(name string, descr objectImpl, throw bool) bool {
-	if descr.hasPropertyStr("get") || descr.hasPropertyStr("set") {
+func (r *Runtime) checkHostObjectPropertyDescr(name string, descr propertyDescr, throw bool) bool {
+	if descr.Getter != nil || descr.Setter != nil {
 		r.typeErrorResult(throw, "Host objects do not support accessor properties")
 		return false
 	}
-	if wr := descr.getStr("writable"); wr != nil && !wr.ToBoolean() {
+	if descr.Writable == FLAG_FALSE {
 		r.typeErrorResult(throw, "Host object field %s cannot be made read-only", name)
 		return false
 	}
-	if cfg := descr.getStr("configurable"); cfg != nil && cfg.ToBoolean() {
+	if descr.Configurable == FLAG_TRUE {
 		r.typeErrorResult(throw, "Host object field %s cannot be made configurable", name)
 		return false
 	}
 	return true
 }
 
-func (o *objectGoReflect) defineOwnProperty(n Value, descr objectImpl, throw bool) bool {
-	name := n.String()
-	if ast.IsExported(name) {
-		if o.value.Kind() == reflect.Struct {
-			if v := o._getField(name); v.IsValid() {
-				if !o.val.runtime.checkHostObjectPropertyDescr(name, descr, throw) {
-					return false
-				}
-				val := descr.getStr("value")
-				if val == nil {
-					val = _undefined
-				}
-				vv, err := o.val.runtime.toReflectValue(val, v.Type())
-				if err != nil {
-					o.val.runtime.typeErrorResult(throw, "Go struct conversion error: %v", err)
-					return false
-				}
-				v.Set(vv)
-				return true
+func (o *objectGoReflect) defineOwnProperty(n Value, descr propertyDescr, throw bool) bool {
+	if o.value.Kind() == reflect.Struct {
+		name := n.String()
+		if v := o._getField(name); v.IsValid() {
+			if !o.val.runtime.checkHostObjectPropertyDescr(name, descr, throw) {
+				return false
 			}
+			val := descr.Value
+			if val == nil {
+				val = _undefined
+			}
+			vv, err := o.val.runtime.toReflectValue(val, v.Type())
+			if err != nil {
+				o.val.runtime.typeErrorResult(throw, "Go struct conversion error: %v", err)
+				return false
+			}
+			v.Set(vv)
+			return true
 		}
 	}
 
@@ -238,9 +281,6 @@ func (o *objectGoReflect) defineOwnProperty(n Value, descr objectImpl, throw boo
 }
 
 func (o *objectGoReflect) _has(name string) bool {
-	if !ast.IsExported(name) {
-		return false
-	}
 	if o.value.Kind() == reflect.Struct {
 		if v := o._getField(name); v.IsValid() {
 			return true
@@ -377,10 +417,10 @@ func (i *goreflectPropIter) nextMethod() (propIterItem, iterNextFunc) {
 	return propIterItem{}, nil
 }
 
-func (o *objectGoReflect) _enumerate(recusrive bool) iterNextFunc {
+func (o *objectGoReflect) _enumerate(recursive bool) iterNextFunc {
 	r := &goreflectPropIter{
 		o:         o,
-		recursive: recusrive,
+		recursive: recursive,
 	}
 	if o.value.Kind() == reflect.Struct {
 		return r.nextField
@@ -421,34 +461,37 @@ func (r *Runtime) buildFieldInfo(t reflect.Type, index []int, info *reflectTypeI
 		}
 		if r.fieldNameMapper != nil {
 			name = r.fieldNameMapper.FieldName(t, field)
-			if name == "" {
-				continue
+		}
+
+		if name != "" {
+			if inf, exists := info.Fields[name]; !exists {
+				info.FieldNames = append(info.FieldNames, name)
+			} else {
+				if len(inf.Index) <= len(index) {
+					continue
+				}
 			}
 		}
 
-		if inf, exists := info.Fields[name]; !exists {
-			info.FieldNames = append(info.FieldNames, name)
-		} else {
-			if len(inf.Index) <= len(index) {
-				continue
-			}
-		}
+		if name != "" || field.Anonymous {
+			idx := make([]int, len(index)+1)
+			copy(idx, index)
+			idx[len(idx)-1] = i
 
-		idx := make([]int, len(index)+1)
-		copy(idx, index)
-		idx[len(idx)-1] = i
-
-		info.Fields[name] = reflectFieldInfo{
-			Index:     idx,
-			Anonymous: field.Anonymous,
-		}
-		if field.Anonymous {
-			typ := field.Type
-			for typ.Kind() == reflect.Ptr {
-				typ = typ.Elem()
+			if name != "" {
+				info.Fields[name] = reflectFieldInfo{
+					Index:     idx,
+					Anonymous: field.Anonymous,
+				}
 			}
-			if typ.Kind() == reflect.Struct {
-				r.buildFieldInfo(typ, idx, info)
+			if field.Anonymous {
+				typ := field.Type
+				for typ.Kind() == reflect.Ptr {
+					typ = typ.Elem()
+				}
+				if typ.Kind() == reflect.Struct {
+					r.buildFieldInfo(typ, idx, info)
+				}
 			}
 		}
 	}
@@ -501,11 +544,28 @@ func (r *Runtime) typeInfo(t reflect.Type) (info *reflectTypeInfo) {
 	return
 }
 
-// Sets a custom field name mapper for Go types. It can be called at any time, however
+// SetFieldNameMapper sets a custom field name mapper for Go types. It can be called at any time, however
 // the mapping for any given value is fixed at the point of creation.
 // Setting this to nil restores the default behaviour which is all exported fields and methods are mapped to their
 // original unchanged names.
 func (r *Runtime) SetFieldNameMapper(mapper FieldNameMapper) {
 	r.fieldNameMapper = mapper
 	r.typeInfoCache = nil
+}
+
+// TagFieldNameMapper returns a FieldNameMapper that uses the given tagName for struct fields and optionally
+// uncapitalises (making the first letter lower case) method names.
+// The common tag value syntax is supported (name[,options]), however options are ignored.
+// Setting name to anything other than a valid ECMAScript identifier makes the field hidden.
+func TagFieldNameMapper(tagName string, uncapMethods bool) FieldNameMapper {
+	return tagFieldNameMapper{
+		tagName:      tagName,
+		uncapMethods: uncapMethods,
+	}
+}
+
+// UncapFieldNameMapper returns a FieldNameMapper that uncapitalises struct field and method names
+// making the first letter lower case.
+func UncapFieldNameMapper() FieldNameMapper {
+	return uncapFieldNameMapper{}
 }

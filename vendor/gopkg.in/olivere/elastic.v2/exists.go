@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -10,12 +10,12 @@ import (
 	"net/http"
 	"net/url"
 
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v2/uritemplates"
 )
 
-// ExistsService checks for the existence of a document using HEAD.
+// ExistsService checks if a document exists.
 //
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/docs-get.html
+// See http://www.elastic.co/guide/en/elasticsearch/reference/current/docs-get.html
 // for details.
 type ExistsService struct {
 	client     *Client
@@ -23,11 +23,11 @@ type ExistsService struct {
 	id         string
 	index      string
 	typ        string
+	parent     string
 	preference string
 	realtime   *bool
-	refresh    string
+	refresh    *bool
 	routing    string
-	parent     string
 }
 
 // NewExistsService creates a new ExistsService.
@@ -49,14 +49,21 @@ func (s *ExistsService) Index(index string) *ExistsService {
 	return s
 }
 
-// Type is the type of the document (use `_all` to fetch the first document
-// matching the ID across all types).
+// Type is the type of the document (use `_all` to fetch the first
+// document matching the ID across all types).
 func (s *ExistsService) Type(typ string) *ExistsService {
 	s.typ = typ
 	return s
 }
 
-// Preference specifies the node or shard the operation should be performed on (default: random).
+// Parent is the ID of the parent document.
+func (s *ExistsService) Parent(parent string) *ExistsService {
+	s.parent = parent
+	return s
+}
+
+// Preference specifies the node or shard the operation should be
+// performed on (default: random).
 func (s *ExistsService) Preference(preference string) *ExistsService {
 	s.preference = preference
 	return s
@@ -69,20 +76,14 @@ func (s *ExistsService) Realtime(realtime bool) *ExistsService {
 }
 
 // Refresh the shard containing the document before performing the operation.
-func (s *ExistsService) Refresh(refresh string) *ExistsService {
-	s.refresh = refresh
+func (s *ExistsService) Refresh(refresh bool) *ExistsService {
+	s.refresh = &refresh
 	return s
 }
 
-// Routing is a specific routing value.
+// Routing is the specific routing value.
 func (s *ExistsService) Routing(routing string) *ExistsService {
 	s.routing = routing
-	return s
-}
-
-// Parent is the ID of the parent document.
-func (s *ExistsService) Parent(parent string) *ExistsService {
-	s.parent = parent
 	return s
 }
 
@@ -109,20 +110,20 @@ func (s *ExistsService) buildURL() (string, url.Values, error) {
 	if s.pretty {
 		params.Set("pretty", "1")
 	}
-	if s.realtime != nil {
-		params.Set("realtime", fmt.Sprintf("%v", *s.realtime))
-	}
-	if s.refresh != "" {
-		params.Set("refresh", s.refresh)
-	}
-	if s.routing != "" {
-		params.Set("routing", s.routing)
-	}
 	if s.parent != "" {
 		params.Set("parent", s.parent)
 	}
 	if s.preference != "" {
 		params.Set("preference", s.preference)
+	}
+	if s.realtime != nil {
+		params.Set("realtime", fmt.Sprintf("%v", *s.realtime))
+	}
+	if s.refresh != nil {
+		params.Set("refresh", fmt.Sprintf("%v", *s.refresh))
+	}
+	if s.routing != "" {
+		params.Set("routing", s.routing)
 	}
 	return path, params, nil
 }
@@ -145,8 +146,13 @@ func (s *ExistsService) Validate() error {
 	return nil
 }
 
+// Do runs DoC() with default context.
+func (s *ExistsService) Do() (bool, error) {
+	return s.DoC(nil)
+}
+
 // Do executes the operation.
-func (s *ExistsService) Do(ctx context.Context) (bool, error) {
+func (s *ExistsService) DoC(ctx context.Context) (bool, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return false, err
@@ -159,12 +165,12 @@ func (s *ExistsService) Do(ctx context.Context) (bool, error) {
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "HEAD", path, params, nil, 404)
+	res, err := s.client.PerformRequestC(ctx, "HEAD", path, params, nil)
 	if err != nil {
 		return false, err
 	}
 
-	// Return operation response
+	// Evaluate operation response
 	switch res.StatusCode {
 	case http.StatusOK:
 		return true, nil

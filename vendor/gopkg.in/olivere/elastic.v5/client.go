@@ -26,7 +26,7 @@ import (
 
 const (
 	// Version is the current version of Elastic.
-	Version = "5.0.64"
+	Version = "5.0.85"
 
 	// DefaultURL is the default endpoint of Elasticsearch on the local machine.
 	// It is used e.g. when initializing a new Client without a specific URL.
@@ -97,6 +97,9 @@ var (
 
 	// noRetries is a retrier that does not retry.
 	noRetries = NewStopRetrier()
+
+	// noDeprecationLog is a no-op for logging deprecations.
+	noDeprecationLog = func(*http.Request, *http.Response) {}
 )
 
 // ClientOptionFunc is a function that configures a Client.
@@ -111,12 +114,13 @@ type Client struct {
 	conns   []*conn      // all connections
 	cindex  int          // index into conns
 
-	mu                        sync.RWMutex    // guards the next block
-	urls                      []string        // set of URLs passed initially to the client
-	running                   bool            // true if the client's background processes are running
-	errorlog                  Logger          // error log for critical messages
-	infolog                   Logger          // information log for e.g. response times
-	tracelog                  Logger          // trace log for debugging
+	mu                        sync.RWMutex // guards the next block
+	urls                      []string     // set of URLs passed initially to the client
+	running                   bool         // true if the client's background processes are running
+	errorlog                  Logger       // error log for critical messages
+	infolog                   Logger       // information log for e.g. response times
+	tracelog                  Logger       // trace log for debugging
+	deprecationlog            func(*http.Request, *http.Response)
 	scheme                    string          // http or https
 	healthcheckEnabled        bool            // healthchecks enabled or disabled
 	healthcheckTimeoutStartup time.Duration   // time the healthcheck waits for a response from Elasticsearch on startup
@@ -137,6 +141,7 @@ type Client struct {
 	requiredPlugins           []string        // list of required plugins
 	gzipEnabled               bool            // gzip compression enabled or disabled (default)
 	retrier                   Retrier         // strategy for retries
+	headers                   http.Header     // a list of default headers to add to each request
 }
 
 // NewClient creates a new client to work with Elasticsearch.
@@ -211,6 +216,7 @@ func NewClient(options ...ClientOptionFunc) (*Client, error) {
 		sendGetBodyAs:             DefaultSendGetBodyAs,
 		gzipEnabled:               DefaultGzipEnabled,
 		retrier:                   noRetries, // no retries by default
+		deprecationlog:            noDeprecationLog,
 	}
 
 	// Run the options on it
@@ -329,6 +335,9 @@ func NewClientFromConfig(cfg *config.Config) (*Client, error) {
 		if cfg.Sniff != nil {
 			options = append(options, SetSniff(*cfg.Sniff))
 		}
+		if cfg.Healthcheck != nil {
+			options = append(options, SetHealthcheck(*cfg.Healthcheck))
+		}
 	}
 	return NewClient(options...)
 }
@@ -369,6 +378,7 @@ func NewSimpleClient(options ...ClientOptionFunc) (*Client, error) {
 		sendGetBodyAs:             DefaultSendGetBodyAs,
 		gzipEnabled:               DefaultGzipEnabled,
 		retrier:                   noRetries, // no retries by default
+		deprecationlog:            noDeprecationLog,
 	}
 
 	// Run the options on it
@@ -673,6 +683,15 @@ func SetRetrier(retrier Retrier) ClientOptionFunc {
 			retrier = noRetries // no retries by default
 		}
 		c.retrier = retrier
+		return nil
+	}
+}
+
+// SetHeaders adds a list of default HTTP headers that will be added to
+// each requests executed by PerformRequest.
+func SetHeaders(headers http.Header) ClientOptionFunc {
+	return func(c *Client) error {
+		c.headers = headers
 		return nil
 	}
 }
@@ -1089,11 +1108,6 @@ func (c *Client) startupHealthcheck(timeout time.Duration) error {
 	var lastErr error
 	start := time.Now()
 	for {
-		// Make a copy of the HTTP client provided via options to respect
-		// settings like Basic Auth or a user-specified http.Transport.
-		cl := new(http.Client)
-		*cl = *c.c
-		cl.Timeout = timeout
 		for _, url := range urls {
 			req, err := http.NewRequest("HEAD", url, nil)
 			if err != nil {
@@ -1102,7 +1116,10 @@ func (c *Client) startupHealthcheck(timeout time.Duration) error {
 			if basicAuth {
 				req.SetBasicAuth(basicAuthUsername, basicAuthPassword)
 			}
-			res, err := cl.Do(req)
+			ctx, cancel := context.WithTimeout(req.Context(), timeout)
+			defer cancel()
+			req = req.WithContext(ctx)
+			res, err := c.c.Do(req)
 			if err == nil && res != nil && res.StatusCode >= 200 && res.StatusCode < 300 {
 				return nil
 			} else if err != nil {
@@ -1110,7 +1127,7 @@ func (c *Client) startupHealthcheck(timeout time.Duration) error {
 			}
 		}
 		time.Sleep(1 * time.Second)
-		if time.Now().Sub(start) > timeout {
+		if time.Since(start) > timeout {
 			break
 		}
 	}
@@ -1177,13 +1194,15 @@ func (c *Client) mustActiveConn() error {
 
 // PerformRequestOptions must be passed into PerformRequest.
 type PerformRequestOptions struct {
-	Method       string
-	Path         string
-	Params       url.Values
-	Body         interface{}
-	ContentType  string
-	IgnoreErrors []int
-	Retrier      Retrier
+	Method          string
+	Path            string
+	Params          url.Values
+	Body            interface{}
+	ContentType     string
+	IgnoreErrors    []int
+	Retrier         Retrier
+	Headers         http.Header
+	MaxResponseSize int64
 }
 
 // PerformRequest does a HTTP request to Elasticsearch.
@@ -1228,10 +1247,12 @@ func (c *Client) PerformRequestWithOptions(ctx context.Context, opt PerformReque
 	basicAuthPassword := c.basicAuthPassword
 	sendGetBodyAs := c.sendGetBodyAs
 	gzipEnabled := c.gzipEnabled
+	healthcheckEnabled := c.healthcheckEnabled
 	retrier := c.retrier
 	if opt.Retrier != nil {
 		retrier = opt.Retrier
 	}
+	defaultHeaders := c.headers
 	c.mu.RUnlock()
 
 	var err error
@@ -1259,6 +1280,10 @@ func (c *Client) PerformRequestWithOptions(ctx context.Context, opt PerformReque
 			if !retried {
 				// Force a healtcheck as all connections seem to be dead.
 				c.healthcheck(timeout, false)
+				if healthcheckEnabled {
+					retried = true
+					continue
+				}
 			}
 			wait, ok, rerr := retrier.Retry(ctx, n, nil, nil, err)
 			if rerr != nil {
@@ -1288,6 +1313,20 @@ func (c *Client) PerformRequestWithOptions(ctx context.Context, opt PerformReque
 		if opt.ContentType != "" {
 			req.Header.Set("Content-Type", opt.ContentType)
 		}
+		if len(opt.Headers) > 0 {
+			for key, value := range opt.Headers {
+				for _, v := range value {
+					req.Header.Add(key, v)
+				}
+			}
+		}
+		if len(defaultHeaders) > 0 {
+			for key, value := range defaultHeaders {
+				for _, v := range value {
+					req.Header.Add(key, v)
+				}
+			}
+		}
 
 		// Set body
 		if opt.Body != nil {
@@ -1303,16 +1342,9 @@ func (c *Client) PerformRequestWithOptions(ctx context.Context, opt PerformReque
 
 		// Get response
 		res, err := c.c.Do((*http.Request)(req).WithContext(ctx))
-		if err == context.Canceled || err == context.DeadlineExceeded {
+		if IsContextErr(err) {
 			// Proceed, but don't mark the node as dead
 			return nil, err
-		}
-		if ue, ok := err.(*url.Error); ok {
-			// This happens e.g. on redirect errors, see https://golang.org/src/net/http/client_test.go#L329
-			if ue.Err == context.Canceled || ue.Err == context.DeadlineExceeded {
-				// Proceed, but don't mark the node as dead
-				return nil, err
-			}
 		}
 		if err != nil {
 			n++
@@ -1338,18 +1370,26 @@ func (c *Client) PerformRequestWithOptions(ctx context.Context, opt PerformReque
 		// Tracing
 		c.dumpResponse(res)
 
+		// Log deprecation warnings as errors
+		if len(res.Header["Warning"]) > 0 {
+			c.deprecationlog((*http.Request)(req), res)
+			for _, warning := range res.Header["Warning"] {
+				c.errorf("Deprecation warning: %s", warning)
+			}
+		}
+
 		// Check for errors
 		if err := checkResponse((*http.Request)(req), res, opt.IgnoreErrors...); err != nil {
 			// No retry if request succeeded
 			// We still try to return a response.
-			resp, _ = c.newResponse(res)
+			resp, _ = c.newResponse(res, opt.MaxResponseSize)
 			return resp, err
 		}
 
 		// We successfully made a request with this connection
 		conn.MarkAsHealthy()
 
-		resp, err = c.newResponse(res)
+		resp, err = c.newResponse(res, opt.MaxResponseSize)
 		if err != nil {
 			return nil, err
 		}
@@ -1469,9 +1509,17 @@ func (c *Client) Explain(index, typ, id string) *ExplainService {
 }
 
 // TODO Search Template
-// TODO Search Shards API
 // TODO Search Exists API
-// TODO Validate API
+
+// Validate allows a user to validate a potentially expensive query without executing it.
+func (c *Client) Validate(indices ...string) *ValidateService {
+	return NewValidateService(c).Index(indices...)
+}
+
+// SearchShards returns statistical information about nodes and shards.
+func (c *Client) SearchShards(indices ...string) *SearchShardsService {
+	return NewSearchShardsService(c).Index(indices...)
+}
 
 // FieldCaps returns statistical information about fields in indices.
 func (c *Client) FieldCaps(indices ...string) *FieldCapsService {
@@ -1675,6 +1723,36 @@ func (c *Client) GetFieldMapping() *IndicesGetFieldMappingService {
 // TODO cat thread pool
 // TODO cat shards
 // TODO cat segments
+
+// CatAliases returns information about aliases.
+func (c *Client) CatAliases() *CatAliasesService {
+	return NewCatAliasesService(c)
+}
+
+// CatAllocation returns information about the allocation across nodes.
+func (c *Client) CatAllocation() *CatAllocationService {
+	return NewCatAllocationService(c)
+}
+
+// CatCount returns document counts for indices.
+func (c *Client) CatCount() *CatCountService {
+	return NewCatCountService(c)
+}
+
+// CatHealth returns information about cluster health.
+func (c *Client) CatHealth() *CatHealthService {
+	return NewCatHealthService(c)
+}
+
+// CatIndices returns information about indices.
+func (c *Client) CatIndices() *CatIndicesService {
+	return NewCatIndicesService(c)
+}
+
+// CatShards returns information about shards.
+func (c *Client) CatShards() *CatShardsService {
+	return NewCatShardsService(c)
+}
 
 // -- Ingest APIs --
 

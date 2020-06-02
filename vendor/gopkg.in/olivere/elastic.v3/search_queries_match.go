@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -12,17 +12,20 @@ package elastic
 // or use one of the shortcuts e.g. NewMatchPhraseQuery(...).
 //
 // For more details, see
-// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/query-dsl-match-query.html
+// https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-match-query.html
 type MatchQuery struct {
 	name                string
 	text                interface{}
+	typ                 string // boolean, phrase, phrase_prefix
 	operator            string // or / and
 	analyzer            string
 	boost               *float64
+	slop                *int
 	fuzziness           string
 	prefixLength        *int
 	maxExpansions       *int
 	minimumShouldMatch  string
+	rewrite             string
 	fuzzyRewrite        string
 	lenient             *bool
 	fuzzyTranspositions *bool
@@ -34,6 +37,22 @@ type MatchQuery struct {
 // NewMatchQuery creates and initializes a new MatchQuery.
 func NewMatchQuery(name string, text interface{}) *MatchQuery {
 	return &MatchQuery{name: name, text: text}
+}
+
+// NewMatchPhraseQuery creates and initializes a new MatchQuery of type phrase.
+func NewMatchPhraseQuery(name string, text interface{}) *MatchQuery {
+	return &MatchQuery{name: name, text: text, typ: "phrase"}
+}
+
+// NewMatchPhrasePrefixQuery creates and initializes a new MatchQuery of type phrase_prefix.
+func NewMatchPhrasePrefixQuery(name string, text interface{}) *MatchQuery {
+	return &MatchQuery{name: name, text: text, typ: "phrase_prefix"}
+}
+
+// Type can be "boolean", "phrase", or "phrase_prefix". Defaults to "boolean".
+func (q *MatchQuery) Type(typ string) *MatchQuery {
+	q.typ = typ
+	return q
 }
 
 // Operator sets the operator to use when using a boolean query.
@@ -50,6 +69,18 @@ func (q *MatchQuery) Analyzer(analyzer string) *MatchQuery {
 	return q
 }
 
+// Boost sets the boost to apply to this query.
+func (q *MatchQuery) Boost(boost float64) *MatchQuery {
+	q.boost = &boost
+	return q
+}
+
+// Slop sets the phrase slop if evaluated to a phrase query type.
+func (q *MatchQuery) Slop(slop int) *MatchQuery {
+	q.slop = &slop
+	return q
+}
+
 // Fuzziness sets the fuzziness when evaluated to a fuzzy query type.
 // Defaults to "AUTO".
 func (q *MatchQuery) Fuzziness(fuzziness string) *MatchQuery {
@@ -57,8 +88,6 @@ func (q *MatchQuery) Fuzziness(fuzziness string) *MatchQuery {
 	return q
 }
 
-// PrefixLength sets the length of a length of common (non-fuzzy)
-// prefix for fuzzy match queries. It must be non-negative.
 func (q *MatchQuery) PrefixLength(prefixLength int) *MatchQuery {
 	q.prefixLength = &prefixLength
 	return q
@@ -80,28 +109,21 @@ func (q *MatchQuery) CutoffFrequency(cutoff float64) *MatchQuery {
 	return q
 }
 
-// MinimumShouldMatch sets the optional minimumShouldMatch value to
-// apply to the query.
 func (q *MatchQuery) MinimumShouldMatch(minimumShouldMatch string) *MatchQuery {
 	q.minimumShouldMatch = minimumShouldMatch
 	return q
 }
 
-// FuzzyRewrite sets the fuzzy_rewrite parameter controlling how the
-// fuzzy query will get rewritten.
+func (q *MatchQuery) Rewrite(rewrite string) *MatchQuery {
+	q.rewrite = rewrite
+	return q
+}
+
 func (q *MatchQuery) FuzzyRewrite(fuzzyRewrite string) *MatchQuery {
 	q.fuzzyRewrite = fuzzyRewrite
 	return q
 }
 
-// FuzzyTranspositions sets whether transpositions are supported in
-// fuzzy queries.
-//
-// The default metric used by fuzzy queries to determine a match is
-// the Damerau-Levenshtein distance formula which supports transpositions.
-// Setting transposition to false will
-// * switch to classic Levenshtein distance.
-// * If not set, Damerau-Levenshtein distance metric will be used.
 func (q *MatchQuery) FuzzyTranspositions(fuzzyTranspositions bool) *MatchQuery {
 	q.fuzzyTranspositions = &fuzzyTranspositions
 	return q
@@ -116,12 +138,6 @@ func (q *MatchQuery) Lenient(lenient bool) *MatchQuery {
 // ZeroTermsQuery can be "all" or "none".
 func (q *MatchQuery) ZeroTermsQuery(zeroTermsQuery string) *MatchQuery {
 	q.zeroTermsQuery = zeroTermsQuery
-	return q
-}
-
-// Boost sets the boost to apply to this query.
-func (q *MatchQuery) Boost(boost float64) *MatchQuery {
-	q.boost = &boost
 	return q
 }
 
@@ -145,11 +161,20 @@ func (q *MatchQuery) Source() (interface{}, error) {
 
 	query["query"] = q.text
 
+	if q.typ != "" {
+		query["type"] = q.typ
+	}
 	if q.operator != "" {
 		query["operator"] = q.operator
 	}
 	if q.analyzer != "" {
 		query["analyzer"] = q.analyzer
+	}
+	if q.boost != nil {
+		query["boost"] = *q.boost
+	}
+	if q.slop != nil {
+		query["slop"] = *q.slop
 	}
 	if q.fuzziness != "" {
 		query["fuzziness"] = q.fuzziness
@@ -162,6 +187,9 @@ func (q *MatchQuery) Source() (interface{}, error) {
 	}
 	if q.minimumShouldMatch != "" {
 		query["minimum_should_match"] = q.minimumShouldMatch
+	}
+	if q.rewrite != "" {
+		query["rewrite"] = q.rewrite
 	}
 	if q.fuzzyRewrite != "" {
 		query["fuzzy_rewrite"] = q.fuzzyRewrite
@@ -177,9 +205,6 @@ func (q *MatchQuery) Source() (interface{}, error) {
 	}
 	if q.cutoffFrequency != nil {
 		query["cutoff_frequency"] = q.cutoffFrequency
-	}
-	if q.boost != nil {
-		query["boost"] = *q.boost
 	}
 	if q.queryName != "" {
 		query["_name"] = q.queryName

@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -8,7 +8,7 @@ package elastic
 // a constant score equal to the query boost for every document in the filter.
 //
 // For more details, see:
-// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/query-dsl-constant-score-query.html
+// https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-constant-score-query.html
 type ConstantScoreQuery struct {
 	filter Query
 	boost  *float64

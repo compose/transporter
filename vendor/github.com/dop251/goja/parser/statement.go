@@ -1,8 +1,15 @@
 package parser
 
 import (
+	"encoding/base64"
 	"github.com/dop251/goja/ast"
+	"github.com/dop251/goja/file"
 	"github.com/dop251/goja/token"
+	"github.com/go-sourcemap/sourcemap"
+	"io/ioutil"
+	"net/url"
+	"os"
+	"strings"
 )
 
 func (self *_parser) parseBlockStatement() *ast.BlockStatement {
@@ -356,7 +363,7 @@ func (self *_parser) parseIterationStatement() ast.Statement {
 	return self.parseStatement()
 }
 
-func (self *_parser) parseForIn(into ast.Expression) *ast.ForInStatement {
+func (self *_parser) parseForIn(idx file.Idx, into ast.Expression) *ast.ForInStatement {
 
 	// Already have consumed "<into> in"
 
@@ -364,13 +371,14 @@ func (self *_parser) parseForIn(into ast.Expression) *ast.ForInStatement {
 	self.expect(token.RIGHT_PARENTHESIS)
 
 	return &ast.ForInStatement{
+		For:    idx,
 		Into:   into,
 		Source: source,
 		Body:   self.parseIterationStatement(),
 	}
 }
 
-func (self *_parser) parseFor(initializer ast.Expression) *ast.ForStatement {
+func (self *_parser) parseFor(idx file.Idx, initializer ast.Expression) *ast.ForStatement {
 
 	// Already have consumed "<initializer> ;"
 
@@ -387,6 +395,7 @@ func (self *_parser) parseFor(initializer ast.Expression) *ast.ForStatement {
 	self.expect(token.RIGHT_PARENTHESIS)
 
 	return &ast.ForStatement{
+		For:         idx,
 		Initializer: initializer,
 		Test:        test,
 		Update:      update,
@@ -435,11 +444,11 @@ func (self *_parser) parseForOrForInStatement() ast.Statement {
 			self.nextStatement()
 			return &ast.BadStatement{From: idx, To: self.idx}
 		}
-		return self.parseForIn(left[0])
+		return self.parseForIn(idx, left[0])
 	}
 
 	self.expect(token.SEMICOLON)
-	return self.parseFor(&ast.SequenceExpression{Sequence: left})
+	return self.parseFor(idx, &ast.SequenceExpression{Sequence: left})
 }
 
 func (self *_parser) parseVariableStatement() *ast.VariableStatement {
@@ -474,6 +483,9 @@ func (self *_parser) parseDoWhileStatement() ast.Statement {
 	self.expect(token.LEFT_PARENTHESIS)
 	node.Test = self.parseExpression()
 	self.expect(token.RIGHT_PARENTHESIS)
+	if self.token == token.SEMICOLON {
+		self.next()
+	}
 
 	return node
 }
@@ -541,7 +553,47 @@ func (self *_parser) parseProgram() *ast.Program {
 		Body:            self.parseSourceElements(),
 		DeclarationList: self.scope.declarationList,
 		File:            self.file,
+		SourceMap:       self.parseSourceMap(),
 	}
+}
+
+func (self *_parser) parseSourceMap() *sourcemap.Consumer {
+	lastLine := self.str[strings.LastIndexByte(self.str, '\n')+1:]
+	if strings.HasPrefix(lastLine, "//# sourceMappingURL") {
+		urlIndex := strings.Index(lastLine, "=")
+		urlStr := lastLine[urlIndex+1:]
+
+		var data []byte
+		if strings.HasPrefix(urlStr, "data:application/json") {
+			b64Index := strings.Index(urlStr, ",")
+			b64 := urlStr[b64Index+1:]
+			if d, err := base64.StdEncoding.DecodeString(b64); err == nil {
+				data = d
+			}
+		} else {
+			if smUrl, err := url.Parse(urlStr); err == nil {
+				if smUrl.Scheme == "" || smUrl.Scheme == "file" {
+					if f, err := os.Open(smUrl.Path); err == nil {
+						if d, err := ioutil.ReadAll(f); err == nil {
+							data = d
+						}
+					}
+				} else {
+					// Not implemented - compile error?
+					return nil
+				}
+			}
+		}
+
+		if data == nil {
+			return nil
+		}
+
+		if sm, err := sourcemap.Parse(self.file.Name(), data); err == nil {
+			return sm
+		}
+	}
+	return nil
 }
 
 func (self *_parser) parseBreakStatement() ast.Statement {

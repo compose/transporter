@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"strings"
 
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v2/uritemplates"
 )
 
 const (
@@ -22,7 +22,7 @@ const (
 // FieldStatsService allows finding statistical properties of a field without executing a search,
 // but looking up measurements that are natively available in the Lucene index.
 //
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-field-stats.html
+// See https://www.elastic.co/guide/en/elasticsearch/reference/current/search-field-stats.html
 // for details
 type FieldStatsService struct {
 	client            *Client
@@ -166,8 +166,13 @@ func (s *FieldStatsService) Validate() error {
 	return nil
 }
 
-// Do executes the operation.
-func (s *FieldStatsService) Do(ctx context.Context) (*FieldStatsResponse, error) {
+// Do runs DoC() with default context.
+func (s *FieldStatsService) Do() (*FieldStatsResponse, error) {
+	return s.DoC(nil)
+}
+
+// DoC executes the operation.
+func (s *FieldStatsService) DoC(ctx context.Context) (*FieldStatsResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -188,7 +193,7 @@ func (s *FieldStatsService) Do(ctx context.Context) (*FieldStatsResponse, error)
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "POST", path, params, body, http.StatusNotFound)
+	res, err := s.client.PerformRequestC(ctx, "POST", path, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -244,14 +249,11 @@ type IndexFieldStats struct {
 
 // FieldStats contains stats of an individual  field
 type FieldStats struct {
-	Type                  string      `json:"type"`
 	MaxDoc                int64       `json:"max_doc"`
 	DocCount              int64       `json:"doc_count"`
 	Density               int64       `json:"density"`
 	SumDocFrequeny        int64       `json:"sum_doc_freq"`
 	SumTotalTermFrequency int64       `json:"sum_total_term_freq"`
-	Searchable            bool        `json:"searchable"`
-	Aggregatable          bool        `json:"aggregatable"`
 	MinValue              interface{} `json:"min_value"`
 	MinValueAsString      string      `json:"min_value_as_string"`
 	MaxValue              interface{} `json:"max_value"`

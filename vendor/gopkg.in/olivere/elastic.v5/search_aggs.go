@@ -248,6 +248,21 @@ func (a Aggregations) Filters(name string) (*AggregationBucketFilters, bool) {
 	return nil, false
 }
 
+// AdjacencyMatrix returning a form of adjacency matrix.
+// See: https://www.elastic.co/guide/en/elasticsearch/reference/5.6/search-aggregations-bucket-adjacency-matrix-aggregation.html
+func (a Aggregations) AdjacencyMatrix(name string) (*AggregationBucketAdjacencyMatrix, bool) {
+	if raw, found := a[name]; found {
+		agg := new(AggregationBucketAdjacencyMatrix)
+		if raw == nil {
+			return agg, true
+		}
+		if err := json.Unmarshal(*raw, agg); err == nil {
+			return agg, true
+		}
+	}
+	return nil, false
+}
+
 // Missing returns missing results.
 // See: https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-aggregations-bucket-missing-aggregation.html
 func (a Aggregations) Missing(name string) (*AggregationSingleBucket, bool) {
@@ -353,6 +368,21 @@ func (a Aggregations) Sampler(name string) (*AggregationSingleBucket, bool) {
 	return nil, false
 }
 
+// DiversifiedSampler returns diversified_sampler aggregation results.
+// See: https://www.elastic.co/guide/en/elasticsearch/reference/5.6/search-aggregations-bucket-diversified-sampler-aggregation.html
+func (a Aggregations) DiversifiedSampler(name string) (*AggregationSingleBucket, bool) {
+	if raw, found := a[name]; found {
+		agg := new(AggregationSingleBucket)
+		if raw == nil {
+			return agg, true
+		}
+		if err := json.Unmarshal(*raw, agg); err == nil {
+			return agg, true
+		}
+	}
+	return nil, false
+}
+
 // Range returns range aggregation results.
 // See: https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-aggregations-bucket-range-aggregation.html
 func (a Aggregations) Range(name string) (*AggregationBucketRangeItems, bool) {
@@ -429,10 +459,27 @@ func (a Aggregations) Histogram(name string) (*AggregationBucketHistogramItems, 
 }
 
 // DateHistogram returns date histogram aggregation results.
+//
 // See: https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-aggregations-bucket-datehistogram-aggregation.html
 func (a Aggregations) DateHistogram(name string) (*AggregationBucketHistogramItems, bool) {
 	if raw, found := a[name]; found {
 		agg := new(AggregationBucketHistogramItems)
+		if raw == nil {
+			return agg, true
+		}
+		if err := json.Unmarshal(*raw, agg); err == nil {
+			return agg, true
+		}
+	}
+	return nil, false
+}
+
+// KeyedDateHistogram returns date histogram aggregation results for keyed responses.
+//
+// See: https://www.elastic.co/guide/en/elasticsearch/reference/5.6/search-aggregations-bucket-datehistogram-aggregation.html#_keyed_response_3
+func (a Aggregations) KeyedDateHistogram(name string) (*AggregationBucketKeyedHistogramItems, bool) {
+	if raw, found := a[name]; found {
+		agg := new(AggregationBucketKeyedHistogramItems)
 		if raw == nil {
 			return agg, true
 		}
@@ -463,6 +510,21 @@ func (a Aggregations) GeoBounds(name string) (*AggregationGeoBoundsMetric, bool)
 func (a Aggregations) GeoHash(name string) (*AggregationBucketKeyItems, bool) {
 	if raw, found := a[name]; found {
 		agg := new(AggregationBucketKeyItems)
+		if raw == nil {
+			return agg, true
+		}
+		if err := json.Unmarshal(*raw, agg); err == nil {
+			return agg, true
+		}
+	}
+	return nil, false
+}
+
+// GeoCentroid returns geo-centroid aggregation results.
+// See: https://www.elastic.co/guide/en/elasticsearch/reference/5.6/search-aggregations-metrics-geocentroid-aggregation.html
+func (a Aggregations) GeoCentroid(name string) (*AggregationGeoCentroidMetric, bool) {
+	if raw, found := a[name]; found {
+		agg := new(AggregationGeoCentroidMetric)
 		if raw == nil {
 			return agg, true
 		}
@@ -905,6 +967,41 @@ func (a *AggregationGeoBoundsMetric) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// -- Geo Centroid --
+
+// AggregationGeocentroidMetric is a metric as returned by a GeoCentroid aggregation.
+type AggregationGeoCentroidMetric struct {
+	Aggregations
+
+	Location struct {
+		Latitude  float64 `json:"lat"`
+		Longitude float64 `json:"lon"`
+	} `json:"location"`
+
+	Count int // `json:"count,omitempty"`
+
+	Meta map[string]interface{} // `json:"meta,omitempty"`
+}
+
+// UnmarshalJSON decodes JSON data and initializes an AggregationGeoCentroidMetric structure.
+func (a *AggregationGeoCentroidMetric) UnmarshalJSON(data []byte) error {
+	var aggs map[string]*json.RawMessage
+	if err := json.Unmarshal(data, &aggs); err != nil {
+		return err
+	}
+	if v, ok := aggs["location"]; ok && v != nil {
+		json.Unmarshal(*v, &a.Location)
+	}
+	if v, ok := aggs["meta"]; ok && v != nil {
+		json.Unmarshal(*v, &a.Meta)
+	}
+	if v, ok := aggs["count"]; ok && v != nil {
+		json.Unmarshal(*v, &a.Count)
+	}
+	a.Aggregations = aggs
+	return nil
+}
+
 // -- Single bucket --
 
 // AggregationSingleBucket is a single bucket, returned e.g. via an aggregation of type Global.
@@ -1198,6 +1295,33 @@ func (a *AggregationBucketFilters) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// -- Bucket AdjacencyMatrix --
+
+// AggregationBucketAdjacencyMatrix is a multi-bucket aggregation that is returned
+// with a AdjacencyMatrix aggregation.
+type AggregationBucketAdjacencyMatrix struct {
+	Aggregations
+
+	Buckets []*AggregationBucketKeyItem //`json:"buckets"`
+	Meta    map[string]interface{}      // `json:"meta,omitempty"`
+}
+
+// UnmarshalJSON decodes JSON data and initializes an AggregationBucketAdjacencyMatrix structure.
+func (a *AggregationBucketAdjacencyMatrix) UnmarshalJSON(data []byte) error {
+	var aggs map[string]*json.RawMessage
+	if err := json.Unmarshal(data, &aggs); err != nil {
+		return err
+	}
+	if v, ok := aggs["buckets"]; ok && v != nil {
+		json.Unmarshal(*v, &a.Buckets)
+	}
+	if v, ok := aggs["meta"]; ok && v != nil {
+		json.Unmarshal(*v, &a.Meta)
+	}
+	a.Aggregations = aggs
+	return nil
+}
+
 // -- Bucket histogram items --
 
 // AggregationBucketHistogramItems is a bucket aggregation that is returned
@@ -1211,6 +1335,31 @@ type AggregationBucketHistogramItems struct {
 
 // UnmarshalJSON decodes JSON data and initializes an AggregationBucketHistogramItems structure.
 func (a *AggregationBucketHistogramItems) UnmarshalJSON(data []byte) error {
+	var aggs map[string]*json.RawMessage
+	if err := json.Unmarshal(data, &aggs); err != nil {
+		return err
+	}
+	if v, ok := aggs["buckets"]; ok && v != nil {
+		json.Unmarshal(*v, &a.Buckets)
+	}
+	if v, ok := aggs["meta"]; ok && v != nil {
+		json.Unmarshal(*v, &a.Meta)
+	}
+	a.Aggregations = aggs
+	return nil
+}
+
+// AggregationBucketKeyedHistogramItems is a bucket aggregation that is returned
+// with a (keyed) date histogram aggregation.
+type AggregationBucketKeyedHistogramItems struct {
+	Aggregations
+
+	Buckets map[string]*AggregationBucketHistogramItem //`json:"buckets"`
+	Meta    map[string]interface{}                     // `json:"meta,omitempty"`
+}
+
+// UnmarshalJSON decodes JSON data and initializes an AggregationBucketKeyedHistogramItems structure.
+func (a *AggregationBucketKeyedHistogramItems) UnmarshalJSON(data []byte) error {
 	var aggs map[string]*json.RawMessage
 	if err := json.Unmarshal(data, &aggs); err != nil {
 		return err

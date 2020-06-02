@@ -27,10 +27,6 @@ func (a *sparseArrayObject) init() {
 	a._put("length", &a.lengthProp)
 }
 
-func (a *sparseArrayObject) getLength() Value {
-	return intToValue(a.length)
-}
-
 func (a *sparseArrayObject) findIdx(idx int64) int {
 	return sort.Search(len(a.items), func(i int) bool {
 		return a.items[i].idx >= idx
@@ -64,7 +60,7 @@ func (a *sparseArrayObject) _setLengthInt(l int64, throw bool) bool {
 		idx := a.findIdx(l)
 
 		aa := a.items[idx:]
-		for i, _ := range aa {
+		for i := range aa {
 			aa[i].value = nil
 		}
 		a.items = a.items[:idx]
@@ -266,10 +262,10 @@ func (i *sparseArrayPropIter) next() (propIterItem, iterNextFunc) {
 	return i.a.baseObject._enumerate(i.recursive)()
 }
 
-func (a *sparseArrayObject) _enumerate(recusrive bool) iterNextFunc {
+func (a *sparseArrayObject) _enumerate(recursive bool) iterNextFunc {
 	return (&sparseArrayPropIter{
 		a:         a,
-		recursive: recusrive,
+		recursive: recursive,
 	}).next
 }
 
@@ -336,7 +332,7 @@ func (a *sparseArrayObject) expand() bool {
 	return true
 }
 
-func (a *sparseArrayObject) defineOwnProperty(n Value, descr objectImpl, throw bool) bool {
+func (a *sparseArrayObject) defineOwnProperty(n Value, descr propertyDescr, throw bool) bool {
 	if idx := toIdx(n); idx >= 0 {
 		var existing Value
 		i := a.findIdx(idx)

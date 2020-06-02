@@ -12,7 +12,7 @@ import (
 
 	"github.com/compose/transporter/client"
 
-	mgo "gopkg.in/mgo.v2"
+	mgo "github.com/globalsign/mgo"
 )
 
 var errorTests = []struct {

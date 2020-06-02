@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -11,13 +11,13 @@ import (
 	"net/url"
 	"strings"
 
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v3/uritemplates"
 )
 
 // GetService allows to get a typed JSON document from the index based
 // on its id.
 //
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/docs-get.html
+// See https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-get.html
 // for details.
 type GetService struct {
 	client                        *Client
@@ -27,8 +27,8 @@ type GetService struct {
 	id                            string
 	routing                       string
 	preference                    string
-	storedFields                  []string
-	refresh                       string
+	fields                        []string
+	refresh                       *bool
 	realtime                      *bool
 	fsc                           *FetchSourceContext
 	version                       interface{}
@@ -44,6 +44,17 @@ func NewGetService(client *Client) *GetService {
 		typ:    "_all",
 	}
 }
+
+/*
+// String returns a string representation of the GetService request.
+func (s *GetService) String() string {
+	return fmt.Sprintf("[%v][%v][%v]: routing [%v]",
+		s.index,
+		s.typ,
+		s.id,
+		s.routing)
+}
+*/
 
 // Index is the name of the index.
 func (s *GetService) Index(index string) *GetService {
@@ -82,9 +93,12 @@ func (s *GetService) Preference(preference string) *GetService {
 	return s
 }
 
-// StoredFields is a list of fields to return in the response.
-func (s *GetService) StoredFields(storedFields ...string) *GetService {
-	s.storedFields = append(s.storedFields, storedFields...)
+// Fields is a list of fields to return in the response.
+func (s *GetService) Fields(fields ...string) *GetService {
+	if s.fields == nil {
+		s.fields = make([]string, 0)
+	}
+	s.fields = append(s.fields, fields...)
 	return s
 }
 
@@ -103,8 +117,8 @@ func (s *GetService) FetchSourceContext(fetchSourceContext *FetchSourceContext) 
 }
 
 // Refresh the shard containing the document before performing the operation.
-func (s *GetService) Refresh(refresh string) *GetService {
-	s.refresh = refresh
+func (s *GetService) Refresh(refresh bool) *GetService {
+	s.refresh = &refresh
 	return s
 }
 
@@ -183,11 +197,11 @@ func (s *GetService) buildURL() (string, url.Values, error) {
 	if s.preference != "" {
 		params.Set("preference", s.preference)
 	}
-	if len(s.storedFields) > 0 {
-		params.Set("stored_fields", strings.Join(s.storedFields, ","))
+	if len(s.fields) > 0 {
+		params.Set("fields", strings.Join(s.fields, ","))
 	}
-	if s.refresh != "" {
-		params.Set("refresh", s.refresh)
+	if s.refresh != nil {
+		params.Set("refresh", fmt.Sprintf("%v", *s.refresh))
 	}
 	if s.version != nil {
 		params.Set("version", fmt.Sprintf("%v", s.version))
@@ -210,7 +224,12 @@ func (s *GetService) buildURL() (string, url.Values, error) {
 }
 
 // Do executes the operation.
-func (s *GetService) Do(ctx context.Context) (*GetResult, error) {
+func (s *GetService) Do() (*GetResult, error) {
+	return s.DoC(nil)
+}
+
+// Do executes the operation.
+func (s *GetService) DoC(ctx context.Context) (*GetResult, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -223,7 +242,7 @@ func (s *GetService) Do(ctx context.Context) (*GetResult, error) {
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "GET", path, params, nil)
+	res, err := s.client.PerformRequestC(ctx, "GET", path, params, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -240,16 +259,18 @@ func (s *GetService) Do(ctx context.Context) (*GetResult, error) {
 
 // GetResult is the outcome of GetService.Do.
 type GetResult struct {
-	Index   string                 `json:"_index"`   // index meta field
-	Type    string                 `json:"_type"`    // type meta field
-	Id      string                 `json:"_id"`      // id meta field
-	Uid     string                 `json:"_uid"`     // uid meta field (see MapperService.java for all meta fields)
-	Routing string                 `json:"_routing"` // routing meta field
-	Parent  string                 `json:"_parent"`  // parent meta field
-	Version *int64                 `json:"_version"` // version number, when Version is set to true in SearchService
-	Source  *json.RawMessage       `json:"_source,omitempty"`
-	Found   bool                   `json:"found,omitempty"`
-	Fields  map[string]interface{} `json:"fields,omitempty"`
+	Index     string                 `json:"_index"`     // index meta field
+	Type      string                 `json:"_type"`      // type meta field
+	Id        string                 `json:"_id"`        // id meta field
+	Uid       string                 `json:"_uid"`       // uid meta field (see MapperService.java for all meta fields)
+	Timestamp int64                  `json:"_timestamp"` // timestamp meta field
+	TTL       int64                  `json:"_ttl"`       // ttl meta field
+	Routing   string                 `json:"_routing"`   // routing meta field
+	Parent    string                 `json:"_parent"`    // parent meta field
+	Version   *int64                 `json:"_version"`   // version number, when Version is set to true in SearchService
+	Source    *json.RawMessage       `json:"_source,omitempty"`
+	Found     bool                   `json:"found,omitempty"`
+	Fields    map[string]interface{} `json:"fields,omitempty"`
 	//Error     string                 `json:"error,omitempty"` // used only in MultiGet
 	// TODO double-check that MultiGet now returns details error information
 	Error *ErrorDetails `json:"error,omitempty"` // only used in MultiGet

@@ -1,12 +1,11 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
-// TermSuggester suggests terms based on edit distance.
 // For more details, see
-// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-suggesters-term.html.
+// http://www.elasticsearch.org/guide/reference/api/search/term-suggest/
 type TermSuggester struct {
 	Suggester
 	name           string
@@ -30,10 +29,11 @@ type TermSuggester struct {
 	minDocFreq     *float64
 }
 
-// NewTermSuggester creates a new TermSuggester.
+// Creates a new term suggester.
 func NewTermSuggester(name string) *TermSuggester {
 	return &TermSuggester{
-		name: name,
+		name:           name,
+		contextQueries: make([]SuggesterContextQuery, 0),
 	}
 }
 
@@ -135,7 +135,7 @@ type termSuggesterRequest struct {
 	Term interface{} `json:"term"`
 }
 
-// Source generates the source for the term suggester.
+// Creates the source for the term suggester.
 func (q *TermSuggester) Source(includeName bool) (interface{}, error) {
 	// "suggest" : {
 	//   "my-suggest-1" : {
@@ -180,13 +180,13 @@ func (q *TermSuggester) Source(includeName bool) (interface{}, error) {
 		}
 		suggester["context"] = src
 	default:
-		ctxq := make([]interface{}, len(q.contextQueries))
-		for i, query := range q.contextQueries {
+		var ctxq []interface{}
+		for _, query := range q.contextQueries {
 			src, err := query.Source()
 			if err != nil {
 				return nil, err
 			}
-			ctxq[i] = src
+			ctxq = append(ctxq, src)
 		}
 		suggester["context"] = ctxq
 	}
@@ -214,7 +214,7 @@ func (q *TermSuggester) Source(includeName bool) (interface{}, error) {
 		suggester["max_term_freq"] = *q.maxTermFreq
 	}
 	if q.prefixLength != nil {
-		suggester["prefix_length"] = *q.prefixLength
+		suggester["prefix_len"] = *q.prefixLength
 	}
 	if q.minWordLength != nil {
 		suggester["min_word_len"] = *q.minWordLength

@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -6,7 +6,7 @@ package elastic
 
 // GeoBoundsAggregation is a metric aggregation that computes the
 // bounding box containing all geo_point values for a field.
-// See: https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-aggregations-metrics-geobounds-aggregation.html
+// See: http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-aggregations-metrics-geobounds-aggregation.html
 type GeoBoundsAggregation struct {
 	field           string
 	script          *Script

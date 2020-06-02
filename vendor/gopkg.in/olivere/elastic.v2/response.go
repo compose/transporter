@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -34,7 +34,9 @@ func (c *Client) newResponse(res *http.Response) (*Response, error) {
 		}
 		// HEAD requests return a body but no content
 		if len(slurp) > 0 {
-			r.Body = json.RawMessage(slurp)
+			if err := c.decoder.Decode(slurp, &r.Body); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return r, nil

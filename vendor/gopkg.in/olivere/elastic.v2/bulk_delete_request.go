@@ -4,8 +4,6 @@
 
 package elastic
 
-//go:generate easyjson bulk_delete_request.go
-
 import (
 	"encoding/json"
 	"fmt"
@@ -14,9 +12,9 @@ import (
 
 // -- Bulk delete request --
 
-// BulkDeleteRequest is a request to remove a document from Elasticsearch.
+// BulkDeleteRequest is a bulk request to remove a document from Elasticsearch.
 //
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/docs-bulk.html
+// See https://www.elastic.co/guide/en/elasticsearch/reference/1.7/docs-bulk.html
 // for details.
 type BulkDeleteRequest struct {
 	BulkableRequest
@@ -25,41 +23,16 @@ type BulkDeleteRequest struct {
 	id          string
 	parent      string
 	routing     string
+	refresh     *bool
 	version     int64  // default is MATCH_ANY
 	versionType string // default is "internal"
 
 	source []string
-
-	useEasyJSON bool
-}
-
-//easyjson:json
-type bulkDeleteRequestCommand map[string]bulkDeleteRequestCommandOp
-
-//easyjson:json
-type bulkDeleteRequestCommandOp struct {
-	Id          string `json:"_id,omitempty"`
-	Index       string `json:"_index,omitempty"`
-	Parent      string `json:"_parent,omitempty"`
-	Routing     string `json:"_routing,omitempty"`
-	Type        string `json:"_type,omitempty"`
-	Version     int64  `json:"_version,omitempty"`
-	VersionType string `json:"_version_type,omitempty"`
 }
 
 // NewBulkDeleteRequest returns a new BulkDeleteRequest.
 func NewBulkDeleteRequest() *BulkDeleteRequest {
 	return &BulkDeleteRequest{}
-}
-
-// UseEasyJSON is an experimental setting that enables serialization
-// with github.com/mailru/easyjson, which should in faster serialization
-// time and less allocations, but removed compatibility with encoding/json,
-// usage of unsafe etc. See https://github.com/mailru/easyjson#issues-notes-and-limitations
-// for details. This setting is disabled by default.
-func (r *BulkDeleteRequest) UseEasyJSON(enable bool) *BulkDeleteRequest {
-	r.useEasyJSON = enable
-	return r
 }
 
 // Index specifies the Elasticsearch index to use for this delete request.
@@ -100,6 +73,15 @@ func (r *BulkDeleteRequest) Routing(routing string) *BulkDeleteRequest {
 	return r
 }
 
+// Refresh indicates whether to update the shards immediately after
+// the delete has been processed. Deleted documents will disappear
+// in search immediately at the cost of slower bulk performance.
+func (r *BulkDeleteRequest) Refresh(refresh bool) *BulkDeleteRequest {
+	r.refresh = &refresh
+	r.source = nil
+	return r
+}
+
 // Version indicates the version to be deleted as part of an optimistic
 // concurrency model.
 func (r *BulkDeleteRequest) Version(version int64) *BulkDeleteRequest {
@@ -128,38 +110,48 @@ func (r *BulkDeleteRequest) String() string {
 
 // Source returns the on-wire representation of the delete request,
 // split into an action-and-meta-data line and an (optional) source line.
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/docs-bulk.html
+// See https://www.elastic.co/guide/en/elasticsearch/reference/1.7/docs-bulk.html
 // for details.
 func (r *BulkDeleteRequest) Source() ([]string, error) {
 	if r.source != nil {
 		return r.source, nil
 	}
-	command := bulkDeleteRequestCommand{
-		"delete": bulkDeleteRequestCommandOp{
-			Index:       r.index,
-			Type:        r.typ,
-			Id:          r.id,
-			Routing:     r.routing,
-			Parent:      r.parent,
-			Version:     r.version,
-			VersionType: r.versionType,
-		},
-	}
+	lines := make([]string, 1)
 
-	var err error
-	var body []byte
-	if r.useEasyJSON {
-		// easyjson
-		body, err = command.MarshalJSON()
-	} else {
-		// encoding/json
-		body, err = json.Marshal(command)
+	source := make(map[string]interface{})
+	deleteCommand := make(map[string]interface{})
+	if r.index != "" {
+		deleteCommand["_index"] = r.index
 	}
+	if r.typ != "" {
+		deleteCommand["_type"] = r.typ
+	}
+	if r.id != "" {
+		deleteCommand["_id"] = r.id
+	}
+	if r.parent != "" {
+		deleteCommand["_parent"] = r.parent
+	}
+	if r.routing != "" {
+		deleteCommand["_routing"] = r.routing
+	}
+	if r.version > 0 {
+		deleteCommand["_version"] = r.version
+	}
+	if r.versionType != "" {
+		deleteCommand["_version_type"] = r.versionType
+	}
+	if r.refresh != nil {
+		deleteCommand["refresh"] = *r.refresh
+	}
+	source["delete"] = deleteCommand
+
+	body, err := json.Marshal(source)
 	if err != nil {
 		return nil, err
 	}
 
-	lines := []string{string(body)}
+	lines[0] = string(body)
 	r.source = lines
 
 	return lines, nil

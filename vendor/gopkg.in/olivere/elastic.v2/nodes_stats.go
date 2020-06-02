@@ -11,11 +11,11 @@ import (
 	"net/url"
 	"strings"
 
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v2/uritemplates"
 )
 
 // NodesStatsService returns node statistics.
-// See http://www.elastic.co/guide/en/elasticsearch/reference/5.2/cluster-nodes-stats.html
+// See http://www.elastic.co/guide/en/elasticsearch/reference/master/cluster-nodes-stats.html
 // for details.
 type NodesStatsService struct {
 	client           *Client
@@ -199,8 +199,13 @@ func (s *NodesStatsService) Validate() error {
 	return nil
 }
 
-// Do executes the operation.
-func (s *NodesStatsService) Do(ctx context.Context) (*NodesStatsResponse, error) {
+// Do runs DoC() with default context.
+func (s *NodesStatsService) Do() (*NodesStatsResponse, error) {
+	return s.DoC(nil)
+}
+
+// DoC executes the operation.
+func (s *NodesStatsService) DoC(ctx context.Context) (*NodesStatsResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -213,7 +218,7 @@ func (s *NodesStatsService) Do(ctx context.Context) (*NodesStatsResponse, error)
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "GET", path, params, nil)
+	res, err := s.client.PerformRequestC(ctx, "GET", path, params, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -241,10 +246,8 @@ type NodesStatsNode struct {
 	TransportAddress string `json:"transport_address"`
 	// Host is the host name, e.g. "macbookair"
 	Host string `json:"host"`
-	// IP is an IP address, e.g. "192.168.1.2"
-	IP string `json:"ip"`
-	// Roles is a list of the roles of the node, e.g. master, data, ingest.
-	Roles []string `json:"roles"`
+	// IP is the list of IP addresses, e.g. ["192.168.1.2"]
+	IP []string `json:"ip"`
 
 	// Attributes of the node.
 	Attributes map[string]interface{} `json:"attributes"`
@@ -274,16 +277,10 @@ type NodesStatsNode struct {
 	HTTP *NodesStatsNodeHTTP `json:"http"`
 
 	// Breaker contains information about circuit breakers.
-	Breaker map[string]*NodesStatsBreaker `json:"breakers"`
+	Breaker map[string]*NodesStatsBreaker `json:"breaker"`
 
 	// ScriptStats information.
 	ScriptStats *NodesStatsScriptStats `json:"script"`
-
-	// Discovery information.
-	Discovery *NodesStatsDiscovery `json:"discovery"`
-
-	// Ingest information
-	Ingest *NodesStatsIngest `json:"ingest"`
 }
 
 type NodesStatsIndex struct {
@@ -502,26 +499,32 @@ type NodesStatsRecoveryStats struct {
 }
 
 type NodesStatsNodeOS struct {
-	Timestamp int64                 `json:"timestamp"`
-	CPU       *NodesStatsNodeOSCPU  `json:"cpu"`
-	Mem       *NodesStatsNodeOSMem  `json:"mem"`
-	Swap      *NodesStatsNodeOSSwap `json:"swap"`
-}
-
-type NodesStatsNodeOSCPU struct {
-	Percent     int                `json:"percent"`
-	LoadAverage map[string]float64 `json:"load_average"` // keys are: 1m, 5m, and 15m
+	Timestamp int64 `json:"timestamp"`
+	CPU       struct {
+		Sys    int `json:"sys"`
+		User   int `json:"user"`
+		Idle   int `json:"idle"`
+		Usage  int `json:"usage"`
+		Stolen int `json:"stolen"`
+	} `json:"cpu"`
+	LoadAverage []float64             `json:"load_average"`
+	Mem         *NodesStatsNodeOSMem  `json:"mem"`
+	Swap        *NodesStatsNodeOSSwap `json:"swap"`
 }
 
 type NodesStatsNodeOSMem struct {
-	Total        string `json:"total"`
-	TotalInBytes int64  `json:"total_in_bytes"`
-	Free         string `json:"free"`
-	FreeInBytes  int64  `json:"free_in_bytes"`
-	Used         string `json:"used"`
-	UsedInBytes  int64  `json:"used_in_bytes"`
-	FreePercent  int    `json:"free_percent"`
-	UsedPercent  int    `json:"used_percent"`
+	Total             string `json:"total"`
+	TotalInBytes      int64  `json:"total_in_bytes"`
+	Free              string `json:"free"`
+	FreeInBytes       int64  `json:"free_in_bytes"`
+	Used              string `json:"used"`
+	UsedInBytes       int64  `json:"used_in_bytes"`
+	FreePercent       int    `json:"free_percent"`
+	UsedPercent       int    `json:"used_percent"`
+	ActualFree        string `json:"actual_free"`
+	ActualFreeInBytes int64  `json:"actual_free_in_bytes"`
+	ActualUsed        string `json:"actual_used"`
+	ActualUsedInBytes int64  `json:"actual_used_in_bytes"`
 }
 
 type NodesStatsNodeOSSwap struct {
@@ -539,10 +542,18 @@ type NodesStatsNodeProcess struct {
 	MaxFileDescriptors  int64 `json:"max_file_descriptors"`
 	CPU                 struct {
 		Percent       int    `json:"percent"`
+		Sys           string `json:"sys"`
+		SysInMillis   int64  `json:"sys_in_millis"`
+		User          string `json:"user"`
+		UserInMillis  int64  `json:"user_in_millis"`
 		Total         string `json:"total"`
 		TotalInMillis int64  `json:"total_in_millis"`
 	} `json:"cpu"`
 	Mem struct {
+		Resident            string `json:"resident"`
+		ResidentInBytes     int64  `json:"resident_in_bytes"`
+		Share               string `json:"share"`
+		ShareInBytes        int64  `json:"share_in_bytes"`
 		TotalVirtual        string `json:"total_virtual"`
 		TotalVirtualInBytes int64  `json:"total_virtual_in_bytes"`
 	} `json:"mem"`
@@ -623,7 +634,6 @@ type NodesStatsNodeFS struct {
 	Timestamp int64                    `json:"timestamp"`
 	Total     *NodesStatsNodeFSEntry   `json:"total"`
 	Data      []*NodesStatsNodeFSEntry `json:"data"`
-	IOStats   *NodesStatsNodeFSIOStats `json:"io_stats"`
 }
 
 type NodesStatsNodeFSEntry struct {
@@ -637,20 +647,6 @@ type NodesStatsNodeFSEntry struct {
 	Available        string `json:"available"`
 	AvailableInBytes int64  `json:"available_in_bytes"`
 	Spins            string `json:"spins"`
-}
-
-type NodesStatsNodeFSIOStats struct {
-	Devices []*NodesStatsNodeFSIOStatsEntry `json:"devices"`
-	Total   *NodesStatsNodeFSIOStatsEntry   `json:"total"`
-}
-
-type NodesStatsNodeFSIOStatsEntry struct {
-	DeviceName      string `json:"device_name"`
-	Operations      int64  `json:"operations"`
-	ReadOperations  int64  `json:"read_operations"`
-	WriteOperations int64  `json:"write_operations"`
-	ReadKilobytes   int64  `json:"read_kilobytes"`
-	WriteKilobytes  int64  `json:"write_kilobytes"`
 }
 
 type NodesStatsNodeTransport struct {
@@ -680,27 +676,4 @@ type NodesStatsBreaker struct {
 type NodesStatsScriptStats struct {
 	Compilations   int64 `json:"compilations"`
 	CacheEvictions int64 `json:"cache_evictions"`
-}
-
-type NodesStatsDiscovery struct {
-	ClusterStateQueue *NodesStatsDiscoveryStats `json:"cluster_state_queue"`
-}
-
-type NodesStatsDiscoveryStats struct {
-	Total     int64 `json:"total"`
-	Pending   int64 `json:"pending"`
-	Committed int64 `json:"committed"`
-}
-
-type NodesStatsIngest struct {
-	Total     *NodesStatsIngestStats `json:"total"`
-	Pipelines interface{}            `json:"pipelines"`
-}
-
-type NodesStatsIngestStats struct {
-	Count        int64  `json:"count"`
-	Time         string `json:"time"`
-	TimeInMillis int64  `json:"time_in_millis"`
-	Current      int64  `json:"current"`
-	Failed       int64  `json:"failed"`
 }

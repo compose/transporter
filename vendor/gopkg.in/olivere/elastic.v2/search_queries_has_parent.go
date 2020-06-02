@@ -1,62 +1,55 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
-// HasParentQuery accepts a query and a parent type. The query is executed
-// in the parent document space which is specified by the parent type.
-// This query returns child documents which associated parents have matched.
-// For the rest has_parent query has the same options and works in the
-// same manner as has_child query.
-//
+// The has_parent query works the same as the has_parent filter,
+// by automatically wrapping the filter with a
+// constant_score (when using the default score type).
+// It has the same syntax as the has_parent filter.
 // For more details, see
-// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/query-dsl-has-parent-query.html
+// http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl-has-parent-query.html
 type HasParentQuery struct {
 	query      Query
 	parentType string
-	boost      *float64
-	score      *bool
+	boost      *float32
+	scoreType  string
 	queryName  string
 	innerHit   *InnerHit
 }
 
-// NewHasParentQuery creates and initializes a new has_parent query.
-func NewHasParentQuery(parentType string, query Query) *HasParentQuery {
-	return &HasParentQuery{
+// NewHasParentQuery creates a new has_parent query.
+func NewHasParentQuery(parentType string, query Query) HasParentQuery {
+	q := HasParentQuery{
 		query:      query,
 		parentType: parentType,
 	}
+	return q
 }
 
-// Boost sets the boost for this query.
-func (q *HasParentQuery) Boost(boost float64) *HasParentQuery {
+func (q HasParentQuery) Boost(boost float32) HasParentQuery {
 	q.boost = &boost
 	return q
 }
 
-// Score defines if the parent score is mapped into the child documents.
-func (q *HasParentQuery) Score(score bool) *HasParentQuery {
-	q.score = &score
+func (q HasParentQuery) ScoreType(scoreType string) HasParentQuery {
+	q.scoreType = scoreType
 	return q
 }
 
-// QueryName specifies the query name for the filter that can be used when
-// searching for matched filters per hit.
-func (q *HasParentQuery) QueryName(queryName string) *HasParentQuery {
+func (q HasParentQuery) QueryName(queryName string) HasParentQuery {
 	q.queryName = queryName
 	return q
 }
 
-// InnerHit sets the inner hit definition in the scope of this query and
-// reusing the defined type and query.
-func (q *HasParentQuery) InnerHit(innerHit *InnerHit) *HasParentQuery {
+func (q HasParentQuery) InnerHit(innerHit *InnerHit) HasParentQuery {
 	q.innerHit = innerHit
 	return q
 }
 
-// Source returns JSON for the function score query.
-func (q *HasParentQuery) Source() (interface{}, error) {
+// Creates the query source for the ids query.
+func (q HasParentQuery) Source() interface{} {
 	// {
 	//   "has_parent" : {
 	//       "parent_type" : "blog",
@@ -68,30 +61,23 @@ func (q *HasParentQuery) Source() (interface{}, error) {
 	//   }
 	// }
 	source := make(map[string]interface{})
+
 	query := make(map[string]interface{})
 	source["has_parent"] = query
 
-	src, err := q.query.Source()
-	if err != nil {
-		return nil, err
-	}
-	query["query"] = src
+	query["query"] = q.query.Source()
 	query["parent_type"] = q.parentType
 	if q.boost != nil {
 		query["boost"] = *q.boost
 	}
-	if q.score != nil {
-		query["score"] = *q.score
+	if q.scoreType != "" {
+		query["score_type"] = q.scoreType
 	}
 	if q.queryName != "" {
 		query["_name"] = q.queryName
 	}
 	if q.innerHit != nil {
-		src, err := q.innerHit.Source()
-		if err != nil {
-			return nil, err
-		}
-		query["inner_hits"] = src
+		query["inner_hits"] = q.innerHit.Source()
 	}
-	return source, nil
+	return source
 }

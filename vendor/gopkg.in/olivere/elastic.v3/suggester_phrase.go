@@ -1,13 +1,11 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
-// PhraseSuggester provides an API to access word alternatives
-// on a per token basis within a certain string distance.
 // For more details, see
-// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-suggesters-phrase.html.
+// http://www.elasticsearch.org/guide/reference/api/search/phrase-suggest/
 type PhraseSuggester struct {
 	Suggester
 	name           string
@@ -35,11 +33,12 @@ type PhraseSuggester struct {
 	collatePrune            *bool
 }
 
-// NewPhraseSuggester creates a new PhraseSuggester.
+// Creates a new phrase suggester.
 func NewPhraseSuggester(name string) *PhraseSuggester {
 	return &PhraseSuggester{
-		name:          name,
-		collateParams: make(map[string]interface{}),
+		name:           name,
+		contextQueries: make([]SuggesterContextQuery, 0),
+		collateParams:  make(map[string]interface{}),
 	}
 }
 
@@ -174,7 +173,7 @@ func (q *PhraseSuggester) CollatePrune(collatePrune bool) *PhraseSuggester {
 	return q
 }
 
-// phraseSuggesterRequest is necessary because the order in which
+// simplePhraseSuggesterRequest is necessary because the order in which
 // the JSON elements are routed to Elasticsearch is relevant.
 // We got into trouble when using plain maps because the text element
 // needs to go before the simple_phrase element.
@@ -183,7 +182,7 @@ type phraseSuggesterRequest struct {
 	Phrase interface{} `json:"phrase"`
 }
 
-// Source generates the source for the phrase suggester.
+// Creates the source for the phrase suggester.
 func (q *PhraseSuggester) Source(includeName bool) (interface{}, error) {
 	ps := &phraseSuggesterRequest{}
 
@@ -312,7 +311,7 @@ type SmoothingModel interface {
 }
 
 // StupidBackoffSmoothingModel implements a stupid backoff smoothing model.
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-suggesters-phrase.html#_smoothing_models
+// See http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-suggesters-phrase.html#_smoothing_models
 // for details about smoothing models.
 type StupidBackoffSmoothingModel struct {
 	discount float64
@@ -337,7 +336,7 @@ func (sm *StupidBackoffSmoothingModel) Source() (interface{}, error) {
 // --
 
 // LaplaceSmoothingModel implements a laplace smoothing model.
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-suggesters-phrase.html#_smoothing_models
+// See http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-suggesters-phrase.html#_smoothing_models
 // for details about smoothing models.
 type LaplaceSmoothingModel struct {
 	alpha float64
@@ -363,7 +362,7 @@ func (sm *LaplaceSmoothingModel) Source() (interface{}, error) {
 
 // LinearInterpolationSmoothingModel implements a linear interpolation
 // smoothing model.
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-suggesters-phrase.html#_smoothing_models
+// See http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-suggesters-phrase.html#_smoothing_models
 // for details about smoothing models.
 type LinearInterpolationSmoothingModel struct {
 	trigramLamda  float64
@@ -399,7 +398,7 @@ type CandidateGenerator interface {
 }
 
 // DirectCandidateGenerator implements a direct candidate generator.
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-suggesters-phrase.html#_smoothing_models
+// See http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-suggesters-phrase.html#_smoothing_models
 // for details about smoothing models.
 type DirectCandidateGenerator struct {
 	field          string

@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -6,7 +6,7 @@ package elastic
 
 // Highlight allows highlighting search results on one or more fields.
 // For details, see:
-// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-request-highlighting.html
+// http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-request-highlighting.html
 type Highlight struct {
 	fields                []*HighlighterField
 	tagsSchema            *string
@@ -19,9 +19,7 @@ type Highlight struct {
 	encoder               *string
 	requireFieldMatch     *bool
 	boundaryMaxScan       *int
-	boundaryChars         *string
-	boundaryScannerType   *string
-	boundaryScannerLocale *string
+	boundaryChars         []rune
 	highlighterType       *string
 	fragmenter            *string
 	highlightQuery        Query
@@ -34,7 +32,11 @@ type Highlight struct {
 
 func NewHighlight() *Highlight {
 	hl := &Highlight{
-		options: make(map[string]interface{}),
+		fields:        make([]*HighlighterField, 0),
+		preTags:       make([]string, 0),
+		postTags:      make([]string, 0),
+		boundaryChars: make([]rune, 0),
+		options:       make(map[string]interface{}),
 	}
 	return hl
 }
@@ -100,18 +102,8 @@ func (hl *Highlight) BoundaryMaxScan(boundaryMaxScan int) *Highlight {
 	return hl
 }
 
-func (hl *Highlight) BoundaryChars(boundaryChars string) *Highlight {
-	hl.boundaryChars = &boundaryChars
-	return hl
-}
-
-func (hl *Highlight) BoundaryScannerType(boundaryScannerType string) *Highlight {
-	hl.boundaryScannerType = &boundaryScannerType
-	return hl
-}
-
-func (hl *Highlight) BoundaryScannerLocale(boundaryScannerLocale string) *Highlight {
-	hl.boundaryScannerLocale = &boundaryScannerLocale
+func (hl *Highlight) BoundaryChars(boundaryChars ...rune) *Highlight {
+	hl.boundaryChars = append(hl.boundaryChars, boundaryChars...)
 	return hl
 }
 
@@ -187,14 +179,8 @@ func (hl *Highlight) Source() (interface{}, error) {
 	if hl.boundaryMaxScan != nil {
 		source["boundary_max_scan"] = *hl.boundaryMaxScan
 	}
-	if hl.boundaryChars != nil {
-		source["boundary_chars"] = *hl.boundaryChars
-	}
-	if hl.boundaryScannerType != nil {
-		source["boundary_scanner"] = *hl.boundaryScannerType
-	}
-	if hl.boundaryScannerLocale != nil {
-		source["boundary_scanner_locale"] = *hl.boundaryScannerLocale
+	if hl.boundaryChars != nil && len(hl.boundaryChars) > 0 {
+		source["boundary_chars"] = hl.boundaryChars
 	}
 	if hl.highlighterType != nil {
 		source["type"] = *hl.highlighterType

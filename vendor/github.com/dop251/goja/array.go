@@ -22,10 +22,6 @@ func (a *arrayObject) init() {
 	a._put("length", &a.lengthProp)
 }
 
-func (a *arrayObject) getLength() Value {
-	return intToValue(a.length)
-}
-
 func (a *arrayObject) _setLengthInt(l int64, throw bool) bool {
 	if l >= 0 && l <= math.MaxUint32 {
 		ret := true
@@ -57,7 +53,7 @@ func (a *arrayObject) _setLengthInt(l int64, throw bool) bool {
 				a.values = ar
 			} else {
 				ar := a.values[l:len(a.values)]
-				for i, _ := range ar {
+				for i := range ar {
 					ar[i] = nil
 				}
 				a.values = a.values[:l]
@@ -292,10 +288,10 @@ func (i *arrayPropIter) next() (propIterItem, iterNextFunc) {
 	return i.a.baseObject._enumerate(i.recursive)()
 }
 
-func (a *arrayObject) _enumerate(recusrive bool) iterNextFunc {
+func (a *arrayObject) _enumerate(recursive bool) iterNextFunc {
 	return (&arrayPropIter{
 		a:         a,
-		recursive: recusrive,
+		recursive: recursive,
 	}).next
 }
 
@@ -332,8 +328,9 @@ func (a *arrayObject) expand(idx int64) bool {
 			if idx > 4096 && (a.objCount == 0 || idx/a.objCount > 10) {
 				//log.Println("Switching standard->sparse")
 				sa := &sparseArrayObject{
-					baseObject: a.baseObject,
-					length:     a.length,
+					baseObject:     a.baseObject,
+					length:         a.length,
+					propValueCount: a.propValueCount,
 				}
 				sa.setValues(a.values)
 				sa.val.self = sa
@@ -364,37 +361,22 @@ func (a *arrayObject) expand(idx int64) bool {
 	return true
 }
 
-func (r *Runtime) defineArrayLength(prop *valueProperty, descr objectImpl, setter func(Value, bool) bool, throw bool) bool {
+func (r *Runtime) defineArrayLength(prop *valueProperty, descr propertyDescr, setter func(Value, bool) bool, throw bool) bool {
 	ret := true
 
-	if cfg := descr.getStr("configurable"); cfg != nil && cfg.ToBoolean() {
+	if descr.Configurable == FLAG_TRUE || descr.Enumerable == FLAG_TRUE || descr.Getter != nil || descr.Setter != nil {
 		ret = false
 		goto Reject
 	}
 
-	if cfg := descr.getStr("enumerable"); cfg != nil && cfg.ToBoolean() {
-		ret = false
-		goto Reject
-	}
-
-	if cfg := descr.getStr("get"); cfg != nil {
-		ret = false
-		goto Reject
-	}
-
-	if cfg := descr.getStr("set"); cfg != nil {
-		ret = false
-		goto Reject
-	}
-
-	if newLen := descr.getStr("value"); newLen != nil {
+	if newLen := descr.Value; newLen != nil {
 		ret = setter(newLen, false)
 	} else {
 		ret = true
 	}
 
-	if wr := descr.getStr("writable"); wr != nil {
-		w := wr.ToBoolean()
+	if descr.Writable != FLAG_NOT_SET {
+		w := descr.Writable.Bool()
 		if prop.writable {
 			prop.writable = w
 		} else {
@@ -413,7 +395,7 @@ Reject:
 	return ret
 }
 
-func (a *arrayObject) defineOwnProperty(n Value, descr objectImpl, throw bool) bool {
+func (a *arrayObject) defineOwnProperty(n Value, descr propertyDescr, throw bool) bool {
 	if idx := toIdx(n); idx >= 0 {
 		var existing Value
 		if idx < int64(len(a.values)) {
@@ -496,4 +478,5 @@ func (a *arrayObject) setValuesFromSparse(items []sparseArrayItem) {
 	for _, item := range items {
 		a.values[item.idx] = item.value
 	}
+	a.objCount = int64(len(items))
 }

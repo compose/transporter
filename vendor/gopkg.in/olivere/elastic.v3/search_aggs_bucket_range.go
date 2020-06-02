@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -14,7 +14,7 @@ import (
 // will be checked against each bucket range and "bucket" the
 // relevant/matching document. Note that this aggregration includes the
 // from value and excludes the to value for each range.
-// See: https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-aggregations-bucket-range-aggregation.html
+// See: http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-aggregations-bucket-range-aggregation.html
 type RangeAggregation struct {
 	field           string
 	script          *Script
@@ -191,15 +191,9 @@ func (a *RangeAggregation) Source() (interface{}, error) {
 			switch from := ent.From.(type) {
 			case int, int16, int32, int64, float32, float64:
 				r["from"] = from
-			case *int, *int16, *int32, *int64, *float32, *float64:
-				r["from"] = from
 			case time.Time:
 				r["from"] = from.Format(time.RFC3339)
-			case *time.Time:
-				r["from"] = from.Format(time.RFC3339)
 			case string:
-				r["from"] = from
-			case *string:
 				r["from"] = from
 			}
 		}
@@ -207,15 +201,9 @@ func (a *RangeAggregation) Source() (interface{}, error) {
 			switch to := ent.To.(type) {
 			case int, int16, int32, int64, float32, float64:
 				r["to"] = to
-			case *int, *int16, *int32, *int64, *float32, *float64:
-				r["to"] = to
 			case time.Time:
 				r["to"] = to.Format(time.RFC3339)
-			case *time.Time:
-				r["to"] = to.Format(time.RFC3339)
 			case string:
-				r["to"] = to
-			case *string:
 				r["to"] = to
 			}
 		}

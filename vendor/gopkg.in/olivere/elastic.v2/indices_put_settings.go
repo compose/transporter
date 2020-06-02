@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2016 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -10,14 +10,14 @@ import (
 	"net/url"
 	"strings"
 
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v2/uritemplates"
 )
 
 // IndicesPutSettingsService changes specific index level settings in
 // real time.
 //
 // See the documentation at
-// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/indices-update-settings.html.
+// https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-update-settings.html.
 type IndicesPutSettingsService struct {
 	client            *Client
 	pretty            bool
@@ -143,8 +143,13 @@ func (s *IndicesPutSettingsService) Validate() error {
 	return nil
 }
 
-// Do executes the operation.
-func (s *IndicesPutSettingsService) Do(ctx context.Context) (*IndicesPutSettingsResponse, error) {
+// Do runs DoC() with default context.
+func (s *IndicesPutSettingsService) Do() (*IndicesPutSettingsResponse, error) {
+	return s.DoC(nil)
+}
+
+// DoC executes the operation.
+func (s *IndicesPutSettingsService) DoC(ctx context.Context) (*IndicesPutSettingsResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -165,7 +170,7 @@ func (s *IndicesPutSettingsService) Do(ctx context.Context) (*IndicesPutSettings
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "PUT", path, params, body)
+	res, err := s.client.PerformRequestC(ctx, "PUT", path, params, body)
 	if err != nil {
 		return nil, err
 	}

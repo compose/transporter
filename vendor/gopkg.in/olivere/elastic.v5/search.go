@@ -110,9 +110,15 @@ func (s *SearchService) TimeoutInMillis(timeoutInMillis int) *SearchService {
 	return s
 }
 
+// TerminateAfter specifies the maximum number of documents to collect for
+// each shard, upon reaching which the query execution will terminate early.
+func (s *SearchService) TerminateAfter(terminateAfter int) *SearchService {
+	s.searchSource = s.searchSource.TerminateAfter(terminateAfter)
+	return s
+}
+
 // SearchType sets the search operation type. Valid values are:
-// "query_then_fetch", "query_and_fetch", "dfs_query_then_fetch",
-// "dfs_query_and_fetch", "count", "scan".
+// "dfs_query_then_fetch" and "query_then_fetch".
 // See https://www.elastic.co/guide/en/elasticsearch/reference/5.6/search-request-search-type.html
 // for details.
 func (s *SearchService) SearchType(searchType string) *SearchService {
@@ -408,14 +414,14 @@ func (s *SearchService) Do(ctx context.Context) (*SearchResult, error) {
 // SearchResult is the result of a search in Elasticsearch.
 type SearchResult struct {
 	TookInMillis int64          `json:"took"`              // search time in milliseconds
-	ScrollId     string         `json:"_scroll_id"`        // only used with Scroll and Scan operations
+	ScrollId     string         `json:"_scroll_id"`        // only used with Scroll operations
 	Hits         *SearchHits    `json:"hits"`              // the actual search hits
 	Suggest      SearchSuggest  `json:"suggest"`           // results from suggesters
 	Aggregations Aggregations   `json:"aggregations"`      // results from aggregations
 	TimedOut     bool           `json:"timed_out"`         // true if the search timed out
 	Error        *ErrorDetails  `json:"error,omitempty"`   // only used in MultiGet
 	Profile      *SearchProfile `json:"profile,omitempty"` // profiling results, if optional Profile API was active for this search
-	Shards       *shardsInfo    `json:"_shards,omitempty"` // shard information
+	Shards       *ShardsInfo    `json:"_shards,omitempty"` // shard information
 }
 
 // TotalHits is a convenience function to return the number of hits for
@@ -455,9 +461,18 @@ type SearchHits struct {
 	Hits      []*SearchHit `json:"hits"`      // the actual hits returned
 }
 
+// NestedHit is a nested innerhit
+type NestedHit struct {
+	Field  string     `json:"field"`
+	Offset int        `json:"offset,omitempty"`
+	Child  *NestedHit `json:"_nested,omitempty"`
+}
+
 // SearchHit is a single hit.
 type SearchHit struct {
 	Score          *float64                       `json:"_score"`          // computed score
+	Shard          string                         `json:"_shard"`          // shard name
+	Node           string                         `json:"_node"`           // node name
 	Index          string                         `json:"_index"`          // index name
 	Type           string                         `json:"_type"`           // type meta field
 	Id             string                         `json:"_id"`             // external or internal
@@ -472,6 +487,7 @@ type SearchHit struct {
 	Explanation    *SearchExplanation             `json:"_explanation"`    // explains how the score was computed
 	MatchedQueries []string                       `json:"matched_queries"` // matched queries
 	InnerHits      map[string]*SearchHitInnerHits `json:"inner_hits"`      // inner hits with ES >= 1.5.0
+	Nested         *NestedHit                     `json:"_nested"`         // for nested inner hits
 
 	// Shard
 	// HighlightFields

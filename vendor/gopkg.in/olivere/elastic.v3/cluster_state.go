@@ -10,12 +10,12 @@ import (
 	"net/url"
 	"strings"
 
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v3/uritemplates"
 )
 
 // ClusterStateService allows to get a comprehensive state information of the whole cluster.
 //
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/cluster-state.html
+// See https://www.elastic.co/guide/en/elasticsearch/reference/current/cluster-state.html
 // for details.
 type ClusterStateService struct {
 	client            *Client
@@ -69,7 +69,7 @@ func (s *ClusterStateService) ExpandWildcards(expandWildcards string) *ClusterSt
 	return s
 }
 
-// FlatSettings, when set, returns settings in flat format (default: false).
+// FlatSettings indicates whether to return settings in flat format (default: false).
 func (s *ClusterStateService) FlatSettings(flatSettings bool) *ClusterStateService {
 	s.flatSettings = &flatSettings
 	return s
@@ -152,7 +152,12 @@ func (s *ClusterStateService) Validate() error {
 }
 
 // Do executes the operation.
-func (s *ClusterStateService) Do(ctx context.Context) (*ClusterStateResponse, error) {
+func (s *ClusterStateService) Do() (*ClusterStateResponse, error) {
+	return s.DoC(nil)
+}
+
+// DoC executes the operation.
+func (s *ClusterStateService) DoC(ctx context.Context) (*ClusterStateResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -165,7 +170,7 @@ func (s *ClusterStateService) Do(ctx context.Context) (*ClusterStateResponse, er
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "GET", path, params, nil)
+	res, err := s.client.PerformRequestC(ctx, "GET", path, params, nil)
 	if err != nil {
 		return nil, err
 	}

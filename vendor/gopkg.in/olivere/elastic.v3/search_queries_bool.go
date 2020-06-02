@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -9,7 +9,7 @@ import "fmt"
 // A bool query matches documents matching boolean
 // combinations of other queries.
 // For more details, see:
-// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/query-dsl-bool-query.html
+// http://www.elasticsearch.org/guide/reference/query-dsl/bool-query.html
 type BoolQuery struct {
 	Query
 	mustClauses        []Query

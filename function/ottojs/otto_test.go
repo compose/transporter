@@ -7,7 +7,7 @@ import (
 	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/message/data"
 	"github.com/compose/transporter/message/ops"
-	"gopkg.in/mgo.v2/bson"
+	"github.com/globalsign/mgo/bson"
 )
 
 var (

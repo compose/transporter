@@ -10,7 +10,7 @@ package elastic
 // to compute the score on a filtered set of documents.
 //
 // For more details, see
-// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/query-dsl-function-score-query.html
+// https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-function-score-query.html
 type FunctionScoreQuery struct {
 	query      Query
 	filter     Query
@@ -26,10 +26,7 @@ type FunctionScoreQuery struct {
 
 // NewFunctionScoreQuery creates and initializes a new function score query.
 func NewFunctionScoreQuery() *FunctionScoreQuery {
-	return &FunctionScoreQuery{
-		filters:    make([]Query, 0),
-		scoreFuncs: make([]ScoreFunction, 0),
-	}
+	return &FunctionScoreQuery{}
 }
 
 // Query sets the query for the function score query.
@@ -106,6 +103,7 @@ func (q *FunctionScoreQuery) Source() (interface{}, error) {
 		}
 		query["query"] = src
 	}
+
 	if q.filter != nil {
 		src, err := q.filter.Source()
 		if err != nil {

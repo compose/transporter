@@ -2,6 +2,7 @@ package goja
 
 import (
 	"bytes"
+	"math"
 	"sort"
 	"strings"
 )
@@ -48,12 +49,12 @@ func (r *Runtime) arrayproto_push(call FunctionCall) Value {
 }
 
 func (r *Runtime) arrayproto_pop_generic(obj *Object, call FunctionCall) Value {
-	l := int(toLength(obj.self.getStr("length")))
+	l := toLength(obj.self.getStr("length"))
 	if l == 0 {
 		obj.self.putStr("length", intToValue(0), true)
 		return _undefined
 	}
-	idx := intToValue(int64(l - 1))
+	idx := intToValue(l - 1)
 	val := obj.self.get(idx)
 	obj.self.delete(idx, true)
 	obj.self.putStr("length", idx, true)
@@ -192,10 +193,12 @@ func (r *Runtime) arrayproto_toLocaleString(call FunctionCall) Value {
 }
 
 func (r *Runtime) arrayproto_concat_append(a *Object, item Value) {
-	descr := r.NewObject().self
-	descr.putStr("writable", valueTrue, false)
-	descr.putStr("enumerable", valueTrue, false)
-	descr.putStr("configurable", valueTrue, false)
+	descr := propertyDescr{
+		Writable:     FLAG_TRUE,
+		Enumerable:   FLAG_TRUE,
+		Configurable: FLAG_TRUE,
+	}
+
 	aLength := toLength(a.self.getStr("length"))
 	if obj, ok := item.(*Object); ok {
 		if isArray(obj) {
@@ -203,7 +206,7 @@ func (r *Runtime) arrayproto_concat_append(a *Object, item Value) {
 			for i := int64(0); i < length; i++ {
 				v := obj.self.get(intToValue(i))
 				if v != nil {
-					descr.putStr("value", v, false)
+					descr.Value = v
 					a.self.defineOwnProperty(intToValue(aLength), descr, false)
 					aLength++
 				} else {
@@ -214,7 +217,7 @@ func (r *Runtime) arrayproto_concat_append(a *Object, item Value) {
 			return
 		}
 	}
-	descr.putStr("value", item, false)
+	descr.Value = item
 	a.self.defineOwnProperty(intToValue(aLength), descr, false)
 }
 
@@ -269,14 +272,15 @@ func (r *Runtime) arrayproto_slice(call FunctionCall) Value {
 	a := r.newArrayLength(count)
 
 	n := int64(0)
-	descr := r.NewObject().self
-	descr.putStr("writable", valueTrue, false)
-	descr.putStr("enumerable", valueTrue, false)
-	descr.putStr("configurable", valueTrue, false)
+	descr := propertyDescr{
+		Writable:     FLAG_TRUE,
+		Enumerable:   FLAG_TRUE,
+		Configurable: FLAG_TRUE,
+	}
 	for start < end {
 		p := o.self.get(intToValue(start))
 		if p != nil && p != _undefined {
-			descr.putStr("value", p, false)
+			descr.Value = p
 			a.self.defineOwnProperty(intToValue(n), descr, false)
 		}
 		start++
@@ -857,10 +861,20 @@ func (ctx *arraySortCtx) sortCompare(x, y Value) int {
 	}
 
 	if ctx.compare != nil {
-		return int(ctx.compare(FunctionCall{
+		f := ctx.compare(FunctionCall{
 			This:      _undefined,
 			Arguments: []Value{x, y},
-		}).ToInteger())
+		}).ToFloat()
+		if f > 0 {
+			return 1
+		}
+		if f < 0 {
+			return -1
+		}
+		if math.Signbit(f) {
+			return -1
+		}
+		return 0
 	}
 	return strings.Compare(x.String(), y.String())
 }

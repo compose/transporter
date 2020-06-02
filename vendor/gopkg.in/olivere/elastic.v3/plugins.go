@@ -1,10 +1,8 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
-
-import "context"
 
 // HasPlugin indicates whether the cluster has the named plugin.
 func (c *Client) HasPlugin(name string) (bool, error) {
@@ -22,7 +20,7 @@ func (c *Client) HasPlugin(name string) (bool, error) {
 
 // Plugins returns the list of all registered plugins.
 func (c *Client) Plugins() ([]string, error) {
-	stats, err := c.ClusterStats().Do(context.Background())
+	stats, err := c.ClusterStats().Do()
 	if err != nil {
 		return nil, err
 	}

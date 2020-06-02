@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -28,17 +28,13 @@ func (r *Rescore) Rescorer(rescorer Rescorer) *Rescore {
 	return r
 }
 
-func (r *Rescore) Source() (interface{}, error) {
+func (r *Rescore) Source() interface{} {
 	source := make(map[string]interface{})
 	if r.windowSize != nil {
 		source["window_size"] = *r.windowSize
 	} else if r.defaultRescoreWindowSize != nil {
 		source["window_size"] = *r.defaultRescoreWindowSize
 	}
-	rescorerSrc, err := r.rescorer.Source()
-	if err != nil {
-		return nil, err
-	}
-	source[r.rescorer.Name()] = rescorerSrc
-	return source, nil
+	source[r.rescorer.Name()] = r.rescorer.Source()
+	return source
 }

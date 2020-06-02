@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -8,7 +8,7 @@ package elastic
 // in the current document set context that match a specified filter.
 // Often this will be used to narrow down the current aggregation context
 // to a specific set of documents.
-// See: https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-aggregations-bucket-filter-aggregation.html
+// See: http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-aggregations-bucket-filter-aggregation.html
 type FilterAggregation struct {
 	filter          Query
 	subAggregations map[string]Aggregation

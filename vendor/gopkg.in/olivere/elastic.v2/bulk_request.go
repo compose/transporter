@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -10,7 +10,7 @@ import (
 
 // -- Bulkable request (index/update/delete) --
 
-// BulkableRequest is a generic interface to bulkable requests.
+// Generic interface to bulkable requests.
 type BulkableRequest interface {
 	fmt.Stringer
 	Source() ([]string, error)

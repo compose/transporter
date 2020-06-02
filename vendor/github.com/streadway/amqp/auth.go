@@ -22,12 +22,30 @@ type PlainAuth struct {
 	Password string
 }
 
-func (me *PlainAuth) Mechanism() string {
+// Mechanism returns "PLAIN"
+func (auth *PlainAuth) Mechanism() string {
 	return "PLAIN"
 }
 
-func (me *PlainAuth) Response() string {
-	return fmt.Sprintf("\000%s\000%s", me.Username, me.Password)
+// Response returns the null character delimited encoding for the SASL PLAIN Mechanism.
+func (auth *PlainAuth) Response() string {
+	return fmt.Sprintf("\000%s\000%s", auth.Username, auth.Password)
+}
+
+// AMQPlainAuth is similar to PlainAuth
+type AMQPlainAuth struct {
+	Username string
+	Password string
+}
+
+// Mechanism returns "AMQPLAIN"
+func (auth *AMQPlainAuth) Mechanism() string {
+	return "AMQPLAIN"
+}
+
+// Response returns the null character delimited encoding for the SASL PLAIN Mechanism.
+func (auth *AMQPlainAuth) Response() string {
+	return fmt.Sprintf("LOGIN:%sPASSWORD:%s", auth.Username, auth.Password)
 }
 
 // Finds the first mechanism preferred by the client that the server supports.

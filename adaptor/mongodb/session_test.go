@@ -3,7 +3,7 @@ package mongodb
 import (
 	"testing"
 
-	mgo "gopkg.in/mgo.v2"
+	mgo "github.com/globalsign/mgo"
 )
 
 func TestClose(t *testing.T) {

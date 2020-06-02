@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"net/url"
 
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v2/uritemplates"
 )
 
 // BulkService allows for batching bulk requests and sending them to
@@ -23,25 +23,19 @@ import (
 // reuse BulkService to send many batches. You do not have to create a new
 // BulkService for each batch.
 //
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/docs-bulk.html
+// See https://www.elastic.co/guide/en/elasticsearch/reference/1.7/docs-bulk.html
 // for more details.
 type BulkService struct {
-	client  *Client
-	retrier Retrier
+	client *Client
 
-	index               string
-	typ                 string
-	requests            []BulkableRequest
-	pipeline            string
-	timeout             string
-	refresh             string
-	routing             string
-	waitForActiveShards string
-	pretty              bool
+	index    string
+	typ      string
+	requests []BulkableRequest
+	timeout  string
+	refresh  *bool
+	pretty   bool
 
-	// estimated bulk size in bytes, up to the request index sizeInBytesCursor
-	sizeInBytes       int64
-	sizeInBytesCursor int
+	sizeInBytes int64
 }
 
 // NewBulkService initializes a new BulkService.
@@ -52,17 +46,10 @@ func NewBulkService(client *Client) *BulkService {
 	return builder
 }
 
-func (s *BulkService) reset() {
+// Reset cleans up the request queue
+func (s *BulkService) Reset() {
 	s.requests = make([]BulkableRequest, 0)
 	s.sizeInBytes = 0
-	s.sizeInBytesCursor = 0
-}
-
-// Retrier allows to set specific retry logic for this BulkService.
-// If not specified, it will use the client's default retrier.
-func (s *BulkService) Retrier(retrier Retrier) *BulkService {
-	s.retrier = retrier
-	return s
 }
 
 // Index specifies the index to use for all batches. You may also leave
@@ -87,35 +74,11 @@ func (s *BulkService) Timeout(timeout string) *BulkService {
 	return s
 }
 
-// Refresh controls when changes made by this request are made visible
-// to search. The allowed values are: "true" (refresh the relevant
-// primary and replica shards immediately), "wait_for" (wait for the
-// changes to be made visible by a refresh before applying), or "false"
-// (no refresh related actions).
-func (s *BulkService) Refresh(refresh string) *BulkService {
-	s.refresh = refresh
-	return s
-}
-
-// Routing specifies the routing value.
-func (s *BulkService) Routing(routing string) *BulkService {
-	s.routing = routing
-	return s
-}
-
-// Pipeline specifies the pipeline id to preprocess incoming documents with.
-func (s *BulkService) Pipeline(pipeline string) *BulkService {
-	s.pipeline = pipeline
-	return s
-}
-
-// WaitForActiveShards sets the number of shard copies that must be active
-// before proceeding with the bulk operation. Defaults to 1, meaning the
-// primary shard only. Set to `all` for all shard copies, otherwise set to
-// any non-negative value less than or equal to the total number of copies
-// for the shard (number of replicas + 1).
-func (s *BulkService) WaitForActiveShards(waitForActiveShards string) *BulkService {
-	s.waitForActiveShards = waitForActiveShards
+// Refresh indicates whether Elasticsearch to make the bulk requests
+// available to search immediately after being processed. Normally, this
+// only happens after a specified refresh interval.
+func (s *BulkService) Refresh(refresh bool) *BulkService {
+	s.refresh = &refresh
 	return s
 }
 
@@ -130,6 +93,7 @@ func (s *BulkService) Pretty(pretty bool) *BulkService {
 func (s *BulkService) Add(requests ...BulkableRequest) *BulkService {
 	for _, r := range requests {
 		s.requests = append(s.requests, r)
+		s.sizeInBytes += s.estimateSizeInBytes(r)
 	}
 	return s
 }
@@ -137,13 +101,6 @@ func (s *BulkService) Add(requests ...BulkableRequest) *BulkService {
 // EstimatedSizeInBytes returns the estimated size of all bulkable
 // requests added via Add.
 func (s *BulkService) EstimatedSizeInBytes() int64 {
-	if s.sizeInBytesCursor == len(s.requests) {
-		return s.sizeInBytes
-	}
-	for _, r := range s.requests[s.sizeInBytesCursor:] {
-		s.sizeInBytes += s.estimateSizeInBytes(r)
-		s.sizeInBytesCursor++
-	}
 	return s.sizeInBytes
 }
 
@@ -167,8 +124,7 @@ func (s *BulkService) NumberOfActions() int {
 }
 
 func (s *BulkService) bodyAsString() (string, error) {
-	// Pre-allocate to reduce allocs
-	buf := bytes.NewBuffer(make([]byte, 0, s.EstimatedSizeInBytes()))
+	var buf bytes.Buffer
 
 	for _, req := range s.requests {
 		source, err := req.Source()
@@ -184,10 +140,15 @@ func (s *BulkService) bodyAsString() (string, error) {
 	return buf.String(), nil
 }
 
-// Do sends the batched requests to Elasticsearch. Note that, when successful,
+// Do runs DoC() with default context.
+func (s *BulkService) Do() (*BulkResponse, error) {
+	return s.DoC(nil)
+}
+
+// DoC sends the batched requests to Elasticsearch. Note that, when successful,
 // you can reuse the BulkService for the next batch as the list of bulk
 // requests is cleared on success.
-func (s *BulkService) Do(ctx context.Context) (*BulkResponse, error) {
+func (s *BulkService) DoC(ctx context.Context) (*BulkResponse, error) {
 	// No actions?
 	if s.NumberOfActions() == 0 {
 		return nil, errors.New("elastic: No bulk actions to commit")
@@ -226,31 +187,15 @@ func (s *BulkService) Do(ctx context.Context) (*BulkResponse, error) {
 	if s.pretty {
 		params.Set("pretty", fmt.Sprintf("%v", s.pretty))
 	}
-	if s.pipeline != "" {
-		params.Set("pipeline", s.pipeline)
-	}
-	if s.refresh != "" {
-		params.Set("refresh", s.refresh)
-	}
-	if s.routing != "" {
-		params.Set("routing", s.routing)
+	if s.refresh != nil {
+		params.Set("refresh", fmt.Sprintf("%v", *s.refresh))
 	}
 	if s.timeout != "" {
 		params.Set("timeout", s.timeout)
 	}
-	if s.waitForActiveShards != "" {
-		params.Set("wait_for_active_shards", s.waitForActiveShards)
-	}
 
 	// Get response
-	res, err := s.client.PerformRequestWithOptions(ctx, PerformRequestOptions{
-		Method:      "POST",
-		Path:        path,
-		Params:      params,
-		Body:        body,
-		ContentType: "application/x-ndjson",
-		Retrier:     s.retrier,
-	})
+	res, err := s.client.PerformRequestC(ctx, "POST", path, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -262,7 +207,7 @@ func (s *BulkService) Do(ctx context.Context) (*BulkResponse, error) {
 	}
 
 	// Reset so the request can be reused
-	s.reset()
+	s.Reset()
 
 	return ret, nil
 }
@@ -316,16 +261,13 @@ type BulkResponse struct {
 
 // BulkResponseItem is the result of a single bulk request.
 type BulkResponseItem struct {
-	Index         string        `json:"_index,omitempty"`
-	Type          string        `json:"_type,omitempty"`
-	Id            string        `json:"_id,omitempty"`
-	Version       int64         `json:"_version,omitempty"`
-	Status        int           `json:"status,omitempty"`
-	Result        string        `json:"result,omitempty"`
-	ForcedRefresh bool          `json:"forced_refresh,omitempty"`
-	Found         bool          `json:"found,omitempty"`
-	Error         *ErrorDetails `json:"error,omitempty"`
-	GetResult     *GetResult    `json:"get,omitempty"`
+	Index   string `json:"_index,omitempty"`
+	Type    string `json:"_type,omitempty"`
+	Id      string `json:"_id,omitempty"`
+	Version int    `json:"_version,omitempty"`
+	Status  int    `json:"status,omitempty"`
+	Found   bool   `json:"found,omitempty"`
+	Error   string `json:"error,omitempty"`
 }
 
 // Indexed returns all bulk request results of "index" actions.

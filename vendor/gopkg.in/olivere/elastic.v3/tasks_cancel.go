@@ -10,13 +10,13 @@ import (
 	"net/url"
 	"strings"
 
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v3/uritemplates"
 )
 
 // TasksCancelService can cancel long-running tasks.
 // It is supported as of Elasticsearch 2.3.0.
 //
-// See http://www.elastic.co/guide/en/elasticsearch/reference/5.2/tasks-cancel.html
+// See http://www.elastic.co/guide/en/elasticsearch/reference/master/tasks-cancel.html
 // for details.
 type TasksCancelService struct {
 	client     *Client
@@ -118,7 +118,12 @@ func (s *TasksCancelService) Validate() error {
 }
 
 // Do executes the operation.
-func (s *TasksCancelService) Do(ctx context.Context) (*TasksListResponse, error) {
+func (s *TasksCancelService) Do() (*TasksListResponse, error) {
+	return s.DoC(nil)
+}
+
+// DoC executes the operation.
+func (s *TasksCancelService) DoC(ctx context.Context) (*TasksListResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -131,7 +136,7 @@ func (s *TasksCancelService) Do(ctx context.Context) (*TasksListResponse, error)
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "POST", path, params, nil)
+	res, err := s.client.PerformRequestC(ctx, "POST", path, params, nil)
 	if err != nil {
 		return nil, err
 	}

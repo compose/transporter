@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -7,7 +7,7 @@ package elastic
 // ChildrenAggregation is a special single bucket aggregation that enables
 // aggregating from buckets on parent document types to buckets on child documents.
 // It is available from 1.4.0.Beta1 upwards.
-// See: https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-aggregations-bucket-children-aggregation.html
+// See: http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-aggregations-bucket-children-aggregation.html
 type ChildrenAggregation struct {
 	typ             string
 	subAggregations map[string]Aggregation

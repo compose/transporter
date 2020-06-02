@@ -10,34 +10,30 @@ import (
 	"net/url"
 	"strings"
 
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v3/uritemplates"
 )
 
-// AliasesService returns the aliases associated with one or more indices.
-// See http://www.elastic.co/guide/en/elasticsearch/reference/5.2/indices-aliases.html.
 type AliasesService struct {
-	client *Client
-	index  []string
-	pretty bool
+	client  *Client
+	indices []string
+	pretty  bool
 }
 
-// NewAliasesService instantiates a new AliasesService.
 func NewAliasesService(client *Client) *AliasesService {
 	builder := &AliasesService{
-		client: client,
+		client:  client,
+		indices: make([]string, 0),
 	}
 	return builder
 }
 
-// Pretty asks Elasticsearch to indent the returned JSON.
 func (s *AliasesService) Pretty(pretty bool) *AliasesService {
 	s.pretty = pretty
 	return s
 }
 
-// Index adds one or more indices.
-func (s *AliasesService) Index(index ...string) *AliasesService {
-	s.index = append(s.index, index...)
+func (s *AliasesService) Index(indices ...string) *AliasesService {
+	s.indices = append(s.indices, indices...)
 	return s
 }
 
@@ -46,9 +42,9 @@ func (s *AliasesService) buildURL() (string, url.Values, error) {
 	var err error
 	var path string
 
-	if len(s.index) > 0 {
+	if len(s.indices) > 0 {
 		path, err = uritemplates.Expand("/{index}/_aliases", map[string]string{
-			"index": strings.Join(s.index, ","),
+			"index": strings.Join(s.indices, ","),
 		})
 	} else {
 		path = "/_aliases"
@@ -65,14 +61,18 @@ func (s *AliasesService) buildURL() (string, url.Values, error) {
 	return path, params, nil
 }
 
-func (s *AliasesService) Do(ctx context.Context) (*AliasesResult, error) {
+func (s *AliasesService) Do() (*AliasesResult, error) {
+	return s.DoC(nil)
+}
+
+func (s *AliasesService) DoC(ctx context.Context) (*AliasesResult, error) {
 	path, params, err := s.buildURL()
 	if err != nil {
 		return nil, err
 	}
 
 	// Get response
-	res, err := s.client.PerformRequest(ctx, "GET", path, params, nil)
+	res, err := s.client.PerformRequestC(ctx, "GET", path, params, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func (s *AliasesService) Do(ctx context.Context) (*AliasesResult, error) {
 		if ok {
 			aliasesData, ok := indexDataMap["aliases"].(map[string]interface{})
 			if ok {
-				for aliasName, _ := range aliasesData {
+				for aliasName := range aliasesData {
 					aliasRes := aliasResult{AliasName: aliasName}
 					indexOut.Aliases = append(indexOut.Aliases, aliasRes)
 				}
@@ -137,6 +137,7 @@ type aliasResult struct {
 
 func (ar AliasesResult) IndicesByAlias(aliasName string) []string {
 	var indices []string
+
 	for indexName, indexInfo := range ar.Indices {
 		for _, aliasInfo := range indexInfo.Aliases {
 			if aliasInfo.AliasName == aliasName {
@@ -144,6 +145,7 @@ func (ar AliasesResult) IndicesByAlias(aliasName string) []string {
 			}
 		}
 	}
+
 	return indices
 }
 

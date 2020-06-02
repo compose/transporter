@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"time"
 
-	"gopkg.in/mgo.v2/bson"
+	"github.com/globalsign/mgo/bson"
 
 	"github.com/compose/transporter/message/data"
 	"github.com/compose/transporter/message/ops"

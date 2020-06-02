@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -6,7 +6,7 @@ package elastic
 
 // DateHistogramAggregation is a multi-bucket aggregation similar to the
 // histogram except it can only be applied on date values.
-// See: https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-aggregations-bucket-datehistogram-aggregation.html
+// See: http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-aggregations-bucket-datehistogram-aggregation.html
 type DateHistogramAggregation struct {
 	field           string
 	script          *Script

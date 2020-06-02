@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -7,7 +7,7 @@ package elastic
 // -- SuggesterCategoryMapping --
 
 // SuggesterCategoryMapping provides a mapping for a category context in a suggester.
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/suggester-context.html#_category_mapping.
+// See http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/suggester-context.html#_category_mapping.
 type SuggesterCategoryMapping struct {
 	name          string
 	fieldName     string
@@ -33,7 +33,7 @@ func (q *SuggesterCategoryMapping) FieldName(fieldName string) *SuggesterCategor
 }
 
 // Source returns a map that will be used to serialize the context query as JSON.
-func (q *SuggesterCategoryMapping) Source() (interface{}, error) {
+func (q *SuggesterCategoryMapping) Source() interface{} {
 	source := make(map[string]interface{})
 
 	x := make(map[string]interface{})
@@ -53,67 +53,47 @@ func (q *SuggesterCategoryMapping) Source() (interface{}, error) {
 	if q.fieldName != "" {
 		x["path"] = q.fieldName
 	}
-	return source, nil
+	return source
 }
 
 // -- SuggesterCategoryQuery --
 
 // SuggesterCategoryQuery provides querying a category context in a suggester.
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/suggester-context.html#_category_query.
+// See http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/suggester-context.html#_category_query.
 type SuggesterCategoryQuery struct {
 	name   string
-	values map[string]*int
+	values []string
 }
 
 // NewSuggesterCategoryQuery creates a new SuggesterCategoryQuery.
 func NewSuggesterCategoryQuery(name string, values ...string) *SuggesterCategoryQuery {
 	q := &SuggesterCategoryQuery{
 		name:   name,
-		values: make(map[string]*int),
+		values: make([]string, 0),
 	}
-
 	if len(values) > 0 {
-		q.Values(values...)
+		q.values = append(q.values, values...)
 	}
-	return q
-}
-
-func (q *SuggesterCategoryQuery) Value(val string) *SuggesterCategoryQuery {
-	q.values[val] = nil
-	return q
-}
-
-func (q *SuggesterCategoryQuery) ValueWithBoost(val string, boost int) *SuggesterCategoryQuery {
-	q.values[val] = &boost
 	return q
 }
 
 func (q *SuggesterCategoryQuery) Values(values ...string) *SuggesterCategoryQuery {
-	for _, val := range values {
-		q.values[val] = nil
-	}
+	q.values = append(q.values, values...)
 	return q
 }
 
 // Source returns a map that will be used to serialize the context query as JSON.
-func (q *SuggesterCategoryQuery) Source() (interface{}, error) {
+func (q *SuggesterCategoryQuery) Source() interface{} {
 	source := make(map[string]interface{})
 
 	switch len(q.values) {
 	case 0:
-		source[q.name] = make([]string, 0)
+		source[q.name] = q.values
+	case 1:
+		source[q.name] = q.values[0]
 	default:
-		contexts := make([]interface{}, 0)
-		for val, boost := range q.values {
-			context := make(map[string]interface{})
-			context["context"] = val
-			if boost != nil {
-				context["boost"] = *boost
-			}
-			contexts = append(contexts, context)
-		}
-		source[q.name] = contexts
+		source[q.name] = q.values
 	}
 
-	return source, nil
+	return source
 }

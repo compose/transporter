@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -10,15 +10,14 @@ package elastic
 // root parent doc (or parent nested mapping).
 //
 // For more details, see
-// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/query-dsl-nested-query.html
+// https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-nested-query.html
 type NestedQuery struct {
-	query          Query
-	path           string
-	scoreMode      string
-	boost          *float64
-	queryName      string
-	innerHit       *InnerHit
-	ignoreUnmapped *bool
+	query     Query
+	path      string
+	scoreMode string
+	boost     *float64
+	queryName string
+	innerHit  *InnerHit
 }
 
 // NewNestedQuery creates and initializes a new NestedQuery.
@@ -52,13 +51,6 @@ func (q *NestedQuery) InnerHit(innerHit *InnerHit) *NestedQuery {
 	return q
 }
 
-// IgnoreUnmapped sets the ignore_unmapped option for the filter that ignores
-// unmapped nested fields
-func (q *NestedQuery) IgnoreUnmapped(value bool) *NestedQuery {
-	q.ignoreUnmapped = &value
-	return q
-}
-
 // Source returns JSON for the query.
 func (q *NestedQuery) Source() (interface{}, error) {
 	query := make(map[string]interface{})
@@ -81,9 +73,6 @@ func (q *NestedQuery) Source() (interface{}, error) {
 	}
 	if q.queryName != "" {
 		nq["_name"] = q.queryName
-	}
-	if q.ignoreUnmapped != nil {
-		nq["ignore_unmapped"] = *q.ignoreUnmapped
 	}
 	if q.innerHit != nil {
 		src, err := q.innerHit.Source()

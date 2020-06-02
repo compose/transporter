@@ -1,41 +1,38 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
-// TermQuery finds documents that contain the exact term specified
-// in the inverted index.
-//
-// For details, see
-// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/query-dsl-term-query.html
+// A term query matches documents that contain
+// a term (not analyzed). For more details, see
+// http://www.elasticsearch.org/guide/reference/query-dsl/term-query.html
 type TermQuery struct {
+	Query
 	name      string
 	value     interface{}
-	boost     *float64
+	boost     *float32
 	queryName string
 }
 
-// NewTermQuery creates and initializes a new TermQuery.
-func NewTermQuery(name string, value interface{}) *TermQuery {
-	return &TermQuery{name: name, value: value}
+// Creates a new term query.
+func NewTermQuery(name string, value interface{}) TermQuery {
+	t := TermQuery{name: name, value: value}
+	return t
 }
 
-// Boost sets the boost for this query.
-func (q *TermQuery) Boost(boost float64) *TermQuery {
+func (q TermQuery) Boost(boost float32) TermQuery {
 	q.boost = &boost
 	return q
 }
 
-// QueryName sets the query name for the filter that can be used
-// when searching for matched_filters per hit
-func (q *TermQuery) QueryName(queryName string) *TermQuery {
+func (q TermQuery) QueryName(queryName string) TermQuery {
 	q.queryName = queryName
 	return q
 }
 
-// Source returns JSON for the query.
-func (q *TermQuery) Source() (interface{}, error) {
+// Creates the query source for the term query.
+func (q TermQuery) Source() interface{} {
 	// {"term":{"name":"value"}}
 	source := make(map[string]interface{})
 	tq := make(map[string]interface{})
@@ -54,5 +51,5 @@ func (q *TermQuery) Source() (interface{}, error) {
 		}
 		tq[q.name] = subQ
 	}
-	return source, nil
+	return source
 }

@@ -1,13 +1,11 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
-// PhraseSuggester provides an API to access word alternatives
-// on a per token basis within a certain string distance.
 // For more details, see
-// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-suggesters-phrase.html.
+// http://www.elasticsearch.org/guide/reference/api/search/phrase-suggest/
 type PhraseSuggester struct {
 	Suggester
 	name           string
@@ -19,10 +17,10 @@ type PhraseSuggester struct {
 	contextQueries []SuggesterContextQuery
 
 	// fields specific to a phrase suggester
-	maxErrors               *float64
+	maxErrors               *float32
 	separator               *string
-	realWordErrorLikelihood *float64
-	confidence              *float64
+	realWordErrorLikelihood *float32
+	confidence              *float32
 	generators              map[string][]CandidateGenerator
 	gramSize                *int
 	smoothingModel          SmoothingModel
@@ -30,86 +28,88 @@ type PhraseSuggester struct {
 	tokenLimit              *int
 	preTag, postTag         *string
 	collateQuery            *string
+	collateFilter           *string
 	collatePreference       *string
 	collateParams           map[string]interface{}
 	collatePrune            *bool
 }
 
-// NewPhraseSuggester creates a new PhraseSuggester.
-func NewPhraseSuggester(name string) *PhraseSuggester {
-	return &PhraseSuggester{
-		name:          name,
-		collateParams: make(map[string]interface{}),
+// Creates a new phrase suggester.
+func NewPhraseSuggester(name string) PhraseSuggester {
+	return PhraseSuggester{
+		name:           name,
+		contextQueries: make([]SuggesterContextQuery, 0),
+		collateParams:  make(map[string]interface{}),
 	}
 }
 
-func (q *PhraseSuggester) Name() string {
+func (q PhraseSuggester) Name() string {
 	return q.name
 }
 
-func (q *PhraseSuggester) Text(text string) *PhraseSuggester {
+func (q PhraseSuggester) Text(text string) PhraseSuggester {
 	q.text = text
 	return q
 }
 
-func (q *PhraseSuggester) Field(field string) *PhraseSuggester {
+func (q PhraseSuggester) Field(field string) PhraseSuggester {
 	q.field = field
 	return q
 }
 
-func (q *PhraseSuggester) Analyzer(analyzer string) *PhraseSuggester {
+func (q PhraseSuggester) Analyzer(analyzer string) PhraseSuggester {
 	q.analyzer = analyzer
 	return q
 }
 
-func (q *PhraseSuggester) Size(size int) *PhraseSuggester {
+func (q PhraseSuggester) Size(size int) PhraseSuggester {
 	q.size = &size
 	return q
 }
 
-func (q *PhraseSuggester) ShardSize(shardSize int) *PhraseSuggester {
+func (q PhraseSuggester) ShardSize(shardSize int) PhraseSuggester {
 	q.shardSize = &shardSize
 	return q
 }
 
-func (q *PhraseSuggester) ContextQuery(query SuggesterContextQuery) *PhraseSuggester {
+func (q PhraseSuggester) ContextQuery(query SuggesterContextQuery) PhraseSuggester {
 	q.contextQueries = append(q.contextQueries, query)
 	return q
 }
 
-func (q *PhraseSuggester) ContextQueries(queries ...SuggesterContextQuery) *PhraseSuggester {
+func (q PhraseSuggester) ContextQueries(queries ...SuggesterContextQuery) PhraseSuggester {
 	q.contextQueries = append(q.contextQueries, queries...)
 	return q
 }
 
-func (q *PhraseSuggester) GramSize(gramSize int) *PhraseSuggester {
+func (q PhraseSuggester) GramSize(gramSize int) PhraseSuggester {
 	if gramSize >= 1 {
 		q.gramSize = &gramSize
 	}
 	return q
 }
 
-func (q *PhraseSuggester) MaxErrors(maxErrors float64) *PhraseSuggester {
+func (q PhraseSuggester) MaxErrors(maxErrors float32) PhraseSuggester {
 	q.maxErrors = &maxErrors
 	return q
 }
 
-func (q *PhraseSuggester) Separator(separator string) *PhraseSuggester {
+func (q PhraseSuggester) Separator(separator string) PhraseSuggester {
 	q.separator = &separator
 	return q
 }
 
-func (q *PhraseSuggester) RealWordErrorLikelihood(realWordErrorLikelihood float64) *PhraseSuggester {
+func (q PhraseSuggester) RealWordErrorLikelihood(realWordErrorLikelihood float32) PhraseSuggester {
 	q.realWordErrorLikelihood = &realWordErrorLikelihood
 	return q
 }
 
-func (q *PhraseSuggester) Confidence(confidence float64) *PhraseSuggester {
+func (q PhraseSuggester) Confidence(confidence float32) PhraseSuggester {
 	q.confidence = &confidence
 	return q
 }
 
-func (q *PhraseSuggester) CandidateGenerator(generator CandidateGenerator) *PhraseSuggester {
+func (q PhraseSuggester) CandidateGenerator(generator CandidateGenerator) PhraseSuggester {
 	if q.generators == nil {
 		q.generators = make(map[string][]CandidateGenerator)
 	}
@@ -121,60 +121,65 @@ func (q *PhraseSuggester) CandidateGenerator(generator CandidateGenerator) *Phra
 	return q
 }
 
-func (q *PhraseSuggester) CandidateGenerators(generators ...CandidateGenerator) *PhraseSuggester {
+func (q PhraseSuggester) CandidateGenerators(generators ...CandidateGenerator) PhraseSuggester {
 	for _, g := range generators {
 		q = q.CandidateGenerator(g)
 	}
 	return q
 }
 
-func (q *PhraseSuggester) ClearCandidateGenerator() *PhraseSuggester {
+func (q PhraseSuggester) ClearCandidateGenerator() PhraseSuggester {
 	q.generators = nil
 	return q
 }
 
-func (q *PhraseSuggester) ForceUnigrams(forceUnigrams bool) *PhraseSuggester {
+func (q PhraseSuggester) ForceUnigrams(forceUnigrams bool) PhraseSuggester {
 	q.forceUnigrams = &forceUnigrams
 	return q
 }
 
-func (q *PhraseSuggester) SmoothingModel(smoothingModel SmoothingModel) *PhraseSuggester {
+func (q PhraseSuggester) SmoothingModel(smoothingModel SmoothingModel) PhraseSuggester {
 	q.smoothingModel = smoothingModel
 	return q
 }
 
-func (q *PhraseSuggester) TokenLimit(tokenLimit int) *PhraseSuggester {
+func (q PhraseSuggester) TokenLimit(tokenLimit int) PhraseSuggester {
 	q.tokenLimit = &tokenLimit
 	return q
 }
 
-func (q *PhraseSuggester) Highlight(preTag, postTag string) *PhraseSuggester {
+func (q PhraseSuggester) Highlight(preTag, postTag string) PhraseSuggester {
 	q.preTag = &preTag
 	q.postTag = &postTag
 	return q
 }
 
-func (q *PhraseSuggester) CollateQuery(collateQuery string) *PhraseSuggester {
+func (q PhraseSuggester) CollateQuery(collateQuery string) PhraseSuggester {
 	q.collateQuery = &collateQuery
 	return q
 }
 
-func (q *PhraseSuggester) CollatePreference(collatePreference string) *PhraseSuggester {
+func (q PhraseSuggester) CollateFilter(collateFilter string) PhraseSuggester {
+	q.collateFilter = &collateFilter
+	return q
+}
+
+func (q PhraseSuggester) CollatePreference(collatePreference string) PhraseSuggester {
 	q.collatePreference = &collatePreference
 	return q
 }
 
-func (q *PhraseSuggester) CollateParams(collateParams map[string]interface{}) *PhraseSuggester {
+func (q PhraseSuggester) CollateParams(collateParams map[string]interface{}) PhraseSuggester {
 	q.collateParams = collateParams
 	return q
 }
 
-func (q *PhraseSuggester) CollatePrune(collatePrune bool) *PhraseSuggester {
+func (q PhraseSuggester) CollatePrune(collatePrune bool) PhraseSuggester {
 	q.collatePrune = &collatePrune
 	return q
 }
 
-// phraseSuggesterRequest is necessary because the order in which
+// simplePhraseSuggesterRequest is necessary because the order in which
 // the JSON elements are routed to Elasticsearch is relevant.
 // We got into trouble when using plain maps because the text element
 // needs to go before the simple_phrase element.
@@ -183,8 +188,8 @@ type phraseSuggesterRequest struct {
 	Phrase interface{} `json:"phrase"`
 }
 
-// Source generates the source for the phrase suggester.
-func (q *PhraseSuggester) Source(includeName bool) (interface{}, error) {
+// Creates the source for the phrase suggester.
+func (q PhraseSuggester) Source(includeName bool) interface{} {
 	ps := &phraseSuggesterRequest{}
 
 	if q.text != "" {
@@ -209,19 +214,11 @@ func (q *PhraseSuggester) Source(includeName bool) (interface{}, error) {
 	switch len(q.contextQueries) {
 	case 0:
 	case 1:
-		src, err := q.contextQueries[0].Source()
-		if err != nil {
-			return nil, err
-		}
-		suggester["context"] = src
+		suggester["context"] = q.contextQueries[0].Source()
 	default:
-		var ctxq []interface{}
+		ctxq := make([]interface{}, 0)
 		for _, query := range q.contextQueries {
-			src, err := query.Source()
-			if err != nil {
-				return nil, err
-			}
-			ctxq = append(ctxq, src)
+			ctxq = append(ctxq, query.Source())
 		}
 		suggester["context"] = ctxq
 	}
@@ -250,24 +247,16 @@ func (q *PhraseSuggester) Source(includeName bool) (interface{}, error) {
 	}
 	if q.generators != nil && len(q.generators) > 0 {
 		for typ, generators := range q.generators {
-			var arr []interface{}
+			arr := make([]interface{}, 0)
 			for _, g := range generators {
-				src, err := g.Source()
-				if err != nil {
-					return nil, err
-				}
-				arr = append(arr, src)
+				arr = append(arr, g.Source())
 			}
 			suggester[typ] = arr
 		}
 	}
 	if q.smoothingModel != nil {
-		src, err := q.smoothingModel.Source()
-		if err != nil {
-			return nil, err
-		}
 		x := make(map[string]interface{})
-		x[q.smoothingModel.Type()] = src
+		x[q.smoothingModel.Type()] = q.smoothingModel.Source()
 		suggester["smoothing"] = x
 	}
 	if q.preTag != nil {
@@ -278,11 +267,14 @@ func (q *PhraseSuggester) Source(includeName bool) (interface{}, error) {
 		}
 		suggester["highlight"] = hl
 	}
-	if q.collateQuery != nil {
+	if q.collateQuery != nil || q.collateFilter != nil {
 		collate := make(map[string]interface{})
 		suggester["collate"] = collate
 		if q.collateQuery != nil {
 			collate["query"] = *q.collateQuery
+		}
+		if q.collateFilter != nil {
+			collate["filter"] = *q.collateFilter
 		}
 		if q.collatePreference != nil {
 			collate["preference"] = *q.collatePreference
@@ -296,23 +288,23 @@ func (q *PhraseSuggester) Source(includeName bool) (interface{}, error) {
 	}
 
 	if !includeName {
-		return ps, nil
+		return ps
 	}
 
 	source := make(map[string]interface{})
 	source[q.name] = ps
-	return source, nil
+	return source
 }
 
 // -- Smoothing models --
 
 type SmoothingModel interface {
 	Type() string
-	Source() (interface{}, error)
+	Source() interface{}
 }
 
 // StupidBackoffSmoothingModel implements a stupid backoff smoothing model.
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-suggesters-phrase.html#_smoothing_models
+// See http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-suggesters-phrase.html#_smoothing_models
 // for details about smoothing models.
 type StupidBackoffSmoothingModel struct {
 	discount float64
@@ -328,16 +320,16 @@ func (sm *StupidBackoffSmoothingModel) Type() string {
 	return "stupid_backoff"
 }
 
-func (sm *StupidBackoffSmoothingModel) Source() (interface{}, error) {
+func (sm *StupidBackoffSmoothingModel) Source() interface{} {
 	source := make(map[string]interface{})
 	source["discount"] = sm.discount
-	return source, nil
+	return source
 }
 
 // --
 
 // LaplaceSmoothingModel implements a laplace smoothing model.
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-suggesters-phrase.html#_smoothing_models
+// See http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-suggesters-phrase.html#_smoothing_models
 // for details about smoothing models.
 type LaplaceSmoothingModel struct {
 	alpha float64
@@ -353,17 +345,17 @@ func (sm *LaplaceSmoothingModel) Type() string {
 	return "laplace"
 }
 
-func (sm *LaplaceSmoothingModel) Source() (interface{}, error) {
+func (sm *LaplaceSmoothingModel) Source() interface{} {
 	source := make(map[string]interface{})
 	source["alpha"] = sm.alpha
-	return source, nil
+	return source
 }
 
 // --
 
 // LinearInterpolationSmoothingModel implements a linear interpolation
 // smoothing model.
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-suggesters-phrase.html#_smoothing_models
+// See http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-suggesters-phrase.html#_smoothing_models
 // for details about smoothing models.
 type LinearInterpolationSmoothingModel struct {
 	trigramLamda  float64
@@ -383,23 +375,23 @@ func (sm *LinearInterpolationSmoothingModel) Type() string {
 	return "linear_interpolation"
 }
 
-func (sm *LinearInterpolationSmoothingModel) Source() (interface{}, error) {
+func (sm *LinearInterpolationSmoothingModel) Source() interface{} {
 	source := make(map[string]interface{})
 	source["trigram_lambda"] = sm.trigramLamda
 	source["bigram_lambda"] = sm.bigramLambda
 	source["unigram_lambda"] = sm.unigramLambda
-	return source, nil
+	return source
 }
 
 // -- CandidateGenerator --
 
 type CandidateGenerator interface {
 	Type() string
-	Source() (interface{}, error)
+	Source() interface{}
 }
 
 // DirectCandidateGenerator implements a direct candidate generator.
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-suggesters-phrase.html#_smoothing_models
+// See http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-suggesters-phrase.html#_smoothing_models
 // for details about smoothing models.
 type DirectCandidateGenerator struct {
 	field          string
@@ -498,7 +490,7 @@ func (g *DirectCandidateGenerator) MinDocFreq(minDocFreq float64) *DirectCandida
 	return g
 }
 
-func (g *DirectCandidateGenerator) Source() (interface{}, error) {
+func (g *DirectCandidateGenerator) Source() interface{} {
 	source := make(map[string]interface{})
 	if g.field != "" {
 		source["field"] = g.field
@@ -542,5 +534,5 @@ func (g *DirectCandidateGenerator) Source() (interface{}, error) {
 	if g.postFilter != nil {
 		source["post_filter"] = *g.postFilter
 	}
-	return source, nil
+	return source
 }

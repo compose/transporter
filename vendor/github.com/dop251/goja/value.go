@@ -716,19 +716,36 @@ func (o *Object) Keys() (keys []string) {
 	return
 }
 
-func (o *Object) Set(name string, value interface{}) (err error) {
-	defer func() {
-		if x := recover(); x != nil {
-			if ex, ok := x.(*Exception); ok {
-				err = ex
-			} else {
-				panic(x)
-			}
-		}
-	}()
+// DefineDataProperty is a Go equivalent of Object.defineProperty(o, name, {value: value, writable: writable,
+// configurable: configurable, enumerable: enumerable})
+func (o *Object) DefineDataProperty(name string, value Value, writable, configurable, enumerable Flag) error {
+	return tryFunc(func() {
+		o.self.defineOwnProperty(newStringValue(name), propertyDescr{
+			Value:        value,
+			Writable:     writable,
+			Configurable: configurable,
+			Enumerable:   enumerable,
+		}, true)
+	})
+}
 
-	o.self.putStr(name, o.runtime.ToValue(value), true)
-	return
+// DefineAccessorProperty is a Go equivalent of Object.defineProperty(o, name, {get: getter, set: setter,
+// configurable: configurable, enumerable: enumerable})
+func (o *Object) DefineAccessorProperty(name string, getter, setter Value, configurable, enumerable Flag) error {
+	return tryFunc(func() {
+		o.self.defineOwnProperty(newStringValue(name), propertyDescr{
+			Getter:       getter,
+			Setter:       setter,
+			Configurable: configurable,
+			Enumerable:   enumerable,
+		}, true)
+	})
+}
+
+func (o *Object) Set(name string, value interface{}) error {
+	return tryFunc(func() {
+		o.self.putStr(name, o.runtime.ToValue(value), true)
+	})
 }
 
 // MarshalJSON returns JSON representation of the Object. It is equivalent to JSON.stringify(o).
@@ -746,6 +763,11 @@ func (o *Object) MarshalJSON() ([]byte, error) {
 		return nil, ex
 	}
 	return ctx.buf.Bytes(), nil
+}
+
+// ClassName returns the class name
+func (o *Object) ClassName() string {
+	return o.self.className()
 }
 
 func (o valueUnresolved) throw() {

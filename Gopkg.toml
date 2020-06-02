@@ -46,8 +46,8 @@
   version = "3.0.1"
 
 [[constraint]]
-  branch = "v2"
-  name = "gopkg.in/mgo.v2"
+  branch = "master"
+  name = "github.com/globalsign/mgo"
 
 [[constraint]]
   name = "gopkg.in/olivere/elastic.v5"

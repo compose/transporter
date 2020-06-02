@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -7,7 +7,7 @@ package elastic
 // InnerHit implements a simple join for parent/child, nested, and even
 // top-level documents in Elasticsearch.
 // It is an experimental feature for Elasticsearch versions 1.5 (or greater).
-// See http://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-request-inner-hits.html
+// See http://www.elastic.co/guide/en/elasticsearch/reference/1.5/search-request-inner-hits.html
 // for documentation.
 //
 // See the tests for SearchSource, HasChildFilter, HasChildQuery,
@@ -66,18 +66,18 @@ func (hit *InnerHit) Version(version bool) *InnerHit {
 	return hit
 }
 
-func (hit *InnerHit) StoredField(storedFieldName string) *InnerHit {
-	hit.source.StoredField(storedFieldName)
+func (hit *InnerHit) Field(fieldName string) *InnerHit {
+	hit.source.Field(fieldName)
 	return hit
 }
 
-func (hit *InnerHit) StoredFields(storedFieldNames ...string) *InnerHit {
-	hit.source.StoredFields(storedFieldNames...)
+func (hit *InnerHit) Fields(fieldNames ...string) *InnerHit {
+	hit.source.Fields(fieldNames...)
 	return hit
 }
 
-func (hit *InnerHit) NoStoredFields() *InnerHit {
-	hit.source.NoStoredFields()
+func (hit *InnerHit) NoFields() *InnerHit {
+	hit.source.NoFields()
 	return hit
 }
 
@@ -91,13 +91,13 @@ func (hit *InnerHit) FetchSourceContext(fetchSourceContext *FetchSourceContext) 
 	return hit
 }
 
-func (hit *InnerHit) DocvalueFields(docvalueFields ...string) *InnerHit {
-	hit.source.DocvalueFields(docvalueFields...)
+func (hit *InnerHit) FieldDataFields(fieldDataFields ...string) *InnerHit {
+	hit.source.FieldDataFields(fieldDataFields...)
 	return hit
 }
 
-func (hit *InnerHit) DocvalueField(docvalueField string) *InnerHit {
-	hit.source.DocvalueField(docvalueField)
+func (hit *InnerHit) FieldDataField(fieldDataField string) *InnerHit {
+	hit.source.FieldDataField(fieldDataField)
 	return hit
 }
 
@@ -140,14 +140,10 @@ func (hit *InnerHit) Name(name string) *InnerHit {
 	return hit
 }
 
-func (hit *InnerHit) Source() (interface{}, error) {
-	src, err := hit.source.Source()
-	if err != nil {
-		return nil, err
-	}
-	source, ok := src.(map[string]interface{})
+func (hit *InnerHit) Source() interface{} {
+	source, ok := hit.source.Source().(map[string]interface{})
 	if !ok {
-		return nil, nil
+		return nil
 	}
 
 	// Notice that hit.typ and hit.path are not exported here.
@@ -156,5 +152,5 @@ func (hit *InnerHit) Source() (interface{}, error) {
 	if hit.name != "" {
 		source["name"] = hit.name
 	}
-	return source, nil
+	return source
 }

@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -8,10 +8,9 @@ package elastic
 // giving them all a _score of 1.0.
 //
 // For more details, see
-// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/query-dsl-match-all-query.html
+// https://www.elastic.co/guide/en/elasticsearch/reference/master/query-dsl-match-all-query.html
 type MatchAllQuery struct {
-	boost     *float64
-	queryName string
+	boost *float64
 }
 
 // NewMatchAllQuery creates and initializes a new match all query.
@@ -27,13 +26,7 @@ func (q *MatchAllQuery) Boost(boost float64) *MatchAllQuery {
 	return q
 }
 
-// QueryName sets the query name.
-func (q *MatchAllQuery) QueryName(name string) *MatchAllQuery {
-	q.queryName = name
-	return q
-}
-
-// Source returns JSON for the match all query.
+// Source returns JSON for the function score query.
 func (q MatchAllQuery) Source() (interface{}, error) {
 	// {
 	//   "match_all" : { ... }
@@ -43,9 +36,6 @@ func (q MatchAllQuery) Source() (interface{}, error) {
 	source["match_all"] = params
 	if q.boost != nil {
 		params["boost"] = *q.boost
-	}
-	if q.queryName != "" {
-		params["_name"] = q.queryName
 	}
 	return source, nil
 }

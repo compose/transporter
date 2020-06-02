@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -8,12 +8,12 @@ package elastic
 // in parent documents that have child docs matching the query.
 //
 // For more details, see
-// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/query-dsl-has-child-query.html
+// https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-has-child-query.html
 type HasChildQuery struct {
 	query              Query
 	childType          string
 	boost              *float64
-	scoreMode          string
+	scoreType          string
 	minChildren        *int
 	maxChildren        *int
 	shortCircuitCutoff *int
@@ -35,11 +35,10 @@ func (q *HasChildQuery) Boost(boost float64) *HasChildQuery {
 	return q
 }
 
-// ScoreMode defines how the scores from the matching child documents
-// are mapped into the parent document. Allowed values are: min, max,
-// avg, or none.
-func (q *HasChildQuery) ScoreMode(scoreMode string) *HasChildQuery {
-	q.scoreMode = scoreMode
+// ScoreType defines how the scores from the matching child documents
+// are mapped into the parent document.
+func (q *HasChildQuery) ScoreType(scoreType string) *HasChildQuery {
+	q.scoreType = scoreType
 	return q
 }
 
@@ -84,7 +83,6 @@ func (q *HasChildQuery) Source() (interface{}, error) {
 	// {
 	//   "has_child" : {
 	//       "type" : "blog_tag",
-	//       "score_mode" : "min",
 	//       "query" : {
 	//           "term" : {
 	//               "tag" : "something"
@@ -105,8 +103,8 @@ func (q *HasChildQuery) Source() (interface{}, error) {
 	if q.boost != nil {
 		query["boost"] = *q.boost
 	}
-	if q.scoreMode != "" {
-		query["score_mode"] = q.scoreMode
+	if q.scoreType != "" {
+		query["score_type"] = q.scoreType
 	}
 	if q.minChildren != nil {
 		query["min_children"] = *q.minChildren

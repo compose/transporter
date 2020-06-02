@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -9,12 +9,12 @@ import (
 	"fmt"
 	"net/url"
 
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v2/uritemplates"
 )
 
 // PutTemplateService creates or updates a search template.
 // The documentation can be found at
-// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/search-template.html.
+// http://www.elasticsearch.org/guide/en/elasticsearch/reference/master/search-template.html.
 type PutTemplateService struct {
 	client      *Client
 	pretty      bool
@@ -109,8 +109,13 @@ func (s *PutTemplateService) Validate() error {
 	return nil
 }
 
-// Do executes the operation.
-func (s *PutTemplateService) Do(ctx context.Context) (*AcknowledgedResponse, error) {
+// Do runs DoC() with default context.
+func (s *PutTemplateService) Do() (*PutTemplateResponse, error) {
+	return s.DoC(nil)
+}
+
+// DoC executes the operation.
+func (s *PutTemplateService) DoC(ctx context.Context) (*PutTemplateResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -131,15 +136,22 @@ func (s *PutTemplateService) Do(ctx context.Context) (*AcknowledgedResponse, err
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "PUT", path, params, body)
+	res, err := s.client.PerformRequestC(ctx, "PUT", path, params, body)
 	if err != nil {
 		return nil, err
 	}
 
 	// Return operation response
-	ret := new(AcknowledgedResponse)
+	ret := new(PutTemplateResponse)
 	if err := s.client.decoder.Decode(res.Body, ret); err != nil {
 		return nil, err
 	}
 	return ret, nil
+}
+
+// PutTemplateResponse is the response of PutTemplateService.Do.
+type PutTemplateResponse struct {
+	Id      string `json:"_id"`
+	Version int    `json:"_version"`
+	Created bool   `json:"created"`
 }
