@@ -28,6 +28,9 @@ const (
 
 	// DefaultReadPreference when connecting to a mongo replica set.
 	DefaultReadPreference = mgo.Primary
+
+	// DefaultMaxWriteBatchSize when using the bulk interface
+	DefaultMaxWriteBatchSize = 1000
 )
 
 var (
@@ -65,11 +68,12 @@ type ClientOptionFunc func(*Client) error
 type Client struct {
 	uri string
 
-	safety         mgo.Safe
-	tlsConfig      *tls.Config
-	sessionTimeout time.Duration
-	tail           bool
-	readPreference mgo.Mode
+	safety            mgo.Safe
+	tlsConfig         *tls.Config
+	sessionTimeout    time.Duration
+	tail              bool
+	readPreference    mgo.Mode
+	maxWriteBatchSize int
 
 	mgoSession *mgo.Session
 }
@@ -91,12 +95,13 @@ type Client struct {
 func NewClient(options ...ClientOptionFunc) (*Client, error) {
 	// Set up the client
 	c := &Client{
-		uri:            DefaultURI,
-		sessionTimeout: DefaultSessionTimeout,
-		safety:         DefaultSafety,
-		tlsConfig:      nil,
-		tail:           false,
-		readPreference: DefaultReadPreference,
+		uri:               DefaultURI,
+		sessionTimeout:    DefaultSessionTimeout,
+		safety:            DefaultSafety,
+		tlsConfig:         nil,
+		tail:              false,
+		readPreference:    DefaultReadPreference,
+		maxWriteBatchSize: DefaultMaxWriteBatchSize,
 	}
 
 	// Run the options on it
@@ -275,6 +280,14 @@ func (c *Client) initConnection() error {
 	mgoSession.SetSocketTimeout(time.Hour)
 	mgoSession.SetMode(c.readPreference, true)
 
+	// Lets set the max batch size
+	var results bson.M
+	err = mgoSession.DB("").Run("isMaster", &results)
+	if err != nil {
+		return client.ConnectError{Reason: err.Error()}
+	}
+	c.maxWriteBatchSize = results["maxWriteBatchSize"].(int)
+
 	if c.tail {
 		log.With("uri", c.uri).Infoln("testing oplog access")
 		localColls, err := mgoSession.DB("local").CollectionNames()
@@ -303,5 +316,5 @@ func (c *Client) initConnection() error {
 // Session fulfills the client.Client interface by providing a copy of the main mgoSession
 func (c *Client) session() client.Session {
 	sess := c.mgoSession.Copy()
-	return &Session{sess}
+	return &Session{sess, c.maxWriteBatchSize}
 }
