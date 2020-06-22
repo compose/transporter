@@ -53,7 +53,7 @@ func (b *Bulk) Write(msg message.Msg) func(client.Session) (message.Msg, error) 
 		b.confirmChan = msg.Confirms()
 		bOp, ok := b.bulkMap[coll]
 		if !ok {
-			s := s.(*Session).mgoSession.Copy()
+			s := s.(*Session).mgoSession.Clone()
 			bOp = &bulkOperation{
 				s:    s,
 				bulk: s.DB("").C(coll).Bulk(),
@@ -77,7 +77,7 @@ func (b *Bulk) Write(msg message.Msg) func(client.Session) (message.Msg, error) 
 			if err == nil && b.confirmChan != nil {
 				b.confirmChan <- struct{}{}
 			}
-			s := s.(*Session).mgoSession.Copy()
+			s := s.(*Session).mgoSession.Clone()
 			bOp = &bulkOperation{
 				s:    s,
 				bulk: s.DB("").C(coll).Bulk(),
