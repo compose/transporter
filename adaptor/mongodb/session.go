@@ -8,6 +8,7 @@ import (
 // Session serves as a wrapper for the underlying mgo.Session
 type Session struct {
 	mgoSession *mgo.Session
+	maxWriteBatchSize int
 }
 
 var _ client.Session = &Session{}
