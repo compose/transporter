@@ -282,7 +282,7 @@ func (c *Client) initConnection() error {
 
 	// Lets set the max batch size
 	var results bson.M
-	err = s.DB("").Run("isMaster", &results)
+	err = mgoSession.DB("").Run("isMaster", &results)
 	if err != nil {
 		return client.ConnectError{Reason: err.Error()}
 	}
