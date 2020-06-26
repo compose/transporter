@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	maxBSONObjSize int = 48000000
+	maxBSONObjSize int = 16000000
 )
 
 var (
