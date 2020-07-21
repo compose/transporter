@@ -275,7 +275,7 @@ func (c *Client) initConnection() error {
 	// mgo logger _may_ be a bit too noisy but it'll be good to have for diagnosis
 	mgo.SetLogger(log.Base())
 	mgoSession.EnsureSafe(&c.safety)
-	mgoSession.SetBatch(1000)
+	mgoSession.SetBatch(1000000)
 	mgoSession.SetPrefetch(0.5)
 	mgoSession.SetSocketTimeout(time.Hour)
 	mgoSession.SetMode(c.readPreference, true)
