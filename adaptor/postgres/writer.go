@@ -184,7 +184,9 @@ func primaryKeys(namespace string, db *sql.DB) (primaryKeys map[string]bool, err
 		WHERE constraints.constraint_type = 'PRIMARY KEY'
 			AND constraints.table_schema = '%v'
 			AND constraints.table_name = '%v'
-	`, tableSchema, tableName))
+			AND column_map.table_schema = '%v'
+			AND column_map.table_name = '%v'
+	`, tableSchema, tableName, tableSchema, tableName))
 	if err != nil {
 		return primaryKeys, err
 	}
