@@ -173,7 +173,7 @@ func WithCACerts(certs []string) ClientOptionFunc {
 			} else {
 				c.tlsConfig = &tls.Config{RootCAs: roots}
 			}
-			c.tlsConfig.InsecureSkipVerify = false
+			//c.tlsConfig.InsecureSkipVerify = false
 		}
 		return nil
 	}
