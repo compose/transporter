@@ -180,6 +180,7 @@ func WithCACerts(certs []string) ClientOptionFunc {
 }
 
 func withSSLAllowInvalidHostnames(sslAllowInvalidHostnames bool, certs []string) ClientOptionFunc {
+	log.Infoln("SSL mode enabled, but will skip invalid hostname verification")
 	return func(c *Client) error {
 		if sslAllowInvalidHostnames {
 			caCertPool := x509.NewCertPool()
@@ -198,6 +199,8 @@ func withSSLAllowInvalidHostnames(sslAllowInvalidHostnames bool, certs []string)
 						return client.ErrInvalidCert
 					}
 				}
+			} else {
+				log.Errorln("No certs provided. Please if you have set cacerts in your js file.")
 			}
 
 			c.tlsConfig = &tls.Config{
@@ -352,6 +355,8 @@ func (c *Client) initConnection() error {
 		if err := mgoSession.DB("local").C("oplog.rs").Find(bson.M{}).Limit(1).One(nil); err != nil {
 			return OplogAccessError{"not authorized for oplog.rs collection"}
 		}
+		l
+
 		log.Infoln("oplog access good")
 	}
 	c.mgoSession = mgoSession
