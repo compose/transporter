@@ -179,6 +179,67 @@ func WithCACerts(certs []string) ClientOptionFunc {
 	}
 }
 
+func withSSLAllowInvalidHostnames(sslAllowInvalidHostnames bool, certs []string) ClientOptionFunc {
+	log.Infoln("SSL mode enabled, but will skip invalid hostname verification")
+	return func(c *Client) error {
+		if sslAllowInvalidHostnames {
+			caCertPool := x509.NewCertPool()
+			if len(certs) > 0 {
+				for _, cert := range certs {
+					if _, err := os.Stat(cert); err != nil {
+						return errors.New("Cert file not found")
+					}
+
+					c, err := ioutil.ReadFile(cert)
+					if err != nil {
+						return err
+					}
+
+					if ok := caCertPool.AppendCertsFromPEM(c); !ok {
+						return client.ErrInvalidCert
+					}
+				}
+			} else {
+				log.Errorln("No certs provided. Please if you have set cacerts in your js file.")
+			}
+
+			c.tlsConfig = &tls.Config{
+				RootCAs:            caCertPool,
+				InsecureSkipVerify: true,
+				VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+					certs := make([]*x509.Certificate, len(rawCerts))
+					for i, asn1Data := range rawCerts {
+						cert, err := x509.ParseCertificate(asn1Data)
+						if err != nil {
+							return errors.New("failed to parse certificate from server: " + err.Error())
+						}
+						certs[i] = cert
+					}
+
+					opts := x509.VerifyOptions{
+						Roots:         caCertPool,
+						CurrentTime:   time.Now(),
+						DNSName:       "", // <- skip hostname verification
+						Intermediates: x509.NewCertPool(),
+					}
+
+					for i, cert := range certs {
+						if i == 0 {
+							continue
+						}
+						opts.Intermediates.AddCert(cert)
+					}
+					_, err := certs[0].Verify(opts)
+					return err
+				},
+			}
+
+		}
+		return nil
+
+	}
+}
+
 // WithWriteConcern configures the write concern option for the session (Default: 0).
 func WithWriteConcern(wc int) ClientOptionFunc {
 	return func(c *Client) error {
@@ -294,6 +355,8 @@ func (c *Client) initConnection() error {
 		if err := mgoSession.DB("local").C("oplog.rs").Find(bson.M{}).Limit(1).One(nil); err != nil {
 			return OplogAccessError{"not authorized for oplog.rs collection"}
 		}
+		l
+
 		log.Infoln("oplog access good")
 	}
 	c.mgoSession = mgoSession
