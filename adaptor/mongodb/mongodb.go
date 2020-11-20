@@ -18,6 +18,7 @@ const (
   // "tail": false,
   // "ssl": false,
   // "cacerts": ["/path/to/cert.pem"],
+  // "ssl_allow_invalid_hostnames": false,
   // "wc": 1,
   // "fsync": false,
   // "bulk": false,
@@ -37,14 +38,15 @@ var (
 // it works as a source by copying files, and then optionally tailing the oplog
 type mongoDB struct {
 	adaptor.BaseConfig
-	SSL               bool     `json:"ssl"`
-	CACerts           []string `json:"cacerts"`
-	Tail              bool     `json:"tail"`
-	Wc                int      `json:"wc"`
-	FSync             bool     `json:"fsync"`
-	Bulk              bool     `json:"bulk"`
-	CollectionFilters string   `json:"collection_filters"`
-	ReadPreference    string   `json:"read_preference"`
+	SSL                      bool     `json:"ssl"`
+	CACerts                  []string `json:"cacerts"`
+	SSLAllowInvalidHostnames bool     `json:"ssl_allow_invalid_hostnames"`
+	Tail                     bool     `json:"tail"`
+	Wc                       int      `json:"wc"`
+	FSync                    bool     `json:"fsync"`
+	Bulk                     bool     `json:"bulk"`
+	CollectionFilters        string   `json:"collection_filters"`
+	ReadPreference           string   `json:"read_preference"`
 }
 
 func init() {
@@ -61,6 +63,7 @@ func (m *mongoDB) Client() (client.Client, error) {
 		WithTimeout(m.Timeout),
 		WithSSL(m.SSL),
 		WithCACerts(m.CACerts),
+		withSSLAllowInvalidHostnames(m.SSLAllowInvalidHostnames, m.CACerts),
 		WithFsync(m.FSync),
 		WithTail(m.Tail),
 		WithWriteConcern(m.Wc),

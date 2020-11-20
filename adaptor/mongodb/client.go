@@ -173,9 +173,67 @@ func WithCACerts(certs []string) ClientOptionFunc {
 			} else {
 				c.tlsConfig = &tls.Config{RootCAs: roots}
 			}
-			//c.tlsConfig.InsecureSkipVerify = false
+			c.tlsConfig.InsecureSkipVerify = false
 		}
 		return nil
+	}
+}
+
+func withSSLAllowInvalidHostnames(sslAllowInvalidHostnames bool, certs []string) ClientOptionFunc {
+	return func(c *Client) error {
+		if sslAllowInvalidHostnames {
+			caCertPool := x509.NewCertPool()
+			if len(certs) > 0 {
+				for _, cert := range certs {
+					if _, err := os.Stat(cert); err != nil {
+						return errors.New("Cert file not found")
+					}
+
+					c, err := ioutil.ReadFile(cert)
+					if err != nil {
+						return err
+					}
+
+					if ok := caCertPool.AppendCertsFromPEM(c); !ok {
+						return client.ErrInvalidCert
+					}
+				}
+			}
+
+			c.tlsConfig = &tls.Config{
+				RootCAs:            caCertPool,
+				InsecureSkipVerify: true,
+				VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+					certs := make([]*x509.Certificate, len(rawCerts))
+					for i, asn1Data := range rawCerts {
+						cert, err := x509.ParseCertificate(asn1Data)
+						if err != nil {
+							return errors.New("failed to parse certificate from server: " + err.Error())
+						}
+						certs[i] = cert
+					}
+
+					opts := x509.VerifyOptions{
+						Roots:         caCertPool,
+						CurrentTime:   time.Now(),
+						DNSName:       "", // <- skip hostname verification
+						Intermediates: x509.NewCertPool(),
+					}
+
+					for i, cert := range certs {
+						if i == 0 {
+							continue
+						}
+						opts.Intermediates.AddCert(cert)
+					}
+					_, err := certs[0].Verify(opts)
+					return err
+				},
+			}
+
+		}
+		return nil
+
 	}
 }
 
