@@ -61,9 +61,10 @@ func init() {
 func (m *mongoDB) Client() (client.Client, error) {
 	return NewClient(WithURI(m.URI),
 		WithTimeout(m.Timeout),
-		WithSSL(m.SSL),
-		WithCACerts(m.CACerts),
-		withSSLAllowInvalidHostnames(m.SSLAllowInvalidHostnames, m.CACerts),
+		WithSSLConnection(m.SSL, m.CACerts, m.SSLAllowInvalidHostnames),
+		//WithSSL(m.SSL),
+		//WithCACerts(m.CACerts),
+		//withSSLAllowInvalidHostnames(m.SSLAllowInvalidHostnames, m.CACerts),
 		WithFsync(m.FSync),
 		WithTail(m.Tail),
 		WithWriteConcern(m.Wc),

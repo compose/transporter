@@ -137,6 +137,35 @@ func WithTimeout(timeout string) ClientOptionFunc {
 	}
 }
 
+// WithSSLConnection configures the database connection to connect via TLS with certs and insecure skip vefification option
+func WithSSLConnection(ssl bool, certs []string, sslAllowInvalidHostnames bool) ClientOptionFunc {
+	return func(c *Client) error {
+		if ssl {
+			log.Infoln("SSL mode is enabled")
+			tlsConfig := &tls.Config{InsecureSkipVerify: true}
+			tlsConfig.RootCAs = x509.NewCertPool()
+			c.tlsConfig = tlsConfig
+
+			if len(certs) > 0 {
+				log.Infoln("Certificates are provided")
+				WithCACerts(certs)
+
+				if sslAllowInvalidHostnames {
+					log.Infoln("Will skip invalid hostname verification")
+					withSSLAllowInvalidHostnames(sslAllowInvalidHostnames, certs)
+				}
+
+			} else {
+				log.Infoln("Certificates are not provided, will skip any invalid certificates and invalid hostnames")
+			}
+
+		} else {
+			log.Infoln("SSL mode is not enabled")
+		}
+		return nil
+	}
+}
+
 // WithSSL configures the database connection to connect via TLS.
 func WithSSL(ssl bool) ClientOptionFunc {
 	return func(c *Client) error {
@@ -180,7 +209,6 @@ func WithCACerts(certs []string) ClientOptionFunc {
 }
 
 func withSSLAllowInvalidHostnames(sslAllowInvalidHostnames bool, certs []string) ClientOptionFunc {
-	log.Infoln("SSL mode enabled, but will skip invalid hostname verification")
 	return func(c *Client) error {
 		if sslAllowInvalidHostnames {
 			caCertPool := x509.NewCertPool()
@@ -355,8 +383,6 @@ func (c *Client) initConnection() error {
 		if err := mgoSession.DB("local").C("oplog.rs").Find(bson.M{}).Limit(1).One(nil); err != nil {
 			return OplogAccessError{"not authorized for oplog.rs collection"}
 		}
-		l
-
 		log.Infoln("oplog access good")
 	}
 	c.mgoSession = mgoSession
