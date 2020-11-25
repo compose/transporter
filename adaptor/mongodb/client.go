@@ -140,28 +140,35 @@ func WithTimeout(timeout string) ClientOptionFunc {
 // WithSSLConnection configures the database connection to connect via TLS with certs and insecure skip vefification option
 func WithSSLConnection(ssl bool, certs []string, sslAllowInvalidHostnames bool) ClientOptionFunc {
 	return func(c *Client) error {
-		if ssl {
-			log.Infoln("SSL mode is enabled")
-			tlsConfig := &tls.Config{InsecureSkipVerify: true}
-			tlsConfig.RootCAs = x509.NewCertPool()
-			c.tlsConfig = tlsConfig
-
-			if len(certs) > 0 {
-				log.Infoln("Certificates are provided")
-				WithCACerts(certs)
-
-				if sslAllowInvalidHostnames {
-					log.Infoln("Will skip invalid hostname verification")
-					withSSLAllowInvalidHostnames(sslAllowInvalidHostnames, certs)
-				}
-
-			} else {
-				log.Infoln("Certificates are not provided, will skip any invalid certificates and invalid hostnames")
-			}
-
-		} else {
+		if !ssl {
 			log.Infoln("SSL mode is not enabled")
+			return nil
 		}
+
+		log.Infoln("SSL mode is enabled")
+		tlsConfig := &tls.Config{InsecureSkipVerify: true}
+		tlsConfig.RootCAs = x509.NewCertPool()
+		c.tlsConfig = tlsConfig
+
+		if len(certs) <= 0 {
+			log.Infoln("Certificates are not provided, will skip any invalid certificates and invalid hostnames")
+			return nil
+		}
+
+		log.Infoln("Certificates are provided")
+		f := WithCACerts(certs)
+		if err := f(c); err != nil {
+			return err
+		}
+
+		if sslAllowInvalidHostnames {
+			log.Infoln("Will skip invalid hostname verification")
+			f := WithSSLAllowInvalidHostnames(sslAllowInvalidHostnames, certs)
+			if err := f(c); err != nil {
+				return err
+			}
+		}
+
 		return nil
 	}
 }
@@ -208,27 +215,28 @@ func WithCACerts(certs []string) ClientOptionFunc {
 	}
 }
 
-func withSSLAllowInvalidHostnames(sslAllowInvalidHostnames bool, certs []string) ClientOptionFunc {
+func WithSSLAllowInvalidHostnames(sslAllowInvalidHostnames bool, certs []string) ClientOptionFunc {
 	return func(c *Client) error {
 		if sslAllowInvalidHostnames {
 			caCertPool := x509.NewCertPool()
-			if len(certs) > 0 {
-				for _, cert := range certs {
-					if _, err := os.Stat(cert); err != nil {
-						return errors.New("Cert file not found")
-					}
+			if len(certs) <= 0 {
+				log.Errorln("No certs provided. Please check if you have set cacerts in your js file.")
+				return nil
+			}
 
-					c, err := ioutil.ReadFile(cert)
-					if err != nil {
-						return err
-					}
-
-					if ok := caCertPool.AppendCertsFromPEM(c); !ok {
-						return client.ErrInvalidCert
-					}
+			for _, cert := range certs {
+				if _, err := os.Stat(cert); err != nil {
+					return errors.New("Cert file not found")
 				}
-			} else {
-				log.Errorln("No certs provided. Please if you have set cacerts in your js file.")
+
+				c, err := ioutil.ReadFile(cert)
+				if err != nil {
+					return err
+				}
+
+				if ok := caCertPool.AppendCertsFromPEM(c); !ok {
+					return client.ErrInvalidCert
+				}
 			}
 
 			c.tlsConfig = &tls.Config{

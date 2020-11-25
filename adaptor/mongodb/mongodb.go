@@ -64,7 +64,7 @@ func (m *mongoDB) Client() (client.Client, error) {
 		WithSSLConnection(m.SSL, m.CACerts, m.SSLAllowInvalidHostnames),
 		//WithSSL(m.SSL),
 		//WithCACerts(m.CACerts),
-		//withSSLAllowInvalidHostnames(m.SSLAllowInvalidHostnames, m.CACerts),
+		//WithSSLAllowInvalidHostnames(m.SSLAllowInvalidHostnames, m.CACerts),
 		WithFsync(m.FSync),
 		WithTail(m.Tail),
 		WithWriteConcern(m.Wc),
