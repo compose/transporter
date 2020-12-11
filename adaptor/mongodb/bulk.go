@@ -62,7 +62,7 @@ func (b *Bulk) Write(msg message.Msg) func(client.Session) (message.Msg, error) 
 		}
 		bs, err := bson.Marshal(msg.Data())
 		if err != nil {
-			log.Infof("unable to marshal doc to BSON, can't calculate size", err)
+      log.Infof("unable to marshal doc to BSON, can't calculate size: %v", err)
 		}
 		// add the 4 bytes for the MsgHeader
 		// https://docs.mongodb.com/manual/reference/mongodb-wire-protocol/#standard-message-header

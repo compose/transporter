@@ -1,4 +1,4 @@
-FROM golang:1.9 as builder
+FROM golang:1.15.5 as builder
 
 # Setting up working directory
 ADD . /go/src/github.com/compose/transporter/
@@ -6,6 +6,7 @@ WORKDIR /go/src/github.com/compose/transporter/
 
 ARG VERSION
 
+RUN go mod download
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o transporter -ldflags="-X main.version=$VERSION" ./cmd/transporter/...
 
 FROM alpine:latest 

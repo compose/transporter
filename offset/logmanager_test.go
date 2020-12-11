@@ -24,13 +24,13 @@ var managerTests = []struct {
 	{
 		"writer0",
 		filepath.Join(os.TempDir(), fmt.Sprintf("managertest%d", rand.Int63())),
-		make(map[string]uint64, 0),
+		make(map[string]uint64),
 		nil,
 	},
 	{
 		"no_perms",
 		"testdata/no_perms_create",
-		make(map[string]uint64, 0),
+		make(map[string]uint64),
 		&os.PathError{Op: "mkdir", Path: "testdata/no_perms_create/__consumer_offsets-no_perms", Err: os.ErrPermission},
 	},
 	{
