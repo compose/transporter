@@ -18,7 +18,7 @@ var (
 	}{
 		{
 			"writer0",
-			make(map[string]uint64, 0),
+			make(map[string]uint64),
 			-1,
 		},
 		{

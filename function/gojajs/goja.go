@@ -128,9 +128,9 @@ func (g *goja) transformOne(msg message.Msg) (message.Msg, error) {
 func toMsg(vm *gojaVM.Runtime, origMsg message.Msg, incoming map[string]interface{}) (message.Msg, error) {
 	var (
 		op      ops.Op
-		ts      = origMsg.Timestamp()
-		ns      = origMsg.Namespace()
-		mapData = origMsg.Data()
+		ts      int64
+		ns      string
+		mapData data.Data
 	)
 	m := data.Data(incoming)
 	op = ops.OpTypeFromString(m.Get("op").(string))

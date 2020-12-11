@@ -29,12 +29,12 @@ func copyDir(t *testing.T, suffixFilter, srcDir, destDir string) {
 			defer wg.Done()
 			src, err := os.Open(filepath.Join(origDir, log.Name()))
 			if err != nil {
-				t.Fatalf("unable to open source file, %s", err)
+				panic("unable to open source file, " + err.Error())
 			}
 			defer src.Close()
 			dst, err := os.Create(filepath.Join(destDir, log.Name()))
 			if err != nil {
-				t.Fatalf("unable to open destination file, %s", err)
+				panic("unable to open destination file, " + err.Error())
 			}
 			io.Copy(dst, src)
 		}(log, &wg)
