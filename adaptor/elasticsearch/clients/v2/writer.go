@@ -39,7 +39,7 @@ func init() {
 			elastic.SetURL(opts.URLs...),
 			elastic.SetSniff(false),
 			elastic.SetHttpClient(opts.HTTPClient),
-			elastic.SetMaxRetries(2),
+      elastic.SetRetrier(elastic.NewBackoffRetrier(elastic.NewSimpleBackoff(100, 100))),
 		}
 		if opts.UserInfo != nil {
 			if pwd, ok := opts.UserInfo.Password(); ok {

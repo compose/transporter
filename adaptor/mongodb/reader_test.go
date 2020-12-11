@@ -22,10 +22,7 @@ var (
 )
 
 var filterFunc = func(c string) bool {
-	if strings.HasPrefix(c, "system.") {
-		return false
-	}
-	return true
+	return !strings.HasPrefix(c, "system.")
 }
 
 func TestRead(t *testing.T) {

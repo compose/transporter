@@ -145,7 +145,7 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done
 				}
 
 				// build docs for table
-				docsResult, err := session.Query(fmt.Sprintf("SELECT * FROM %v", c))
+				docsResult, _ := session.Query(fmt.Sprintf("SELECT * FROM %v", c))
 
 				for docsResult.Next() {
 					dest := make([]interface{}, len(columns))

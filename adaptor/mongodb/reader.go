@@ -38,16 +38,6 @@ func newReader(tail bool, filters map[string]CollectionFilter) client.Reader {
 	return &Reader{tail, filters, 5 * time.Second}
 }
 
-type resultDoc struct {
-	doc bson.M
-	c   string
-}
-
-type iterationComplete struct {
-	oplogTime bson.MongoTimestamp
-	c         string
-}
-
 func (r *Reader) Read(resumeMap map[string]client.MessageSet, filterFn client.NsFilterFunc) client.MessageChanFunc {
 	return func(s client.Session, done chan struct{}) (chan client.MessageSet, error) {
 		out := make(chan client.MessageSet)
@@ -96,7 +86,6 @@ func (r *Reader) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 			log.With("db", session.DB("").Name).Infoln("Read completed")
 			// this will block if we're tailing
 			wg.Wait()
-			return
 		}()
 
 		return out, nil

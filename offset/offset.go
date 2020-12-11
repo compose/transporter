@@ -7,9 +7,6 @@ import (
 )
 
 const (
-	sizePos         = 8
-	timestampPos    = 16
-	valLen          = 16
 	offsetHeaderLen = 21
 )
 

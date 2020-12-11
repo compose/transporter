@@ -142,7 +142,7 @@ func (c *CommitLog) open() error {
 	for _, file := range files {
 		if strings.HasSuffix(file.Name(), logFileSuffix) {
 			offsetStr := strings.TrimSuffix(file.Name(), logFileSuffix)
-			baseOffset, err := strconv.Atoi(offsetStr)
+			baseOffset, _ := strconv.Atoi(offsetStr)
 			segment, err := NewSegment(c.path, LogNameFormat, int64(baseOffset), c.maxSegmentBytes)
 			if err != nil {
 				return err

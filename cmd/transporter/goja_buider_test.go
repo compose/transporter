@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/compose/transporter/commitlog"
 	"github.com/compose/transporter/offset"
 	"github.com/compose/transporter/pipeline"
 )
@@ -25,7 +26,10 @@ func TestNewBuilder(t *testing.T) {
 		"source", a.name, defaultNamespace,
 		pipeline.WithClient(a.a),
 		pipeline.WithReader(a.a),
-		pipeline.WithCommitLog(dataDir, 1024*1024*10248),
+		pipeline.WithCommitLog(
+			commitlog.WithPath(dataDir),
+			commitlog.WithMaxSegmentBytes(1024*1024*10248),
+		),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error, %s\n", err)
@@ -82,7 +86,10 @@ func TestNewBuilderWithEnv(t *testing.T) {
 		"source", a.name, defaultNamespace,
 		pipeline.WithClient(a.a),
 		pipeline.WithReader(a.a),
-		pipeline.WithCommitLog(dataDir, 1024*1024*10248),
+		pipeline.WithCommitLog(
+			commitlog.WithPath(dataDir),
+			commitlog.WithMaxSegmentBytes(1024*1024*10248),
+		),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error, %s\n", err)

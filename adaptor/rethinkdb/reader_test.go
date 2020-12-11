@@ -109,10 +109,7 @@ func TestTail(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 	tailFunc := tail.Read(map[string]client.MessageSet{}, func(c string) bool {
-		if c == "skip" {
-			return false
-		}
-		return true
+		return c != "skip"
 	})
 	done := make(chan struct{})
 	c, err := NewClient(WithURI(fmt.Sprintf("rethinkdb://127.0.0.1:28015/%s", tailTestData.DB)))

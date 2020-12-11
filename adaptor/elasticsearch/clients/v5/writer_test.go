@@ -43,7 +43,7 @@ func setup() error {
 
 func clearTestData() error {
 	req, _ := http.NewRequest(http.MethodDelete, fullURL(""), nil)
-	resp, err := http.DefaultClient.Do(req)
+	resp, _ := http.DefaultClient.Do(req)
 	log.Debugf("clearTestData response, %+v", resp)
 	parentReq, _ := http.NewRequest(http.MethodDelete, parentFullURL(""), nil)
 	parentResp, err := http.DefaultClient.Do(parentReq)
@@ -207,15 +207,15 @@ func TestWithParentWriter(t *testing.T) {
 	// decode and make sure that _parent is in the json response
 	json.NewDecoder(employeeResp.Body).Decode(&par)
 	if par.Hits.Hits[0].Parent != "gingerbreadhouse" {
-		t.Errorf("mismatched _parent, got %d", par.Hits.Hits[0].Parent)
+		t.Errorf("mismatched _parent, got %s", par.Hits.Hits[0].Parent)
 	}
 	// decode and make sure that _parent and _routing is in the json response
 	if par.Hits.Hits[0].Routing != par.Hits.Hits[0].Parent {
-		t.Errorf("mismatched _routing does not equal _parent, got %d", par.Hits.Hits[0].Parent)
+		t.Errorf("mismatched _routing does not equal _parent, got %s", par.Hits.Hits[0].Parent)
 	}
 	// decode and make sure that _parent and _routing is in the json response
 	if par.Hits.Hits[0].Name == "wickedwitch" {
-		t.Errorf("mismatched _routing does not equal _parent, got %d", par.Hits.Hits[0].Parent)
+		t.Errorf("mismatched _routing does not equal _parent, got %s", par.Hits.Hits[0].Parent)
 	}
 
 	w2, _ := vc.Creator(opts)

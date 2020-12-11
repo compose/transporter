@@ -16,7 +16,6 @@ import (
 
 // a noop node adaptor to help test
 type Testadaptor struct {
-	value string
 }
 
 func init() {

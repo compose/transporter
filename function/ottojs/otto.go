@@ -199,9 +199,9 @@ func toMsg(origMsg message.Msg, incoming interface{}) (message.Msg, error) {
 
 func resolveValues(m data.Data) (data.Data, error) {
 	for k, v := range m {
-		switch v.(type) {
+		switch v := v.(type) {
 		case ottoVM.Value:
-			val, err := v.(ottoVM.Value).Export()
+			val, err := v.Export()
 			if err != nil {
 				return nil, err
 			}

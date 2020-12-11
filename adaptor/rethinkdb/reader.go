@@ -57,8 +57,8 @@ func (r *Reader) Read(_ map[string]client.MessageSet, filterFn client.NsFilterFu
 						}
 						log.With("db", session.Database()).With("table", i.table).Infoln("iterating complete")
 						if i.cursor != nil {
+							wg.Add(1)
 							go func(wg *sync.WaitGroup, t string, c *re.Cursor) {
-								wg.Add(1)
 								defer wg.Done()
 								errc := r.sendChanges(session.Database(), t, c, out, done)
 								for err := range errc {
@@ -73,7 +73,6 @@ func (r *Reader) Read(_ map[string]client.MessageSet, filterFn client.NsFilterFu
 			log.With("db", session.Database()).Infoln("Read completed")
 			// this will block if we're tailing
 			wg.Wait()
-			return
 		}()
 		return out, nil
 	}

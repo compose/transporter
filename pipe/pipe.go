@@ -160,13 +160,6 @@ func (p *Pipe) empty() bool {
 func (p *Pipe) Send(msg message.Msg, off offset.Offset) {
 	p.MessageCount++
 	for _, ch := range p.Out {
-
-	A:
-		for {
-			select {
-			case ch <- TrackedMessage{msg, off}:
-				break A
-			}
-		}
+    ch <- TrackedMessage{msg, off}
 	}
 }
