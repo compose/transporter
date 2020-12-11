@@ -30,7 +30,7 @@ cache:
 before_cache:
 - rm -f $HOME/.cache/pip/log/debug.log
 script:
-- ./bin/golangci-lint run -D errcheck
+- $(go env GOPATH)/bin/golangci-lint run -D errcheck
 - "./scripts/tests.sh"
 after_success:
 - bash <(curl -s https://codecov.io/bash)
