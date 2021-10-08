@@ -33,16 +33,16 @@ jobs:
       with:
         go-version: 1.17
 
-    - name: Before install
+    - name: Setup Tests
       env:
         TESTDIR: ${{ matrix.test-dir }}
-      run: "./scripts/before_install.sh"
-
-    - name: Build
-      run: go build ./cmd/transporter/...
+      run: "./scripts/setup_tests.sh"
 
     - name: Run Lint
       run: "$(go env GOPATH)/bin/golangci-lint run -D errcheck"
+
+    - name: Build
+      run: go build ./...
 
     - name: Run Tests
       env:
