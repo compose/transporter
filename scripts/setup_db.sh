@@ -37,7 +37,7 @@ case "$TESTDIR" in
   cp -r config/rethinkdb/certs/* /tmp/rabbitmq_bad_cert/
 
   sudo apt-get update -qq
-  sudo apt-get install -y python-software-properties ssh
+  sudo apt-get install -y software-properties-common ssh
   # Install haproxy-1.5
   sudo add-apt-repository -y ppa:vbernat/haproxy-1.5
   sudo apt-get update -qq
