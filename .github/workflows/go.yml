@@ -14,7 +14,6 @@ jobs:
       ES_V5_URL: http://127.0.0.1:9205
       ES_V2_URL: http://127.0.0.1:9202
       ES_V1_URL: http://127.0.0.1:9201
-      GO111MODULE: off
     strategy:
       matrix:
         include:
@@ -41,6 +40,9 @@ jobs:
 
     - name: Build
       run: go build ./cmd/transporter/...
+
+    - name: Run Lint
+      run: "$(go env GOPATH)/bin/golangci-lint run -D errcheck"
 
     - name: Run Tests
       env:

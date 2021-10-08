@@ -2,7 +2,7 @@
 
 set -ev
 
-go get golang.org/x/lint/golint
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.33.0
 
 if [[ $TESTDIR == adaptor/mongodb* ]]; then
   sudo pip install "mongo-orchestration>=0.6.7,<1.0"
@@ -19,3 +19,5 @@ if [[ $TESTDIR == adaptor/mongodb* ]]; then
 
   mongod --version
 fi
+
+go mod download
