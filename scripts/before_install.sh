@@ -2,6 +2,8 @@
 
 set -ev
 
+go get github.com/golang/lint/golint
+
 if [[ $TESTDIR == adaptor/mongodb* ]]; then
   sudo pip install "mongo-orchestration>=0.6.7,<1.0"
 

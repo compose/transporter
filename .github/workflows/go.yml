@@ -7,19 +7,41 @@ on:
     branches: [ master ]
 
 jobs:
-
   build:
     runs-on: ubuntu-latest
+    env:
+      MONGODB_VERSION: 3.2.11
+      ES_V5_URL: http://127.0.0.1:9205
+      ES_V2_URL: http://127.0.0.1:9202
+      ES_V1_URL: http://127.0.0.1:9201
+    strategy:
+      matrix:
+        include:
+          - test-dir: "adaptor, adaptor/all, adaptor/file/..., client/..., commitlog/..., events/..."
+          - test-dir: "function/..., log/..., message/..., offset/..., pipe/..., pipeline/..."
+          # - test-dir: adaptor/elasticsearch/...
+          # - test-dir: adaptor/mongodb/...
+          # - test-dir: adaptor/postgres/...
+          # - test-dir: adaptor/rabbitmq/...
+          # - test-dir: adaptor/rethinkdb/...
+
     steps:
     - uses: actions/checkout@v2
 
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.17
+        go-version: 1.9
+
+    - name: Before install
+      env:
+        TESTDIR: ${{ matrix.test-dir }}
+      run: "./scripts/before_install.sh"
 
     - name: Build
-      run: go build -v ./...
+      run: go get ./...
 
-    - name: Test
-      run: go test -v ./...
+    - name: Run Tests
+      env:
+        TESTDIR: ${{ matrix.test-dir }}
+      run: "./scripts/tests.sh"
