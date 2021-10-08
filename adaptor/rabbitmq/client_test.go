@@ -73,7 +73,7 @@ var (
 			"with_uri_invalid",
 			[]ClientOptionFunc{WithURI("amqp:// localhost:5672")},
 			&Client{},
-			client.InvalidURIError{URI: "amqp:// localhost:5672", Err: "parse amqp:// localhost:5672: invalid character \" \" in host name"},
+			client.InvalidURIError{URI: "amqp:// localhost:5672", Err: "parse \"amqp:// localhost:5672\": invalid character \" \" in host name"},
 		},
 		{
 			"with_ssl",
