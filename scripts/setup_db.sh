@@ -38,8 +38,8 @@ case "$TESTDIR" in
 
   sudo apt-get update -qq
   sudo apt-get install -y software-properties-common ssh
-  # Install haproxy-1.5
-  sudo add-apt-repository -y ppa:vbernat/haproxy-1.5
+  # Install haproxy-2.0
+  sudo add-apt-repository ppa:vbernat/haproxy-2.0 -y
   sudo apt-get update -qq
   sudo apt-get install -y haproxy
   sudo service rabbitmq-server start
