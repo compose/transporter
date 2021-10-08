@@ -40,7 +40,7 @@ jobs:
       run: "./scripts/before_install.sh"
 
     - name: Build
-      run: go get ./...
+      run: go build ./cmd/transporter/...
 
     - name: Run Tests
       env:
