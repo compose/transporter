@@ -9,7 +9,6 @@ import (
 
 	"github.com/compose/transporter/adaptor"
 	"github.com/compose/transporter/client"
-	"github.com/compose/transporter/message"
 )
 
 var (
@@ -73,12 +72,12 @@ var clientTests = []struct {
 }{
 	{
 		"base config",
-		adaptor.Config{"uri": fmt.Sprintf("%s", goodVersionServer.URL)},
+		adaptor.Config{"uri": goodVersionServer.URL},
 		nil,
 	},
 	{
 		"timeout config",
-		adaptor.Config{"uri": fmt.Sprintf("%s", goodVersionServer.URL), "timeout": "60s"},
+		adaptor.Config{"uri": goodVersionServer.URL, "timeout": "60s"},
 		nil,
 	},
 	{
@@ -150,14 +149,3 @@ func TestInit(t *testing.T) {
 	}
 }
 
-type MockWriter struct {
-	msgCount int
-}
-
-func (w *MockWriter) Write(msg message.Msg) func(client.Session) error {
-	return func(s client.Session) error {
-		msg.Data().Delete("_id")
-		w.msgCount++
-		return nil
-	}
-}

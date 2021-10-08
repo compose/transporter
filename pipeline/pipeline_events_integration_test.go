@@ -17,10 +17,6 @@ import (
 	"github.com/compose/transporter/offset"
 )
 
-var (
-	metricsEvents = make([][]byte, 0)
-)
-
 type EventHolder struct {
 	rawEvents [][]byte
 }

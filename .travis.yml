@@ -2,7 +2,7 @@ sudo: required
 dist: trusty
 language: go
 go:
-- 1.8.x
+- 1.15.5
 filter_secrets: false
 git:
   lfs_skip_smudge: true
@@ -21,14 +21,16 @@ env:
   - TESTDIR=adaptor/rabbitmq/...
   - TESTDIR=adaptor/rethinkdb/...
 before_install:
-- go get github.com/golang/lint/golint
+- curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.33.0
 - "./scripts/before_install.sh"
+- go mod download
 cache:
   directories:
   - "$HOME/.cache/pip"
 before_cache:
 - rm -f $HOME/.cache/pip/log/debug.log
 script:
+- $(go env GOPATH)/bin/golangci-lint run -D errcheck
 - "./scripts/tests.sh"
 after_success:
 - bash <(curl -s https://codecov.io/bash)
