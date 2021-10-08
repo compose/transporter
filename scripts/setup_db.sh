@@ -2,16 +2,30 @@
 
 set -e
 
+wait_on_port () {
+  port=${1}
+  i=0
+
+  until nc -z localhost ${port}
+  do
+    if [ ${i} -eq 15 ]
+    then
+      echo "Port not up after 15 tries, giving up"
+      exit 1
+    fi
+
+    echo "Waiting on ${port}"
+    sleep 1
+    ((i++))
+  done
+}
+
 case "$TESTDIR" in
 'adaptor/postgres/...')
   sudo apt update
   sudo apt install -y postgresql
 
-  until pg_isready
-  do
-    echo "Waiting for postgres at: $pg_uri"
-    sleep 2;
-  done
+  wait_on_port 5432
 
   echo "Configuring postgresql"
   psql -c "ALTER SYSTEM SET max_replication_slots = 4"
@@ -26,7 +40,10 @@ case "$TESTDIR" in
   docker run --rm --privileged=true -p 127.0.0.1:9205:9205 -v "/tmp/elasticsearch/config/v5:/usr/share/elasticsearch/config" -e ES_JAVA_OPTS='-Xms1g -Xmx1g' elasticsearch:5.1.2 elasticsearch >& /dev/null &
   docker run --rm --privileged=true -p 127.0.0.1:9202:9202 -v "/tmp/elasticsearch/config/v2:/usr/share/elasticsearch/config" -e ES_JAVA_OPTS='-Xms1g -Xmx1g' elasticsearch:2.4.4 elasticsearch >& /dev/null &
   docker run --rm --privileged=true -p 127.0.0.1:9201:9201 -v "/tmp/elasticsearch/config/v1:/usr/share/elasticsearch/config" -e ES_JAVA_OPTS='-Xms1g -Xmx1g' elasticsearch:1.7.6 elasticsearch >& /dev/null &
-  sleep 15
+
+  wait_on_port 9205
+  wait_on_port 9202
+  wait_on_port 9201
 ;;
 'adaptor/rabbitmq/...')
   echo "Configuring rabbitmq"
@@ -37,13 +54,13 @@ case "$TESTDIR" in
   cp -r config/rethinkdb/certs/* /tmp/rabbitmq_bad_cert/
 
   sudo apt-get update -qq
-  sudo apt-get install -y python-software-properties ssh
-  # Install haproxy-1.5
-  sudo add-apt-repository -y ppa:vbernat/haproxy-1.5
+  sudo apt-get install -y software-properties-common ssh
+  # Install haproxy-2.0
+  sudo add-apt-repository ppa:vbernat/haproxy-2.0 -y
   sudo apt-get update -qq
-  sudo apt-get install -y haproxy
+  sudo apt-get install -y haproxy rabbitmq-server
   sudo service rabbitmq-server start
-  sleep 10
+  wait_on_port 5672
   sudo haproxy -f config/rabbitmq/haproxy.cfg -db &
 ;;
 'adaptor/rethinkdb/...')
