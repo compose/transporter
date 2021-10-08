@@ -14,6 +14,7 @@ jobs:
       ES_V5_URL: http://127.0.0.1:9205
       ES_V2_URL: http://127.0.0.1:9202
       ES_V1_URL: http://127.0.0.1:9201
+      GO111MODULE: off
     strategy:
       matrix:
         include:
@@ -31,7 +32,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.9
+        go-version: 1.17
 
     - name: Before install
       env:
