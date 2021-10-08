@@ -4,6 +4,15 @@ set -e
 
 case "$TESTDIR" in
 'adaptor/postgres/...')
+  sudo apt update
+  sudo apt install -y postgresql
+
+  until pg_isready
+  do
+    echo "Waiting for postgres at: $pg_uri"
+    sleep 2;
+  done
+
   echo "Configuring postgresql"
   psql -c "ALTER SYSTEM SET max_replication_slots = 4"
   psql -c "ALTER SYSTEM SET wal_level = logical"
@@ -38,6 +47,12 @@ case "$TESTDIR" in
   sudo haproxy -f config/rabbitmq/haproxy.cfg -db &
 ;;
 'adaptor/rethinkdb/...')
+  source /etc/lsb-release && echo "deb https://download.rethinkdb.com/repository/ubuntu-$DISTRIB_CODENAME $DISTRIB_CODENAME main" | sudo tee /etc/apt/sources.list.d/rethinkdb.list
+  wget -qO- https://download.rethinkdb.com/repository/raw/pubkey.gpg | sudo apt-key add -
+  sudo apt-get update
+  sudo apt-get install -y rethinkdb
+  sleep 10
+
   echo "Configuring rethinkdb"
   mkdir -p /tmp/rethinkdb
   cp -r config/rethinkdb/certs/* /tmp/rethinkdb/
@@ -49,6 +64,20 @@ case "$TESTDIR" in
   rethinkdb --initial-password admin123 --config-file config/rethinkdb/configurations/auth.conf >& /dev/null &
 ;;
 'adaptor/mongodb/...')
+  sudo pip install "mongo-orchestration>=0.6.7,<1.0"
+
+  wget https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION.tgz
+
+  mkdir -p /tmp/mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION
+
+  tar xfz mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION.tgz -C /tmp
+
+  rm mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION.tgz
+
+  export PATH=/tmp/mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION/bin:$PATH
+
+  mongod --version
+
   echo "Configuring mongodb"
   mkdir -p /tmp/mongodb
   cp -r config/mongodb/certs/* /tmp/mongodb/
