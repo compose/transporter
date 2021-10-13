@@ -195,7 +195,7 @@ func (l *LogRecorder) Printf(format string, msg ...interface{}) {
 	l.logs = append(l.logs, fmt.Sprint(msg...))
 }
 func (l *LogRecorder) With(key string, value interface{}) log.Logger { return l }
-func (l LogRecorder) Output(calldepth int, s string) error {
+func (l *LogRecorder) Output(calldepth int, s string) error {
 	l.logCount++
 	return nil
 }
