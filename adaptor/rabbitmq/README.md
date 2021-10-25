@@ -10,7 +10,8 @@ transporter will use the field defined `routing_key` to lookup the value from th
 `key_in_field` defaults to false and will therefore use the static `routing_key`, if you
 set `routing_key` to an empty string, no routing key will be set in the published message.
 
-### Configuration:
+### Configuration
+
 ```javascript
 rmq = rabbitmq({
   "uri": "amqp://127.0.0.1:5672/",
@@ -21,4 +22,24 @@ rmq = rabbitmq({
   // "ssl": false,
   // "cacerts": ["/path/to/cert.pem"]
 })
+```
+
+## Run adaptor test
+
+### Spin up required containers (rabbitmq, haproxy)
+
+```sh
+# From transporter's root folder
+cd config/rabbitmq
+docker build . -t rabbit_haproxy
+cd test_setup
+docker-compose up -d
+# Wait ~30s
+```
+
+### Run the tests
+
+```sh
+# From transporter's root folder
+go test -v ./adaptor/rabbitmq/
 ```
