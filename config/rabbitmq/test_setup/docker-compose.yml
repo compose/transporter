@@ -1,0 +1,25 @@
+version: '2'
+
+services:
+  rabbitmq:
+    image: rabbitmq:management
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+    networks:
+        rabbitmqnet:
+          ipv4_address: 10.1.0.2
+  haproxy:
+    image: rabbit_haproxy:latest
+    ports:
+      - '5000:5000'
+    networks:
+        rabbitmqnet:
+          ipv4_address: 10.1.0.3
+
+networks:
+  rabbitmqnet:
+    driver: "bridge"
+    ipam:
+      config:
+        - subnet: 10.1.0.0/24
