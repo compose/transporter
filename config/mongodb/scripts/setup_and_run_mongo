@@ -1,0 +1,21 @@
+#!/bin/bash
+set -e
+
+ip=`hostname -i`
+echo "$ip transporter-mongo" > /etc/hosts
+source /tmp/mongodb/env
+
+mongo-orchestration start -p 20000 -b transporter-mongo
+
+# setup mongodb configurations
+cat /tmp/mongodb/configurations/rs_auth.json | curl -XPOST http://transporter-mongo:20000/v1/replica_sets -H "Content-Type: application/json" -d @-
+cat /tmp/mongodb/configurations/basic.json | curl -XPOST http://transporter-mongo:20000/v1/servers -H "Content-Type: application/json" -d @-
+cat /tmp/mongodb/configurations/reader_restart.json | curl -XPOST http://transporter-mongo:20000/v1/servers -H "Content-Type: application/json" -d @-
+cat /tmp/mongodb/configurations/ssl.json | curl -XPOST http://transporter-mongo:20000/v1/servers -H "Content-Type: application/json" -d @-
+cat /tmp/mongodb/configurations/rs_basic.json | curl -XPOST http://transporter-mongo:20000/v1/replica_sets -H "Content-Type: application/json" -d @-
+
+# seed database with users and role
+mongo mongodb://transporter:transporter@transporter-mongo:10000,transporter-mongo:10001/admin?replicaSet=authRepl0 /tmp/mongodb/scripts/setup_users_and_roles.js
+
+echo "MongoDB: setup complete"
+trap : TERM INT; sleep infinity & wait

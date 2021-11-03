@@ -336,7 +336,7 @@ func TestNewClient(t *testing.T) {
 var (
 	caCertPool = func() *x509.CertPool {
 		pool := x509.NewCertPool()
-		c, _ := ioutil.ReadFile("/tmp/mongodb/ca.crt")
+		c, _ := ioutil.ReadFile("/tmp/mongodb/mongodb-ca.crt")
 		pool.AppendCertsFromPEM(c)
 		return pool
 	}
@@ -358,7 +358,7 @@ var (
 		{
 			"timeout connect",
 			&Client{
-				uri:            "mongodb://localhost:37017",
+				uri:            "mongodb://transporter-mongo:37017",
 				sessionTimeout: 2 * time.Second,
 				safety:         DefaultSafety,
 			},
@@ -367,7 +367,7 @@ var (
 		{
 			"authenticated connect",
 			&Client{
-				uri:            "mongodb://transporter:transporter@127.0.0.1:10000,127.0.0.1:10001/admin",
+				uri:            "mongodb://transporter:transporter@transporter-mongo:10000,transporter-mongo:10001/admin",
 				sessionTimeout: DefaultSessionTimeout,
 				safety:         DefaultSafety,
 			},
@@ -376,7 +376,7 @@ var (
 		{
 			"failed authenticated connect",
 			&Client{
-				uri:            "mongodb://transporter:wrongpassword@127.0.0.1:10000,127.0.0.1:10001/admin",
+				uri:            "mongodb://transporter:wrongpassword@transporter-mongo:10000,transporter-mongo:10001/admin",
 				sessionTimeout: DefaultSessionTimeout,
 				safety:         DefaultSafety,
 			},
@@ -385,7 +385,7 @@ var (
 		{
 			"connect with ssl and verify",
 			&Client{
-				uri:            "mongodb://localhost:11112/test",
+				uri:            "mongodb://transporter-mongo:11112/test",
 				sessionTimeout: DefaultSessionTimeout,
 				safety:         DefaultSafety,
 				tlsConfig:      &tls.Config{InsecureSkipVerify: false, RootCAs: caCertPool()},
@@ -395,7 +395,7 @@ var (
 		{
 			"connect with ssl skip verify",
 			&Client{
-				uri:            "mongodb://localhost:11112/test",
+				uri:            "mongodb://transporter-mongo:11112/test",
 				sessionTimeout: DefaultSessionTimeout,
 				safety:         DefaultSafety,
 				tlsConfig:      &tls.Config{InsecureSkipVerify: true, RootCAs: x509.NewCertPool()},
@@ -415,7 +415,7 @@ var (
 		{
 			"with tail not replset",
 			&Client{
-				uri:            "mongodb://127.0.0.1:29017",
+				uri:            "mongodb://transporter-mongo:29017",
 				sessionTimeout: DefaultSessionTimeout,
 				safety:         DefaultSafety,
 				tail:           true,
@@ -425,7 +425,7 @@ var (
 		{
 			"with tail no access",
 			&Client{
-				uri:            "mongodb://list_but_cant_read:xyz123@127.0.0.1:10000,127.0.0.1:10001/test",
+				uri:            "mongodb://list_but_cant_read:xyz123@transporter-mongo:10000,transporter-mongo:10001/test",
 				sessionTimeout: DefaultSessionTimeout,
 				safety:         DefaultSafety,
 				tail:           true,
@@ -435,7 +435,7 @@ var (
 		{
 			"with tail no privileges",
 			&Client{
-				uri:            "mongodb://cant_read:limited1234@127.0.0.1:10000,127.0.0.1:10001/test",
+				uri:            "mongodb://cant_read:limited1234@transporter-mongo:10000,transporter-mongo:10001/test",
 				sessionTimeout: DefaultSessionTimeout,
 				safety:         DefaultSafety,
 				tail:           true,
