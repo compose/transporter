@@ -255,8 +255,6 @@ func (c *Client) initConnection() error {
 
 	if c.tlsConfig != nil {
 		dialInfo.DialServer = func(addr *mgo.ServerAddr) (net.Conn, error) {
-			fmt.Println()
-			fmt.Printf("%+v\n", c.tlsConfig)
 			return tls.Dial("tcp", addr.String(), c.tlsConfig)
 		}
 	}
