@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"io/ioutil"
+	"log"
 	"os"
 	"reflect"
 	"testing"
@@ -193,7 +194,7 @@ var clientTests = []struct {
 	},
 	{
 		"with_ssl_with_cert_file",
-		[]ClientOptionFunc{WithSSL(true), WithCACerts([]string{"testdata/ca.pem"})},
+		[]ClientOptionFunc{WithSSL(true), WithCACerts([]string{"testdata/ca2.pem"})},
 		&Client{
 			uri:            DefaultURI,
 			sessionTimeout: DefaultSessionTimeout,
@@ -336,9 +337,24 @@ func TestNewClient(t *testing.T) {
 var (
 	caCertPool = func() *x509.CertPool {
 		pool := x509.NewCertPool()
-		c, _ := ioutil.ReadFile("/tmp/mongodb/mongodb-ca.crt")
+		c, err := ioutil.ReadFile("testdata/ca2.pem")
+		if err != nil {
+			log.Fatal(err)
+		}
 		pool.AppendCertsFromPEM(c)
 		return pool
+	}
+
+	clientCerts = func() []tls.Certificate {
+		clientCerts := []tls.Certificate{}
+		cert, err := tls.LoadX509KeyPair("testdata/client.crt", "testdata/client.key")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		clientCerts = append(clientCerts, cert)
+
+		return clientCerts
 	}
 
 	connectTests = []struct {
@@ -388,7 +404,7 @@ var (
 				uri:            "mongodb://transporter-mongo:11112/test",
 				sessionTimeout: DefaultSessionTimeout,
 				safety:         DefaultSafety,
-				tlsConfig:      &tls.Config{InsecureSkipVerify: false, RootCAs: caCertPool()},
+				tlsConfig:      &tls.Config{InsecureSkipVerify: false, RootCAs: caCertPool(), Certificates: clientCerts()},
 			},
 			nil,
 		},
