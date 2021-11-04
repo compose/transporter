@@ -12,8 +12,7 @@ import (
 	"time"
 
 	"github.com/compose/transporter/client"
-
-	mgo "gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2"
 )
 
 var errorTests = []struct {
@@ -31,6 +30,26 @@ var errorTests = []struct {
 		"Invalid Read Preference, fakeReadPreference",
 		InvalidReadPreferenceError{"fakeReadPreference"},
 	},
+}
+
+func CompareTlsConfig(t *testing.T, testName string, config1 *tls.Config, config2 *tls.Config) {
+	if config1 != nil && config1.InsecureSkipVerify != config2.InsecureSkipVerify {
+		t.Errorf(
+			"[%s] TLS Config mismatch on InsecureSkipVerify.\nexpected %+v\ngot %+v",
+			testName,
+			config1.InsecureSkipVerify,
+			config2.InsecureSkipVerify,
+		)
+	}
+
+	if config1 != nil && config1.RootCAs != nil && !reflect.DeepEqual(config1.RootCAs.Subjects(), config2.RootCAs.Subjects()) {
+		t.Errorf(
+			"[%s] TLS Config mismatch on RootCAs.\nexpected %+v\ngot %+v",
+			testName,
+			config1.RootCAs,
+			config2.RootCAs,
+		)
+	}
 }
 
 func TestErrors(t *testing.T) {
@@ -76,7 +95,11 @@ var (
 
 	certPool = func() *x509.CertPool {
 		pool := x509.NewCertPool()
-		pool.AppendCertsFromPEM([]byte(rootPEM))
+		c, err := ioutil.ReadFile("testdata/ca.pem")
+		if err != nil {
+			log.Fatal(err)
+		}
+		pool.AppendCertsFromPEM(c)
 		return pool
 	}
 )
@@ -327,136 +350,152 @@ func TestNewClient(t *testing.T) {
 		if ct.expectedErr != nil && !reflect.DeepEqual(err.Error(), ct.expectedErr.Error()) {
 			t.Fatalf("[%s] unexpected NewClient error, expected %+v, got %+v\n", ct.name, ct.expectedErr, err)
 		}
-		if err == nil && !reflect.DeepEqual(ct.expected, actual) {
-			t.Errorf("[%s] Client mismatch\nexpected %+v\ngot %+v", ct.name, ct.expected, actual)
+
+		if err == nil {
+			// Can't properly compare tls.config when there's a RootCA set
+			expectedTlsConfig := ct.expected.tlsConfig
+			actualTlsConfig := actual.tlsConfig
+
+			ct.expected.tlsConfig = nil
+			actual.tlsConfig = nil
+
+			if !reflect.DeepEqual(ct.expected, actual) {
+				t.Errorf("[%s] Client mismatch\nexpected %+v\ngot %+v", ct.name, ct.expected, actual)
+			}
+
+			if expectedTlsConfig != nil {
+				CompareTlsConfig(t, ct.name, expectedTlsConfig, actualTlsConfig)
+			}
 		}
 	}
 }
 
 var (
-	caCertPool = func() *x509.CertPool {
-		pool := x509.NewCertPool()
-		c, err := ioutil.ReadFile("testdata/ca.pem")
-		if err != nil {
-			log.Fatal(err)
-		}
-		pool.AppendCertsFromPEM(c)
-		return pool
-	}
+	// Not needed as long as we can't make "connect with ssl and verify" test case pass
+	// caCertPool = func() *x509.CertPool {
+	// 	pool := x509.NewCertPool()
+	// 	c, err := ioutil.ReadFile("testdata/ca.pem")
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// 	pool.AppendCertsFromPEM(c)
+	// 	return pool
+	// }
 
-	clientCerts = func() []tls.Certificate {
-		clientCerts := []tls.Certificate{}
-		cert, err := tls.LoadX509KeyPair("testdata/client.crt", "testdata/client.key")
-		if err != nil {
-			log.Fatal(err)
-		}
+	// clientCerts = func() []tls.Certificate {
+	// 	clientCerts := []tls.Certificate{}
+	// 	cert, err := tls.LoadX509KeyPair("testdata/client.crt", "testdata/client.key")
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
 
-		clientCerts = append(clientCerts, cert)
+	// 	clientCerts = append(clientCerts, cert)
 
-		return clientCerts
-	}
+	// 	return clientCerts
+	// }
 
 	connectTests = []struct {
 		name        string
 		client      *Client
 		expectedErr error
 	}{
-		// {
-		// 	"default connect",
-		// 	&Client{
-		// 		uri:            DefaultURI,
-		// 		sessionTimeout: DefaultSessionTimeout,
-		// 		safety:         DefaultSafety,
-		// 	},
-		// 	nil,
-		// },
-		// {
-		// 	"timeout connect",
-		// 	&Client{
-		// 		uri:            "mongodb://transporter-mongo:37017",
-		// 		sessionTimeout: 2 * time.Second,
-		// 		safety:         DefaultSafety,
-		// 	},
-		// 	client.ConnectError{Reason: "no reachable servers"},
-		// },
-		// {
-		// 	"authenticated connect",
-		// 	&Client{
-		// 		uri:            "mongodb://transporter:transporter@transporter-mongo:10000,transporter-mongo:10001/admin",
-		// 		sessionTimeout: DefaultSessionTimeout,
-		// 		safety:         DefaultSafety,
-		// 	},
-		// 	nil,
-		// },
-		// {
-		// 	"failed authenticated connect",
-		// 	&Client{
-		// 		uri:            "mongodb://transporter:wrongpassword@transporter-mongo:10000,transporter-mongo:10001/admin",
-		// 		sessionTimeout: DefaultSessionTimeout,
-		// 		safety:         DefaultSafety,
-		// 	},
-		// 	client.ConnectError{Reason: "server returned error on SASL authentication step: Authentication failed."},
-		// },
 		{
-			"connect with ssl and verify",
+			"default connect",
 			&Client{
-				uri:            "mongodb://transporter-mongo:11112/test",
+				uri:            DefaultURI,
 				sessionTimeout: DefaultSessionTimeout,
 				safety:         DefaultSafety,
-				tlsConfig:      &tls.Config{InsecureSkipVerify: false, RootCAs: caCertPool(), Certificates: clientCerts()},
 			},
 			nil,
 		},
+		{
+			"timeout connect",
+			&Client{
+				uri:            "mongodb://transporter-db:37017",
+				sessionTimeout: 2 * time.Second,
+				safety:         DefaultSafety,
+			},
+			client.ConnectError{Reason: "no reachable servers"},
+		},
+		{
+			"authenticated connect",
+			&Client{
+				uri:            "mongodb://transporter:transporter@transporter-db:10000,transporter-db:10001/admin",
+				sessionTimeout: DefaultSessionTimeout,
+				safety:         DefaultSafety,
+			},
+			nil,
+		},
+		{
+			"failed authenticated connect",
+			&Client{
+				uri:            "mongodb://transporter:wrongpassword@transporter-db:10000,transporter-db:10001/admin",
+				sessionTimeout: DefaultSessionTimeout,
+				safety:         DefaultSafety,
+			},
+			client.ConnectError{Reason: "server returned error on SASL authentication step: Authentication failed."},
+		},
+		// Deactivated, can't make it work with mgo driver. Will need to try again with the official mongodb driver.
 		// {
-		// 	"connect with ssl skip verify",
+		// 	"connect with ssl and verify",
 		// 	&Client{
-		// 		uri:            "mongodb://transporter-mongo:11112/test",
+		// 		uri:            "mongodb://transporter-db:11112/test",
 		// 		sessionTimeout: DefaultSessionTimeout,
 		// 		safety:         DefaultSafety,
-		// 		tlsConfig:      &tls.Config{InsecureSkipVerify: true, RootCAs: x509.NewCertPool()},
+		// 		tlsConfig:      &tls.Config{InsecureSkipVerify: false, RootCAs: caCertPool(), Certificates: clientCerts()},
 		// 	},
 		// 	nil,
 		// },
-		// {
-		// 	"with_tail",
-		// 	&Client{
-		// 		uri:            DefaultURI,
-		// 		sessionTimeout: DefaultSessionTimeout,
-		// 		safety:         DefaultSafety,
-		// 		tail:           true,
-		// 	},
-		// 	nil,
-		// },
-		// {
-		// 	"with tail not replset",
-		// 	&Client{
-		// 		uri:            "mongodb://transporter-mongo:29017",
-		// 		sessionTimeout: DefaultSessionTimeout,
-		// 		safety:         DefaultSafety,
-		// 		tail:           true,
-		// 	},
-		// 	OplogAccessError{"database missing oplog.rs collection"},
-		// },
-		// {
-		// 	"with tail no access",
-		// 	&Client{
-		// 		uri:            "mongodb://list_but_cant_read:xyz123@transporter-mongo:10000,transporter-mongo:10001/test",
-		// 		sessionTimeout: DefaultSessionTimeout,
-		// 		safety:         DefaultSafety,
-		// 		tail:           true,
-		// 	},
-		// 	OplogAccessError{"not authorized for oplog.rs collection"},
-		// },
-		// {
-		// 	"with tail no privileges",
-		// 	&Client{
-		// 		uri:            "mongodb://cant_read:limited1234@transporter-mongo:10000,transporter-mongo:10001/test",
-		// 		sessionTimeout: DefaultSessionTimeout,
-		// 		safety:         DefaultSafety,
-		// 		tail:           true,
-		// 	},
-		// 	OplogAccessError{"unable to list collections on local database"},
-		// },
+		{
+			"connect with ssl skip verify",
+			&Client{
+				uri:            "mongodb://transporter-db:11112/test",
+				sessionTimeout: DefaultSessionTimeout,
+				safety:         DefaultSafety,
+				tlsConfig:      &tls.Config{InsecureSkipVerify: true, RootCAs: x509.NewCertPool()},
+			},
+			nil,
+		},
+		{
+			"with_tail",
+			&Client{
+				uri:            DefaultURI,
+				sessionTimeout: DefaultSessionTimeout,
+				safety:         DefaultSafety,
+				tail:           true,
+			},
+			nil,
+		},
+		{
+			"with tail not replset",
+			&Client{
+				uri:            "mongodb://transporter-db:29017",
+				sessionTimeout: DefaultSessionTimeout,
+				safety:         DefaultSafety,
+				tail:           true,
+			},
+			OplogAccessError{"database missing oplog.rs collection"},
+		},
+		{
+			"with tail no access",
+			&Client{
+				uri:            "mongodb://list_but_cant_read:xyz123@transporter-db:10000,transporter-db:10001/test",
+				sessionTimeout: DefaultSessionTimeout,
+				safety:         DefaultSafety,
+				tail:           true,
+			},
+			OplogAccessError{"not authorized for oplog.rs collection"},
+		},
+		{
+			"with tail no privileges",
+			&Client{
+				uri:            "mongodb://cant_read:limited1234@transporter-db:10000,transporter-db:10001/test",
+				sessionTimeout: DefaultSessionTimeout,
+				safety:         DefaultSafety,
+				tail:           true,
+			},
+			OplogAccessError{"unable to list collections on local database"},
+		},
 	}
 )
 

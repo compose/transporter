@@ -33,7 +33,7 @@ func TestRead(t *testing.T) {
 	reader := newReader(false, DefaultCollectionFilter)
 	readFunc := reader.Read(map[string]client.MessageSet{}, filterFunc)
 	done := make(chan struct{})
-	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://transporter-mongo:27017/%s", readerTestData.DB)))
+	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://transporter-db:27017/%s", readerTestData.DB)))
 	s, err := c.Connect()
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mongodb, %s", err)
@@ -69,7 +69,7 @@ func TestFilteredRead(t *testing.T) {
 
 	readFunc := reader.Read(map[string]client.MessageSet{}, filterFunc)
 	done := make(chan struct{})
-	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://transporter-mongo:27017/%s", filteredReaderTestData.DB)))
+	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://transporter-db:27017/%s", filteredReaderTestData.DB)))
 	s, err := c.Connect()
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mongodb, %s", err)
@@ -103,7 +103,7 @@ func TestSkipCollection(t *testing.T) {
 		return true
 	})
 	done := make(chan struct{})
-	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://transporter-mongo:27017/%s", skipReaderTestData.DB)))
+	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://transporter-db:27017/%s", skipReaderTestData.DB)))
 	s, err := c.Connect()
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mongodb, %s", err)
@@ -134,7 +134,7 @@ func TestCancelledRead(t *testing.T) {
 	reader := newReader(false, DefaultCollectionFilter)
 	readFunc := reader.Read(map[string]client.MessageSet{}, filterFunc)
 	done := make(chan struct{})
-	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://transporter-mongo:27017/%s", cancelledReaderTestData.DB)))
+	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://transporter-db:27017/%s", cancelledReaderTestData.DB)))
 	s, err := c.Connect()
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mongodb, %s", err)
@@ -166,7 +166,7 @@ func TestReadRestart(t *testing.T) {
 	var db = "restart_read_test"
 
 	c := &Client{
-		uri:            fmt.Sprintf("mongodb://transporter-mongo:15000/%s", db),
+		uri:            fmt.Sprintf("mongodb://transporter-db:15000/%s", db),
 		sessionTimeout: DefaultSessionTimeout,
 		safety:         DefaultSafety,
 	}
@@ -202,7 +202,7 @@ func TestReadRestart(t *testing.T) {
 			case <-time.After(2 * time.Second):
 				req, _ := http.NewRequest(
 					http.MethodPost,
-					"http://transporter-mongo:20000/v1/servers/reader_restart",
+					"http://transporter-db:20000/v1/servers/reader_restart",
 					strings.NewReader(`{"action":"restart"}`),
 				)
 				_, err := http.DefaultClient.Do(req)
@@ -278,7 +278,7 @@ func TestTail(t *testing.T) {
 
 	})
 	done := make(chan struct{})
-	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://transporter-mongo:27017/%s", tailTestData.DB)))
+	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://transporter-db:27017/%s", tailTestData.DB)))
 	s, err := c.Connect()
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mongodb, %s", err)

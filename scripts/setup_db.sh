@@ -2,23 +2,13 @@
 
 set -e
 
-wait_on_port () {
-  port=${1}
-  i=0
+case "$TESTDIR" in
+  adaptor/*)
+    apt update
+    apt install docker.io docker-compose
+    ;;
+esac
 
-  until nc -z localhost ${port}
-  do
-    if [ ${i} -eq 15 ]
-    then
-      echo "Port not up after 15 tries, giving up"
-      exit 1
-    fi
-
-    echo "Waiting on ${port}"
-    sleep 1
-    ((i++))
-  done
-}
 
 case "$TESTDIR" in
 'adaptor/postgres/...')
@@ -81,44 +71,8 @@ case "$TESTDIR" in
   rethinkdb --initial-password admin123 --config-file config/rethinkdb/configurations/auth.conf >& /dev/null &
 ;;
 'adaptor/mongodb/...')
-  sudo pip install "mongo-orchestration>=0.6.7,<1.0"
-
-  wget https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION.tgz
-
-  mkdir -p /tmp/mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION
-
-  tar xfz mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION.tgz -C /tmp
-
-  rm mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION.tgz
-
-  export PATH=/tmp/mongodb-linux-x86_64-ubuntu1404-$MONGODB_VERSION/bin:$PATH
-
-  mongod --version
-
-  echo "Configuring mongodb"
-  mkdir -p /tmp/mongodb
-  cp -r config/mongodb/certs/* /tmp/mongodb/
-  mongo-orchestration start -p 20000 -b 127.0.0.1
-
-  # setup mongodb configurations
-
-  # standard replica set w/ authentication enabled
-  cat config/mongodb/configurations/rs_auth.json | curl -XPOST http://localhost:20000/v1/replica_sets -H "Content-Type: application/json" -d @-
-
-  # basic server
-  cat config/mongodb/configurations/basic.json | curl -XPOST http://localhost:20000/v1/servers -H "Content-Type: application/json" -d @-
-
-  # basic server used for restart tests
-  cat config/mongodb/configurations/reader_restart.json | curl -XPOST http://localhost:20000/v1/servers -H "Content-Type: application/json" -d @-
-
-  # SSL server
-  cat config/mongodb/configurations/ssl.json | curl -XPOST http://localhost:20000/v1/servers -H "Content-Type: application/json" -d @-
-
-  # standard replica set
-  cat config/mongodb/configurations/rs_basic.json | curl -XPOST http://localhost:20000/v1/replica_sets -H "Content-Type: application/json" -d @-
-
-  # seed database with users and role
-  mongo mongodb://transporter:transporter@127.0.0.1:10000,127.0.0.1:10001/admin?replicaSet=authRepl0 config/mongodb/scripts/setup_users_and_roles.js
+# TODO: migrate all adaptors to that format
+scripts/run_db_in_docker.sh mongodb $MONGODB_VERSION
 ;;
 *)
   echo "no setup required for $TESTDIR"
