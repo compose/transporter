@@ -4,7 +4,7 @@ set -e
 
 case "$TESTDIR" in
   adaptor/*)
-    sudo echo "127.0.0.1 transporter-db" >> /etc/hosts
+    echo "127.0.0.1 transporter-db" | sudo tee -a /etc/hosts
     # Setup Docker to run the DB
     # wget https://get.docker.com/ -O /tmp/setup_docker.sh
     # chmod +x /tmp/setup_docker.sh
