@@ -6,13 +6,14 @@ adaptor=$1
 version=$2
 
 wait_on_logs () {
-  pattern=${1}
+  pattern=$1
   i=0
 
   docker ps --filter "ancestor=transporter_mongodb" -q
   container_id=`docker ps --filter "ancestor=transporter_mongodb" -q`
 
-  # docker logs exits 1 on Github Actions for some reason
+  # `docker logs` exits 1 on Github Actions for some reason.
+  # We'll just sleep a minute, not great but that'll do for now.
   if [[ -n $GITHUB_WORKFLOW ]]; then
     sleep 60
     return
@@ -20,7 +21,7 @@ wait_on_logs () {
 
   until docker logs $container_id | grep "$pattern"
   do
-    if [ ${i} -eq 15 ]
+    if [ $i -eq 15 ]
     then
       echo "Container not ready after 15 tries, giving up"
       exit 1

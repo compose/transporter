@@ -4,19 +4,17 @@ set -e
 
 case "$TESTDIR" in
   adaptor/*)
+    # Communication to the docker-hosted DB will happen on that hostname
     echo "127.0.0.1 transporter-db" | sudo tee -a /etc/hosts
-    # Setup Docker to run the DB
-    # wget https://get.docker.com/ -O /tmp/setup_docker.sh
-    # chmod +x /tmp/setup_docker.sh
-    # /tmp/setup_docker.sh
-    # servide docker start
-    # curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-    # chmod +x /usr/local/bin/docker-compose
     ;;
 esac
 
 
 case "$TESTDIR" in
+'adaptor/mongodb/...')
+  # TODO: migrate all adaptors to that format
+  scripts/run_db_in_docker.sh mongodb $MONGODB_VERSION
+;;
 'adaptor/postgres/...')
   sudo apt update
   sudo apt install -y postgresql
@@ -75,10 +73,6 @@ case "$TESTDIR" in
 
   mkdir -p /tmp/rethinkdb_auth
   rethinkdb --initial-password admin123 --config-file config/rethinkdb/configurations/auth.conf >& /dev/null &
-;;
-'adaptor/mongodb/...')
-  # TODO: migrate all adaptors to that format
-  scripts/run_db_in_docker.sh mongodb $MONGODB_VERSION
 ;;
 *)
   echo "no setup required for $TESTDIR"
