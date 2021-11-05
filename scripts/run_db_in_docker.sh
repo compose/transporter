@@ -10,14 +10,13 @@ wait_on_logs () {
   i=0
 
   docker ps --filter "ancestor=transporter_mongodb" -q
-  echo yo
-
   container_id=`docker ps --filter "ancestor=transporter_mongodb" -q`
 
-  echo yo2
-  echo $container_id
-  sudo docker logs $container_id | grep "$pattern"
-  echo yo3
+  # docker logs exits 1 on Github Actions for some reason
+  if [[ -n $GITHUB_WORKFLOW ]]; then
+    sleep 60
+    return
+  fi
 
   until docker logs $container_id | grep "$pattern"
   do
@@ -27,11 +26,9 @@ wait_on_logs () {
       exit 1
     fi
 
-
     sleep 10
     ((i++))
   done
-  sleep 60
 }
 
 
@@ -49,7 +46,7 @@ fi
 echo "Waiting on container to be ready"
 
 case "$adaptor" in
-'mongodb')
-  wait_on_logs "MongoDB: setup complete"
+  'mongodb')
+    wait_on_logs "MongoDB: setup complete"
 ;;
 esac

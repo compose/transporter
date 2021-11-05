@@ -48,3 +48,8 @@ jobs:
       env:
         TESTDIR: ${{ matrix.test-dir }}
       run: "./scripts/tests.sh"
+
+    - name: Teardown Docker
+      env:
+        TESTDIR: ${{ matrix.test-dir }}
+      run: "./scripts/teardown_db_in_docker.sh"
