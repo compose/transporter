@@ -15,8 +15,8 @@ wait_on_logs () {
   container_id=`docker ps --filter "ancestor=transporter_mongodb" -q`
 
   echo yo2
-  echo container_id
-  docker logs $container_id | grep "$pattern"
+  echo $container_id
+  sudo docker logs $container_id | grep "$pattern"
   echo yo3
 
   until docker logs $container_id | grep "$pattern"
