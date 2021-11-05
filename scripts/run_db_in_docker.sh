@@ -32,8 +32,8 @@ cd test_setup
 docker-compose up -d
 
 if ! grep "127.0.0.1 transporter-db" /etc/hosts > /dev/null; then
-  echo "WARNING: your /etc/hosts doesn't include a way to connect to the dockerized db. Please add the following line to it:"
-  echo "127.0.0.1 transporter-db"
+  echo "WARNING: your /etc/hosts doesn't include a way to connect to the dockerized db. Please add the following line by running this command:"
+  echo "echo 127.0.0.1 transporter-db >> /etc/hosts"
 fi
 
 echo "Waiting on container to be ready"
