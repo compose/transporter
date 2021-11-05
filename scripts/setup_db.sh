@@ -5,12 +5,12 @@ set -e
 case "$TESTDIR" in
   adaptor/*)
     # Setup Docker to run the DB
-    wget https://get.docker.com/ -O /tmp/setup_docker.sh
-    chmod +x /tmp/setup_docker.sh
-    /tmp/setup_docker.sh
-    servide docker start
-    curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-    chmod +x /usr/local/bin/docker-compose
+    # wget https://get.docker.com/ -O /tmp/setup_docker.sh
+    # chmod +x /tmp/setup_docker.sh
+    # /tmp/setup_docker.sh
+    # servide docker start
+    # curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    # chmod +x /usr/local/bin/docker-compose
     ;;
 esac
 
