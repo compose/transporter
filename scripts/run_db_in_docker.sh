@@ -9,19 +9,28 @@ wait_on_logs () {
   pattern=${1}
   i=0
 
-  # container_id=`docker ps --filter "ancestor=transporter_mongodb" -q`
-  # until docker logs $container_id | grep "$pattern"
-  # do
-  #   if [ ${i} -eq 15 ]
-  #   then
-  #     echo "Container not ready after 15 tries, giving up"
-  #     exit 1
-  #   fi
+  docker ps --filter "ancestor=transporter_mongodb" -q
+  echo yo
+
+  container_id=`docker ps --filter "ancestor=transporter_mongodb" -q`
+
+  echo yo2
+  echo container_id
+  docker logs $container_id | grep "$pattern"
+  echo yo3
+
+  until docker logs $container_id | grep "$pattern"
+  do
+    if [ ${i} -eq 15 ]
+    then
+      echo "Container not ready after 15 tries, giving up"
+      exit 1
+    fi
 
 
-  #   sleep 10
-  #   ((i++))
-  # done
+    sleep 10
+    ((i++))
+  done
   sleep 60
 }
 
