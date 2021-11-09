@@ -50,7 +50,7 @@ func TestBulkWrite(t *testing.T) {
 	done := make(chan struct{})
 	b := newBulker(done, &wg)
 
-	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://127.0.0.1:27017/%s", bulkTestData.DB)))
+	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://transporter-db:27017/%s", bulkTestData.DB)))
 	s, err := c.Connect()
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mongodb, %s", err)
@@ -75,7 +75,7 @@ func TestBulkWriteMixedOps(t *testing.T) {
 	done := make(chan struct{})
 	b := newBulker(done, &wg)
 
-	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://127.0.0.1:27017/%s", bulkTestData.DB)))
+	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://transporter-db:27017/%s", bulkTestData.DB)))
 	s, err := c.Connect()
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mongodb, %s", err)
@@ -107,7 +107,7 @@ func TestBulkOpCount(t *testing.T) {
 	done := make(chan struct{})
 	b := newBulker(done, &wg)
 
-	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://127.0.0.1:27017/%s", bulkTestData.DB)))
+	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://transporter-db:27017/%s", bulkTestData.DB)))
 	s, err := c.Connect()
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mongodb, %s", err)
@@ -128,7 +128,7 @@ func TestBulkIsDup(t *testing.T) {
 	done := make(chan struct{})
 	b := newBulker(done, &wg)
 
-	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://127.0.0.1:27017/%s", bulkTestData.DB)))
+	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://transporter-db:27017/%s", bulkTestData.DB)))
 	s, err := c.Connect()
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mongodb, %s", err)
@@ -164,7 +164,7 @@ func TestFlushOnDone(t *testing.T) {
 	done := make(chan struct{})
 	b := newBulker(done, &wg)
 
-	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://127.0.0.1:27017/%s", bulkTestData.DB)))
+	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://transporter-db:27017/%s", bulkTestData.DB)))
 	s, err := c.Connect()
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mongodb, %s", err)
@@ -183,7 +183,7 @@ func TestBulkMulitpleCollections(t *testing.T) {
 	done := make(chan struct{})
 	b := newBulker(done, &wg)
 
-	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://127.0.0.1:27017/%s", bulkTestData.DB)))
+	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://transporter-db:27017/%s", bulkTestData.DB)))
 	s, err := c.Connect()
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mongodb, %s", err)
@@ -211,7 +211,7 @@ func TestBulkSize(t *testing.T) {
 		RWMutex: &sync.RWMutex{},
 	}
 
-	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://127.0.0.1:27017/%s", bulkTestData.DB)))
+	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://transporter-db:27017/%s", bulkTestData.DB)))
 	s, err := c.Connect()
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mongodb, %s", err)
