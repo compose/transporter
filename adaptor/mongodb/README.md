@@ -26,7 +26,11 @@ m = mongodb({
 
 ## Run adaptor test
 
-### Spin up required containers (rabbitmq, haproxy)
+### Spin up required containers
+
+You'll need those ports on your local machine: `10000, 10001, 27017, 27018, 11112, 29017, 15000, 20000`
+
+So make sure to kill anything that might use them (like a local mongo instance)
 
 ```sh
 # From transporter's root folder
