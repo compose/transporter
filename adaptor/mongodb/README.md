@@ -9,7 +9,8 @@ include documents where the `i` field had a value greater than `10`.
 
 ***NOTE*** You may want to check your collections to ensure the proper index(es) are in place or performance may suffer.
 
-### Configuration:
+### Configuration
+
 ```javascript
 m = mongodb({
   "uri": "mongodb://127.0.0.1:27017/test"
@@ -44,4 +45,12 @@ scripts/run_db_in_docker.sh mongodb $version
 ```sh
 # From transporter's root folder
 go test -v ./adaptor/mongodb/
+```
+
+### Tear down containers
+
+Once you're done
+
+```sh
+TESTDIR=adaptor/mongodb scripts/teardown_db_in_docker.sh
 ```
