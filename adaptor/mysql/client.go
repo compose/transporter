@@ -11,7 +11,10 @@ import (
 const (
 	// DefaultURI is the default endpoint of MySQL on the local machine.
 	// Primarily used when initializing a new Client without a specific URI.
-	DefaultURI = "mysql://127.0.0.1:3306"
+	// Supposedly we should use a socket and not tcp if localhost, but that might be
+	// more confusing for others when it comes to altering it?
+	// https://github.com/go-sql-driver/mysql#dsn-data-source-name
+	DefaultURI = "/"
 )
 
 var (
@@ -34,7 +37,7 @@ func NewClient(options ...ClientOptionFunc) (*Client, error) {
 	// Set up the client
 	c := &Client{
 		uri: DefaultURI,
-		db:  "mysql", // Or "compose"?
+		db:  "test", // Temporary change from `mysql`? The default local instance I have has `test`
 	}
 
 	// Run the options on it
@@ -64,15 +67,31 @@ func (c *Client) Close() {
 
 // Connect initializes the MySQL connection
 func (c *Client) Connect() (client.Session, error) {
+	var err error
+
 	if c.mysqlSession == nil {
-		// there's really no way for this to error because we know the driver we're passing is
-		// available.
-		c.mysqlSession, _ = sql.Open("mysql", c.uri)
-		uri, _ := url.Parse(c.uri)
+		// Previously it said here "there's really no way for this to error...", but that sounds
+		// like terrible advice when developing, especially, as it took me  ages to figure out I
+		// was getting:
+		//
+		// > panic: invalid DSN: missing the slash separating the database name
+		//
+		// So let's do _something_
+		c.mysqlSession, err = sql.Open("mysql", c.uri)
+		if err != nil {
+			panic(err.Error()) // TODO: Maybe not panic?
+		}
+		// For MySQL we can't really parse the uri because of https://pkg.go.dev/net/url#Parse
+		//
+		// > Trying to parse a hostname and path without a scheme is invalid but may not
+		// > necessarily return an error, due to parsing ambiguities
+		//
+		// and MySQL is using a DSN. But we can cheat and add in a prefix/scheme
+		uri, _ := url.Parse("mysql://" + c.uri)
 		if uri.Path != "" {
 			c.db = uri.Path[1:]
 		}
 	}
-	err := c.mysqlSession.Ping()
+	err = c.mysqlSession.Ping()
 	return &Session{c.mysqlSession, c.db}, err
 }

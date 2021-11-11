@@ -9,7 +9,7 @@ import (
 var (
 	defaultClient = &Client{
 		uri: DefaultURI,
-		db:  "mysql",
+		db:  "test",
 	}
 
 	errBadClient = errors.New("bad client")
