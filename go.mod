@@ -27,6 +27,7 @@ require (
 	github.com/cenkalti/backoff v0.0.0-20150522193654-6c45d6bc1e78 // indirect
 	github.com/dlclark/regexp2 v1.1.6 // indirect
 	github.com/fortytw2/leaktest v1.3.0 // indirect
+	github.com/go-sql-driver/mysql v1.6.0 // indirect
 	github.com/golang/protobuf v0.0.0-20150526012109-34a5f244f1c0 // indirect
 	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
 	github.com/mailru/easyjson v0.0.0-20171120080333-32fa128f234d // indirect

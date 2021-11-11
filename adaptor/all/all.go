@@ -6,6 +6,7 @@ import (
 	_ "github.com/compose/transporter/adaptor/file"
 	_ "github.com/compose/transporter/adaptor/mongodb"
 	_ "github.com/compose/transporter/adaptor/postgres"
+	_ "github.com/compose/transporter/adaptor/mysql"
 	_ "github.com/compose/transporter/adaptor/rabbitmq"
 	_ "github.com/compose/transporter/adaptor/rethinkdb"
 )
