@@ -47,7 +47,7 @@ fi
 echo "Waiting on container to be ready"
 
 case "$adaptor" in
-  'mongodb' | 'postgresql')
+  'mongodb' | 'postgres')
     wait_on_logs "setup complete"
 ;;
 esac
