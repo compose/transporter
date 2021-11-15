@@ -33,7 +33,7 @@ func TestTailer(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping Tailer in short mode")
 	}
-	c, err := NewClient(WithURI(fmt.Sprintf("postgres://127.0.0.1:5432/%s?sslmode=disable", tailerTestData.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("postgres://postgres@transporter-db:5432/%s?sslmode=disable", tailerTestData.DB)))
 	if err != nil {
 		t.Fatalf("unable to initialize connection to postgres, %s", err)
 	}

@@ -1,0 +1,8 @@
+version: '2'
+
+services:
+  postgresql:
+    image: transporter_postgresql:latest
+    hostname: transporter-postgresql
+    ports:
+      - '5432:5432'

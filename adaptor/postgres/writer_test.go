@@ -40,7 +40,7 @@ func TestInsert(t *testing.T) {
 	confirms, cleanup := adaptor.MockConfirmWrites()
 	defer adaptor.VerifyWriteConfirmed(cleanup, t)
 	w := newWriter()
-	c, err := NewClient(WithURI(fmt.Sprintf("postgres://127.0.0.1:5432/%s?sslmode=disable", writerTestData.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("postgres://postgres@transporter-db:5432/%s?sslmode=disable", writerTestData.DB)))
 	if err != nil {
 		t.Fatalf("unable to initialize connection to postgres, %s", err)
 	}
@@ -114,7 +114,7 @@ var (
 
 func TestComplexInsert(t *testing.T) {
 	w := newWriter()
-	c, err := NewClient(WithURI(fmt.Sprintf("postgres://127.0.0.1:5432/%s?sslmode=disable", writerComplexTestData.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("postgres://postgres@transporter-db:5432/%s?sslmode=disable", writerComplexTestData.DB)))
 	if err != nil {
 		t.Fatalf("unable to initialize connection to postgres, %s", err)
 	}
@@ -200,7 +200,7 @@ var (
 
 func TestUpdate(t *testing.T) {
 	w := newWriter()
-	c, err := NewClient(WithURI(fmt.Sprintf("postgres://127.0.0.1:5432/%s?sslmode=disable", writerUpdateTestData.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("postgres://postgres@transporter-db:5432/%s?sslmode=disable", writerUpdateTestData.DB)))
 	if err != nil {
 		t.Fatalf("unable to initialize connection to postgres, %s", err)
 	}
@@ -259,7 +259,7 @@ var (
 func TestComplexUpdate(t *testing.T) {
 	ranInt := rand.Intn(writerComplexUpdateTestData.InsertCount)
 	w := newWriter()
-	c, err := NewClient(WithURI(fmt.Sprintf("postgres://127.0.0.1:5432/%s?sslmode=disable", writerComplexUpdateTestData.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("postgres://postgres@transporter-db:5432/%s?sslmode=disable", writerComplexUpdateTestData.DB)))
 	if err != nil {
 		t.Fatalf("unable to initialize connection to postgres, %s", err)
 	}
@@ -344,7 +344,7 @@ var (
 
 func TestDelete(t *testing.T) {
 	w := newWriter()
-	c, err := NewClient(WithURI(fmt.Sprintf("postgres://127.0.0.1:5432/%s?sslmode=disable", writerDeleteTestData.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("postgres://postgres@transporter-db:5432/%s?sslmode=disable", writerDeleteTestData.DB)))
 	if err != nil {
 		t.Fatalf("unable to initialize connection to postgres, %s", err)
 	}
@@ -393,7 +393,7 @@ var (
 func TestComplexDelete(t *testing.T) {
 	ranInt := rand.Intn(writerComplexDeleteTestData.InsertCount)
 	w := newWriter()
-	c, err := NewClient(WithURI(fmt.Sprintf("postgres://127.0.0.1:5432/%s?sslmode=disable", writerComplexDeleteTestData.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("postgres://postgres@transporter-db:5432/%s?sslmode=disable", writerComplexDeleteTestData.DB)))
 	if err != nil {
 		t.Fatalf("unable to initialize connection to postgres, %s", err)
 	}
@@ -425,7 +425,7 @@ var (
 func TestComplexDeleteWithoutAllPrimarykeys(t *testing.T) {
 	ranInt := rand.Intn(writerComplexDeletePkTestData.InsertCount)
 	w := newWriter()
-	c, err := NewClient(WithURI(fmt.Sprintf("postgres://127.0.0.1:5432/%s?sslmode=disable", writerComplexDeletePkTestData.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("postgres://postgres@transporter-db:5432/%s?sslmode=disable", writerComplexDeletePkTestData.DB)))
 	if err != nil {
 		t.Fatalf("unable to initialize connection to postgres, %s", err)
 	}

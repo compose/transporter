@@ -16,15 +16,7 @@ case "$TESTDIR" in
   scripts/run_db_in_docker.sh mongodb $MONGODB_VERSION
 ;;
 'adaptor/postgres/...')
-  sudo apt update
-  sudo apt install -y postgresql
-
-  wait_on_port 5432
-
-  echo "Configuring postgresql"
-  psql -c "ALTER SYSTEM SET max_replication_slots = 4"
-  psql -c "ALTER SYSTEM SET wal_level = logical"
-  sudo /etc/init.d/postgresql restart; sleep 1
+  scripts/run_db_in_docker.sh postgres $POSTGRESQL_VERSION
 ;;
 'adaptor/elasticsearch/...')
   echo "Configuring elasticsearch"

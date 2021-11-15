@@ -27,7 +27,7 @@ func TestRead(t *testing.T) {
 		return table == fmt.Sprintf("public.%s", readerTestData.Table)
 	})
 	done := make(chan struct{})
-	c, err := NewClient(WithURI(fmt.Sprintf("postgres://127.0.0.1:5432/%s?sslmode=disable", readerTestData.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("postgres://postgres@transporter-db:5432/%s?sslmode=disable", readerTestData.DB)))
 	if err != nil {
 		t.Fatalf("unable to initialize connection to postgres, %s", err)
 	}
@@ -67,7 +67,7 @@ func TestReadComplex(t *testing.T) {
 		return table == fmt.Sprintf("public.%s", readerComplexTestData.Table)
 	})
 	done := make(chan struct{})
-	c, err := NewClient(WithURI(fmt.Sprintf("postgres://127.0.0.1:5432/%s?sslmode=disable", readerComplexTestData.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("postgres://postgres@transporter-db:5432/%s?sslmode=disable", readerComplexTestData.DB)))
 	if err != nil {
 		t.Fatalf("unable to initialize connection to postgres, %s", err)
 	}
