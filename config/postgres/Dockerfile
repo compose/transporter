@@ -10,7 +10,7 @@ RUN echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg ma
     wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
     apt install -y postgresql-$VERSION
 
-COPY scripts/ /tmp/mongodb/scripts/
+COPY scripts/ /tmp/postgresql/scripts/
 COPY ph_hba.conf /etc/postgresql/$VERSION/main/pg_hba.conf
 
-CMD ["/tmp/mongodb/scripts/setup_and_run_postgresql"]
+CMD ["/tmp/postgresql/scripts/setup_and_run_postgresql"]
