@@ -9,8 +9,7 @@ wait_on_logs () {
   pattern=$1
   i=0
 
-  docker ps --filter "ancestor=transporter_mongodb" -q
-  container_id=`docker ps --filter "ancestor=transporter_mongodb" -q`
+  container_id=`docker ps --filter "ancestor=transporter_$adaptor" -q`
 
   # `docker logs` exits 1 on Github Actions for some reason.
   # We'll just sleep a minute, not great but that'll do for now.
@@ -47,7 +46,7 @@ fi
 echo "Waiting on container to be ready"
 
 case "$adaptor" in
-  'mongodb')
-    wait_on_logs "MongoDB: setup complete"
+  'mongodb' | 'postgres')
+    wait_on_logs "setup complete"
 ;;
 esac
