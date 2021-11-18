@@ -113,12 +113,12 @@ func TestBulkOpCount(t *testing.T) {
 		t.Fatalf("unable to initialize connection to mongodb, %s", err)
 	}
 	defer s.(*Session).Close()
-	for i := 0; i < maxObjSize; i++ {
+	for i := 0; i < DefaultMaxWriteBatchSize; i++ {
 		b.Write(message.From(ops.Insert, "bar", map[string]interface{}{"i": i}))(s)
 	}
 	close(done)
 	wg.Wait()
-	checkBulkCount("bar", bson.M{}, maxObjSize, t)
+	checkBulkCount("bar", bson.M{}, DefaultMaxWriteBatchSize, t)
 }
 
 func TestBulkIsDup(t *testing.T) {
@@ -189,7 +189,7 @@ func TestBulkMulitpleCollections(t *testing.T) {
 		t.Fatalf("unable to initialize connection to mongodb, %s", err)
 	}
 	defer s.(*Session).Close()
-	for i := 0; i < (maxObjSize + 1); i++ {
+	for i := 0; i < (DefaultMaxWriteBatchSize + 1); i++ {
 		b.Write(message.From(ops.Insert, "multi_c", map[string]interface{}{"i": i}))(s)
 	}
 	for i := 0; i < testBulkMsgCount; i++ {
@@ -198,11 +198,11 @@ func TestBulkMulitpleCollections(t *testing.T) {
 	}
 	checkBulkCount("multi_a", bson.M{}, 0, t)
 	checkBulkCount("multi_b", bson.M{}, 0, t)
-	checkBulkCount("multi_c", bson.M{}, maxObjSize, t)
+	checkBulkCount("multi_c", bson.M{}, DefaultMaxWriteBatchSize, t)
 	time.Sleep(3 * time.Second)
 	checkBulkCount("multi_a", bson.M{}, testBulkMsgCount, t)
 	checkBulkCount("multi_b", bson.M{}, testBulkMsgCount, t)
-	checkBulkCount("multi_c", bson.M{}, (maxObjSize + 1), t)
+	checkBulkCount("multi_c", bson.M{}, (DefaultMaxWriteBatchSize + 1), t)
 }
 
 func TestBulkSize(t *testing.T) {
@@ -219,7 +219,7 @@ func TestBulkSize(t *testing.T) {
 	defer s.(*Session).Close()
 
 	var bsonSize int
-	for i := 0; i < (maxObjSize - 1); i++ {
+	for i := 0; i < (DefaultMaxWriteBatchSize - 1); i++ {
 		doc := map[string]interface{}{"i": randStr(2), "rand": randStr(16)}
 
 		bs, err := bson.Marshal(doc)
