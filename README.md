@@ -1,9 +1,14 @@
-[![Build Status](https://travis-ci.org/compose/transporter.svg?branch=master)](https://travis-ci.org/compose/transporter) [![Build Status](https://semaphoreci.com/api/v1/compose/transporter/branches/master/shields_badge.svg)](https://semaphoreci.com/compose/transporter) [![Go Report Card](https://goreportcard.com/badge/github.com/compose/transporter)](https://goreportcard.com/report/github.com/compose/transporter) [![codecov](https://codecov.io/gh/compose/transporter/branch/master/graph/badge.svg)](https://codecov.io/gh/compose/transporter) [![Docker Repository on Quay](https://quay.io/repository/compose/transporter/status "Docker Repository on Quay")](https://quay.io/repository/compose/transporter) [![Gitter](https://img.shields.io/gitter/room/nwjs/nw.js.svg)](https://gitter.im/compose-transporter/Lobby)
+[![Go Report Card](https://goreportcard.com/badge/github.com/compose/transporter)](https://goreportcard.com/report/github.com/compose/transporter) [![codecov](https://codecov.io/gh/compose/transporter/branch/master/graph/badge.svg)](https://codecov.io/gh/compose/transporter) [![Docker Repository on Quay](https://quay.io/repository/compose/transporter/status "Docker Repository on Quay")](https://quay.io/repository/compose/transporter) [![Gitter](https://img.shields.io/gitter/room/nwjs/nw.js.svg)](https://gitter.im/compose-transporter/Lobby)
 
 Compose Transporter helps with database transformations from one store to another.  It can also sync from one to another or several stores.
 
 Transporter
 ===========
+
+Warning About v1.0.0
+------------
+
+This version officially only supports the mongodb and postgresql adaptors. Support for other DBs will be added later on. Other adaptors may or may not work. You're encouraged to still use v0.5.2 for non mongo/postgres migrations.
 
 About
 -----
@@ -25,7 +30,7 @@ t.Config({"xlog_dir":"/data/transporter"})
   .Save("sink", sink)
 ```
 
-When using the above pipeline, all messages will be appended to a commit log and 
+When using the above pipeline, all messages will be appended to a commit log and
 successful processing of a message is handled via consumer/sink offset tracking.
 
 Below is a list of each adaptor and its support of the feature:
@@ -34,12 +39,12 @@ Below is a list of each adaptor and its support of the feature:
 +---------------+-------------+----------------+
 |    adaptor    | read resume | write tracking |
 +---------------+-------------+----------------+
-| elasticsearch |     N/A     |       X        | 
-|     file      |             |       X        | 
-|    mongodb    |      X      |       X        | 
-|  postgresql   |             |       X        | 
-|   rabbitmq    |      X      |                | 
-|   rethinkdb   |             |       X        | 
+| elasticsearch |     N/A     |       X        |
+|     file      |             |       X        |
+|    mongodb    |      X      |       X        |
+|  postgresql   |             |       X        |
+|   rabbitmq    |      X      |                |
+|   rethinkdb   |             |       X        |
 +---------------+-------------+----------------+
 ```
 
@@ -130,7 +135,7 @@ elasticsearch - an elasticsearch sink adaptor
 file - an adaptor that reads / writes files
 mongodb - a mongodb adaptor that functions as both a source and a sink
 postgres - a postgres adaptor that functions as both a source and a sink
-rabbitmq - an adaptor that handles publish/subscribe messaging with RabbitMQ 
+rabbitmq - an adaptor that handles publish/subscribe messaging with RabbitMQ
 rethinkdb - a rethinkdb adaptor that functions as both a source and a sink
 ```
 
@@ -170,7 +175,7 @@ Prints out the state of connections at the end. Useful for debugging new configu
 ### xlog
 
 The `xlog` command is useful for inspecting the current state of the commit log.
-It contains 3 subcommands, `current`, `oldest`, and `offset`, as well as 
+It contains 3 subcommands, `current`, `oldest`, and `offset`, as well as
 a required flag `-xlog_dir` which should be the path to where the commit log is stored.
 
 ***NOTE*** the command should only be run against the commit log when transporter
@@ -205,7 +210,7 @@ Prints out the entry stored at the provided offset.
 ### offset
 
 The `offset` command provides access to current state of each consumer (i.e. sink)
-offset. It contains 4 subcommands, `list`, `show`, `mark`, and `delete`, as well as 
+offset. It contains 4 subcommands, `list`, `show`, `mark`, and `delete`, as well as
 a required flag `-xlog_dir` which should be the path to where the commit log is stored.
 
 ```
