@@ -128,7 +128,7 @@ func (e *errorEvent) Emit() ([]byte, error) {
 
 // String
 func (e *errorEvent) String() string {
-	msg := fmt.Sprintf("%s", e.Kind)
+	msg := e.Kind
 	msg += fmt.Sprintf(" record: %v, message: %s", e.Record, e.Message)
 	return msg
 }

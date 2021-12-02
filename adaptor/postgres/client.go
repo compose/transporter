@@ -12,7 +12,7 @@ import (
 const (
 	// DefaultURI is the default endpoint of Postgres on the local machine.
 	// Primarily used when initializing a new Client without a specific URI.
-	DefaultURI = "postgres://127.0.0.1:5432?sslmode=disable"
+	DefaultURI = "postgres://postgres@transporter-db:5432?sslmode=disable"
 )
 
 var (

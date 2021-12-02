@@ -103,7 +103,7 @@ var httptests = []struct {
 				Op:     "dial",
 				Net:    "tcp",
 				Source: &MockAddr{},
-				Err:    errors.New("getsockopt: connection refused"),
+				Err:    errors.New("connect: connection refused"),
 			},
 		},
 	},
@@ -120,7 +120,7 @@ func (a *MockAddr) String() string {
 	return "127.0.0.1:8000"
 }
 
-func TestHTTPSever(t *testing.T) {
+func TestHTTPServer(t *testing.T) {
 	defer eventServer.Close()
 	for _, ht := range httptests {
 		err := ht.emit(NewMetricsEvent(12345, "test", 0))
@@ -195,7 +195,7 @@ func (l *LogRecorder) Printf(format string, msg ...interface{}) {
 	l.logs = append(l.logs, fmt.Sprint(msg...))
 }
 func (l *LogRecorder) With(key string, value interface{}) log.Logger { return l }
-func (l LogRecorder) Output(calldepth int, s string) error {
+func (l *LogRecorder) Output(calldepth int, s string) error {
 	l.logCount++
 	return nil
 }

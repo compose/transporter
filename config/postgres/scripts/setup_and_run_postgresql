@@ -1,0 +1,33 @@
+#!/bin/bash
+set -e
+
+wait_on_port () {
+  port=${1}
+  i=0
+
+  until nc -z localhost ${port}
+  do
+    if [ ${i} -eq 15 ]
+    then
+      echo "Port not up after 15 tries, giving up"
+      exit 1
+    fi
+
+    echo "Waiting on ${port}"
+    sleep 1
+    ((i++))
+  done
+}
+
+service postgresql start
+
+wait_on_port 5432
+
+echo "Configuring postgresql"
+su - postgres -c 'psql -c "ALTER SYSTEM SET max_replication_slots = 4"'
+su - postgres -c 'psql -c "ALTER SYSTEM SET wal_level = logical"'
+su - postgres -c 'psql -c "ALTER SYSTEM SET listen_addresses TO \"*\";"'
+service postgresql restart
+echo "Postgresql: setup complete"
+
+trap : TERM INT; sleep infinity & wait

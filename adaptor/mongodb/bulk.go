@@ -13,8 +13,7 @@ import (
 )
 
 const (
-	maxObjSize     int = 1000
-	maxBSONObjSize int = 4800000
+	maxBSONObjSize int = 16000000
 )
 
 var (
@@ -53,7 +52,7 @@ func (b *Bulk) Write(msg message.Msg) func(client.Session) (message.Msg, error) 
 		b.confirmChan = msg.Confirms()
 		bOp, ok := b.bulkMap[coll]
 		if !ok {
-			s := s.(*Session).mgoSession.Copy()
+			s := s.(*Session).mgoSession.Clone()
 			bOp = &bulkOperation{
 				s:    s,
 				bulk: s.DB("").C(coll).Bulk(),
@@ -62,19 +61,22 @@ func (b *Bulk) Write(msg message.Msg) func(client.Session) (message.Msg, error) 
 		}
 		bs, err := bson.Marshal(msg.Data())
 		if err != nil {
-			log.Infof("unable to marshal doc to BSON, can't calculate size", err)
+      log.Infof("unable to marshal doc to BSON, can't calculate size: %v", err)
 		}
 		// add the 4 bytes for the MsgHeader
 		// https://docs.mongodb.com/manual/reference/mongodb-wire-protocol/#standard-message-header
 		msgSize := len(bs) + 4
 
 		// if the next op is going to put us over, flush and recreate bOp
-		if bOp.opCounter >= maxObjSize || bOp.bsonOpSize+msgSize >= maxBSONObjSize {
+		if bOp.opCounter >= s.(*Session).maxWriteBatchSize || bOp.bsonOpSize+msgSize >= maxBSONObjSize {
 			err = b.flush(coll, bOp)
+			if err != nil {
+				log.With("collection", coll).Infof("error flushing collection that has reached its size capacity: %s\n", err.Error())
+			}
 			if err == nil && b.confirmChan != nil {
 				b.confirmChan <- struct{}{}
 			}
-			s := s.(*Session).mgoSession.Copy()
+			s := s.(*Session).mgoSession.Clone()
 			bOp = &bulkOperation{
 				s:    s,
 				bulk: s.DB("").C(coll).Bulk(),
@@ -107,7 +109,7 @@ func (b *Bulk) run(done chan struct{}, wg *sync.WaitGroup) {
 				return
 			}
 		case <-done:
-			log.Debugln("received done channel")
+			log.Infoln("received done channel")
 			if err := b.flushAll(); err != nil {
 				log.Errorf("flush error, %s", err)
 			}
@@ -131,7 +133,7 @@ func (b *Bulk) flushAll() error {
 }
 
 func (b *Bulk) flush(c string, bOp *bulkOperation) error {
-	log.With("collection", c).With("opCounter", bOp.opCounter).With("bsonOpSize", bOp.bsonOpSize).Debugln("flushing bulk messages")
+	log.With("collection", c).With("opCounter", bOp.opCounter).With("bsonOpSize", bOp.bsonOpSize).Infoln("flushing bulk messages")
 	_, err := bOp.bulk.Run()
 	if err != nil && !mgo.IsDup(err) {
 		log.With("collection", c).Errorf("flush error, %s\n", err)
@@ -144,7 +146,7 @@ func (b *Bulk) flush(c string, bOp *bulkOperation) error {
 		}
 	}
 	bOp.s.Close()
-	log.With("collection", c).Debugln("flush complete")
+	log.With("collection", c).Infoln("flush complete")
 	delete(b.bulkMap, c)
 	return nil
 }

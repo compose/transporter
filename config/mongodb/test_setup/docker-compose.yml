@@ -1,0 +1,15 @@
+version: '2'
+
+services:
+  mongodb:
+    image: transporter_mongodb:latest
+    hostname: transporter-mongodb
+    ports:
+      - '10000:10000'
+      - '10001:10001'
+      - '27017:27017'
+      - '27018:27018'
+      - '11112:11112'
+      - '29017:29017'
+      - '15000:15000'
+      - '20000:20000'

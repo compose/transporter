@@ -73,7 +73,7 @@ var (
 			"with_uri_invalid",
 			[]ClientOptionFunc{WithURI("amqp:// localhost:5672")},
 			&Client{},
-			client.InvalidURIError{URI: "amqp:// localhost:5672", Err: "parse amqp:// localhost:5672: invalid character \" \" in host name"},
+			client.InvalidURIError{URI: "amqp:// localhost:5672", Err: "Invalid URI must not contain whitespace"},
 		},
 		{
 			"with_ssl",
@@ -140,8 +140,20 @@ func TestNewClient(t *testing.T) {
 		if ct.expectedErr != nil && !reflect.DeepEqual(err.Error(), ct.expectedErr.Error()) {
 			t.Fatalf("[%s] unexpected NewClient error, expected %+v, got %+v\n", ct.name, ct.expectedErr, err)
 		}
-		if err == nil && !reflect.DeepEqual(ct.expected, actual) {
-			t.Errorf("[%s] Client mismatch\nexpected %+v\ngot %+v", ct.name, ct.expected, actual)
+		if err == nil {
+			if ct.expected.uri != actual.uri {
+				t.Errorf("[%s] Client uri mismatch\nexpected %+v\ngot %+v", ct.name, ct.expected.uri, actual.uri)
+			}
+
+			if ct.expected.tlsConfig != nil && !reflect.DeepEqual(ct.expected.tlsConfig.InsecureSkipVerify, actual.tlsConfig.InsecureSkipVerify) {
+				t.Errorf("[%s] Client uri mismatch\nexpected %+v\ngot %+v", ct.name, ct.expected.tlsConfig.InsecureSkipVerify, actual.tlsConfig.InsecureSkipVerify)
+			}
+			if ct.expected.tlsConfig != nil && !reflect.DeepEqual(ct.expected.tlsConfig.RootCAs, actual.tlsConfig.RootCAs) {
+				t.Errorf("[%s] Client uri mismatch\nexpected %+v\ngot %+v", ct.name, ct.expected.tlsConfig.RootCAs, actual.tlsConfig.RootCAs)
+			}
+			// && !reflect.DeepEqual(ct.expected, actual) {
+
+			// t.Errorf(actual.tlsConfig)
 		}
 	}
 }

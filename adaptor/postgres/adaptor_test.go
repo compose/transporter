@@ -113,7 +113,7 @@ func setup() {
 }
 
 func setupData(data *TestData) {
-	c, err := NewClient(WithURI(fmt.Sprintf("postgres://127.0.0.1:5432/%s?sslmode=disable", data.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("postgres://postgres@transporter-db:5432/%s?sslmode=disable", data.DB)))
 	if err != nil {
 		log.Errorf("unable to initialize connection to postgres, %s", err)
 	}

@@ -74,7 +74,7 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 // Use Postgres logical decoding to retrieve the latest changes
 func (t *Tailer) pluckFromLogicalDecoding(s *Session, filterFn client.NsFilterFunc) ([]client.MessageSet, error) {
 	var result []client.MessageSet
-	dataMatcher := regexp.MustCompile("(?s)^table ([^\\.]+)\\.([^:]+): (INSERT|DELETE|UPDATE): (.+)$") // 1 - schema, 2 - table, 3 - action, 4 - remaining
+	dataMatcher := regexp.MustCompile(`(?s)^table ([^\.]+)\.([^:]+): (INSERT|DELETE|UPDATE): (.+)$`) // 1 - schema, 2 - table, 3 - action, 4 - remaining
 
 	changesResult, err := s.pqSession.Query(fmt.Sprintf("SELECT * FROM pg_logical_slot_get_changes('%v', NULL, NULL);", t.replicationSlot))
 	if err != nil {
@@ -244,7 +244,7 @@ func casifyValue(value string, valueType string) interface{} {
 		return i
 	case valueType == "double precision" || valueType == "numeric" || valueType == "money":
 		if valueType == "money" { // remove the dollar sign for money
-			value = value[1:len(value)]
+			value = value[1:]
 		}
 		f, _ := strconv.ParseFloat(value, 64)
 		return f

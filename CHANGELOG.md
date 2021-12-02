@@ -1,11 +1,25 @@
+## v1.0.0 [TBD]
+
+This release does not introduce any new functionalities, but catches up transporter with modern golang.
+It also introduces a new standard way of running adaptor tests.
+Only the mongodb and postgresql adaptors have been fully tested. We'll add more as we go.
+
+- Bumped golang to 1.17
+- Migrated to go mod
+- Migrate from Travis CI to Github Actions
+- Standardize how adaptor tests are run. Using docker-compose, we can run them the same way on CI and locally.
+- Provide docker-compose and custom scripts to run mongodb and postgresql adaptor tests locally and on CI. See the respective adaptor README for more info.
+- Fix for postgresql tailer when there are new lines in a record, via [#456](https://github.com/compose/transporter/pull/456), thanks @erft-engineering!
+- Reduce mongo bulk operation size to 1000, via [#450](https://github.com/compose/transporter/pull/450), thanks @trinchan!
+
 ## v0.5.0 [2017-09-11]
 
 ### Features
 - new `remap` function for changing the namespace with a native function versus needing a custom
 JS function to do it, fixed via [#400](https://github.com/compose/transporter/pull/400)
-- new `opfilter` function for whitelisting or blacklisting message operations versus needing a custom 
+- new `opfilter` function for whitelisting or blacklisting message operations versus needing a custom
 JS function to do it, fixed via [#401](https://github.com/compose/transporter/pull/401)
-- `elasticsearch` adaptor now supports parent/child relationships, see 
+- `elasticsearch` adaptor now supports parent/child relationships, see
 fixed via [#406](https://github.com/compose/transporter/pull/406), thanks @johnjjung!
 
 ### Bugfixes
@@ -15,7 +29,7 @@ fixed via [#403](https://github.com/compose/transporter/pull/403)
 
 ### Changes
 - the `-log_dir` flag is now `-xlog_dir` and the `log_dir` config property is now `xlog_dir` to match. This is to avoid confusion with the application logging's -log flags.
-- `elasticsearch` adaptor now logs all errors returned from a bulk operation, [#413](https://github.com/compose/transporter/pull/413), 
+- `elasticsearch` adaptor now logs all errors returned from a bulk operation, [#413](https://github.com/compose/transporter/pull/413),
 thanks @pmjhonwang!
 
 ## v0.4.0 [2017-08-15]
@@ -33,7 +47,7 @@ from others collections to be sent down the pipeline, fixed via [#386](https://g
 ## v0.3.1 [2017-03-24]
 
 ### Features
-- added `js` alias for `goja` transform function [#335](https://github.com/compose/transporter/pull/335) 
+- added `js` alias for `goja` transform function [#335](https://github.com/compose/transporter/pull/335)
 - `init` command will now prompt user when `pipeline.js` file already exists [#336](https://github.com/compose/transporter/pull/336)
 
 ### Bugfixes

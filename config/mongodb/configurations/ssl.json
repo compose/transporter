@@ -5,7 +5,7 @@
         "port": 11112
     },
     "sslParams": {
-        "sslPEMKeyFile": "/tmp/mongodb/mongodb.pem",
+        "sslPEMKeyFile": "/tmp/mongodb/server.pem",
         "sslCAFile": "/tmp/mongodb/ca.pem",
         "sslMode": "allowSSL",
         "sslAllowConnectionsWithoutCertificates": true,

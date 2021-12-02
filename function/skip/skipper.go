@@ -103,7 +103,7 @@ func convertToFloat(in interface{}) (float64, error) {
 	case int:
 		return float64(i), nil
 	case string:
-		return strconv.ParseFloat(i, 0)
+		return strconv.ParseFloat(i, 64)
 	default:
 		return math.NaN(), wrongTypeError{"float64 or int", fmt.Sprintf("%T", i)}
 	}

@@ -147,7 +147,7 @@ func interrupt(cancel <-chan struct{}) error {
 // String represents the pipelines as a string
 func (t *Transporter) String() string {
 	out := "Transporter:\n"
-	out += fmt.Sprintf("%s", t.sourceNode.String())
+	out += t.sourceNode.String()
 	return out
 }
 

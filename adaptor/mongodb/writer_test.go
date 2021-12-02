@@ -84,7 +84,7 @@ func TestInsert(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping Insert in short mode")
 	}
-	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://127.0.0.1:27017/%s", writerTestData.DB)))
+	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://transporter-db:27017/%s", writerTestData.DB)))
 	s, err := c.Connect()
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mongodb, %s", err)
@@ -143,7 +143,7 @@ func TestUpdate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping Update in short mode")
 	}
-	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://127.0.0.1:27017/%s", writerTestData.DB)))
+	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://transporter-db:27017/%s", writerTestData.DB)))
 	s, err := c.Connect()
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mongodb, %s", err)
@@ -194,7 +194,7 @@ func TestDelete(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping Delete in short mode")
 	}
-	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://127.0.0.1:27017/%s", writerTestData.DB)))
+	c, _ := NewClient(WithURI(fmt.Sprintf("mongodb://transporter-db:27017/%s", writerTestData.DB)))
 	s, err := c.Connect()
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mongodb, %s", err)
@@ -232,7 +232,7 @@ func TestRestartWrites(t *testing.T) {
 	}
 
 	c := &Client{
-		uri:            fmt.Sprintf("mongodb://127.0.0.1:15000/%s", writerTestData.DB),
+		uri:            fmt.Sprintf("mongodb://transporter-db:15000/%s", writerTestData.DB),
 		sessionTimeout: DefaultSessionTimeout,
 		safety:         DefaultSafety,
 	}

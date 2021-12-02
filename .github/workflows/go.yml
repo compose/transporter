@@ -1,0 +1,56 @@
+name: Go
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master, dev ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      MONGODB_VERSION: 3.2.11
+      POSTGRESQL_VERSION: 12
+      ES_V5_URL: http://127.0.0.1:9205
+      ES_V2_URL: http://127.0.0.1:9202
+      ES_V1_URL: http://127.0.0.1:9201
+    strategy:
+      matrix:
+        include:
+          - test-dir: "adaptor, adaptor/all, adaptor/file/..., client/..., commitlog/..., events/..."
+          - test-dir: "function/..., log/..., message/..., offset/..., pipe/..., pipeline/..."
+          # - test-dir: adaptor/elasticsearch/...
+          - test-dir: adaptor/mongodb/...
+          - test-dir: adaptor/postgres/...
+          # - test-dir: adaptor/rabbitmq/...
+          # - test-dir: adaptor/rethinkdb/...
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.17
+
+    - name: Setup Tests
+      env:
+        TESTDIR: ${{ matrix.test-dir }}
+      run: "./scripts/setup_tests.sh"
+
+    - name: Run Lint
+      run: "$(go env GOPATH)/bin/golangci-lint run -D errcheck"
+
+    - name: Build
+      run: go build ./...
+
+    - name: Run Tests
+      env:
+        TESTDIR: ${{ matrix.test-dir }}
+      run: "./scripts/tests.sh"
+
+    - name: Teardown Docker
+      env:
+        TESTDIR: ${{ matrix.test-dir }}
+      run: "./scripts/teardown_db_in_docker.sh"

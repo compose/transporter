@@ -21,7 +21,7 @@ func TestClose(t *testing.T) {
 		t.Fatalf("unable to dial mongodb, %s\n", err)
 	}
 	mgoSession.DB("transporter_test").DropDatabase()
-	s, err := &Session{mgoSession}, nil
+	s, err := &Session{mgoSession, DefaultMaxWriteBatchSize}, nil
 	if err != nil {
 		t.Fatalf("unable to dial mongodb, %s\n", err)
 	}

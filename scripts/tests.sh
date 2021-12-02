@@ -10,8 +10,6 @@ IFS=', ' read -r -a test_dir <<< "$TESTDIR"
 for t in "${test_dir[@]}"; do
   echo "testing $t"
   for d in $(go list ./$t); do
-    golint -set_exit_status $d
-
     go test -v -coverprofile=profile.out -covermode=atomic $d -log.level=error
     if [ -f profile.out ]; then
         cat profile.out >> coverage.txt
