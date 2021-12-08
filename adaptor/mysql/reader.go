@@ -64,7 +64,7 @@ func (r *Reader) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 
 func (r *Reader) listTables(db string, session *sql.DB, filterFn func(name string) bool) (<-chan string, error) {
 	out := make(chan string)
-	tablesResult, err := session.Query("SELECT table_schema,table_name FROM information_schema.tables")
+	tablesResult, err := session.Query("SELECT table_schema, table_name FROM INFORMATION_SCHEMA.TABLES")
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (r *Reader) listTables(db string, session *sql.DB, filterFn func(name strin
 }
 
 func matchFunc(table string) bool {
-	if strings.HasPrefix(table, "information_schema.") || strings.HasPrefix(table, "pg_catalog.") {
+	if strings.HasPrefix(table, "information_schema.") {
 		return false
 	}
 	return true
@@ -113,16 +113,18 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done
 				if !ok {
 					return
 				}
-				log.With("db", db).With("table", c).With("table", c).Infoln("iterating...")
+				log.With("db", db).With("table", c).Infoln("iterating...")
 				schemaTable := strings.Split(c, ".")
 				columnsResult, err := session.Query(fmt.Sprintf(`
-            SELECT c.column_name, c.data_type, e.data_type AS element_type
-            FROM information_schema.columns c LEFT JOIN information_schema.element_types e
-                 ON ((c.table_catalog, c.table_schema, c.table_name, 'TABLE', c.dtd_identifier)
-                   = (e.object_catalog, e.object_schema, e.object_name, e.object_type, e.collection_type_identifier))
-            WHERE c.table_schema = '%v' AND c.table_name = '%v'
-            ORDER BY c.ordinal_position;
+            SELECT COLUMN_NAME AS column_name, DATA_TYPE as data_type, "" as element_type
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE
+                TABLE_SCHEMA = '%v'
+            AND TABLE_NAME = '%v'
+            ORDER BY ORDINAL_POSITION;
             `, schemaTable[0], schemaTable[1]))
+			// No element_types in mysql since no ARRAY data type
+			// we could add an empty column though to get the same layout as Postgres
 				if err != nil {
 					log.With("db", db).With("table", c).Errorf("error getting columns %v", err)
 					continue
