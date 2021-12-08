@@ -2,6 +2,8 @@ package mysql
 import (
 	"database/sql"
 	"net/url"
+	"strings"
+	//"fmt"
 
 	"github.com/compose/transporter/client"
 
@@ -14,7 +16,7 @@ const (
 	// Supposedly we should use a socket and not tcp if localhost, but that might be
 	// more confusing for others when it comes to altering it?
 	// https://github.com/go-sql-driver/mysql#dsn-data-source-name
-	DefaultURI = "/"
+	DefaultURI = "root@tcp(localhost)/"
 )
 
 var (
@@ -68,6 +70,7 @@ func (c *Client) Close() {
 // Connect initializes the MySQL connection
 func (c *Client) Connect() (client.Session, error) {
 	var err error
+	var dsn string
 
 	if c.mysqlSession == nil {
 		// Previously it said here "there's really no way for this to error...", but that sounds
@@ -77,7 +80,11 @@ func (c *Client) Connect() (client.Session, error) {
 		// > panic: invalid DSN: missing the slash separating the database name
 		//
 		// So let's do _something_
-		c.mysqlSession, err = sql.Open("mysql", c.uri)
+		// Let's strip prefix if it is there since we need a DSN
+		dsn = strings.Replace(c.uri, "mysql://", "", 1)
+		// Debug:
+		// fmt.Println(dsn)
+		c.mysqlSession, err = sql.Open("mysql", dsn)
 		if err != nil {
 			panic(err.Error()) // TODO: Maybe not panic?
 		}
