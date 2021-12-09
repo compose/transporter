@@ -48,7 +48,7 @@ Finally, we can issue the build command
 
 ```
 cd transporter
-go get -a ./...
+go mod download
 go build ./cmd/transporter
 ```
 
