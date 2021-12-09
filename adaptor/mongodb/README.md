@@ -26,7 +26,7 @@ m = mongodb({
 | ------------------ | ------------------------------------------------------------ | ------------------------------ |
 | uri                | Defines the full connection string of the MongoDB database.  | mongodb://127.0.0.1:27017/test |
 | timeout            | Overrides the default session timeout and should be parseable by time.ParseDuration | 10s                            |
-| tail               | Set the flag to tell the Client whether or not access to the oplog will be needed | false                          |
+| tail               | Whether the source connection will listen for updates after the initial sync (requires oplog access) | false                          |
 | ssl                | Configures the database connection to connect via TLS        | false                          |
 | cacerts            | Configures the RootCAs for the underlying TLS connection     | []                             |
 | wc                 | Configures the write concern option for the session          | 0                              |
