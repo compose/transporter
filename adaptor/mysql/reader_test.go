@@ -21,10 +21,10 @@ func TestRead(t *testing.T) {
 
 	reader := newReader()
 	readFunc := reader.Read(map[string]client.MessageSet{}, func(table string) bool {
-		if strings.HasPrefix(table, "information_schema.") {
+		if strings.HasPrefix(table, "information_schema.") || strings.HasPrefix(table, "performance_schema.") {
 			return false
 		}
-		return table == fmt.Sprintf("public.%s", readerTestData.Table)
+		return table == readerTestData.DB + "." + readerTestData.Table
 	})
 	done := make(chan struct{})
 	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@tcp(localhost)/%s", readerTestData.DB)))
@@ -61,10 +61,10 @@ func TestReadComplex(t *testing.T) {
 
 	reader := newReader()
 	readFunc := reader.Read(map[string]client.MessageSet{}, func(table string) bool {
-		if strings.HasPrefix(table, "information_schema.") {
+		if strings.HasPrefix(table, "information_schema.") || strings.HasPrefix(table, "performance_schema."){
 			return false
 		}
-		return table == fmt.Sprintf("public.%s", readerComplexTestData.Table)
+		return table == readerComplexTestData.DB + "." + readerComplexTestData.Table
 	})
 	done := make(chan struct{})
 	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@tcp(localhost)/%s", readerComplexTestData.DB)))
@@ -94,13 +94,10 @@ func TestReadComplex(t *testing.T) {
 			"colbigint":          int64(4000001240124),
 			"colbit":             "1",
 			"colboolean":         false,
-			"colbox":             "(20,20),(10,10)",
+			"colbinary":          0xDEADBEEF,
 			"colcharacter":       "a",
-			"colcidr":            "10.0.1.0/28",
-			"colcircle":          "<(5,10),3>",
 			"coldoubleprecision": 0.314259892323,
 			"colenum":            "sad",
-			"colinet":            "10.0.1.0",
 			"colinteger":         int64(3),
 			"colline":            "{1,1,3}",
 			"collseg":            "[(10,10),(25,25)]",

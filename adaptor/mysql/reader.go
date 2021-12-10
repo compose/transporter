@@ -92,7 +92,7 @@ func (r *Reader) listTables(db string, session *sql.DB, filterFn func(name strin
 }
 
 func matchFunc(table string) bool {
-	if strings.HasPrefix(table, "information_schema.") {
+	if strings.HasPrefix(table, "information_schema.") || strings.HasPrefix(table, "performance_schema.") {
 		return false
 	}
 	return true
