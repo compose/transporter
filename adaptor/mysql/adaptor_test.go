@@ -10,55 +10,34 @@ import (
 	"github.com/compose/transporter/log"
 )
 
+// Order cols per: https://dev.mysql.com/doc/refman/5.7/en/data-types.html
+
 const (
-	basicSchema   = "id SERIAL PRIMARY KEY, colvar VARCHAR(255), coltimestamp TIMESTAMP"
-	complexSchema = `id SERIAL,
-
-  colvar VARCHAR(255),
-  coltimestamp TIMESTAMP,
-
-  colarrayint integer ARRAY[4],
-  colarraystring varchar ARRAY[4],
-  colbigint bigint,
-  colbigserial bigserial,
-  colbit bit,
-  colboolean boolean,
-  colbox box,
-  colbytea bytea,
-  colcharacter character,
-  colcidr cidr,
-  colcircle circle,
-  coldate date,
-  coldoubleprecision double precision,
-  colenum mood,
-  colinet inet,
-  colinteger integer,
-  colinterval interval,
-  coljson json,
-  colarrayjson json,
-  coljsonb jsonb,
-  colline line,
-  collseg lseg,
-  colmacaddr macaddr,
-  colmoney money,
-  colnumeric numeric(8,8),
-  colpath path,
-  colpg_lsn pg_lsn,
-  colpoint point,
-  colpolygon polygon,
-  colreal real,
-  colserial serial,
-  colsmallint smallint,
-  colsmallserial smallserial,
-  coltext text,
-  coltime time,
-  coltsquery tsquery,
-  coltsvector tsvector,
-  coltxid_snapshot txid_snapshot,
-  coluuid uuid,
-  colxml xml,
-
-  PRIMARY KEY (id, colvar)`
+	basicSchema   = "id INTEGER PRIMARY KEY, colvar VARCHAR(255), coltimestamp TIMESTAMP"
+	complexSchema = `id INTEGER AUTO_INCREMENT,
+	colinteger INTEGER,
+	colsmallint SMALLINT,
+	coltinyint TINYINT,
+	colmediumint MEDIUMINT,
+	colbigint BIGINT,
+	coldecimal DECIMAL(8,8),
+	colfloat FLOAT,
+	coldoubleprecision DOUBLE PRECISION,
+	colbit BIT,
+	coldate DATE,
+	coltime TIME,
+	coltimestamp TIMESTAMP,
+	coltyear YEAR,
+	colchar CHAR,
+	colvar VARCHAR(255),
+	colbinary BINARY(8),
+	colblob BLOB,
+	coltext TEXT,
+	colpoint POINT,
+	collinestring LINESTRING,
+	colpolygon POLYGON,
+	colgeometrycollection GEOMETRYCOLLECTION,
+	PRIMARY KEY (id, colvar)`
 )
 
 var (
@@ -123,7 +102,8 @@ func setupData(data *TestData) {
 	}
 	mysqlSession := s.(*Session).mysqlSession
 	if data.Schema == complexSchema {
-		mysqlSession.Exec("CREATE TYPE mood AS ENUM('sad', 'ok', 'happy');")
+		// Needs to be a col
+		//mysqlSession.Exec("CREATE TYPE mood AS ENUM('sad', 'ok', 'happy');")
 	}
 
 	if _, err := mysqlSession.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s;", data.Table)); err != nil {
@@ -139,60 +119,38 @@ func setupData(data *TestData) {
 		if data.Schema == complexSchema {
 			if _, err := mysqlSession.Exec(fmt.Sprintf(`
 					 INSERT INTO %s VALUES (
-							%d,                  -- id
-							'%s',           -- colvar VARCHAR(255),
-							now() at time zone 'utc', -- coltimestamp TIMESTAMP,
-
-							'{1, 2, 3, 4}',           -- colarrayint ARRAY[4],
-							'{"o,ne", "two", "three", "four"}' , -- colarraystring ARRAY[4],
-							4000001240124,       -- colbigint bigint,
-							DEFAULT,             -- colbigserial bigserial,
-							B'1',                -- colbit bit,
-							false,               -- colboolean boolean,
-							'(10,10),(20,20)',   -- colbox box,
-							E'\\xDEADBEEF',      -- colbytea bytea,
-							'a',                 -- colcharacter character(1),
-							'10.0.1.0/28',       -- colcidr cidr,
-							'<(5, 10), 3>',      -- colcircle circle,
-							now() at time zone 'utc', -- coldate date,
-							0.314259892323,      -- coldoubleprecision double precision,
-							'sad',               -- colenum mood,
-							'10.0.1.0',          -- colinet inet,
-							3,                   -- colinteger integer,
-							DEFAULT,             -- autoset colinterval interval,
-							'{"name": "batman"}',  -- coljson json,
-							'[{"name": "batman"},{"name":"robin"}]',  -- colarrayjson json,
-							'{"name": "alfred"}',  -- coljsonb jsonb,
-							'{1, 1, 3}',         -- colline line,
-							'[(10,10),(25,25)]', -- collseg lseg,
-							'08:00:2b:01:02:03', -- colmacaddr macaddr,
-							35.68,               -- colmoney money,
-							0.23509838,   -- colnumeric numeric(8,8),
-							'[(10,10),(20,20),(20,10),(15,15)]', -- colpath path,
-							'0/3000000',         -- colpg_lsn pg_lsn,
-							'(15,15)',           -- colpoint point,
-							'((10,10),(11, 11),(11,0),(5,5))', -- colpolygon polygon,
-							7,                   -- colreal real,
-							DEFAULT,             -- colserial serial,
-							3,                   -- colsmallint smallint,
-							DEFAULT,             -- colsmallserial smallserial,
-							'this is \n extremely important', -- coltext text,
-							'13:45',             -- coltime time,
-							'fat:ab & cat',      -- coltsquery tsquery,
-							'a fat cat sat on a mat and ate a fat rat', -- coltsvector tsvector,
-							null,
-							'f0a0da24-4068-4be4-961d-7c295117ccca', -- coluuid uuid,
-							'<person><name>Batman</name></person>' --    colxml xml,
+							%d,                                                                                -- id
+							3,                                                                                 -- colinteger INTEGER,
+							3,                                                                                 -- colbigint SMALLINT,
+							127,                                                                               -- coltinyint TINYINT,
+							8388607,                                                                           -- colmediumint MEDIUMINT,
+							21474836471,                                                                       -- colbigint BIGINT,
+							0.23509838,                                                                        -- coldecimal DECIMAL(8,8),
+							0.314259892323,                                                                    -- colfloat FLOAT,
+							0.314259892323,                                                                    -- coldoubleprecision DOUBLE PRECISION,
+							b'1',                                                                              -- colbit BIT,
+							'2021-12-10',                                                                      -- coldate DATE,
+							'13:45:00',                                                                        -- coltime TIME,
+							now(),                                                                             -- coltimestamp TIMESTAMP,
+							'2021',                                                                            -- colyear YEAR,
+							'a',                                                                               -- colvar CHAR,
+							'%s',                                                                              -- colvar VARCHAR(255),
+							0xDEADBEEF,                                                                        -- colbinary BINARY,
+							0xDEADBEEF,                                                                        -- colblob BLOB,
+							'this is \n extremely important',                                                  -- coltext TEXT,
+							ST_GeomFromText('POINT(15 15)'),                                                   -- colpoint POINT,
+							ST_GeomFromText('LINESTRING(0 0,1 1,2 2)'),                                        -- collinestring LINESTRING,
+							ST_GeomFromText('POLYGON((0 0,10 0,10 10,0 10,0 0),(5 5,7 5,7 7,5 7, 5 5))'),      -- colpolygon POLYGON,
+							ST_GeomFromText('GEOMETRYCOLLECTION(POINT(1 1),LINESTRING(0 0,1 1,2 2,3 3,4 4))')  -- colgeometrycollection GEOMETRYCOLLECTION,
 						);
 			`, data.Table, i, randomHeros[i%len(randomHeros)])); err != nil {
 				log.Errorf("unexpected Insert error, %s\n", err)
 			}
-			// '[{"name": "batman"}, {"name": "robin"}]',  -- arraycoljson json,
 		} else if data.Schema == basicSchema {
 			if _, err := mysqlSession.Exec(fmt.Sprintf(`INSERT INTO %s VALUES (
 			  %d,            -- id
-				'%s',          -- colvar VARCHAR(255),
-				now() at time zone 'utc' -- coltimestamp TIMESTAMP,
+				'%s',        -- colvar VARCHAR(255),
+				now()        -- coltimestamp TIMESTAMP,
 			);`, data.Table, i, randomHeros[i%len(randomHeros)])); err != nil {
 				log.Errorf("unexpected Insert error, %s\n", err)
 			}

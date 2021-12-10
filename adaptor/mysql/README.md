@@ -32,3 +32,35 @@ This happens under the `iterateTable` function. Note that here the `c` is a sql 
 		s           | integer   | 
 		md5         | text      | 
 		(2 rows)
+		
+## Data types
+
+Comparing differences from Postgresql using these sources:
+
+- <https://www.postgresql.org/docs/9.6/datatype.html>
+- <https://dev.mysql.com/doc/refman/5.7/en/data-types.html>
+
+There are three code areas that need changing:
+
+1. `colXXX` constants at top of adaptor\_test.go
+2. `setupData` in adaptor\_test.go
+3. `TestReadComplex` in reader\_test.go
+
+Some comments:
+
+- No ARRAY in MySQL
+- [Timestamp assumes UTC](https://dev.mysql.com/doc/refman/8.0/en/datetime.html)
+- The `--colbytea` bits are all just comments so it's easier to match things up
+- On that note I'm re-ording things so it's consistent
+- [Inserting binary can be done like this](https://stackoverflow.com/a/10283197/208793)
+- No BIGSERIAL, etc
+- Geometry is there, just a bit different
+- No CIDR
+- ENUM has to be done a bit differently, no need to CREATE TYPE
+
+I'm currently developing with a ye-olde 5.6 version so it doesn't like:
+
+- ENUM
+- SET 
+- VARBINARY
+- JSON
