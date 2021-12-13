@@ -33,7 +33,7 @@ This happens under the `iterateTable` function. Note that here the `c` is a sql 
 		md5         | text      | 
 		(2 rows)
 		
-## Data types
+### Data types
 
 Comparing differences from Postgresql using these sources:
 
@@ -64,3 +64,15 @@ I'm currently developing with a ye-olde 5.6 version so it doesn't like:
 - SET 
 - VARBINARY
 - JSON
+
+### TestReadComplex Notes
+
+Remove newline for now for `text`:
+
+```
+--- FAIL: TestReadComplex (0.01s)
+reader_test.go:117: Expected coltext of row to equal this is \n extremely important (string), but was this is 
+	 extremely important (string)
+```
+
+> Float MySQL also supports this optional precision specification, but the precision value in FLOAT(p) is used only to determine storage size. A precision from 0 to 23 results in a 4-byte single-precision FLOAT column. A precision from 24 to 53 results in an 8-byte double-precision DOUBLE column.

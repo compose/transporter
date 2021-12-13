@@ -2,8 +2,6 @@ package mysql
 
 import (
 	"database/sql"
-	"encoding/csv"
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -142,12 +140,10 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done
 						continue
 					}
 
-					if columnType == "ARRAY" {
-						columnType = fmt.Sprintf("%v[]", columnArrayType.String) // append [] to columnType if array
-					}
-
 					column := []string{columnName, columnType}
 					columns = append(columns, column)
+					// Debug
+					// log.Infoln(columnName + ": " + columnType)
 				}
 
 				// build docs for table
@@ -197,42 +193,21 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done
 
 // In Postgres this is in tailer.go, but since this is called even without tailing it seems like it should be here
 func casifyValue(value string, valueType string) interface{} {
-	findArray := regexp.MustCompile("[[]]$")
 
 	switch {
 	case value == "null":
 		return nil
-	case valueType == "integer" || valueType == "smallint" || valueType == "bigint":
-		i, _ := strconv.Atoi(value)
+	case value == "bit":
+		// TODO: Fix. Was a guess, doesn't work
+		b, _ := strconv.ParseUint(value, 2, 32)
+		return b
+	case valueType == "int" || valueType == "smallint" || valueType == "tinyint" || valueType == "mediumint" || valueType == "bigint":
+		i, _ := strconv.ParseInt(value, 10, 64)
 		return i
-	case valueType == "double precision" || valueType == "numeric" || valueType == "money":
-		if valueType == "money" { // remove the dollar sign for money
-			value = value[1:]
-		}
+	case valueType == "double" || valueType == "float" || valueType == "decimal":
 		f, _ := strconv.ParseFloat(value, 64)
 		return f
-	case valueType == "boolean":
-		return value == "true"
-	case valueType == "jsonb[]" || valueType == "json":
-		var m map[string]interface{}
-		json.Unmarshal([]byte(value), &m)
-		return m
-	case len(findArray.FindAllString(valueType, 1)) > 0:
-		var result []interface{}
-		arrayValueType := findArray.ReplaceAllString(valueType, "")
-
-		r := csv.NewReader(strings.NewReader(value[1 : len(value)-1]))
-		arrayValues, err := r.ReadAll()
-		if err != nil {
-			return value
-		}
-
-		for _, arrayValue := range arrayValues[0] {
-			result = append(result, casifyValue(arrayValue, arrayValueType))
-		}
-
-		return result
-	case valueType == "timestamp without time zone":
+	case valueType == "timestamp":
 		// parse time like 2015-08-21 16:09:02.988058
 		t, err := time.Parse("2006-01-02 15:04:05.9", value)
 		if err != nil {
@@ -245,6 +220,13 @@ func casifyValue(value string, valueType string) interface{} {
 			fmt.Printf("\nTime (%v) parse error: %v\n\n", value, err)
 		}
 		return t
+
+	// TODO:
+	//
+	// - Time, I think this just as to be a string though?
+	// - Bit, to read bit values need bin(b): https://dev.mysql.com/doc/refman/5.6/en/bit-value-literals.html
+	// - Blob / Binary
+	// - All the Spatial / GIS stuff
 	}
 
 	return value

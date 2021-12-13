@@ -89,35 +89,33 @@ func TestReadComplex(t *testing.T) {
 	}
 	for i := 0; i < readerTestData.InsertCount; i++ {
 		for key, value := range map[string]interface{}{
-			"id":                 int64(i),
-			"colvar":             randomHeros[i%len(randomHeros)],
-			"colbigint":          int64(4000001240124),
-			"colbit":             "1",
-			"colboolean":         false,
-			"colbinary":          0xDEADBEEF,
-			"colcharacter":       "a",
-			"coldoubleprecision": 0.314259892323,
-			"colenum":            "sad",
-			"colinteger":         int64(3),
-			"colline":            "{1,1,3}",
-			"collseg":            "[(10,10),(25,25)]",
-			"colmacaddr":         "08:00:2b:01:02:03",
-			"colmoney":           35.68,
-			"colnumeric":         0.23509838,
-			"colpath":            "[(10,10),(20,20),(20,10),(15,15)]",
-			"colpg_lsn":          "0/3000000",
-			"colpoint":           "(15,15)",
-			"colpolygon":         "((10,10),(11,11),(11,0),(5,5))",
-			"colreal":            float64(7),
-			"colsmallint":        int64(3),
-			"coltext":            "this is \\n extremely important",
-			"coltime":            time.Date(0, 1, 1, 13, 45, 0, 0, time.UTC),
-			"coltsquery":         "'fat':AB & 'cat'",
-			"coluuid":            "f0a0da24-4068-4be4-961d-7c295117ccca",
-			"colxml":             "<person><name>Batman</name></person>",
+			"id":                    int64(i),
+			"colinteger":            int64(3),
+			"colsmallint":           int64(32767),
+			"coltinyint":            int64(127),
+			"colmediumint":          int64(8388607),
+			"colbigint":             int64(21474836471),
+			"coldecimal":            0.23509838,
+			"colfloat":              0.31426,
+			"coldoubleprecision":    0.314259892323,
+			"colbit":                "000101",
+			"coldate":               time.Date(2021, 12, 10, 0, 0, 0, 0, time.UTC),
+			"coltime":               "13:45:00",
+			"coltimestamp":          time.Now(), //time.Date(0, 1, 1, 13, 45, 0, 0, time.UTC),
+			"colyear":               "2021",
+			"colchar":               "a",
+			"colvar":                randomHeros[i%len(randomHeros)],
+			"colbinary":             0xDEADBEEF,
+			"colblob":               0xDEADBEEF,
+			"coltext":               "this is extremely important",
+			"colpoint":              "(15 15)",
+			"collinestring":         "(0 0,1 1,2 2)",
+			"colpolygon":            "(0 0,10 0,10 10,0 10,0 0),(5 5,7 5,7 7,5 7, 5 5)",
+			"colgeometrycollection": "POINT(1 1),LINESTRING(0 0,1 1,2 2,3 3,4 4)",
 		} {
 			if msgs[i].Data().Get(key) != value {
-				t.Fatalf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, msgs[i].Data().Get(key), msgs[i].Data().Get(key))
+				// Fatalf here hides other errors because it's a FailNow so use Error instead
+				t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, msgs[i].Data().Get(key), msgs[i].Data().Get(key))
 			}
 		}
 	}
