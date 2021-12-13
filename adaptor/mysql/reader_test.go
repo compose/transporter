@@ -89,8 +89,8 @@ func TestReadComplex(t *testing.T) {
 	}
 	for i := 0; i < readerTestData.InsertCount; i++ {
 		for key, value := range map[string]interface{}{
-			"id":                    int64(i),
-			"colinteger":            int64(3),
+			"id":                    int64(i)+1,
+			"colinteger":            int64(i),
 			"colsmallint":           int64(32767),
 			"coltinyint":            int64(127),
 			"colmediumint":          int64(8388607),

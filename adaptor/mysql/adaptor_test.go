@@ -119,8 +119,8 @@ func setupData(data *TestData) {
 		if data.Schema == complexSchema {
 			if _, err := mysqlSession.Exec(fmt.Sprintf(`
 					 INSERT INTO %s VALUES (
-							%d,                                                                                -- id
-							3,                                                                                 -- colinteger INTEGER,
+							NULL,                                                                              -- id
+							%d,                                                                                -- colinteger INTEGER,
 							32767,                                                                             -- colsmallint SMALLINT,
 							127,                                                                               -- coltinyint TINYINT,
 							8388607,                                                                           -- colmediumint MEDIUMINT,
