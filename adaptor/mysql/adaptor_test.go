@@ -2,6 +2,7 @@ package mysql
 
 import (
 	"fmt"
+	"io"
 	"math/rand"
 	"os"
 	"testing"
@@ -60,6 +61,7 @@ var (
 	randomHeros = []string{"Superwoman", "Wonder Woman", "Batman", "Superman",
 		"Thor", "Iron Man", "Spiderman", "Hulk", "Star-Lord", "Black Widow",
 		"Ant\nMan"}
+
 )
 
 type TestData struct {
@@ -91,6 +93,7 @@ func setup() {
 }
 
 func setupData(data *TestData) {
+
 	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@tcp(localhost)/%s", data.DB)))
 	if err != nil {
 		log.Errorf("unable to initialize connection to mysql, %s", err)
@@ -115,6 +118,26 @@ func setupData(data *TestData) {
 		log.Errorf("unable to create table, could affect tests, %s", err)
 	}
 
+	// cp file to tmp for blob test
+	image, err := os.Open("logo-mysql-170x115.png")
+	if err != nil {
+		log.Errorf("unable to read blob image source, could affect tests, %s", err)
+	}
+	defer image.Close()
+
+	imageCopy, err := os.Create("/tmp/logo-mysql-170x115.png")
+	if err != nil {
+		log.Errorf("unable to create blob image destination, could affect tests, %s", err)
+	}
+	defer imageCopy.Close()
+	nBytes, err := io.Copy(image, imageCopy)
+	if err != nil {
+		log.Errorf("unable to copy blob image to destination, could affect tests, %s", err)
+	} else {
+		log.Infof("Copied blob image to destination, %d bytes", nBytes)
+	}
+
+
 	for i := 0; i < data.InsertCount; i++ {
 		if data.Schema == complexSchema {
 			if _, err := mysqlSession.Exec(fmt.Sprintf(`
@@ -136,7 +159,7 @@ func setupData(data *TestData) {
 							'a',                                                                               -- colchar CHAR,
 							'%s',                                                                              -- colvar VARCHAR(255),
 							0xDEADBEEF,                                                                        -- colbinary BINARY,
-							0xDEADBEEF,                                                                        -- colblob BLOB,
+							LOAD_FILE('/tmp/logo-mysql-170x115.png'),                                          -- colblob BLOB,
 							'this is extremely important',                                                     -- coltext TEXT,
 							ST_GeomFromText('POINT(15 15)'),                                                   -- colpoint POINT,
 							ST_GeomFromText('LINESTRING(0 0,1 1,2 2)'),                                        -- collinestring LINESTRING,

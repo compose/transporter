@@ -8,7 +8,7 @@
 		sudo pkgin install mysql-client
 		sudo pkgin install mysql-server
 
-2. Edit `/opt/pkg/etc/my.cnf` and point `data-dir` somewhere (I opted for `~/Database/mysql`)
+2. Edit `/opt/pkg/etc/my.cnf` and point `data-dir` somewhere (I opted for `~/Database/mysql`). Add `secure_file_priv = "/tmp"` too.
 
 3. Run `mysql_install_db`
 
@@ -67,6 +67,8 @@ I'm currently developing with a ye-olde 5.6 version so it doesn't like:
 
 ### TestReadComplex Notes
 
+#### Text
+
 Remove newline for now for `text`:
 
 ```
@@ -75,4 +77,28 @@ reader_test.go:117: Expected coltext of row to equal this is \n extremely import
 	 extremely important (string)
 ```
 
+#### Float
+
 > Float MySQL also supports this optional precision specification, but the precision value in FLOAT(p) is used only to determine storage size. A precision from 0 to 23 results in a 4-byte single-precision FLOAT column. A precision from 24 to 53 results in an 8-byte double-precision DOUBLE column.
+
+#### Blob
+
+Tried using `go:embded` and inserting the blob data as a string, but couldn't get it to work. I.e.
+
+```
+// For testing Blob
+//go:embed logo-mysql-170x115.png
+blobdata string
+```
+
+And then:
+
+```
+fmt.Sprintf(`INSERT INTO %s VALUES (... '%s');`, blobdata)
+```
+
+Tried with `'%s'` (didn't work at all) and `%q` which inserted, but didn't extract correctly.
+
+In the end I used `LOAD_FILE` to insert (like you are probably meant to), but would be nice to do directly from Go.
+
+Ultimately I'll probably remove this test.

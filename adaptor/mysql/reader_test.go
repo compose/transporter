@@ -1,6 +1,7 @@
 package mysql
 
 import (
+	_ "embed"
 	"fmt"
 	"strings"
 	"testing"
@@ -12,6 +13,10 @@ import (
 
 var (
 	readerTestData = &TestData{"reader_test", "reader_test_table", basicSchema, 10}
+
+	// For testing Blob
+	//go:embed logo-mysql-170x115.png
+	blobdata string
 )
 
 func TestRead(t *testing.T) {
@@ -59,6 +64,7 @@ func TestReadComplex(t *testing.T) {
 		t.Skip("skipping Read in short mode")
 	}
 
+
 	reader := newReader()
 	readFunc := reader.Read(map[string]client.MessageSet{}, func(table string) bool {
 		if strings.HasPrefix(table, "information_schema.") || strings.HasPrefix(table, "performance_schema."){
@@ -105,7 +111,7 @@ func TestReadComplex(t *testing.T) {
 			"colchar":               "a",
 			"colvar":                randomHeros[i%len(randomHeros)],
 			"colbinary":             0xDEADBEEF,
-			"colblob":               0xDEADBEEF,
+			"colblob":               blobdata,
 			"coltext":               "this is extremely important",
 			"colpoint":              "(15 15)",
 			"collinestring":         "(0 0,1 1,2 2)",
