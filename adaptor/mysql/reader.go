@@ -167,7 +167,12 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done
 
 					// What is value.(type) ?
 					for i, value := range dest {
+						// Debug
+						//log.Infoln(value)
+						//xType := fmt.Sprintf("%T", value)
+						//fmt.Println(xType)
 						switch value := value.(type) {
+						// Seems everything is []unit8
 						case []uint8:
 							docMap[columns[i][0]] = casifyValue(string(value), columns[i][1])
 						case string:

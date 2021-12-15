@@ -12,7 +12,8 @@ import (
 	"github.com/compose/transporter/client"
 	"github.com/compose/transporter/message"
 	//"github.com/paulmach/orb"
-	"github.com/paulmach/orb/encoding/wkb"
+	//"github.com/paulmach/orb/encoding/wkb"
+	"github.com/twpayne/go-geom/encoding/wkb"
 )
 
 var (

@@ -6,12 +6,12 @@ require (
 	github.com/compose/mejson v0.0.0-20150828131556-afcf51c7c640
 	github.com/dop251/goja v0.0.0-20170430194003-d382686fd20b
 	github.com/hashicorp/go-version v0.0.0-20161031182605-e96d38404026
-	github.com/lib/pq v0.0.0-20170103192009-8df6253d1317
+	github.com/lib/pq v1.8.0
 	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d
 	github.com/oklog/run v1.0.0
 	github.com/olekukonko/tablewriter v0.0.0-20170128050532-febf2d34b54a
 	github.com/robertkrimen/otto v0.0.0-20171130103205-3b44b4dcb6c0
-	github.com/sirupsen/logrus v1.0.4
+	github.com/sirupsen/logrus v1.4.2
 	github.com/smartystreets/go-aws-auth v0.0.0-20160722044803-2043e6d0bb7e
 	github.com/streadway/amqp v0.0.0-20150320153439-6a378341a305
 	gopkg.in/gorethink/gorethink.v3 v3.0.5
@@ -30,12 +30,14 @@ require (
 	github.com/go-sql-driver/mysql v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.0 // indirect
 	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
+	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/mailru/easyjson v0.0.0-20171120080333-32fa128f234d // indirect
 	github.com/mattn/go-runewidth v0.0.2 // indirect
 	github.com/paulmach/orb v0.4.0 // indirect
-	github.com/pkg/errors v0.8.0 // indirect
+	github.com/pkg/errors v0.8.1 // indirect
 	github.com/smartystreets/goconvey v1.6.6 // indirect
 	github.com/stretchr/testify v1.7.0 // indirect
+	github.com/twpayne/go-geom v1.4.1 // indirect
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9 // indirect
 	golang.org/x/net v0.0.0-20201021035429-f5854403a974 // indirect
 	golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f // indirect
