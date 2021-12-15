@@ -119,7 +119,27 @@ Struggling. I think I'd like to take the "raw" data and decode for the test.
 
 Another option: https://github.com/paulsmith/gogeos
 
+From here: https://dev.mysql.com/doc/refman/5.6/en/gis-data-formats.html
 
+> Internally, MySQL stores geometry values in a format that is not identical to either WKT or WKB format. (Internal format is like WKB but with an initial 4 bytes to indicate the SRID.)
+
+> For the WKB part, these MySQL-specific considerations apply:
+>
+> - The byte-order indicator byte is 1 because MySQL stores geometries as little-endian values.
+>
+> - MySQL supports geometry types of Point, LineString, Polygon, MultiPoint, MultiLineString, MultiPolygon, and GeometryCollection. Other geometry types are not supported.
+
+Maybe we should just strip the SRID? Then we'd be left with just wkb
+
+Getting ahead a bit, but need to think about how we transfer things MySQL to MySQL and MySQL to X.
+
+I managed to get things working with go-geom and reading the MySQL data as hex. go-geom has handy wkbhex functions that Orb doesn't. It's _possible_ we fell foul of this with Orb:
+
+> Scanning directly from MySQL columns is supported. By default MySQL returns geometry data as WKB but prefixed with a 4 byte SRID. To support this, if the data is not valid WKB, the code will strip the first 4 bytes, the SRID, and try again. **This works for most use cases**.
+
+Emphasis mine.
+
+I've had to strip off the SRID to get things to work with go-geom. Going to Hex allows us to do that.
 
 #### Bit
 

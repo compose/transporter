@@ -13,7 +13,8 @@ import (
 	"github.com/compose/transporter/message"
 	//"github.com/paulmach/orb"
 	//"github.com/paulmach/orb/encoding/wkb"
-	"github.com/twpayne/go-geom/encoding/wkb"
+	"github.com/twpayne/go-geom/encoding/wkbhex"
+	"github.com/twpayne/go-geom/encoding/wkt"
 )
 
 var (
@@ -118,10 +119,10 @@ func TestReadComplex(t *testing.T) {
 			"colbinary":             "deadbeef00000000",
 			"colblob":               blobdata,
 			"coltext":               "this is extremely important",
-			"colpoint":              "POINT(15 15)",
-			"collinestring":         "LINESTRING(0 0,1 1,2 2)",
-			"colpolygon":            "POLYGON(0 0,10 0,10 10,0 10,0 0),(5 5,7 5,7 7,5 7, 5 5)",
-			"colgeometrycollection": "POINT(1 1),LINESTRING(0 0,1 1,2 2,3 3,4 4)",
+			"colpoint":              "POINT (15 15)",
+			"collinestring":         "LINESTRING (0 0,1 1,2 2)",
+			"colpolygon":            "POLYGON (0 0,10 0,10 10,0 10,0 0),(5 5,7 5,7 7,5 7, 5 5)",
+			"colgeometrycollection": "POINT (1 1),LINESTRING (0 0,1 1,2 2,3 3,4 4)",
 		} {
 				// Some values need additional parsing.
 				switch {
@@ -139,9 +140,13 @@ func TestReadComplex(t *testing.T) {
 							t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, bitvalue, bitvalue)
 						}
 					case key == "colpoint":
-						geom, _ := wkb.Unmarshal([]byte(msgs[i].Data().Get(key).(string)))
-						if geom != value {
-							t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, geom, geom)
+						pointhexvalue := hex.EncodeToString([]byte(msgs[i].Data().Get(key).(string)))
+						t.Log(pointhexvalue)
+						// Strip SRID
+						geom, _ := wkbhex.Decode(pointhexvalue[8:])
+						wktPoint, _ := wkt.Marshal(geom)
+						if wktPoint != value {
+							t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, wktPoint, wktPoint)
 						}
 					default:
 						if msgs[i].Data().Get(key) != value {
