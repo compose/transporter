@@ -103,6 +103,11 @@ In the end I used `LOAD_FILE` to insert (like you are probably meant to), but wo
 
 Ultimately I'll probably remove this test.
 
+
+#### Bit
+
+TODO (write words here)
+
 #### Binary
 
 This is probably very similar to Blob. At the moment we store a Hex value and for the purposes of testing and comparison we then convert that to a string representation of the hex value on read.

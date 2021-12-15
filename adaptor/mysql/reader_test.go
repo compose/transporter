@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/hex"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -105,7 +106,7 @@ func TestReadComplex(t *testing.T) {
 			"coldecimal":            0.23509838,
 			"colfloat":              0.31426,
 			"coldoubleprecision":    0.314259892323,
-			"colbit":                "000101",
+			"colbit":                "101",
 			"coldate":               time.Date(2021, 12, 10, 0, 0, 0, 0, time.UTC),
 			"coltime":               "13:45:00",
 			"colyear":               "2021",
@@ -125,6 +126,14 @@ func TestReadComplex(t *testing.T) {
 						binvalue := hex.EncodeToString([]byte(msgs[i].Data().Get(key).(string)))
 						if binvalue != value {
 							t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, binvalue, binvalue)
+						}
+					case key == "colbit":
+						// :puke
+						bithexvalue := hex.EncodeToString([]byte(msgs[i].Data().Get(key).(string)))
+						bitintvalue, _ := strconv.ParseInt(bithexvalue, 10, 64)
+						bitvalue := strconv.FormatInt(bitintvalue, 2)
+						if bitvalue != value {
+							t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, bitvalue, bitvalue)
 						}
 					default:
 						if msgs[i].Data().Get(key) != value {

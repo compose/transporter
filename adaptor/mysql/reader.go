@@ -197,10 +197,10 @@ func casifyValue(value string, valueType string) interface{} {
 	switch {
 	case value == "null":
 		return nil
-	case value == "bit":
-		// TODO: Fix. Was a guess, doesn't work
-		b, _ := strconv.ParseUint(value, 2, 32)
-		return b
+	//case value == "bit":
+	//	// TODO: Fix. Was a guess, doesn't work
+	//	b, _ := strconv.ParseUint(value, 2, 32)
+	//	return b
 	case valueType == "int" || valueType == "smallint" || valueType == "tinyint" || valueType == "mediumint" || valueType == "bigint":
 		i, _ := strconv.ParseInt(value, 10, 64)
 		return i
