@@ -2,9 +2,9 @@ package mysql
 
 import (
 	"fmt"
-	"io"
 	"math/rand"
 	"os"
+	"os/exec"
 	"testing"
 	"time"
 
@@ -119,25 +119,11 @@ func setupData(data *TestData) {
 	}
 
 	// cp file to tmp for blob test
-	image, err := os.Open("logo-mysql-170x115.png")
+	cmd := exec.Command("cp", "logo-mysql-170x115.png" , "/tmp/logo-mysql-170x115.png")
+	err = cmd.Run()
 	if err != nil {
-		log.Errorf("unable to read blob image source, could affect tests, %s", err)
+		log.Errorf("unable to copy blob image, could affect tests, %s", err)
 	}
-	defer image.Close()
-
-	imageCopy, err := os.Create("/tmp/logo-mysql-170x115.png")
-	if err != nil {
-		log.Errorf("unable to create blob image destination, could affect tests, %s", err)
-	}
-	defer imageCopy.Close()
-	nBytes, err := io.Copy(image, imageCopy)
-	if err != nil {
-		log.Errorf("unable to copy blob image to destination, could affect tests, %s", err)
-	} else {
-		log.Infof("Copied blob image to destination, %d bytes", nBytes)
-	}
-
-
 	for i := 0; i < data.InsertCount; i++ {
 		if data.Schema == complexSchema {
 			if _, err := mysqlSession.Exec(fmt.Sprintf(`
