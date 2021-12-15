@@ -2,6 +2,7 @@ package mysql
 
 import (
 	_ "embed"
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"testing"
@@ -110,7 +111,7 @@ func TestReadComplex(t *testing.T) {
 			"colyear":               "2021",
 			"colchar":               "a",
 			"colvar":                randomHeros[i%len(randomHeros)],
-			"colbinary":             0xDEADBEEF,
+			"colbinary":             "deadbeef00000000",
 			"colblob":               blobdata,
 			"coltext":               "this is extremely important",
 			"colpoint":              "(15 15)",
@@ -118,10 +119,19 @@ func TestReadComplex(t *testing.T) {
 			"colpolygon":            "(0 0,10 0,10 10,0 10,0 0),(5 5,7 5,7 7,5 7, 5 5)",
 			"colgeometrycollection": "POINT(1 1),LINESTRING(0 0,1 1,2 2,3 3,4 4)",
 		} {
-			if msgs[i].Data().Get(key) != value {
-				// Fatalf here hides other errors because it's a FailNow so use Error instead
-				t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, msgs[i].Data().Get(key), msgs[i].Data().Get(key))
-			}
+				// Some values need additional parsing.
+				switch {
+					case key == "colbinary":
+						binvalue := hex.EncodeToString([]byte(msgs[i].Data().Get(key).(string)))
+						if binvalue != value {
+							t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, binvalue, binvalue)
+						}
+					default:
+						if msgs[i].Data().Get(key) != value {
+							// Fatalf here hides other errors because it's a FailNow so use Error instead
+							t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, msgs[i].Data().Get(key), msgs[i].Data().Get(key))
+						}
+				}
 		}
 	}
 	close(done)

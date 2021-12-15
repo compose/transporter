@@ -102,3 +102,7 @@ Tried with `'%s'` (didn't work at all) and `%q` which inserted, but didn't extra
 In the end I used `LOAD_FILE` to insert (like you are probably meant to), but would be nice to do directly from Go.
 
 Ultimately I'll probably remove this test.
+
+#### Binary
+
+This is probably very similar to Blob. At the moment we store a Hex value and for the purposes of testing and comparison we then convert that to a string representation of the hex value on read.
