@@ -11,6 +11,8 @@ import (
 
 	"github.com/compose/transporter/client"
 	"github.com/compose/transporter/message"
+	//"github.com/paulmach/orb"
+	"github.com/paulmach/orb/encoding/wkb"
 )
 
 var (
@@ -115,9 +117,9 @@ func TestReadComplex(t *testing.T) {
 			"colbinary":             "deadbeef00000000",
 			"colblob":               blobdata,
 			"coltext":               "this is extremely important",
-			"colpoint":              "(15 15)",
-			"collinestring":         "(0 0,1 1,2 2)",
-			"colpolygon":            "(0 0,10 0,10 10,0 10,0 0),(5 5,7 5,7 7,5 7, 5 5)",
+			"colpoint":              "POINT(15 15)",
+			"collinestring":         "LINESTRING(0 0,1 1,2 2)",
+			"colpolygon":            "POLYGON(0 0,10 0,10 10,0 10,0 0),(5 5,7 5,7 7,5 7, 5 5)",
 			"colgeometrycollection": "POINT(1 1),LINESTRING(0 0,1 1,2 2,3 3,4 4)",
 		} {
 				// Some values need additional parsing.
@@ -134,6 +136,11 @@ func TestReadComplex(t *testing.T) {
 						bitvalue := strconv.FormatInt(bitintvalue, 2)
 						if bitvalue != value {
 							t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, bitvalue, bitvalue)
+						}
+					case key == "colpoint":
+						geom, _ := wkb.Unmarshal([]byte(msgs[i].Data().Get(key).(string)))
+						if geom != value {
+							t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, geom, geom)
 						}
 					default:
 						if msgs[i].Data().Get(key) != value {

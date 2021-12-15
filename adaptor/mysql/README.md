@@ -103,6 +103,19 @@ In the end I used `LOAD_FILE` to insert (like you are probably meant to), but wo
 
 Ultimately I'll probably remove this test.
 
+#### Spatial
+
+This is a handy package: https://github.com/paulmach/orb
+
+Need to think about how we want to handle spatial types:
+
+1. Decode from WKB in reader.go before we get to testing OR
+2. Leave as WKB, decode for the test only OR
+3. Leave as WKB, don't decode at all, instead encode the test data to match
+
+Another good option: https://github.com/twpayne/go-geom
+
+Struggling. I think I'd like to take the "raw" data and decode for the test.
 
 #### Bit
 

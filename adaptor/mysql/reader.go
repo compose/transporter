@@ -165,6 +165,7 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done
 
 					docMap = make(map[string]interface{})
 
+					// What is value.(type) ?
 					for i, value := range dest {
 						switch value := value.(type) {
 						case []uint8:
@@ -197,10 +198,6 @@ func casifyValue(value string, valueType string) interface{} {
 	switch {
 	case value == "null":
 		return nil
-	//case value == "bit":
-	//	// TODO: Fix. Was a guess, doesn't work
-	//	b, _ := strconv.ParseUint(value, 2, 32)
-	//	return b
 	case valueType == "int" || valueType == "smallint" || valueType == "tinyint" || valueType == "mediumint" || valueType == "bigint":
 		i, _ := strconv.ParseInt(value, 10, 64)
 		return i
@@ -221,12 +218,6 @@ func casifyValue(value string, valueType string) interface{} {
 		}
 		return t
 
-	// TODO:
-	//
-	// - Time, I think this just as to be a string though?
-	// - Bit, to read bit values need bin(b): https://dev.mysql.com/doc/refman/5.6/en/bit-value-literals.html
-	// - Blob / Binary
-	// - All the Spatial / GIS stuff
 	}
 
 	return value

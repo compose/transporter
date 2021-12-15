@@ -28,17 +28,18 @@ require (
 	github.com/dlclark/regexp2 v1.1.6 // indirect
 	github.com/fortytw2/leaktest v1.3.0 // indirect
 	github.com/go-sql-driver/mysql v1.6.0 // indirect
-	github.com/golang/protobuf v0.0.0-20150526012109-34a5f244f1c0 // indirect
+	github.com/golang/protobuf v1.5.0 // indirect
 	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
 	github.com/mailru/easyjson v0.0.0-20171120080333-32fa128f234d // indirect
 	github.com/mattn/go-runewidth v0.0.2 // indirect
+	github.com/paulmach/orb v0.4.0 // indirect
 	github.com/pkg/errors v0.8.0 // indirect
 	github.com/smartystreets/goconvey v1.6.6 // indirect
 	github.com/stretchr/testify v1.7.0 // indirect
-	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2 // indirect
-	golang.org/x/net v0.0.0-20190311183353-d8887717615a // indirect
-	golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a // indirect
-	golang.org/x/text v0.3.0 // indirect
+	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9 // indirect
+	golang.org/x/net v0.0.0-20201021035429-f5854403a974 // indirect
+	golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f // indirect
+	golang.org/x/text v0.3.3 // indirect
 	gopkg.in/airbrake/gobrake.v2 v2.0.9 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/fatih/pool.v2 v2.0.0-20160721145410-20a0a429c5f9 // indirect
