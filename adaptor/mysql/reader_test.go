@@ -120,9 +120,9 @@ func TestReadComplex(t *testing.T) {
 			"colblob":               blobdata,
 			"coltext":               "this is extremely important",
 			"colpoint":              "POINT (15 15)",
-			"collinestring":         "LINESTRING (0 0,1 1,2 2)",
-			"colpolygon":            "POLYGON (0 0,10 0,10 10,0 10,0 0),(5 5,7 5,7 7,5 7, 5 5)",
-			"colgeometrycollection": "POINT (1 1),LINESTRING (0 0,1 1,2 2,3 3,4 4)",
+			"collinestring":         "LINESTRING (0 0, 1 1, 2 2)",
+			"colpolygon":            "POLYGON ((0 0, 10 0, 10 10, 0 10, 0 0), (5 5, 7 5, 7 7, 5 7, 5 5))",
+			"colgeometrycollection": "GEOMETRYCOLLECTION (POINT (1 1), LINESTRING (0 0, 1 1, 2 2, 3 3, 4 4))",
 		} {
 				// Some values need additional parsing.
 				switch {
@@ -139,11 +139,10 @@ func TestReadComplex(t *testing.T) {
 						if bitvalue != value {
 							t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, bitvalue, bitvalue)
 						}
-					case key == "colpoint":
-						pointhexvalue := hex.EncodeToString([]byte(msgs[i].Data().Get(key).(string)))
-						t.Log(pointhexvalue)
+					case key == "colpoint" || key == "collinestring" || key == "colpolygon" || key == "colgeometrycollection":
+						geomhexvalue := hex.EncodeToString([]byte(msgs[i].Data().Get(key).(string)))
 						// Strip SRID
-						geom, _ := wkbhex.Decode(pointhexvalue[8:])
+						geom, _ := wkbhex.Decode(geomhexvalue[8:])
 						wktPoint, _ := wkt.Marshal(geom)
 						if wktPoint != value {
 							t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, wktPoint, wktPoint)

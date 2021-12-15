@@ -165,7 +165,6 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done
 
 					docMap = make(map[string]interface{})
 
-					// What is value.(type) ?
 					for i, value := range dest {
 						// Debug
 						//log.Infoln(value)
