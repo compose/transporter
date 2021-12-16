@@ -175,4 +175,92 @@ TODO (write words here)
 
 This is probably very similar to Blob. At the moment we store a Hex value and
 for the purposes of testing and comparison we then convert that to a string
-representation of the hex value on read. 
+representation of the hex value on read.
+
+### Writer notes
+
+#### TestInsert
+
+Postgresql [uses this format](https://www.postgresql.org/docs/current/plpgsql-declarations.html#PLPGSQL-DECLARATION-PARAMETERS):
+
+```
+query := fmt.Sprintf("INSERT INTO %v (%v) VALUES (%v);", m.Namespace(), strings.Join(keys, ", "), strings.Join(placeholders, ", "))
+log.Infoln(query1)
+// INSERT INTO writer_insert_test.simple_test_table (id, colvar, coltimestamp) VALUES ($1, $2, $3);
+_, err := s.Exec(query, data...)
+```
+
+I.e. takes advantage of Postgresql parameters. MySQL... doesn't work the same.
+Can't find it documented, but can do this for mysql:
+
+```
+INSERT INTO writer_insert_test.simple_test_table (id, colvar, coltimestamp) VALUES (?, ?, ?);
+```
+
+Maybe we can also use named values with a `:colon` prefix? But probably we don't need to.
+
+Seeing some odd switching around though:
+
+```
+INFO[0000] INSERT INTO writer_insert_test.simple_test_table (id, colvar, coltimestamp) VALUES (?, ?, ?);
+INFO[0000] INSERT INTO writer_insert_test.simple_test_table (id, colvar, coltimestamp) VALUES (?, ?, ?);
+INFO[0000] INSERT INTO writer_insert_test.simple_test_table (coltimestamp, id, colvar) VALUES (?, ?, ?);
+```
+
+Needs to be ordered? Maybe not, seems it adjusts the order of the data too:
+
+```
+INFO[0000] INSERT INTO writer_insert_test.simple_test_table (id, colvar, coltimestamp) VALUES (?, ?, ?);
+INFO[0000] [7 hello world 2021-12-16 13:14:20.575528 +0000 UTC]
+INFO[0000] INSERT INTO writer_insert_test.simple_test_table (coltimestamp, id, colvar) VALUES (?, ?, ?);
+INFO[0000] [2021-12-16 13:14:20.57585 +0000 UTC 8 hello world]
+```
+
+It's inserting data fine:
+
+```
+mysql> select * from simple_test_table;
++----+-------------+---------------------+
+| id | colvar      | coltimestamp        |
++----+-------------+---------------------+
+|  0 | hello world | 2021-12-16 13:14:21 |
+|  1 | hello world | 2021-12-16 13:14:21 |
+|  2 | hello world | 2021-12-16 13:14:21 |
+|  3 | hello world | 2021-12-16 13:14:21 |
+|  4 | hello world | 2021-12-16 13:14:21 |
+|  5 | hello world | 2021-12-16 13:14:21 |
+|  6 | hello world | 2021-12-16 13:14:21 |
+|  7 | hello world | 2021-12-16 13:14:21 |
+|  8 | hello world | 2021-12-16 13:14:21 |
+|  9 | hello world | 2021-12-16 13:14:21 |
++----+-------------+---------------------+
+10 rows in set (0.00 sec)
+```
+
+I was seeing this error:
+
+After sorting the parameter issue (`?`) I was then left with this failure:
+
+```
+--- FAIL: TestInsert (0.11s)
+writer_test.go:93: Error on test query: sql: Scan error on column index 2, name "coltimestamp": unsupported Scan, storing driver.Value type []uint8 into type *time.Time
+```
+
+Reading more on
+[go-sql-driver/mysql](https://github.com/go-sql-driver/mysql#timetime-support) I
+found:
+
+> The default internal output type of MySQL `DATE` and `DATETIME` values is
+> `[]byte` which allows you to scan the value into a `[]byte`, `string` or
+> `sql.RawBytes` variable in your program.
+>
+> However, many want to scan MySQL `DATE` and `DATETIME` values into `time.Time`
+> variables, which is the logical equivalent in Go to `DATE` and `DATETIME` in
+> MySQL. You can do that by changing the internal output type from `[]byte` to
+> `time.Time` with the DSN parameter `parseTime=true`.
+
+And so sticking that on in `TestInsert` was enough:
+
+```
+mysql://root@tcp(localhost)/%s?parseTime=true
+```

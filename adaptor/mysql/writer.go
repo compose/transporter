@@ -61,7 +61,8 @@ func insertMsg(m message.Msg, s *sql.DB) error {
 	i := 1
 	for key, value := range m.Data() {
 		keys = append(keys, key)
-		placeholders = append(placeholders, fmt.Sprintf("$%v", i))
+		// Mysql uses "?, ?, ?" instead of "$1, $2, $3"
+		placeholders = append(placeholders, "?")
 
 		switch value.(type) {
 		case map[string]interface{}, mejson.M, []map[string]interface{}, mejson.S:
@@ -77,6 +78,10 @@ func insertMsg(m message.Msg, s *sql.DB) error {
 	}
 
 	query := fmt.Sprintf("INSERT INTO %v (%v) VALUES (%v);", m.Namespace(), strings.Join(keys, ", "), strings.Join(placeholders, ", "))
+	// TODO: Remove debugging/developing stuff:
+	// log.Infoln(query)
+	// log.Infoln(data)
+	// INSERT INTO writer_insert_test.simple_test_table (id, colvar, coltimestamp) VALUES ($1, $2, $3);
 	_, err := s.Exec(query, data...)
 	return err
 }

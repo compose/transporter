@@ -40,7 +40,7 @@ func TestInsert(t *testing.T) {
 	confirms, cleanup := adaptor.MockConfirmWrites()
 	defer adaptor.VerifyWriteConfirmed(cleanup, t)
 	w := newWriter()
-	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@tcp(localhost)/%s", writerTestData.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@tcp(localhost)/%s?parseTime=true", writerTestData.DB)))
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mysql, %s", err)
 	}
