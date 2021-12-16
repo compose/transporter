@@ -39,7 +39,9 @@ func NewClient(options ...ClientOptionFunc) (*Client, error) {
 	// Set up the client
 	c := &Client{
 		uri: DefaultURI,
-		db:  "test", // Temporary change from `mysql`? The default local instance I have has `test`
+		db:  "test", // TODO: Temporary change from `mysql`? The default local
+					 // instance I have has `test`, but that was before I
+					 // switched to connecting as root
 	}
 
 	// Run the options on it
@@ -80,9 +82,9 @@ func (c *Client) Connect() (client.Session, error) {
 		// > panic: invalid DSN: missing the slash separating the database name
 		//
 		// So let's do _something_
-		// Let's strip prefix if it is there since we need a DSN
+		// Also, let's strip prefix if it is there since we need a DSN
 		dsn = strings.Replace(c.uri, "mysql://", "", 1)
-		// Debug:
+		// TODO: Remove below that was for debugging/developing
 		// fmt.Println(dsn)
 		c.mysqlSession, err = sql.Open("mysql", dsn)
 		if err != nil {

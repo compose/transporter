@@ -19,7 +19,7 @@ var (
 	_ client.Reader = &Reader{}
 )
 
-// Reader implements the behavior defined by client.Reader for interfacing with MySQL.
+// Reader implements the behaviour defined by client.Reader for interfacing with MySQL.
 type Reader struct {
 }
 
@@ -122,7 +122,9 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done
             ORDER BY ORDINAL_POSITION;
             `, schemaTable[0], schemaTable[1]))
 			// No element_types in mysql since no ARRAY data type
-			// we could add an empty column though to get the same layout as Postgres
+			// at the moment we add an empty column to get the same layout as Postgres
+			// TODO: Update this code so we don't need that empty column?
+			// TODO: Use the driver to get column types? https://github.com/go-sql-driver/mysql#columntype-support
 				if err != nil {
 					log.With("db", db).With("table", c).Errorf("error getting columns %v", err)
 					continue
@@ -142,7 +144,7 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done
 
 					column := []string{columnName, columnType}
 					columns = append(columns, column)
-					// Debug
+					// TODO: Remove below debugging/developing statement?
 					// log.Infoln(columnName + ": " + columnType)
 				}
 
@@ -166,7 +168,7 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done
 					docMap = make(map[string]interface{})
 
 					for i, value := range dest {
-						// Debug
+						// TODO: Remove below debugging/developing statements?
 						//log.Infoln(value)
 						//xType := fmt.Sprintf("%T", value)
 						//fmt.Println(xType)

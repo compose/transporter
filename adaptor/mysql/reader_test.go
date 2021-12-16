@@ -11,8 +11,6 @@ import (
 
 	"github.com/compose/transporter/client"
 	"github.com/compose/transporter/message"
-	//"github.com/paulmach/orb"
-	//"github.com/paulmach/orb/encoding/wkb"
 	"github.com/twpayne/go-geom/encoding/wkbhex"
 	"github.com/twpayne/go-geom/encoding/wkt"
 )
@@ -125,6 +123,7 @@ func TestReadComplex(t *testing.T) {
 			"colgeometrycollection": "GEOMETRYCOLLECTION (POINT (1 1), LINESTRING (0 0, 1 1, 2 2, 3 3, 4 4))",
 		} {
 				// Some values need additional parsing.
+				// TODO: See what we can do to tidy things up here
 				switch {
 					case key == "colbinary":
 						binvalue := hex.EncodeToString([]byte(msgs[i].Data().Get(key).(string)))

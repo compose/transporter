@@ -12,7 +12,6 @@ import (
 )
 
 // Order cols per: https://dev.mysql.com/doc/refman/5.7/en/data-types.html
-
 const (
 	basicSchema   = "id INTEGER PRIMARY KEY, colvar VARCHAR(255), coltimestamp TIMESTAMP"
 	complexSchema = `id INTEGER AUTO_INCREMENT,
@@ -104,10 +103,6 @@ func setupData(data *TestData) {
 		log.Errorf("unable to obtain session to mysql, %s", err)
 	}
 	mysqlSession := s.(*Session).mysqlSession
-	if data.Schema == complexSchema {
-		// Needs to be a col
-		//mysqlSession.Exec("CREATE TYPE mood AS ENUM('sad', 'ok', 'happy');")
-	}
 
 	if _, err := mysqlSession.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s;", data.Table)); err != nil {
 		log.Errorf("unable to drop table, could affect tests, %s", err)
@@ -128,28 +123,28 @@ func setupData(data *TestData) {
 		if data.Schema == complexSchema {
 			if _, err := mysqlSession.Exec(fmt.Sprintf(`
 					 INSERT INTO %s VALUES (
-							NULL,                                                                              -- id
-							%d,                                                                                -- colinteger INTEGER,
-							32767,                                                                             -- colsmallint SMALLINT,
-							127,                                                                               -- coltinyint TINYINT,
-							8388607,                                                                           -- colmediumint MEDIUMINT,
-							21474836471,                                                                       -- colbigint BIGINT,
-							0.23509838,                                                                        -- coldecimal DECIMAL(8,8),
-							0.314259892323,                                                                    -- colfloat FLOAT,
-							0.314259892323,                                                                    -- coldoubleprecision DOUBLE PRECISION,
-							b'101',                                                                            -- colbit BIT,
-							'2021-12-10',                                                                      -- coldate DATE,
-							'13:45:00',                                                                        -- coltime TIME,
-							now(),                                                                             -- coltimestamp TIMESTAMP,
-							'2021',                                                                            -- colyear YEAR,
-							'a',                                                                               -- colchar CHAR,
-							'%s',                                                                              -- colvar VARCHAR(255),
-							0xDEADBEEF,                                                                        -- colbinary BINARY,
-							LOAD_FILE('/tmp/logo-mysql-170x115.png'),                                          -- colblob BLOB,
-							'this is extremely important',                                                     -- coltext TEXT,
-							ST_GeomFromText('POINT (15 15)'),                                                   -- colpoint POINT,
-							ST_GeomFromText('LINESTRING (0 0,1 1,2 2)'),                                        -- collinestring LINESTRING,
-							ST_GeomFromText('POLYGON ((0 0,10 0,10 10,0 10,0 0),(5 5,7 5,7 7,5 7, 5 5))'),      -- colpolygon POLYGON,
+							NULL,                                                                                 -- id
+							%d,                                                                                   -- colinteger INTEGER,
+							32767,                                                                                -- colsmallint SMALLINT,
+							127,                                                                                  -- coltinyint TINYINT,
+							8388607,                                                                              -- colmediumint MEDIUMINT,
+							21474836471,                                                                          -- colbigint BIGINT,
+							0.23509838,                                                                           -- coldecimal DECIMAL(8,8),
+							0.314259892323,                                                                       -- colfloat FLOAT,
+							0.314259892323,                                                                       -- coldoubleprecision DOUBLE PRECISION,
+							b'101',                                                                               -- colbit BIT,
+							'2021-12-10',                                                                         -- coldate DATE,
+							'13:45:00',                                                                           -- coltime TIME,
+							now(),                                                                                -- coltimestamp TIMESTAMP,
+							'2021',                                                                               -- colyear YEAR,
+							'a',                                                                                  -- colchar CHAR,
+							'%s',                                                                                 -- colvar VARCHAR(255),
+							0xDEADBEEF,                                                                           -- colbinary BINARY,
+							LOAD_FILE('/tmp/logo-mysql-170x115.png'),                                             -- colblob BLOB,
+							'this is extremely important',                                                        -- coltext TEXT,
+							ST_GeomFromText('POINT (15 15)'),                                                     -- colpoint POINT,
+							ST_GeomFromText('LINESTRING (0 0,1 1,2 2)'),                                          -- collinestring LINESTRING,
+							ST_GeomFromText('POLYGON ((0 0,10 0,10 10,0 10,0 0),(5 5,7 5,7 7,5 7, 5 5))'),        -- colpolygon POLYGON,
 							ST_GeomFromText('GEOMETRYCOLLECTION (POINT (1 1),LINESTRING (0 0,1 1,2 2,3 3,4 4))')  -- colgeometrycollection GEOMETRYCOLLECTION,
 						);
 			`, data.Table, i, randomHeros[i%len(randomHeros)])); err != nil {
