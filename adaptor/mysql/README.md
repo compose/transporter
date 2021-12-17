@@ -264,3 +264,9 @@ And so sticking that on in `TestInsert` was enough:
 ```
 mysql://root@tcp(localhost)/%s?parseTime=true
 ```
+
+#### TestComplexInsert
+
+I think we can assume the SRID is 0:
+
+https://dba.stackexchange.com/questions/182519/how-do-i-dump-spatial-types-like-point-with-their-srids-in-mysql

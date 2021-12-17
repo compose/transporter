@@ -1,6 +1,7 @@
 package mysql
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -10,6 +11,9 @@ import (
 	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/message/data"
 	"github.com/compose/transporter/message/ops"
+	"github.com/twpayne/go-geom/encoding/wkb"
+	"github.com/twpayne/go-geom/encoding/wkbhex"
+	"github.com/twpayne/go-geom/encoding/wkt"
 )
 
 var optests = []struct {
@@ -112,6 +116,21 @@ var (
 	writerComplexTestData = &TestData{"writer_complex_insert_test", "complex_test_table", complexSchema, 0}
 )
 
+
+func wktToMySQL(wktForm string) []byte {
+	// TODO: We can move this somewhere more suitable	
+	// TODO: Handle errors!!
+	geomForm, _ := wkt.Unmarshal(wktForm)
+	// Little Endian for MySQL
+	wkbHexForm, _ := wkbhex.Encode(geomForm, wkb.NDR)
+	// Add SRID
+	mysqlHexForm := "0000" + wkbHexForm
+	// Then how to get that in an insertable form?
+	mysqlByteForm, _ := hex.DecodeString(mysqlHexForm)
+	return mysqlByteForm
+}
+
+
 func TestComplexInsert(t *testing.T) {
 	w := newWriter()
 	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@tcp(localhost)/%s", writerComplexTestData.DB)))
@@ -123,46 +142,43 @@ func TestComplexInsert(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to obtain session to mysql, %s", err)
 	}
-	for i := 0; i < 10; i++ {
-		msg := message.From(ops.Insert, fmt.Sprintf("public.%s", writerComplexTestData.Table), data.Data{
-			"id":                 i,
-			"colvar":             randomHeros[i],
-			"coltimestamp":       time.Now().UTC(),
-			"colarrayint":        []interface{}{1, 2, 3, 4},
-			"colarraystring":     "{\"one\", \"two\", \"three\", \"four\"}",
-			"colbigint":          int64(4000001240125),
-			"colbit":             "1",
-			"colboolean":         false,
-			"colbox":             "(10,10),(20,20)",
-			"colbytea":           "\\xDEADBEEF",
-			"colcharacter":       "a",
-			"colcidr":            "10.0.1.0/28",
-			"colcircle":          "<(5,10),3>",
-			"coldate":            time.Now().UTC(),
-			"coldoubleprecision": 0.314259892323,
-			"colenum":            "sad",
-			"colinet":            "10.0.1.0",
-			"colinteger":         int64(3),
-			"coljson":            map[string]interface{}{"name": "batman"},
-			"colarrayjson":       []map[string]interface{}{map[string]interface{}{"name": "batman"}, map[string]interface{}{"name": "robin"}},
-			"coljsonb":           map[string]interface{}{"name": "batman"},
-			"colline":            "{1, 1, 3}",
-			"collseg":            "((10,10),(25,25))",
-			"colmacaddr":         "08:00:2b:01:02:03",
-			"colmoney":           "35.68",
-			"colnumeric":         0.23509838,
-			"colpath":            "[(10,10),(20,20),(20,10),(15,15)]",
-			"colpg_lsn":          "0/3000000",
-			"colpoint":           "(15,15)",
-			"colpolygon":         "((10,10),(11, 11),(11,0),(5,5))",
-			"colreal":            7,
-			"colsmallint":        3,
-			"coltext":            "this is \n extremely important",
-			"coltime":            "13:45",
-			"coltsquery":         "'fat':AB & 'cat'",
-			"coltsvector":        "a fat cat sat on a mat and ate a fat rat",
-			"coluuid":            "f0a0da24-4068-4be4-961d-7c295117ccca",
-			"colxml":             "<person><name>Batman</name></person>",
+	// These need to be Go native?
+	// What creates this table? Because we need to match...
+	// This has to match `complex_schema` in adaptor_test
+	for i := 0; i < 1; i++ {
+		msg := message.From(ops.Insert, fmt.Sprintf("%s.%s", writerComplexTestData.DB, writerComplexTestData.Table), data.Data{
+			"id":                    i,
+			"colinteger":            int64(3),
+			"colsmallint":           int64(32767),
+			"coltinyint":            int64(127),
+			"colmediumint":          int64(8388607),
+			"colbigint":             int64(21474836471),
+			"coldecimal":            0.23509838,
+			"colfloat":              0.31426,
+			"coldoubleprecision":    0.314259892323,
+			// I think we need to do what we did in reader_test, but in reverse?
+			// "b'101'" gets interpreted as a string
+			"colbit":                0b101,
+			"coldate":               time.Date(2021, 12, 10, 0, 0, 0, 0, time.UTC),
+			"coltime":               "13:45:00",
+			"coltimestamp":          time.Now().UTC(),
+			"colyear":               "2021",
+			"colchar":               "a",
+			"colvar":                randomHeros[i],
+			"colbinary":             0xDEADBEEF,
+			"colblob":               0xDEADBEEF,
+			"coltext":               "this is extremely important",
+			// Use go-geom for this?
+			// Or semi-cheat like so...
+			// Can't cheat as gets interpreted as a string
+			// Not even sure we can use go-geom as is because of the SRID
+			// Maybe Orb would be better for that, but not even sure that handles insert conversion
+			// So we might have to do that ourselves...
+			// WKT to WKB... and then prefix with the SRID
+			"colpoint":              wktToMySQL("POINT (15 15)"),
+			"collinestring":         wktToMySQL("LINESTRING (0 0, 1 1, 2 2)"),
+			"colpolygon":            wktToMySQL("POLYGON ((0 0, 10 0, 10 10, 0 10, 0 0), (5 5, 7 5, 7 7, 5 7, 5 5))"),
+			"colgeometrycollection": wktToMySQL("GEOMETRYCOLLECTION (POINT (1 1), LINESTRING (0 0, 1 1, 2 2, 3 3, 4 4))"),
 		})
 		if _, err := w.Write(msg)(s); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)

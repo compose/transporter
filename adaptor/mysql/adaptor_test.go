@@ -49,7 +49,7 @@ var (
 		readerTestData,
 		readerComplexTestData,
 		writerTestData,
-		//writerComplexTestData,
+		writerComplexTestData,
 		//writerUpdateTestData,
 		//writerDeleteTestData,
 		//writerComplexUpdateTestData,

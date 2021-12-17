@@ -79,8 +79,11 @@ func insertMsg(m message.Msg, s *sql.DB) error {
 
 	query := fmt.Sprintf("INSERT INTO %v (%v) VALUES (%v);", m.Namespace(), strings.Join(keys, ", "), strings.Join(placeholders, ", "))
 	// TODO: Remove debugging/developing stuff:
-	// log.Infoln(query)
-	// log.Infoln(data)
+	log.Infoln(query)
+	log.Infoln(data)
+	for i := 0; i < len(data); i++ {
+		log.Infoln(data[i])
+	}
 	// INSERT INTO writer_insert_test.simple_test_table (id, colvar, coltimestamp) VALUES ($1, $2, $3);
 	_, err := s.Exec(query, data...)
 	return err
