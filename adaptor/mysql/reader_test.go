@@ -133,18 +133,22 @@ func TestReadComplex(t *testing.T) {
 					case key == "colbit":
 						// :puke
 						bithexvalue := hex.EncodeToString([]byte(msgs[i].Data().Get(key).(string)))
+						// TODO: Handle errors here!!
 						bitintvalue, _ := strconv.ParseInt(bithexvalue, 10, 64)
 						bitvalue := strconv.FormatInt(bitintvalue, 2)
 						if bitvalue != value {
 							t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, bitvalue, bitvalue)
 						}
 					case key == "colpoint" || key == "collinestring" || key == "colpolygon" || key == "colgeometrycollection":
+						// TODO: Remove debugging/developing:
+						t.Logf("%v (%T)", msgs[i].Data().Get(key), msgs[i].Data().Get(key))
 						geomhexvalue := hex.EncodeToString([]byte(msgs[i].Data().Get(key).(string)))
 						// Strip SRID
+						// TODO: Handle errors here!!
 						geom, _ := wkbhex.Decode(geomhexvalue[8:])
-						wktPoint, _ := wkt.Marshal(geom)
-						if wktPoint != value {
-							t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, wktPoint, wktPoint)
+						wktGeom, _ := wkt.Marshal(geom)
+						if wktGeom != value {
+							t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, wktGeom, wktGeom)
 						}
 					default:
 						if msgs[i].Data().Get(key) != value {
