@@ -11,6 +11,8 @@ import (
 	"github.com/compose/transporter/log"
 	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/message/ops"
+	"github.com/twpayne/go-geom"
+	"github.com/twpayne/go-geom/encoding/wkt"
 )
 
 var _ client.Writer = &Writer{}
@@ -64,7 +66,16 @@ func insertMsg(m message.Msg, s *sql.DB) error {
 		// Mysql uses "?, ?, ?" instead of "$1, $2, $3"
 		placeholders = append(placeholders, "?")
 
+		// TODO: Remove debugging/developing stuff:
+		fmt.Printf("Type of value is %T\n", value)
 		switch value.(type) {
+		// Can add others here such as binary and bit, etc if needed
+		case *geom.Point, *geom.LineString, *geom.Polygon, *geom.GeometryCollection:
+			// Wrap in ST_GeomFromText
+			// Supposedly not required in "later" MySQLs
+			// Although it's still safe to use. Possible performance impact?
+			value, _ = wkt.Marshal(value.(geom.T))
+			value = "ST_GeomFromText('"+value.(string)+"')"
 		case map[string]interface{}, mejson.M, []map[string]interface{}, mejson.S:
 			value, _ = json.Marshal(value)
 		case []interface{}:

@@ -1,7 +1,6 @@
 package mysql
 
 import (
-	"encoding/hex"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -11,8 +10,7 @@ import (
 	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/message/data"
 	"github.com/compose/transporter/message/ops"
-	"github.com/twpayne/go-geom/encoding/wkb"
-	"github.com/twpayne/go-geom/encoding/wkbhex"
+	"github.com/twpayne/go-geom"
 	"github.com/twpayne/go-geom/encoding/wkt"
 )
 
@@ -117,17 +115,10 @@ var (
 )
 
 
-func wktToMySQL(wktForm string) []byte {
-	// TODO: We can move this somewhere more suitable	
-	// TODO: Handle errors!!
-	geomForm, _ := wkt.Unmarshal(wktForm)
-	// Little Endian for MySQL
-	wkbHexForm, _ := wkbhex.Encode(geomForm, wkb.NDR)
-	// Add SRID
-	mysqlHexForm := "0000" + wkbHexForm
-	// Then how to get that in an insertable form?
-	mysqlByteForm, _ := hex.DecodeString(mysqlHexForm)
-	return mysqlByteForm
+func wktToGeom(wktForm string) geom.T {
+    // TODO: Handle errors!!
+    geomForm, _ := wkt.Unmarshal(wktForm)
+    return geomForm
 }
 
 
@@ -144,7 +135,7 @@ func TestComplexInsert(t *testing.T) {
 	}
 	// These need to be Go native?
 	// What creates this table? Because we need to match...
-	// This has to match `complex_schema` in adaptor_test
+	// !! This has to match `complex_schema` in adaptor_test !!
 	for i := 0; i < 1; i++ {
 		msg := message.From(ops.Insert, fmt.Sprintf("%s.%s", writerComplexTestData.DB, writerComplexTestData.Table), data.Data{
 			"id":                    i,
@@ -168,17 +159,13 @@ func TestComplexInsert(t *testing.T) {
 			"colbinary":             0xDEADBEEF,
 			"colblob":               0xDEADBEEF,
 			"coltext":               "this is extremely important",
-			// Use go-geom for this?
-			// Or semi-cheat like so...
-			// Can't cheat as gets interpreted as a string
-			// Not even sure we can use go-geom as is because of the SRID
-			// Maybe Orb would be better for that, but not even sure that handles insert conversion
-			// So we might have to do that ourselves...
-			// WKT to WKB... and then prefix with the SRID
-			"colpoint":              wktToMySQL("POINT (15 15)"),
-			"collinestring":         wktToMySQL("LINESTRING (0 0, 1 1, 2 2)"),
-			"colpolygon":            wktToMySQL("POLYGON ((0 0, 10 0, 10 10, 0 10, 0 0), (5 5, 7 5, 7 7, 5 7, 5 5))"),
-			"colgeometrycollection": wktToMySQL("GEOMETRYCOLLECTION (POINT (1 1), LINESTRING (0 0, 1 1, 2 2, 3 3, 4 4))"),
+			// Maybe it makes sense to have geometry as a Go representation of geometry
+			// So go-geom since we are using that at the moment
+			// And then we can manipulate in writer.go to insert as required
+			"colpoint":              wktToGeom("POINT (15 15)"),
+			"collinestring":         wktToGeom("LINESTRING (0 0, 1 1, 2 2)"),
+			"colpolygon":            wktToGeom("POLYGON ((0 0, 10 0, 10 10, 0 10, 0 0),(5 5, 7 5, 7 7, 5 7, 5 5))"),
+			"colgeometrycollection": wktToGeom("GEOMETRYCOLLECTION (POINT (1 1),LINESTRING (0 0, 1 1, 2 2, 3 3, 4 4))"),
 		})
 		if _, err := w.Write(msg)(s); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
