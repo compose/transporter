@@ -124,7 +124,7 @@ func wktToGeom(wktForm string) geom.T {
 
 func TestComplexInsert(t *testing.T) {
 	w := newWriter()
-	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@tcp(localhost)/%s", writerComplexTestData.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@tcp(localhost)/%s?parseTime=true", writerComplexTestData.DB)))
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mysql, %s", err)
 	}
@@ -136,7 +136,7 @@ func TestComplexInsert(t *testing.T) {
 	// These need to be Go native?
 	// What creates this table? Because we need to match...
 	// !! This has to match `complex_schema` in adaptor_test !!
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 10; i++ {
 		msg := message.From(ops.Insert, fmt.Sprintf("%s.%s", writerComplexTestData.DB, writerComplexTestData.Table), data.Data{
 			"id":                    i,
 			"colinteger":            int64(3),
