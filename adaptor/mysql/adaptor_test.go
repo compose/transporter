@@ -50,7 +50,7 @@ var (
 		readerComplexTestData,
 		writerTestData,
 		writerComplexTestData,
-		//writerUpdateTestData,
+		writerUpdateTestData,
 		//writerDeleteTestData,
 		//writerComplexUpdateTestData,
 		//writerComplexDeleteTestData,

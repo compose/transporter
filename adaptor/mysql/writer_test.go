@@ -203,7 +203,7 @@ var (
 
 func TestUpdate(t *testing.T) {
 	w := newWriter()
-	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@tcp(localhost)/%s", writerUpdateTestData.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@tcp(localhost)/%s?parseTime=true", writerUpdateTestData.DB)))
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mysql, %s", err)
 	}
@@ -215,7 +215,7 @@ func TestUpdate(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		msg := message.From(
 			ops.Insert,
-			fmt.Sprintf("public.%s", writerUpdateTestData.Table),
+			fmt.Sprintf("%s.%s", writerUpdateTestData.DB, writerUpdateTestData.Table),
 			data.Data{"id": i, "colvar": "hello world", "coltimestamp": time.Now().UTC()})
 		if _, err := w.Write(msg)(s); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
@@ -223,7 +223,7 @@ func TestUpdate(t *testing.T) {
 	}
 	msg := message.From(
 		ops.Update,
-		fmt.Sprintf("public.%s", writerUpdateTestData.Table),
+		fmt.Sprintf("%s.%s", writerUpdateTestData.DB, writerUpdateTestData.Table),
 		data.Data{"id": 1, "colvar": "robin", "coltimestamp": time.Now().UTC()})
 	if _, err := w.Write(msg)(s); err != nil {
 		t.Errorf("unexpected Update error, %s\n", err)

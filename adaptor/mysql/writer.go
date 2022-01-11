@@ -151,6 +151,8 @@ func updateMsg(m message.Msg, s *sql.DB) error {
 	var (
 		ckeys []string
 		ukeys []string
+		cvals []interface{}
+		uvals []interface{}
 		vals  []interface{}
 	)
 
@@ -162,9 +164,9 @@ func updateMsg(m message.Msg, s *sql.DB) error {
 	i := 1
 	for key, value := range m.Data() {
 		if pkeys[key] { // key is primary key
-			ckeys = append(ckeys, fmt.Sprintf("%v=$%v", key, i))
+			ckeys = append(ckeys, fmt.Sprintf("%v=?", key))
 		} else {
-			ukeys = append(ukeys, fmt.Sprintf("%v=$%v", key, i))
+			ukeys = append(ukeys, fmt.Sprintf("%v=?", key))
 		}
 
 		switch value.(type) {
@@ -175,15 +177,33 @@ func updateMsg(m message.Msg, s *sql.DB) error {
 			value = string(value.([]byte))
 			value = fmt.Sprintf("{%v}", value.(string)[1:len(value.(string))-1])
 		}
-		vals = append(vals, value)
+		// if it's a primary key it needs to go at the end of the vals list
+		// So perhaps easier to do cvals and uvals and then combine at end
+		if pkeys[key] {
+			cvals = append(cvals, value)
+		} else {
+			uvals = append(uvals, value)
+		}
 		i = i + 1
 	}
+
+	// Join vals
+	vals = append(uvals, cvals...)
 
 	if len(pkeys) != len(ckeys) {
 		return fmt.Errorf("All primary keys were not accounted for. Provided: %v; Required; %v", ckeys, pkeys)
 	}
 
 	query := fmt.Sprintf("UPDATE %v SET %v WHERE %v;", m.Namespace(), strings.Join(ukeys, ", "), strings.Join(ckeys, " AND "))
+	// TODO: Remove debugging/developing stuff:
+	// This is resulting in:
+	//
+	// UPDATE writer_update_test.update_test_table SET colvar=$2, coltimestamp=$3 WHERE id=$1; 
+	//
+	// which is wrong for MySQL, need just `?`
+	//
+	//log.Infoln(query)
+	//log.Infoln(vals)
 	_, err = s.Exec(query, vals...)
 	return err
 }
@@ -204,15 +224,26 @@ func primaryKeys(namespace string, db *sql.DB) (primaryKeys map[string]bool, err
 		tableName = namespaceArray[1]
 	}
 
+	// Need to update this
+	// unexpected Update error, Error 1109: Unknown table 'constraint_column_usage' in information_schema
+	//
+	// This returns something like:
+	//
+	//  column_name
+	// -------------
+	// recipe_id
+	// recipe_rating
+	// (2 rows)
+	//
+	// Below from here: https://stackoverflow.com/a/12379241/208793
 	tablesResult, err := db.Query(fmt.Sprintf(`
-		SELECT
-			column_name
-		FROM information_schema.table_constraints constraints
-			INNER JOIN information_schema.constraint_column_usage column_map
-				ON column_map.constraint_name = constraints.constraint_name
-		WHERE constraints.constraint_type = 'PRIMARY KEY'
-			AND constraints.table_schema = '%v'
-			AND constraints.table_name = '%v'
+		SELECT k.COLUMN_NAME
+		FROM information_schema.table_constraints t
+		LEFT JOIN information_schema.key_column_usage k
+		USING(constraint_name,table_schema,table_name)
+		WHERE t.constraint_type='PRIMARY KEY'
+			AND t.table_schema='%v'
+			AND t.table_name='%v'
 	`, tableSchema, tableName))
 	if err != nil {
 		return primaryKeys, err
