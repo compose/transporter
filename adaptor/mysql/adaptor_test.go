@@ -30,7 +30,7 @@ const (
 	colyear YEAR,
 	colchar CHAR,
 	colvar VARCHAR(255),
-	colbinary BINARY(8),
+	colbinary BINARY(10),
 	colblob BLOB,
 	coltext TEXT,
 	colpoint POINT,
