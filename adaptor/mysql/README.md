@@ -15,6 +15,15 @@ for `~/Database/mysql`). Add `secure_file_priv = "/tmp"` too.
 
 4. Run it `cd /opt/pkg ; /opt/pkg/bin/mysqld_safe &`
 
+Alternatively (because *right now* only 5.6 is available via Pkgsrc), 
+obtain a [DMG of the community server](https://downloads.mysql.com/archives/community/) for MacOS. 
+Version `5.7.31 for macos10.14` is available and works on Monterey.
+
+You'll need to change the root password to empty/blank for the tests though:
+
+```
+SET PASSWORD FOR 'root'@'localhost' = PASSWORD('');
+```
 
 ## Development notes
 
@@ -270,3 +279,6 @@ mysql://root@tcp(localhost)/%s?parseTime=true
 I think we can assume the SRID is 0:
 
 https://dba.stackexchange.com/questions/182519/how-do-i-dump-spatial-types-like-point-with-their-srids-in-mysql
+
+Another rough note to self... do we need to look at using
+[`interpolateParams=true`](https://github.com/go-sql-driver/mysql#interpolateparams)?
