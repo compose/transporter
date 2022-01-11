@@ -82,16 +82,16 @@ func insertMsg(m message.Msg, s *sql.DB) error {
 		// TODO: Remove debugging/developing stuff:
 		fmt.Printf("Type of value is %T\n", value)
 		switch value.(type) {
-		// Can add others here such as binary and bit, etc if needed
-		case *geom.Point, *geom.LineString, *geom.Polygon, *geom.GeometryCollection:
-			value, _ = wkt.Marshal(value.(geom.T))
-			value = value.(string)
-		case map[string]interface{}, mejson.M, []map[string]interface{}, mejson.S:
-			value, _ = json.Marshal(value)
-		case []interface{}:
-			value, _ = json.Marshal(value)
-			value = string(value.([]byte))
-			value = fmt.Sprintf("{%v}", value.(string)[1:len(value.(string))-1])
+			// Can add others here such as binary and bit, etc if needed
+			case *geom.Point, *geom.LineString, *geom.Polygon, *geom.GeometryCollection:
+				value, _ = wkt.Marshal(value.(geom.T))
+				value = value.(string)
+			case map[string]interface{}, mejson.M, []map[string]interface{}, mejson.S:
+				value, _ = json.Marshal(value)
+			case []interface{}:
+				value, _ = json.Marshal(value)
+				value = string(value.([]byte))
+				value = fmt.Sprintf("{%v}", value.(string)[1:len(value.(string))-1])
 		}
 		data = append(data, value)
 
