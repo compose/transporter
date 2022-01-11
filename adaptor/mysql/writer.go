@@ -80,7 +80,7 @@ func insertMsg(m message.Msg, s *sql.DB) error {
 		placeholders = append(placeholders, placeholder)
 
 		// TODO: Remove debugging/developing stuff:
-		fmt.Printf("Type of value is %T\n", value)
+		//fmt.Printf("Type of value is %T\n", value)
 		switch value.(type) {
 			// Can add others here such as binary and bit, etc if needed
 			case *geom.Point, *geom.LineString, *geom.Polygon, *geom.GeometryCollection:
@@ -100,11 +100,11 @@ func insertMsg(m message.Msg, s *sql.DB) error {
 
 	query := fmt.Sprintf("INSERT INTO %v (%v) VALUES (%v);", m.Namespace(), strings.Join(keys, ", "), strings.Join(placeholders, ", "))
 	// TODO: Remove debugging/developing stuff:
-	log.Infoln(query)
-	log.Infoln(data)
-	for i := 0; i < len(data); i++ {
-		log.Infoln(data[i])
-	}
+	//log.Infoln(query)
+	//log.Infoln(data)
+	//for i := 0; i < len(data); i++ {
+	//	log.Infoln(data[i])
+	//}
 	// INSERT INTO writer_insert_test.simple_test_table (id, colvar, coltimestamp) VALUES ($1, $2, $3);
 	_, err := s.Exec(query, data...)
 	return err
