@@ -126,12 +126,12 @@ func deleteMsg(m message.Msg, s *sql.DB) error {
 			ckeys = append(ckeys, fmt.Sprintf("%v = ?", key))
 		}
 		switch value.(type) {
-		case map[string]interface{}, mejson.M, []map[string]interface{}, mejson.S:
-			value, _ = json.Marshal(value)
-		case []interface{}:
-			value, _ = json.Marshal(value)
-			value = string(value.([]byte))
-			value = fmt.Sprintf("{%v}", value.(string)[1:len(value.(string))-1])
+			case map[string]interface{}, mejson.M, []map[string]interface{}, mejson.S:
+				value, _ = json.Marshal(value)
+			case []interface{}:
+				value, _ = json.Marshal(value)
+				value = string(value.([]byte))
+				value = fmt.Sprintf("{%v}", value.(string)[1:len(value.(string))-1])
 		}
 		vals = append(vals, value)
 		i = i + 1
