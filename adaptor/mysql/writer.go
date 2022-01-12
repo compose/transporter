@@ -123,7 +123,7 @@ func deleteMsg(m message.Msg, s *sql.DB) error {
 	i := 1
 	for key, value := range m.Data() {
 		if pkeys[key] { // key is primary key
-			ckeys = append(ckeys, fmt.Sprintf("%v = $%v", key, i))
+			ckeys = append(ckeys, fmt.Sprintf("%v = ?", key))
 		}
 		switch value.(type) {
 		case map[string]interface{}, mejson.M, []map[string]interface{}, mejson.S:
@@ -142,6 +142,9 @@ func deleteMsg(m message.Msg, s *sql.DB) error {
 	}
 
 	query := fmt.Sprintf("DELETE FROM %v WHERE %v;", m.Namespace(), strings.Join(ckeys, " AND "))
+	// TODO: Remove debugging/developing stuff:
+	// log.Infoln(query)
+	// log.Infoln(vals)
 	_, err = s.Exec(query, vals...)
 	return err
 }

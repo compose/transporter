@@ -347,7 +347,7 @@ var (
 
 func TestDelete(t *testing.T) {
 	w := newWriter()
-	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@tcp(localhost)/%s", writerDeleteTestData.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@tcp(localhost)/%s?parseTime=true", writerDeleteTestData.DB)))
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mysql, %s", err)
 	}
@@ -359,13 +359,13 @@ func TestDelete(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		msg := message.From(
 			ops.Insert,
-			fmt.Sprintf("public.%s", writerDeleteTestData.Table),
+			fmt.Sprintf("%s.%s", writerDeleteTestData.DB, writerDeleteTestData.Table),
 			data.Data{"id": i, "colvar": "hello world", "coltimestamp": time.Now().UTC()})
 		if _, err := w.Write(msg)(s); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
 		}
 	}
-	msg := message.From(ops.Delete, fmt.Sprintf("public.%s", writerDeleteTestData.Table), data.Data{"id": 1})
+	msg := message.From(ops.Delete, fmt.Sprintf("%s.%s", writerDeleteTestData.DB, writerDeleteTestData.Table), data.Data{"id": 1})
 	if _, err := w.Write(msg)(s); err != nil {
 		t.Errorf("unexpected Update error, %s\n", err)
 	}
