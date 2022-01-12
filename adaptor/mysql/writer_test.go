@@ -262,7 +262,7 @@ var (
 func TestComplexUpdate(t *testing.T) {
 	ranInt := rand.Intn(writerComplexUpdateTestData.InsertCount)
 	w := newWriter()
-	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@tcp(localhost)/%s", writerComplexUpdateTestData.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@tcp(localhost)/%s?parseTime=true", writerComplexUpdateTestData.DB)))
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mysql, %s", err)
 	}
@@ -271,44 +271,30 @@ func TestComplexUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to obtain session to mysql, %s", err)
 	}
-	msg := message.From(ops.Update, fmt.Sprintf("public.%s", writerComplexUpdateTestData.Table), data.Data{
-		"id":                 ranInt,
-		"colvar":             randomHeros[ranInt],
-		"colarrayint":        []interface{}{1, 2, 3, 4},
-		"colarraystring":     "{\"one\", \"two\", \"three\", \"four\"}",
-		"colbigint":          int64(4000001240125),
-		"colbit":             "1",
-		"colboolean":         false,
-		"colbox":             "(10,10),(20,20)",
-		"colbytea":           "\\xDEADBEEF",
-		"colcharacter":       "a",
-		"colcidr":            "10.0.1.0/28",
-		"colcircle":          "<(5,10),3>",
-		"coldate":            time.Now().UTC(),
-		"coldoubleprecision": 0.314259892323,
-		"colenum":            "sad",
-		"colinet":            "10.0.1.0",
-		"colinteger":         int64(3),
-		"coljson":            map[string]interface{}{"name": "batman"},
-		"colarrayjson":       []map[string]interface{}{map[string]interface{}{"name": "batman"}, map[string]interface{}{"name": "robin"}},
-		"coljsonb":           map[string]interface{}{"name": "batman"},
-		"colline":            "{1, 1, 3}",
-		"collseg":            "((10,10),(25,25))",
-		"colmacaddr":         "08:00:2b:01:02:03",
-		"colmoney":           "35.68",
-		"colnumeric":         0.23509838,
-		"colpath":            "[(10,10),(20,20),(20,10),(15,15)]",
-		"colpg_lsn":          "0/3000000",
-		"colpoint":           "(15,15)",
-		"colpolygon":         "((10,10),(11, 11),(11,0),(5,5))",
-		"colreal":            7,
-		"colsmallint":        3,
-		"coltext":            "this is \n extremely important",
-		"coltime":            "13:45",
-		"coltsquery":         "'fat':AB & 'cat'",
-		"coltsvector":        "a fat cat sat on a mat and ate a fat rat",
-		"coluuid":            "f0a0da24-4068-4be4-961d-7c295117ccca",
-		"colxml":             "<person><name>Batman</name></person>",
+	msg := message.From(ops.Update, fmt.Sprintf("%s.%s", writerComplexUpdateTestData.DB, writerComplexUpdateTestData.Table), data.Data{
+		"id":                    ranInt+1,
+		"colinteger":            int64(4),
+		"colsmallint":           int64(30000),
+		"coltinyint":            int64(100),
+		"colmediumint":          int64(8000000),
+		"colbigint":             int64(4000001240125),
+		"coldecimal":            0.23509838,
+		"colfloat":              0.31426,
+		"coldoubleprecision":    0.314259892323,
+		"colbit":                0b101,
+		"coldate":               time.Date(2022, 01, 01, 0, 0, 0, 0, time.UTC),
+		"coltime":               "14:45:00",
+		"coltimestamp":          time.Now().UTC(),
+		"colyear":               "2022",
+		"colchar":               "b",
+		"colvar":                randomHeros[ranInt],
+		"colbinary":             0xCAFEBABE,
+		"colblob":               0xCAFEBABE,
+		"coltext":               "this is extremely important",
+		"colpoint":              wktToGeom("POINT (20 20)"),
+		"collinestring":         wktToGeom("LINESTRING (3 3, 4 4, 5 5)"),
+		"colpolygon":            wktToGeom("POLYGON ((1 1, 11 1, 11 11, 1 11, 1 1),(6 6, 8 6, 8 8, 6 8, 6 6))"),
+		"colgeometrycollection": wktToGeom("GEOMETRYCOLLECTION (POINT (2 2),LINESTRING (5 5, 6 6, 7 7, 8 8, 9 9))"),
 	})
 	if _, err := w.Write(msg)(s); err != nil {
 		t.Errorf("unexpected Update error, %s\n", err)
@@ -321,11 +307,12 @@ func TestComplexUpdate(t *testing.T) {
 		bigint      int64
 	)
 	if err := s.(*Session).mysqlSession.
-		QueryRow(fmt.Sprintf("SELECT id, colvar, coltimestamp, colbigint FROM %s WHERE id = %d", writerComplexUpdateTestData.Table, ranInt)).
+		QueryRow(fmt.Sprintf("SELECT id, colvar, coltimestamp, colbigint FROM %s WHERE id = %d", writerComplexUpdateTestData.Table, ranInt+1)).
 		Scan(&id, &stringValue, &timeValue, &bigint); err != nil {
 		t.Fatalf("Error on test query: %v", err)
 	}
-	if id != ranInt || stringValue != randomHeros[ranInt] || timeValue.Before(time.Now().Add(-30*time.Second).UTC()) || bigint != int64(4000001240125) {
+	
+	if id != ranInt+1 || stringValue != randomHeros[ranInt] || timeValue.Before(time.Now().Add(-30*time.Second).UTC()) || bigint != int64(4000001240125) {
 		t.Fatalf("Values were not what they were expected to be: %v, %v, %v, %v", id, stringValue, timeValue, bigint)
 	}
 

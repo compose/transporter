@@ -166,13 +166,31 @@ func updateMsg(m message.Msg, s *sql.DB) error {
 
 	i := 1
 	for key, value := range m.Data() {
+		// Mysql uses "?, ?, ?" instead of "$1, $2, $3"
+		// Wrap placeholder for geometry types
+		// Overkill using switch/case for just geometry,
+		// but there might be other types we need to handle
+		placeholder := "?"
+		switch value.(type) {
+			case *geom.Point, *geom.LineString, *geom.Polygon, *geom.GeometryCollection:
+				// Wrap in ST_GeomFromText
+				// Supposedly not required in "later" MySQLs
+				// Although the format changes, e.g. `POINT (15,15)` vs WKT of `POINT (15 15)`
+				// So might as well stick with it. Possible performance impact?
+				// We could use binary `ST_GeomFromWKB` though
+				placeholder = "ST_GeomFromText(?)"
+		}
 		if pkeys[key] { // key is primary key
-			ckeys = append(ckeys, fmt.Sprintf("%v=?", key))
+			ckeys = append(ckeys, fmt.Sprintf("%v=%s", key, placeholder))
 		} else {
-			ukeys = append(ukeys, fmt.Sprintf("%v=?", key))
+			ukeys = append(ukeys, fmt.Sprintf("%v=%s", key, placeholder))
 		}
 
 		switch value.(type) {
+		// Can add others here such as binary and bit, etc if needed
+		case *geom.Point, *geom.LineString, *geom.Polygon, *geom.GeometryCollection:
+			value, _ = wkt.Marshal(value.(geom.T))
+			value = value.(string)
 		case map[string]interface{}, mejson.M, []map[string]interface{}, mejson.S:
 			value, _ = json.Marshal(value)
 		case []interface{}:
