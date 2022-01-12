@@ -426,6 +426,8 @@ var (
 )
 
 func TestComplexDeleteWithoutAllPrimarykeys(t *testing.T) {
+	// This checks for an expected failure. I.e. should not be possible to delete
+	// the row without all primary keys
 	ranInt := rand.Intn(writerComplexDeletePkTestData.InsertCount)
 	w := newWriter()
 	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@tcp(localhost)/%s", writerComplexDeletePkTestData.DB)))
@@ -437,17 +439,33 @@ func TestComplexDeleteWithoutAllPrimarykeys(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to obtain session to mysql, %s", err)
 	}
-	msg := message.From(ops.Delete, fmt.Sprintf("public.%s", writerComplexDeletePkTestData.Table), data.Data{"id": ranInt})
+	msg := message.From(
+		ops.Delete,
+		fmt.Sprintf("%s.%s", writerComplexDeletePkTestData.DB, writerComplexDeletePkTestData.Table),
+		data.Data{"id": ranInt+1})
 	if _, err := w.Write(msg)(s); err == nil {
 		t.Fatalf("Did not receive anticipated error from mysql.writeMessage")
+	} else {
+		t.Logf("Received expected error: %s", err)
 	}
 
 	var id int
 	if err := s.(*Session).mysqlSession.
 		QueryRow(fmt.Sprintf("SELECT id FROM %s WHERE id = %d AND colvar = '%s'", writerComplexDeletePkTestData.Table,
-			ranInt,
+			ranInt+1,
 			randomHeros[ranInt])).
 		Scan(&id); err != nil {
 		t.Fatalf("Expected to find values, but none were found: %v", err)
+	}
+	// Add a row count check as well
+	var count int
+	err = s.(*Session).mysqlSession.
+		QueryRow(fmt.Sprintf("SELECT COUNT(id) FROM %s;", writerComplexDeletePkTestData.Table)).
+		Scan(&count)
+	if err != nil {
+		t.Errorf("unable to count table, %s", err)
+	}
+	if count != 10 {
+		t.Errorf("wrong document count, expected 10, got %d", count)
 	}
 }

@@ -54,7 +54,7 @@ var (
 		writerDeleteTestData,
 		writerComplexUpdateTestData,
 		writerComplexDeleteTestData,
-		//writerComplexDeletePkTestData,
+		writerComplexDeletePkTestData,
 	}
 
 	randomHeros = []string{"Superwoman", "Wonder Woman", "Batman", "Superman",
