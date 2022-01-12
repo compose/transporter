@@ -114,7 +114,7 @@ func TestReadComplex(t *testing.T) {
 			"colyear":               "2021",
 			"colchar":               "a",
 			"colvar":                randomHeros[i%len(randomHeros)],
-			"colbinary":             "deadbeef00000000",
+			"colbinary":             "deadbeef000000000000",
 			"colblob":               blobdata,
 			"coltext":               "this is extremely important",
 			"colpoint":              "POINT (15 15)",
