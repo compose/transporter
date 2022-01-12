@@ -78,7 +78,7 @@ func TestInsert(t *testing.T) {
 
 	if _, err := w.Write(message.From(
 		ops.Command,
-		fmt.Sprintf("public.%s", writerTestData.Table),
+		fmt.Sprintf("%s.%s", writerTestData.DB, writerTestData.Table),
 		map[string]interface{}{},
 	))(s); err != nil {
 		t.Errorf("unexpected Command error, %s", err)
