@@ -53,7 +53,7 @@ var (
 		writerUpdateTestData,
 		writerDeleteTestData,
 		writerComplexUpdateTestData,
-		//writerComplexDeleteTestData,
+		writerComplexDeleteTestData,
 		//writerComplexDeletePkTestData,
 	}
 

@@ -394,17 +394,30 @@ func TestComplexDelete(t *testing.T) {
 	}
 	msg := message.From(
 		ops.Delete,
-		fmt.Sprintf("public.%s", writerComplexDeleteTestData.Table),
-		data.Data{"id": ranInt, "colvar": randomHeros[ranInt]})
+		fmt.Sprintf("%s.%s", writerComplexDeleteTestData.DB, writerComplexDeleteTestData.Table),
+		data.Data{"id": ranInt+1, "colvar": randomHeros[ranInt]})
 	if _, err := w.Write(msg)(s); err != nil {
 		t.Errorf("unexpected Delete error, %s\n", err)
 	}
 
 	var id int
 	if err := s.(*Session).mysqlSession.
-		QueryRow(fmt.Sprintf("SELECT id FROM %s WHERE id = %d AND colvar = '%s'", writerComplexDeleteTestData.Table, ranInt, randomHeros[ranInt])).
+		QueryRow(fmt.Sprintf("SELECT id FROM %s WHERE id = %d AND colvar = '%s'", writerComplexDeleteTestData.Table, ranInt+1, randomHeros[ranInt])).
 		Scan(&id); err == nil {
 		t.Fatalf("Values were found, but where not expected to be: %v", id)
+	}
+	// Add a row count check as well because if it picks the wrong row due to
+	// off-by-one then it'll fail to delete, but _also_ fail to find so will think it's
+	// passed
+	var count int
+	err = s.(*Session).mysqlSession.
+		QueryRow(fmt.Sprintf("SELECT COUNT(id) FROM %s;", writerComplexDeleteTestData.Table)).
+		Scan(&count)
+	if err != nil {
+		t.Errorf("unable to count table, %s", err)
+	}
+	if count != 9 {
+		t.Errorf("wrong document count, expected 9, got %d", count)
 	}
 }
 

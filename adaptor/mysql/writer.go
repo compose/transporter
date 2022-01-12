@@ -143,8 +143,8 @@ func deleteMsg(m message.Msg, s *sql.DB) error {
 
 	query := fmt.Sprintf("DELETE FROM %v WHERE %v;", m.Namespace(), strings.Join(ckeys, " AND "))
 	// TODO: Remove debugging/developing stuff:
-	// log.Infoln(query)
-	// log.Infoln(vals)
+	//log.Infoln(query)
+	//log.Infoln(vals)
 	_, err = s.Exec(query, vals...)
 	return err
 }
