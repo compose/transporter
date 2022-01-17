@@ -111,7 +111,7 @@ func TestReadComplex(t *testing.T) {
 			"colbit":                "101",
 			"coldate":               time.Date(2021, 12, 10, 0, 0, 0, 0, time.UTC),
 			"coltime":               "13:45:00",
-			"colyear":               "2021",
+			"colyear":               uint64(2021),
 			"colchar":               "a",
 			"colvar":                randomHeros[i%len(randomHeros)],
 			"colbinary":             "deadbeef000000000000",
