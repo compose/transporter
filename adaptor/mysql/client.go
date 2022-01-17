@@ -18,7 +18,7 @@ const (
 	// more confusing for others when it comes to altering it?
 	// https://github.com/go-sql-driver/mysql#dsn-data-source-name
 	//DefaultURI = "root@localhost:3306?"
-	DefaultURI = "root@localhost:3306?"
+	DefaultURI = "mysql://root@localhost:3306?"
 )
 
 var (
@@ -101,6 +101,7 @@ func (c *Client) Connect() (client.Session, error) {
 		// > necessarily return an error, due to parsing ambiguities
 		//
 		// and MySQL is using a DSN. But we can cheat and add in a prefix/scheme
+		//fmt.Println(c.uri)
 		uri, _ := url.Parse("mysql://" + c.uri)
 		if uri.Path != "" {
 			c.db = uri.Path[1:]
