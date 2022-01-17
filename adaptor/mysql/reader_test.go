@@ -36,7 +36,7 @@ func TestRead(t *testing.T) {
 		return table == readerTestData.DB + "." + readerTestData.Table
 	})
 	done := make(chan struct{})
-	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@tcp(localhost)/%s", readerTestData.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@localhost:3306?%s", readerTestData.DB)))
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mysql, %s", err)
 	}
@@ -77,7 +77,7 @@ func TestReadComplex(t *testing.T) {
 		return table == readerComplexTestData.DB + "." + readerComplexTestData.Table
 	})
 	done := make(chan struct{})
-	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@tcp(localhost)/%s", readerComplexTestData.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@localhost:3306?%s", readerComplexTestData.DB)))
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mysql, %s", err)
 	}
@@ -141,7 +141,7 @@ func TestReadComplex(t *testing.T) {
 						}
 					case key == "colpoint" || key == "collinestring" || key == "colpolygon" || key == "colgeometrycollection":
 						// TODO: Remove debugging/developing:
-						t.Logf("%v (%T)", msgs[i].Data().Get(key), msgs[i].Data().Get(key))
+						//t.Logf("%v (%T)", msgs[i].Data().Get(key), msgs[i].Data().Get(key))
 						geomhexvalue := hex.EncodeToString([]byte(msgs[i].Data().Get(key).(string)))
 						// Strip SRID
 						// TODO: Handle errors here!!

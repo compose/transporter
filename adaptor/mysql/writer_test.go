@@ -42,7 +42,7 @@ func TestInsert(t *testing.T) {
 	confirms, cleanup := adaptor.MockConfirmWrites()
 	defer adaptor.VerifyWriteConfirmed(cleanup, t)
 	w := newWriter()
-	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@tcp(localhost)/%s?parseTime=true", writerTestData.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@localhost:3306?%s", writerTestData.DB)))
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mysql, %s", err)
 	}
@@ -124,7 +124,7 @@ func wktToGeom(wktForm string) geom.T {
 
 func TestComplexInsert(t *testing.T) {
 	w := newWriter()
-	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@tcp(localhost)/%s?parseTime=true", writerComplexTestData.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@localhost:3306?%s", writerComplexTestData.DB)))
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mysql, %s", err)
 	}
@@ -203,7 +203,7 @@ var (
 
 func TestUpdate(t *testing.T) {
 	w := newWriter()
-	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@tcp(localhost)/%s?parseTime=true", writerUpdateTestData.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@localhost:3306?%s", writerUpdateTestData.DB)))
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mysql, %s", err)
 	}
@@ -262,7 +262,7 @@ var (
 func TestComplexUpdate(t *testing.T) {
 	ranInt := rand.Intn(writerComplexUpdateTestData.InsertCount)
 	w := newWriter()
-	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@tcp(localhost)/%s?parseTime=true", writerComplexUpdateTestData.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@localhost:3306?%s", writerComplexUpdateTestData.DB)))
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mysql, %s", err)
 	}
@@ -334,7 +334,7 @@ var (
 
 func TestDelete(t *testing.T) {
 	w := newWriter()
-	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@tcp(localhost)/%s?parseTime=true", writerDeleteTestData.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@localhost:3306?%s", writerDeleteTestData.DB)))
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mysql, %s", err)
 	}
@@ -383,7 +383,7 @@ var (
 func TestComplexDelete(t *testing.T) {
 	ranInt := rand.Intn(writerComplexDeleteTestData.InsertCount)
 	w := newWriter()
-	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@tcp(localhost)/%s", writerComplexDeleteTestData.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@localhost:3306?%s", writerComplexDeleteTestData.DB)))
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mysql, %s", err)
 	}
@@ -430,7 +430,7 @@ func TestComplexDeleteWithoutAllPrimarykeys(t *testing.T) {
 	// the row without all primary keys
 	ranInt := rand.Intn(writerComplexDeletePkTestData.InsertCount)
 	w := newWriter()
-	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@tcp(localhost)/%s", writerComplexDeletePkTestData.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@localhost:3306?%s", writerComplexDeletePkTestData.DB)))
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mysql, %s", err)
 	}

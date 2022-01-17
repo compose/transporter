@@ -93,7 +93,7 @@ func setup() {
 
 func setupData(data *TestData) {
 
-	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@tcp(localhost)/%s", data.DB)))
+	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@localhost:3306?%s", data.DB)))
 	if err != nil {
 		log.Errorf("unable to initialize connection to mysql, %s", err)
 	}

@@ -7,7 +7,8 @@ import (
 
 	"github.com/compose/transporter/client"
 
-	_ "github.com/go-sql-driver/mysql" // import mysql driver
+	//_ "github.com/go-sql-driver/mysql" // import mysql driver
+	_ "github.com/go-mysql-org/go-mysql/driver" // import alternative mysql driver
 )
 
 const (
@@ -16,7 +17,8 @@ const (
 	// Supposedly we should use a socket and not tcp if localhost, but that might be
 	// more confusing for others when it comes to altering it?
 	// https://github.com/go-sql-driver/mysql#dsn-data-source-name
-	DefaultURI = "root@tcp(localhost)/"
+	//DefaultURI = "root@localhost:3306?"
+	DefaultURI = "root@localhost:3306?"
 )
 
 var (
@@ -54,6 +56,9 @@ func NewClient(options ...ClientOptionFunc) (*Client, error) {
 }
 
 // WithURI defines the full connection string for the MySQL connection
+// Make this handle the different DSNs for:
+// - https://github.com/go-sql-driver/mysql#dsn-data-source-name
+// - https://github.com/go-mysql-org/go-mysql#driver
 func WithURI(uri string) ClientOptionFunc {
 	return func(c *Client) error {
 		_, err := url.Parse(uri)

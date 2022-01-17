@@ -6,7 +6,8 @@ import (
 	"github.com/compose/transporter/adaptor"
 	"github.com/compose/transporter/client"
 
-	_ "github.com/go-sql-driver/mysql" // import mysql driver
+	//_ "github.com/go-sql-driver/mysql" // import mysql driver
+	_ "github.com/go-mysql-org/go-mysql/driver" // import alternative mysql driver
 )
 
 const (
