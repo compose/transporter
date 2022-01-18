@@ -51,6 +51,7 @@ func TestInsert(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to obtain session to mysql, %s", err)
 	}
+	// See this for why the Format has that date: https://pkg.go.dev/time#pkg-constants
 	for i := 0; i < 10; i++ {
 		if _, err := w.Write(
 			message.WithConfirms(
@@ -58,7 +59,7 @@ func TestInsert(t *testing.T) {
 				message.From(
 					ops.Insert,
 					fmt.Sprintf("%s.%s", writerTestData.DB, writerTestData.Table),
-					data.Data{"id": i, "colvar": "hello world", "coltimestamp": time.Now().UTC()}),
+					data.Data{"id": i, "colvar": "hello world", "coltimestamp": time.Now().Format("2006-01-02 15:04:05.000000")}),
 			),
 		)(s); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
@@ -87,13 +88,23 @@ func TestInsert(t *testing.T) {
 	var (
 		id          int
 		stringValue string
+		timeByteValue []byte
 		timeValue   time.Time
 	)
 	if err := s.(*Session).mysqlSession.
 		QueryRow(fmt.Sprintf("SELECT id, colvar, coltimestamp FROM %s WHERE id = 4", writerTestData.Table)).
-		Scan(&id, &stringValue, &timeValue); err != nil {
+		Scan(&id, &stringValue, &timeByteValue); err != nil {
 		t.Fatalf("Error on test query: %v", err)
 	}
+	// Parse timeValue
+	// TODO: Error handling! Remove debug/develop logging
+	//t.Logf("%s", timeByteValue)
+	// For some reason we lose the fractional bit on the scan, perhaps because zeroes?
+	// But seems we can omit:
+	// > When parsing (only), the input may contain a fractional second field
+	// > immediately after the seconds field, even if the layout does not signify its
+	// > presence.
+	timeValue, _ = time.Parse("2006-01-02 15:04:05", string(timeByteValue))
 	if id != 4 || stringValue != "hello world" || timeValue.Before(time.Now().Add(-30*time.Second).UTC()) {
 		t.Fatalf("Values were not what they were expected to be: %v, %v, %v", id, stringValue, timeValue)
 	}
@@ -150,9 +161,9 @@ func TestComplexInsert(t *testing.T) {
 			// I think we need to do what we did in reader_test, but in reverse?
 			// "b'101'" gets interpreted as a string
 			"colbit":                0b101,
-			"coldate":               time.Date(2021, 12, 10, 0, 0, 0, 0, time.UTC),
+			"coldate":               time.Date(2021, 12, 10, 0, 0, 0, 0, time.UTC).Format("2006-01-02"),
 			"coltime":               "13:45:00",
-			"coltimestamp":          time.Now().UTC(),
+			"coltimestamp":          time.Now().Format("2006-01-02 15:04:05.000000"),
 			"colyear":               "2021",
 			"colchar":               "a",
 			"colvar":                randomHeros[i],
@@ -172,15 +183,18 @@ func TestComplexInsert(t *testing.T) {
 		}
 	}
 	var (
-		id          int
-		stringValue string
-		timeValue   time.Time
+		id            int
+		stringValue   string
+		timeByteValue []byte
+		timeValue     time.Time
 	)
 	if err := s.(*Session).mysqlSession.
 		QueryRow(fmt.Sprintf("SELECT id, colvar, coltimestamp FROM %s WHERE id = 4", writerComplexTestData.Table)).
-		Scan(&id, &stringValue, &timeValue); err != nil {
+		Scan(&id, &stringValue, &timeByteValue); err != nil {
 		t.Fatalf("Error on test query: %v", err)
 	}
+	// TODO: Error handling!
+	timeValue, _ = time.Parse("2006-01-02 15:04:05", string(timeByteValue))
 	if id != 4 || stringValue != randomHeros[4] || timeValue.Before(time.Now().Add(-30*time.Second).UTC()) {
 		t.Fatalf("Values were not what they were expected to be: %v, %v, %v", id, stringValue, timeValue)
 	}
@@ -216,7 +230,7 @@ func TestUpdate(t *testing.T) {
 		msg := message.From(
 			ops.Insert,
 			fmt.Sprintf("%s.%s", writerUpdateTestData.DB, writerUpdateTestData.Table),
-			data.Data{"id": i, "colvar": "hello world", "coltimestamp": time.Now().UTC()})
+			data.Data{"id": i, "colvar": "hello world", "coltimestamp": time.Now().Format("2006-01-02 15:04:05.000000")})
 		if _, err := w.Write(msg)(s); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
 		}
@@ -224,7 +238,7 @@ func TestUpdate(t *testing.T) {
 	msg := message.From(
 		ops.Update,
 		fmt.Sprintf("%s.%s", writerUpdateTestData.DB, writerUpdateTestData.Table),
-		data.Data{"id": 1, "colvar": "robin", "coltimestamp": time.Now().UTC()})
+		data.Data{"id": 1, "colvar": "robin", "coltimestamp": time.Now().Format("2006-01-02 15:04:05.000000")})
 	if _, err := w.Write(msg)(s); err != nil {
 		t.Errorf("unexpected Update error, %s\n", err)
 	}
@@ -232,13 +246,16 @@ func TestUpdate(t *testing.T) {
 	var (
 		id          int
 		stringValue string
+		timeByteValue []byte
 		timeValue   time.Time
 	)
 	if err := s.(*Session).mysqlSession.
 		QueryRow(fmt.Sprintf("SELECT id, colvar, coltimestamp FROM %s WHERE id = 1", writerUpdateTestData.Table)).
-		Scan(&id, &stringValue, &timeValue); err != nil {
+		Scan(&id, &stringValue, &timeByteValue); err != nil {
 		t.Fatalf("Error on test query: %v", err)
 	}
+	// TODO: Error handling!
+	timeValue, _ = time.Parse("2006-01-02 15:04:05", string(timeByteValue))
 	if id != 1 || stringValue != "robin" || timeValue.Before(time.Now().Add(-30*time.Second).UTC()) {
 		t.Fatalf("Values were not what they were expected to be: %v, %v, %v", id, stringValue, timeValue)
 	}
@@ -282,9 +299,9 @@ func TestComplexUpdate(t *testing.T) {
 		"colfloat":              0.31426,
 		"coldoubleprecision":    0.314259892323,
 		"colbit":                0b101,
-		"coldate":               time.Date(2022, 01, 01, 0, 0, 0, 0, time.UTC),
+		"coldate":               time.Date(2021, 12, 10, 0, 0, 0, 0, time.UTC).Format("2006-01-02"),
 		"coltime":               "14:45:00",
-		"coltimestamp":          time.Now().UTC(),
+		"coltimestamp":          time.Now().Format("2006-01-02 15:04:05.000000"),
 		"colyear":               "2022",
 		"colchar":               "b",
 		"colvar":                randomHeros[ranInt],
@@ -303,15 +320,17 @@ func TestComplexUpdate(t *testing.T) {
 	var (
 		id          int
 		stringValue string
+		timeByteValue []byte
 		timeValue   time.Time
 		bigint      int64
 	)
 	if err := s.(*Session).mysqlSession.
 		QueryRow(fmt.Sprintf("SELECT id, colvar, coltimestamp, colbigint FROM %s WHERE id = %d", writerComplexUpdateTestData.Table, ranInt+1)).
-		Scan(&id, &stringValue, &timeValue, &bigint); err != nil {
+		Scan(&id, &stringValue, &timeByteValue, &bigint); err != nil {
 		t.Fatalf("Error on test query: %v", err)
 	}
-	
+	// TODO: Error handling!
+	timeValue, _ = time.Parse("2006-01-02 15:04:05", string(timeByteValue))
 	if id != ranInt+1 || stringValue != randomHeros[ranInt] || timeValue.Before(time.Now().Add(-30*time.Second).UTC()) || bigint != int64(4000001240125) {
 		t.Fatalf("Values were not what they were expected to be: %v, %v, %v, %v", id, stringValue, timeValue, bigint)
 	}
@@ -347,7 +366,7 @@ func TestDelete(t *testing.T) {
 		msg := message.From(
 			ops.Insert,
 			fmt.Sprintf("%s.%s", writerDeleteTestData.DB, writerDeleteTestData.Table),
-			data.Data{"id": i, "colvar": "hello world", "coltimestamp": time.Now().UTC()})
+			data.Data{"id": i, "colvar": "hello world", "coltimestamp": time.Now().Format("2006-01-02 15:04:05.000000")})
 		if _, err := w.Write(msg)(s); err != nil {
 			t.Errorf("unexpected Insert error, %s\n", err)
 		}
