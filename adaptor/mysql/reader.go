@@ -173,7 +173,7 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done
 						//xType := fmt.Sprintf("%T", value)
 						//fmt.Println(xType)
 						switch value := value.(type) {
-						// Seems everything is []unit8
+						// Seems everything is []uint8
 							case []uint8:
 								docMap[columns[i][0]] = casifyValue(string(value), columns[i][1])
 							case string:
@@ -217,7 +217,7 @@ func casifyValue(value string, valueType string) interface{} {
 				fmt.Printf("\nTime (%v) parse error: %v\n\n", value, err)
 			}
 			return t
-			case valueType == "date":
+		case valueType == "date":
 			t, err := time.Parse("2006-01-02", value)
 			if err != nil {
 				fmt.Printf("\nTime (%v) parse error: %v\n\n", value, err)
