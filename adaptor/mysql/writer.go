@@ -191,19 +191,19 @@ func updateMsg(m message.Msg, s *sql.DB) error {
 		}
 
 		switch value.(type) {
-		// Can add others here such as binary and bit, etc if needed
-		case *geom.Point, *geom.LineString, *geom.Polygon, *geom.GeometryCollection:
-			value, _ = wkt.Marshal(value.(geom.T))
-			value = value.(string)
-		case time.Time:
-			// MySQL can write this format into DATE, DATETIME and TIMESTAMP
-			value = value.(time.Time).Format("2006-01-02 15:04:05.000000")
-		case map[string]interface{}, mejson.M, []map[string]interface{}, mejson.S:
-			value, _ = json.Marshal(value)
-		case []interface{}:
-			value, _ = json.Marshal(value)
-			value = string(value.([]byte))
-			value = fmt.Sprintf("{%v}", value.(string)[1:len(value.(string))-1])
+			// Can add others here such as binary and bit, etc if needed
+			case *geom.Point, *geom.LineString, *geom.Polygon, *geom.GeometryCollection:
+				value, _ = wkt.Marshal(value.(geom.T))
+				value = value.(string)
+			case time.Time:
+				// MySQL can write this format into DATE, DATETIME and TIMESTAMP
+				value = value.(time.Time).Format("2006-01-02 15:04:05.000000")
+			case map[string]interface{}, mejson.M, []map[string]interface{}, mejson.S:
+				value, _ = json.Marshal(value)
+			case []interface{}:
+				value, _ = json.Marshal(value)
+				value = string(value.([]byte))
+				value = fmt.Sprintf("{%v}", value.(string)[1:len(value.(string))-1])
 		}
 		// if it's a primary key it needs to go at the end of the vals list
 		// So perhaps easier to do cvals and uvals and then combine at end
