@@ -30,7 +30,11 @@ func TestRead(t *testing.T) {
 
 	reader := newReader()
 	readFunc := reader.Read(map[string]client.MessageSet{}, func(table string) bool {
-		if strings.HasPrefix(table, "information_schema.") || strings.HasPrefix(table, "performance_schema.") {
+		if strings.HasPrefix(table, "information_schema.") ||
+			strings.HasPrefix(table, "performance_schema.") ||
+			strings.HasPrefix(table, "mysql.") ||
+			strings.HasPrefix(table, "sys.") {
+
 			return false
 		}
 		return table == readerTestData.DB + "." + readerTestData.Table
@@ -71,7 +75,11 @@ func TestReadComplex(t *testing.T) {
 
 	reader := newReader()
 	readFunc := reader.Read(map[string]client.MessageSet{}, func(table string) bool {
-		if strings.HasPrefix(table, "information_schema.") || strings.HasPrefix(table, "performance_schema."){
+		if strings.HasPrefix(table, "information_schema.") ||
+			strings.HasPrefix(table, "performance_schema.") ||
+			strings.HasPrefix(table, "mysql.") ||
+			strings.HasPrefix(table, "sys.") {
+
 			return false
 		}
 		return table == readerComplexTestData.DB + "." + readerComplexTestData.Table
