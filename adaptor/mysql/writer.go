@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/compose/mejson"
 	"github.com/compose/transporter/client"
@@ -86,6 +87,9 @@ func insertMsg(m message.Msg, s *sql.DB) error {
 			case *geom.Point, *geom.LineString, *geom.Polygon, *geom.GeometryCollection:
 				value, _ = wkt.Marshal(value.(geom.T))
 				value = value.(string)
+			case time.Time:
+				// MySQL can write this format into DATE, DATETIME and TIMESTAMP
+				value = value.(time.Time).Format("2006-01-02 15:04:05.000000")
 			case map[string]interface{}, mejson.M, []map[string]interface{}, mejson.S:
 				value, _ = json.Marshal(value)
 			case []interface{}:
@@ -191,6 +195,9 @@ func updateMsg(m message.Msg, s *sql.DB) error {
 		case *geom.Point, *geom.LineString, *geom.Polygon, *geom.GeometryCollection:
 			value, _ = wkt.Marshal(value.(geom.T))
 			value = value.(string)
+		case time.Time:
+			// MySQL can write this format into DATE, DATETIME and TIMESTAMP
+			value = value.(time.Time).Format("2006-01-02 15:04:05.000000")
 		case map[string]interface{}, mejson.M, []map[string]interface{}, mejson.S:
 			value, _ = json.Marshal(value)
 		case []interface{}:
