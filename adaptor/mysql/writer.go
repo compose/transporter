@@ -43,9 +43,6 @@ func (w *Writer) Write(msg message.Msg) func(client.Session) (message.Msg, error
 			}
 			return msg, nil
 		}
-		// We need to disable Foreign Key Checks for imports
-		// Ideally we don't want to send this _every_ time just once per session
-		s.(*Session).mysqlSession.Exec("SET FOREIGN_KEY_CHECKS=0;")
 		if err := writeFunc(msg, s.(*Session).mysqlSession); err != nil {
 			return nil, err
 		}

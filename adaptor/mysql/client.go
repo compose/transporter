@@ -104,6 +104,11 @@ func (c *Client) Connect() (client.Session, error) {
 			c.db = uri.Path[1:]
 		}
 	}
-	err = c.mysqlSession.Ping()
+	// Replace Ping with an Exec that we need to run for imports anyway
+	// TODO: Remove below rather than just have commented out
+	//err = c.mysqlSession.Ping()
+	// We need to disable Foreign Key Checks for imports
+	// Ideally we don't want to send this _every_ time just once per session
+	_, err = c.mysqlSession.Exec("SET FOREIGN_KEY_CHECKS=0;")
 	return &Session{c.mysqlSession, c.db}, err
 }
