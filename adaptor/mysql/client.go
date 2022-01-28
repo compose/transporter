@@ -14,10 +14,6 @@ import (
 const (
 	// DefaultURI is the default endpoint of MySQL on the local machine.
 	// Primarily used when initializing a new Client without a specific URI.
-	// Supposedly we should use a socket and not tcp if localhost, but that might be
-	// more confusing for others when it comes to altering it?
-	// https://github.com/go-sql-driver/mysql#dsn-data-source-name
-	//DefaultURI = "root@localhost:3306?"
 	DefaultURI = "mysql://root@localhost:3306?"
 )
 
@@ -56,7 +52,7 @@ func NewClient(options ...ClientOptionFunc) (*Client, error) {
 }
 
 // WithURI defines the full connection string for the MySQL connection
-// Make this handle the different DSNs for:
+// Make this handle the different DSNs for these two?
 // - https://github.com/go-sql-driver/mysql#dsn-data-source-name
 // - https://github.com/go-mysql-org/go-mysql#driver
 func WithURI(uri string) ClientOptionFunc {
@@ -102,6 +98,7 @@ func (c *Client) Connect() (client.Session, error) {
 		//
 		// and MySQL is using a DSN. But we can cheat and add in a prefix/scheme
 		//fmt.Println(c.uri)
+		// TODO this is wrong for the go-mysql-org/go-mysql driver because it doesn't use a bloody `/` for the db
 		uri, _ := url.Parse("mysql://" + c.uri)
 		if uri.Path != "" {
 			c.db = uri.Path[1:]
