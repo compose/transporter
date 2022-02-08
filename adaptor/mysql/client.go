@@ -8,7 +8,7 @@ import (
 	"github.com/compose/transporter/client"
 
 	//_ "github.com/go-sql-driver/mysql" // import mysql driver
-	"github.com/go-mysql-org/go-mysql/driver" // import alternative mysql driver
+	_ "github.com/go-mysql-org/go-mysql/driver" // import alternative mysql driver
 )
 
 const (
@@ -19,10 +19,6 @@ const (
 
 var (
 	_ client.Client = &Client{}
-	CaPem = []byte(`-----BEGIN CERTIFICATE-----
-CERTHERE
------END CERTIFICATE-----`)
-	
 )
 
 // ClientOptionFunc is a function that configures a Client.
@@ -114,8 +110,5 @@ func (c *Client) Connect() (client.Session, error) {
 	// We need to disable Foreign Key Checks for imports
 	// Ideally we don't want to send this _every_ time just once per session
 	_, err = c.mysqlSession.Exec("SET FOREIGN_KEY_CHECKS=0;")
-	// Set custom TLS Config?
-	driver.SetCustomTLSConfig(CaPem, make([]byte, 0), make([]byte, 0), false, "af3e1bf4-9742-400b-8fe2-c69a2a533b52.c1vt02ul0q3fa0509bog.databases.appdomain.cloud")
-	
 	return &Session{c.mysqlSession, c.db}, err
 }
