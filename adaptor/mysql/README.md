@@ -282,3 +282,95 @@ https://dba.stackexchange.com/questions/182519/how-do-i-dump-spatial-types-like-
 
 Another rough note to self... do we need to look at using
 [`interpolateParams=true`](https://github.com/go-sql-driver/mysql#interpolateparams)?
+
+
+### Tailing
+
+We switched to
+[go-mysql-org/go-mysql](https://github.com/go-mysql-org/go-mysql#canal) from
+[go-sql-driver/mysql](https://github.com/go-sql-driver/mysql) because it has
+replication support. There are two parts to it:
+
+- Replication
+- Canal
+
+AFAICT Canal is more a higher level abstraction on the Replication stuff. It
+uses that package. So possibly what we want to use is the Replication package as
+the [brief example given](https://github.com/go-mysql-org/go-mysql#example)
+looks close to what we want to do and what MySQL does.
+
+Can't run `SHOW MASTER STATUS;` on Compose to get what we need for replication.
+Well, not as is anyway, will need additional grants.
+
+Can build a dummy/simple app to test out the replication package:
+
+```go
+package main
+
+import (
+	"github.com/go-mysql-org/go-mysql/replication"
+	"github.com/go-mysql-org/go-mysql/mysql"
+	"github.com/go-mysql-org/go-mysql/client"
+	"net/url"
+	"os"
+	"context"
+	"fmt"
+	"strconv"
+)
+
+var (
+	dsn = "mysql://admin:[REDACTED]@aws-eu-west-1-portal.4.dblayer.com:15788/compose"
+)
+
+func main() {
+	// Could add a dns.Parse to the driver
+	parsedDSN, _ := url.Parse(dsn)
+	host := parsedDSN.Hostname()
+	port := parsedDSN.Port()
+	portInt, _ := strconv.Atoi(port)
+	user := parsedDSN.User.Username()
+	// stupid password makes things harder
+	pass, _ := parsedDSN.User.Password()
+	path := parsedDSN.Path[1:]
+	scheme := parsedDSN.Scheme
+	
+	// Need to get the log and position. Use driver or client? I guess Transporter client properly, but 
+	// for testing use package client directly?
+	conn, _ := client.Connect(fmt.Sprintf("%s:%s", host, port), user, pass, path)
+	
+	r, _ := conn.Execute("SHOW MASTER STATUS")
+	binFile, _ := r.GetString(0, 0)
+	binPosition, _ := r.GetInt(0, 1)
+	
+	cfg := replication.BinlogSyncerConfig {
+		ServerID: 100,
+		Flavor:   scheme,
+		Host:     host,
+		Port:     uint16(portInt),
+		User:     user,
+		Password: pass,
+	}
+	
+	syncer := replication.NewBinlogSyncer(cfg)
+	
+	streamer, _ := syncer.StartSync(mysql.Position{binFile, uint32(binPosition)})
+	
+	// OR
+	//gtidSet, _ := mysql.ParseMysqlGTIDSet("a852989a-1894-4fcb-a060-a4aaaf06b9f0:1-36")
+	//streamer, _ := syncer.StartSyncGTID(gtidSet)
+	
+	for {
+		ev, _ := streamer.GetEvent(context.Background())
+		ev.Dump(os.Stdout)
+	}
+	// Then need to start handling things here a bit differently.
+}
+```
+
+Also, reading through the [Postgresql logical
+decoding](https://www.postgresql.org/docs/9.4/logicaldecoding-example.html) so
+can understand what the Postgresql Tailer is looking at versus what we get from
+the binlog, etc.
+
+How does Postgresql get changes since last call? Magic inside Postgresql it
+seems, you only get the changes once. 
