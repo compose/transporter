@@ -3,7 +3,7 @@ package mysql
 import (
 	"context"
 	"fmt"
-	"regexp"
+	//"regexp"
 	"strconv"
 	//"strings"
 	"time"
@@ -133,7 +133,7 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 					}
 					// TODO, we need to handle rotation of the binlog file...
 					// E.g: https://github.com/go-mysql-org/go-mysql/blob/d1666538b005e996414063695ca223994e9dc19d/canal/sync.go#L60-L64
-					
+
 					msg, skip, err := t.processEvent(event, filterFn)
 					if err != nil {
 						log.With("db", session.db).Errorf("error processing event from binlog %v", err)
@@ -154,58 +154,89 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 	}
 }
 
-// Copy Canal? E.g: https://github.com/go-mysql-org/go-mysql/blob/d1666538b005e996414063695ca223994e9dc19d/canal/sync.go#L38
-// Also see: https://github.com/go-mysql-org/go-mysql/blob/master/replication/event.go
-// And: https://github.com/go-mysql-org/go-mysql/blob/d1666538b005e996414063695ca223994e9dc19d/replication/binlogsyncer.go#L750
-//
 // In Postgresql this returns multiple events. For MySQL it will just be one
-// This _might_ end up being merged with parseBinlogData as a result
+// This _might_ end up being merged with parseData as a result
+// Canal has a lot of depth for MySQL sync that we (fortunately! For me!) don't need to handle in Transporter (which is more breadth than depth)
 func (t *Tailer) processEvent(event *replication.BinlogEvent, filterFn client.NsFilterFunc) (client.MessageSet, bool, error) {
 	var (
 		result client.MessageSet
 		skip = false
 		err error
-		// For now just to get things to build whilst concentrating on the Read function
-		d = "blah"
+		action ops.Op
+		schema, table string
+		eventData [][]interface {}
 	)
-	
-	// This is specific to Postgresql:
-	// https://www.postgresql.org/docs/9.4/logicaldecoding-example.html
-	dataMatcher := regexp.MustCompile(`(?s)^table ([^\.]+)\.([^:]+): (INSERT|DELETE|UPDATE): (.+)$`) // 1 - schema, 2 - table, 3 - action, 4 - remaining
 
-	// Something like this? Or does it make more sense to combine parseEvent and processEvent?
-	// Or should parseEvent by specific to "4 - remaining" up above?
-	//d, _ := parseEvent(event)
+	// TODO: Handle rotate events here or in Read?
 
-	// Ensure we are getting a data change row
-	dataMatches := dataMatcher.FindStringSubmatch(d)
-	if len(dataMatches) == 0 {
-		skip = true
+	// We are basically copying this from the following, but there's not really a different way to write these:
+	//
+	// - https://github.com/go-mysql-org/go-mysql/blob/d1666538b005e996414063695ca223994e9dc19d/canal/sync.go#L91-L172
+	// - https://github.com/go-mysql-org/go-mysql/blob/b4f7136548f0758730685ebd78814eb3e5e4b0b0/canal/sync.go#L248-L272
+	switch event.Event.(type) {
+		case *replication.RowsEvent:
+			// Need to cast
+			rowsEvent := event.Event.(*replication.RowsEvent)
+			// We only care about Insert / Update / Delete
+			// 1. Schema
+			schema = string(rowsEvent.Table.Schema)
+			// 2. Table
+			table = string(rowsEvent.Table.Table)
+			// 3. Action (Insert / Update / Delete)
+			switch event.Header.EventType {
+				case replication.WRITE_ROWS_EVENTv1, replication.WRITE_ROWS_EVENTv2:
+					action = ops.Insert
+				case replication.DELETE_ROWS_EVENTv1, replication.DELETE_ROWS_EVENTv2:
+					action = ops.Delete
+				case replication.UPDATE_ROWS_EVENTv1, replication.UPDATE_ROWS_EVENTv2:
+					action = ops.Update
+				default:
+					return result, skip, fmt.Errorf("Error processing action from string: %v", rowsEvent.Rows)
+			}
+			// 4. Remaining stuff / data
+			eventData = rowsEvent.Rows
+			// This is the tricky bit!
+			//
+			// I don't fully get why this is called "Rows" (plural) and not "Row" if it's just one update, but anyway...
+			//
+			// A statement like this:
+			//
+			//     INSERT INTO recipes (recipe_id, recipe_name) VALUES (1,'Tacos'), (2,'Tomato Soup'), (3,'Grilled Cheese');
+			//
+			// Would result in:
+			//
+			//     [[1 Tacos] [2 Tomato Soup] [3 Grilled Cheese]]
+			//
+			// It seems we do not get the column names, instead we'll get `<nil>` if a column is skipped
+			// This is unfortunate for our use case as we'll have to fill in the column names
+			//
+			// For Postgresql, a string like this from logical decoding:
+			//
+			//     "id[integer]:1 data[text]:'1'"
+			//
+			// Will end up like:
+			//
+			//     map[data:1 id:1]
+			//
+			// So we need to get MySQL stuff in that format.
+			//
+		default:
+			skip = true
 	}
-	// Skippable because no primary key on record
+
 	// Make sure we are getting changes on valid tables
-	schemaAndTable := fmt.Sprintf("%v.%v", dataMatches[1], dataMatches[2])
+	schemaAndTable := fmt.Sprintf("%v.%v", schema, table)
 	if !filterFn(schemaAndTable) {
 		skip = true
 	}
-	if dataMatches[4] == "(no-tuple-data)" {
-		log.With("op", dataMatches[3]).With("schema", schemaAndTable).Infoln("no tuple data")
-		skip = true
-	}
-	// normalize the action
-	var action ops.Op
-	switch dataMatches[3] {
-	case "INSERT":
-		action = ops.Insert
-	case "DELETE":
-		action = ops.Delete
-	case "UPDATE":
-		action = ops.Update
-	default:
-		return result, skip, fmt.Errorf("Error processing action from string: %v", d)
-	}
+
 	log.With("op", action).With("table", schemaAndTable).Debugln("received")
-	docMap := parseEvent(dataMatches[4])
+
+	// We might want to take advantage of `handleUnsigned`:
+	//
+	// https://github.com/go-mysql-org/go-mysql/blob/b4f7136548f0758730685ebd78814eb3e5e4b0b0/canal/rows.go#L46
+	//
+	docMap := parseEventData(eventData)
 	result = client.MessageSet{
 		Msg:  message.From(action, schemaAndTable, docMap),
 		Mode: commitlog.Sync,
@@ -214,8 +245,10 @@ func (t *Tailer) processEvent(event *replication.BinlogEvent, filterFn client.Ns
 	return result, skip, err
 }
 
-func parseEvent(d string) data.Data {
+func parseEventData(d [][]interface {}) data.Data {
+	// The main issue with MySQL is that we don't get the column names!!! So we need to fill those in
 	data := make(data.Data)
+
 	var (
 		label                  string
 		labelFinished          bool
@@ -236,7 +269,13 @@ func parseEvent(d string) data.Data {
 	openBracketInValueType = false
 	valueFinished = false
 
-	for _, character := range d {
+	// [[1 Tacos] [2 Tomato Soup] [3 Grilled Cheese]]
+	// These are rough initial changes just to get it to build so I can commit the changes for `processEvent`
+	// Hence also very bad formatting / indentation
+	for _, row := range d {
+		for _, item := range row {
+
+	for _, character := range item.(string) {
 		if !labelFinished {
 			if string(character) == "[" {
 				labelFinished = true
@@ -304,6 +343,8 @@ func parseEvent(d string) data.Data {
 		value = ""
 		valueEndCharacter = ""
 		valueFinished = false
+	}
+	}
 	}
 	if len(label) > 0 { // ensure we process any line ending abruptly
 		data[label] = casifyValue(value, valueType)
