@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	//"strings"
-	//"time"
+	"time"
 	"net/url"
 
 	"github.com/compose/transporter/client"
@@ -82,6 +82,7 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 		streamer, _ := syncer.StartSync(gomysql.Position{binFile, uint32(binPosition)})
 		// How to properly close this?
 		// There is no EndSync, but there is a close we can call on the `done` channel
+		
 
 		out := make(chan client.MessageSet)
 		// Will we have to pass things (such as streamer) into this function?
@@ -94,6 +95,9 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 			// start tailing/streaming
 			log.With("db", session.db).Infoln("Listening for changes...")
 			for {
+				// Use timeout context (for now at least)
+				// If we are using a timeout I think we can happily sit there for a bit
+				ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 				select {
 				// Notes to self on what this is doing...
 				// From reading around, e.g: https://golangbyexample.com/select-statement-golang/
@@ -118,7 +122,18 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 					syncer.Close()
 					return
 				default:
-					event, _ := streamer.GetEvent(context.Background())
+					// This blocks until an event is received which will still prevent the done channel from executing so use a timeout
+					event, ctxerr := streamer.GetEvent(ctx)
+					// Do not really understand this next bit yet
+					// Cancels existing/current context?
+					cancel()
+					if ctxerr == context.DeadlineExceeded {
+						// Allow `done` to execute
+						continue
+					}
+					// TODO, we need to handle rotation of the binlog file...
+					// E.g: https://github.com/go-mysql-org/go-mysql/blob/d1666538b005e996414063695ca223994e9dc19d/canal/sync.go#L60-L64
+					
 					msg, skip, err := t.processEvent(event, filterFn)
 					if err != nil {
 						log.With("db", session.db).Errorf("error processing event from binlog %v", err)
