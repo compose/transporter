@@ -3,11 +3,12 @@ package mysql
 import (
 	"context"
 	"fmt"
-	//"regexp"
+	"regexp"
 	"strconv"
 	//"strings"
 	"time"
 	"net/url"
+	"database/sql"
 
 	"github.com/compose/transporter/client"
 	"github.com/compose/transporter/commitlog"
@@ -134,7 +135,7 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 					// TODO, we need to handle rotation of the binlog file...
 					// E.g: https://github.com/go-mysql-org/go-mysql/blob/d1666538b005e996414063695ca223994e9dc19d/canal/sync.go#L60-L64
 
-					msg, skip, err := t.processEvent(event, filterFn)
+					msg, skip, err := t.processEvent(s, event, filterFn)
 					if err != nil {
 						log.With("db", session.db).Errorf("error processing event from binlog %v", err)
 						continue
@@ -157,7 +158,7 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 // In Postgresql this returns multiple events. For MySQL it will just be one
 // This _might_ end up being merged with parseData as a result
 // Canal has a lot of depth for MySQL sync that we (fortunately! For me!) don't need to handle in Transporter (which is more breadth than depth)
-func (t *Tailer) processEvent(event *replication.BinlogEvent, filterFn client.NsFilterFunc) (client.MessageSet, bool, error) {
+func (t *Tailer) processEvent(s client.Session, event *replication.BinlogEvent, filterFn client.NsFilterFunc) (client.MessageSet, bool, error) {
 	var (
 		result client.MessageSet
 		skip = false
@@ -236,7 +237,8 @@ func (t *Tailer) processEvent(event *replication.BinlogEvent, filterFn client.Ns
 	//
 	// https://github.com/go-mysql-org/go-mysql/blob/b4f7136548f0758730685ebd78814eb3e5e4b0b0/canal/rows.go#L46
 	//
-	docMap := parseEventData(eventData)
+	// !!! Check understanding of this, multiple rows ok?
+	docMap := parseEventData(s, schema, table, eventData)
 	result = client.MessageSet{
 		Msg:  message.From(action, schemaAndTable, docMap),
 		Mode: commitlog.Sync,
@@ -245,109 +247,107 @@ func (t *Tailer) processEvent(event *replication.BinlogEvent, filterFn client.Ns
 	return result, skip, err
 }
 
-func parseEventData(d [][]interface {}) data.Data {
-	// The main issue with MySQL is that we don't get the column names!!! So we need to fill those in
+func parseEventData(s client.Session, schema string, table string, d [][]interface {}) data.Data {
+	// The main issue with MySQL is that we don't get the column names!!! So we need to fill those in...
+	// We can use `TableMapEvent`s or Transporter itself since it has read the table. `iterateTable`?
+	
+	// See reader.go 
+	// out <- doc{table: c, data: docMap}
+	// docMap[columns[i][0]] = value
+	
+	// I think basically need to merge `iterateTable` with the data from the binlog.
+	
 	data := make(data.Data)
 
-	var (
-		label                  string
-		labelFinished          bool
-		valueType              string
-		valueTypeFinished      bool
-		openBracketInValueType bool
-		skippedColon           bool
-		value                  string // will type switch later
-		valueEndCharacter      string
-		deferredSingleQuote    bool
-		valueFinished          bool
-	)
+	session := s.(*Session)
 
-	valueTypeFinished = false
-	labelFinished = false
-	skippedColon = false
-	deferredSingleQuote = false
-	openBracketInValueType = false
-	valueFinished = false
+	// Copied from reader.go `iterateTable`
+	// TODO: Use a common function for both
+	// TODO: Do we really want to do this _every_ time? Seems ultra inefficient
+	columnsResult, err := session.mysqlSession.Query(fmt.Sprintf(`
+        SELECT COLUMN_NAME AS column_name, DATA_TYPE as data_type, "" as element_type
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE
+            TABLE_SCHEMA = '%v'
+        AND TABLE_NAME = '%v'
+        ORDER BY ORDINAL_POSITION;
+        `, schema, table))
+	// No element_types in mysql since no ARRAY data type
+	// at the moment we add an empty column to get the same layout as Postgres
+	// TODO: Update this code so we don't need that empty column?
+	// TODO: Use the driver to get column types? https://github.com/go-sql-driver/mysql#columntype-support
+	if err != nil {
+		// TODO What do we want to log / do if there is an error?
+		// We don't have database to hand, we have schema and table though...
+		//log.With("db", db).With("table", c).Errorf("error getting columns %v", err)
+	}
+	var columns [][]string
+	for columnsResult.Next() {
+		var columnName string
+		var columnType string
+		var columnArrayType sql.NullString // this value may be nil
 
-	// [[1 Tacos] [2 Tomato Soup] [3 Grilled Cheese]]
-	// These are rough initial changes just to get it to build so I can commit the changes for `processEvent`
-	// Hence also very bad formatting / indentation
-	for _, row := range d {
-		for _, item := range row {
+		err = columnsResult.Scan(&columnName, &columnType, &columnArrayType)
+		recoveredRegex := regexp.MustCompile("recovered")
+		if err != nil && !recoveredRegex.MatchString(err.Error()) {
+			log.With("table", table).Errorf("error scanning columns %v", err)
+			continue
+		}
 
-	for _, character := range item.(string) {
-		if !labelFinished {
-			if string(character) == "[" {
-				labelFinished = true
-				continue
+		column := []string{columnName, columnType}
+		columns = append(columns, column)
+		// TODO: Remove below debugging/developing statement?
+		// log.Infoln(columnName + ": " + columnType)
+	}
+
+	// d = [[1 Tacos] [2 Tomato Soup] [3 Grilled Cheese]]
+	for _, dest := range d {
+		// row = [1 Tacos]
+		
+		// Might not need any of this dest stuff...
+		// Since that is for scanning into and we don't need to do that
+		//dest := make([]interface{}, len(columns))
+		//for i := range columns {
+		//	dest[i] = make([]byte, 30)
+		//	dest[i] = &dest[i]
+		//}
+	
+		// Using data instead
+		//var docMap map[string]interface{}
+
+		// We don't need to Scan, we have the data already
+		//err = docsResult.Scan(dest...)
+		//if err != nil {
+		//	log.With("table", c).Errorf("error scanning row %v", err)
+		//	continue
+		//}
+
+		//Using data instead
+		//docMap = make(map[string]interface{})
+
+		for i, value := range dest {
+			// TODO: Remove below debugging/developing statements?
+			//log.Infoln(value)
+			//xType := fmt.Sprintf("%T", value)
+			//fmt.Println(xType)
+			switch value := value.(type) {
+				// Seems everything is []uint8
+				case []uint8:
+					data[columns[i][0]] = casifyValue(string(value), columns[i][1])
+				case string:
+					data[columns[i][0]] = casifyValue(string(value), columns[i][1])
+				default:
+					arrayRegexp := regexp.MustCompile("[[]]$")
+					if arrayRegexp.MatchString(columns[i][1]) {
+					} else {
+						data[columns[i][0]] = value
+					}
 			}
-			label = fmt.Sprintf("%v%v", label, string(character))
-			continue
 		}
-		if !valueTypeFinished {
-			if openBracketInValueType && string(character) == "]" { // if a bracket is open, close it
-				openBracketInValueType = false
-			} else if string(character) == "]" { // if a bracket is not open, finish valueType
-				valueTypeFinished = true
-				continue
-			} else if string(character) == "[" {
-				openBracketInValueType = true
-			}
-			valueType = fmt.Sprintf("%v%v", valueType, string(character))
-			continue
-		}
-
-		if !skippedColon && string(character) == ":" {
-			skippedColon = true
-			continue
-		}
-
-		if len(valueEndCharacter) == 0 {
-			if string(character) == "'" {
-				valueEndCharacter = "'"
-				continue
-			}
-			valueEndCharacter = " "
-		}
-
-		// ending with '
-		if deferredSingleQuote && string(character) == " " { // we hit an unescaped single quote
-			valueFinished = true
-		} else if deferredSingleQuote && string(character) == "'" { // we hit an escaped single quote ''
-			deferredSingleQuote = false
-		} else if string(character) == "'" && !deferredSingleQuote { // we hit a first single quote
-			deferredSingleQuote = true
-			continue
-		}
-
-		// ending with space
-		if valueEndCharacter == " " && string(character) == valueEndCharacter {
-			valueFinished = true
-		}
-
-		// continue parsing
-		if !valueFinished {
-			value = fmt.Sprintf("%v%v", value, string(character))
-			continue
-		}
-
-		// Set and reset
-		data[label] = casifyValue(value, valueType)
-
-		label = ""
-		labelFinished = false
-		valueType = ""
-		valueTypeFinished = false
-		skippedColon = false
-		deferredSingleQuote = false
-		value = ""
-		valueEndCharacter = ""
-		valueFinished = false
 	}
-	}
-	}
-	if len(label) > 0 { // ensure we process any line ending abruptly
-		data[label] = casifyValue(value, valueType)
-	}
+
+	// Any difference between docMap and data in this reader context?
+	// Data is `map[string]interface{}`
+	// So it's the same
 	return data
 }
