@@ -67,7 +67,7 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 
 		// Configure sync client
 		cfg := replication.BinlogSyncerConfig {
-			// Needs an actual ServerID
+			// TODO: Needs an actual ServerID
 			ServerID: 100,
 			Flavor:   scheme,
 			Host:     host,
@@ -227,6 +227,47 @@ func (t *Tailer) processEvent(s client.Session, event *replication.BinlogEvent, 
 					// TODO: Do we want to skip? Or just Error?
 					return result, skip, fmt.Errorf("Error processing action from string: %v", rowsEvent.Rows)
 			}
+			// Fetch column / data-type info before we can do 4.
+			
+			session := s.(*Session)
+			// Copied from reader.go `iterateTable`
+			// TODO: Use a common function for both
+			// TODO: Do we really want to do this _every_ time? Seems ultra inefficient
+			columnsResult, err := session.mysqlSession.Query(fmt.Sprintf(`
+                SELECT COLUMN_NAME AS column_name, DATA_TYPE as data_type, "" as element_type
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE
+                    TABLE_SCHEMA = '%v'
+                AND TABLE_NAME = '%v'
+                ORDER BY ORDINAL_POSITION;
+                `, schema, table))
+			// No element_types in mysql since no ARRAY data type
+			// at the moment we add an empty column to get the same layout as Postgres
+			// TODO: Update this code so we don't need that empty column?
+			// TODO: Use the driver to get column types? https://github.com/go-sql-driver/mysql#columntype-support
+			if err != nil {
+			// TODO What do we want to log / do if there is an error?
+			// We don't have database to hand, we have schema and table though...
+			//log.With("db", db).With("table", c).Errorf("error getting columns %v", err)
+			}
+			var columns [][]string
+			for columnsResult.Next() {
+				var columnName string
+				var columnType string
+				var columnArrayType sql.NullString // this value may be nil
+			
+				err = columnsResult.Scan(&columnName, &columnType, &columnArrayType)
+				recoveredRegex := regexp.MustCompile("recovered")
+				if err != nil && !recoveredRegex.MatchString(err.Error()) {
+					log.With("table", table).Errorf("error scanning columns %v", err)
+					continue
+				}
+
+				column := []string{columnName, columnType}
+				columns = append(columns, column)
+				// TODO: Remove below debugging/developing statement?
+				// log.Infoln(columnName + ": " + columnType)
+			}
 			// 4. Remaining stuff / data
 			for _, row := range rowsEvent.Rows {
 				// This is the tricky bit!
@@ -237,7 +278,7 @@ func (t *Tailer) processEvent(s client.Session, event *replication.BinlogEvent, 
 				//
 				// https://github.com/go-mysql-org/go-mysql/blob/b4f7136548f0758730685ebd78814eb3e5e4b0b0/canal/rows.	go#L46
 
-				docMap := parseEventRow(s, schema, table, row)
+				docMap := parseEventRow(columns, row)
 				result = append(result, client.MessageSet{
 					Msg:  message.From(action, schemaAndTable, docMap),
 					Mode: commitlog.Sync,
@@ -250,7 +291,7 @@ func (t *Tailer) processEvent(s client.Session, event *replication.BinlogEvent, 
 	return result, skip, err
 }
 
-func parseEventRow(s client.Session, schema string, table string, d []interface {}) data.Data {
+func parseEventRow(columns [][]string, d []interface {}) data.Data {
 	// The main issue with MySQL is that we don't get the column names!!! So we need to fill those in...
 	// We can use `TableMapEvent`s or Transporter itself since it has read the table. `iterateTable`?
 	
@@ -258,50 +299,9 @@ func parseEventRow(s client.Session, schema string, table string, d []interface 
 	// out <- doc{table: c, data: docMap}
 	// docMap[columns[i][0]] = value
 	
-	// I think basically need to merge `iterateTable` with the data from the binlog.
-	
 	data := make(data.Data)
 
-	session := s.(*Session)
-
-	// Copied from reader.go `iterateTable`
-	// TODO: Use a common function for both
-	// TODO: Do we really want to do this _every_ time? Seems ultra inefficient
-	columnsResult, err := session.mysqlSession.Query(fmt.Sprintf(`
-        SELECT COLUMN_NAME AS column_name, DATA_TYPE as data_type, "" as element_type
-        FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE
-            TABLE_SCHEMA = '%v'
-        AND TABLE_NAME = '%v'
-        ORDER BY ORDINAL_POSITION;
-        `, schema, table))
-	// No element_types in mysql since no ARRAY data type
-	// at the moment we add an empty column to get the same layout as Postgres
-	// TODO: Update this code so we don't need that empty column?
-	// TODO: Use the driver to get column types? https://github.com/go-sql-driver/mysql#columntype-support
-	if err != nil {
-		// TODO What do we want to log / do if there is an error?
-		// We don't have database to hand, we have schema and table though...
-		//log.With("db", db).With("table", c).Errorf("error getting columns %v", err)
-	}
-	var columns [][]string
-	for columnsResult.Next() {
-		var columnName string
-		var columnType string
-		var columnArrayType sql.NullString // this value may be nil
-
-		err = columnsResult.Scan(&columnName, &columnType, &columnArrayType)
-		recoveredRegex := regexp.MustCompile("recovered")
-		if err != nil && !recoveredRegex.MatchString(err.Error()) {
-			log.With("table", table).Errorf("error scanning columns %v", err)
-			continue
-		}
-
-		column := []string{columnName, columnType}
-		columns = append(columns, column)
-		// TODO: Remove below debugging/developing statement?
-		// log.Infoln(columnName + ": " + columnType)
-	}
+	// I think basically need to merge `iterateTable` with the data from the binlog.
 
 	// row = [1 Tacos]
 
@@ -338,6 +338,7 @@ func parseEventRow(s client.Session, schema string, table string, d []interface 
 			case string:
 				data[columns[i][0]] = casifyValue(string(value), columns[i][1])
 			default:
+				// TODO: This is probably a Postgresql thing and needs removing here and in reader.go
 				arrayRegexp := regexp.MustCompile("[[]]$")
 				if arrayRegexp.MatchString(columns[i][1]) {
 				} else {
