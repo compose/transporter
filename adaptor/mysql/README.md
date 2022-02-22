@@ -374,3 +374,8 @@ the binlog, etc.
 
 How does Postgresql get changes since last call? Magic inside Postgresql it
 seems, you only get the changes once. 
+
+#### MySQL setup for testing
+
+If using the Pkgsrc MySQL then need to edit `/opt/pkg/etc/my.cnf` and ensure
+`log_bin` is uncommented to test tailing. 

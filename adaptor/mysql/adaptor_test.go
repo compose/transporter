@@ -48,6 +48,7 @@ var (
 	dbsToTest      = []*TestData{
 		readerTestData,
 		readerComplexTestData,
+		tailerTestData,
 		writerTestData,
 		writerComplexTestData,
 		writerUpdateTestData,

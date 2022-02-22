@@ -10,17 +10,13 @@ import (
 	"github.com/compose/transporter/client"
 )
 
-func addTestReplicationSlot(s *sql.DB) error {
-	_, err := s.Exec(`
-    SELECT * FROM pg_create_logical_replication_slot('test_slot', 'test_decoding');
-  `)
-	return err
-}
-
-func dropTestReplicationSlot(s *sql.DB) error {
-	_, err := s.Exec(`
-    SELECT * FROM pg_drop_replication_slot('test_slot');
-  `)
+func checkBinLogReadable(s *sql.DB) error {
+	var File string
+	var Position int
+	var _BinlogDoDB string
+	var _BinlogIgnoreDB string
+	var _ExecutedGtidSet string
+	err := s.QueryRow(`SHOW MASTER STATUS;`).Scan(&File, &Position, &_BinlogDoDB, &_BinlogIgnoreDB, &_ExecutedGtidSet)
 	return err
 }
 
@@ -32,7 +28,8 @@ func TestTailer(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping Tailer in short mode")
 	}
-	c, err := NewClient(WithURI(fmt.Sprintf("mysql://127.0.0.1:5432/%s?sslmode=disable", tailerTestData.DB)))
+	dsn := "mysql://root@localhost:3306?%s"
+	c, err := NewClient(WithURI(fmt.Sprintf(dsn, tailerTestData.DB)))
 	if err != nil {
 		t.Fatalf("unable to initialize connection to mysql, %s", err)
 	}
@@ -42,18 +39,20 @@ func TestTailer(t *testing.T) {
 		t.Fatalf("unable to obtain session to mysql, %s", err)
 	}
 
-	dropTestReplicationSlot(s.(*Session).mysqlSession)
-	if err := addTestReplicationSlot(s.(*Session).mysqlSession); err != nil {
-		t.Fatalf("unable to create replication slot, %s", err)
+	if err := checkBinLogReadable(s.(*Session).mysqlSession); err != nil {
+		t.Fatalf("unable to query binlog, %s", err)
 	}
 	time.Sleep(1 * time.Second)
 
-	r := newTailer("test_slot")
+	r := newTailer(dsn)
 	readFunc := r.Read(map[string]client.MessageSet{}, func(table string) bool {
-		if strings.HasPrefix(table, "information_schema.") || strings.HasPrefix(table, "pg_catalog.") {
+		if strings.HasPrefix(table, "information_schema.") ||
+			strings.HasPrefix(table, "performance_schema.") ||
+			strings.HasPrefix(table, "mysql.") ||
+			strings.HasPrefix(table, "sys.") {
 			return false
 		}
-		return table == fmt.Sprintf("public.%s", tailerTestData.Table)
+		return table == fmt.Sprintf("%s.%s", tailerTestData.DB, tailerTestData.Table)
 	})
 	done := make(chan struct{})
 	msgChan, err := readFunc(s, done)

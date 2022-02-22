@@ -62,8 +62,19 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 		// Find binlog info
 		var binFile string
 		var binPosition int
+		var _binBinlogDoDB string
+		var _binBinlogIgnoreDB string
+		var _binExecutedGtidSet string
 		result, err := session.mysqlSession.Query("SHOW MASTER STATUS")
-		result.Scan(&binFile, &binPosition)
+		// We need to scan all columns... even though we don't care about them all.
+		// mysql> show master status;
+		// +-------------------+----------+--------------+------------------+-------------------------------------------+
+		// | File              | Position | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set                         |
+		// +-------------------+----------+--------------+------------------+-------------------------------------------+
+		// | master-bin.000001 |   163739 |              |                  | a852989a-1894-4fcb-a060-a4aaaf06b9f0:1-55 |
+		// +-------------------+----------+--------------+------------------+-------------------------------------------+
+		// 1 row in set (0.04 sec)
+		result.Scan(&binFile, &binPosition, &_binBinlogDoDB, &_binBinlogIgnoreDB, &_binExecutedGtidSet)
 
 		// Configure sync client
 		cfg := replication.BinlogSyncerConfig {
