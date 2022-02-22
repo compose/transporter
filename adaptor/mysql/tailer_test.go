@@ -17,6 +17,10 @@ func checkBinLogReadable(s *sql.DB) error {
 	var _BinlogIgnoreDB string
 	var _ExecutedGtidSet string
 	err := s.QueryRow(`SHOW MASTER STATUS;`).Scan(&File, &Position, &_BinlogDoDB, &_BinlogIgnoreDB, &_ExecutedGtidSet)
+	// TODO: Remove these
+	//fmt.Println("From test...")
+	//fmt.Println(File)
+	//fmt.Println(Position)
 	return err
 }
 

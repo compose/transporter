@@ -65,7 +65,7 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 		var _binBinlogDoDB string
 		var _binBinlogIgnoreDB string
 		var _binExecutedGtidSet string
-		result, err := session.mysqlSession.Query("SHOW MASTER STATUS")
+		result := session.mysqlSession.QueryRow("SHOW MASTER STATUS")
 		// We need to scan all columns... even though we don't care about them all.
 		// mysql> show master status;
 		// +-------------------+----------+--------------+------------------+-------------------------------------------+
@@ -74,7 +74,13 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 		// | master-bin.000001 |   163739 |              |                  | a852989a-1894-4fcb-a060-a4aaaf06b9f0:1-55 |
 		// +-------------------+----------+--------------+------------------+-------------------------------------------+
 		// 1 row in set (0.04 sec)
+		//
+		// TODO: Handle error!
 		result.Scan(&binFile, &binPosition, &_binBinlogDoDB, &_binBinlogIgnoreDB, &_binExecutedGtidSet)
+		// TODO: Remove these
+		//fmt.Println("From tailer...")
+		//fmt.Println(binFile)
+		//fmt.Println(binPosition)
 
 		// Configure sync client
 		cfg := replication.BinlogSyncerConfig {
