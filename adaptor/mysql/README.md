@@ -383,3 +383,110 @@ If using the Pkgsrc MySQL then need to edit `/opt/pkg/etc/my.cnf` and ensure:
 - `server_id` is uncommented and has a value
 
 to test tailing. 
+
+Need 5.7+ MySQL as 5.6 gives:
+
+```
+=== QueryEvent ===
+Date: 2022-02-22 15:40:24
+Log position: 138769
+Event size: 197
+Slave proxy ID: 1
+Execution time: 0
+Error code: 0
+Schema: test
+Query: INSERT INTO recipes      (recipe_id, recipe_name)  VALUES      (1,"Tacos"),     (2,"Tomato Soup"),     (3,"Grilled Cheese")
+```
+
+I.e. under a `QueryEvent` and not a `RowsEvent`
+
+If using community server install...
+
+```
+sudo mkdir /usr/local/mysql/etc
+sudo vim /usr/local/mysql/etc/my.cnf
+```
+
+```
+[mysqld]
+log_bin
+server_id = 100
+secure_file_priv = "/tmp"
+```
+
+Need at least that in to run tailing tests, etc.
+
+#### Understanding update rows
+
+The binlog appears to have two entries a before vs after:
+
+```
+=== UpdateRowsEventV2 ===
+Date: 2022-02-22 19:49:19
+Log position: 2716787
+Event size: 71
+TableID: 299
+Flags: 3
+Column count: 3
+Values:
+--
+0:11
+1:"Superwoman"
+2:"2022-02-22 19:49:18"
+--
+0:11
+1:"hello"
+2:"2022-02-22 19:49:19"
+```
+
+```
+mysql> select * from recipes;
++-----------+----------------+---------------+
+| recipe_id | recipe_name    | recipe_rating |
++-----------+----------------+---------------+
+|         1 | Tacos          |          NULL |
+|         2 | Tomato Soup    |          NULL |
+|         3 | Grilled Cheese |          NULL |
++-----------+----------------+---------------+
+3 rows in set (0.00 sec)
+
+mysql> update recipes set recipe_name = 'Nachos' where recipe_id = 1;
+Query OK, 1 row affected (0.02 sec)
+Rows matched: 1  Changed: 1  Warnings: 0
+
+mysql> select * from recipes;
++-----------+----------------+---------------+
+| recipe_id | recipe_name    | recipe_rating |
++-----------+----------------+---------------+
+|         1 | Nachos         |          NULL |
+|         2 | Tomato Soup    |          NULL |
+|         3 | Grilled Cheese |          NULL |
++-----------+----------------+---------------+
+3 rows in set (0.00 sec)
+```
+
+Results in:
+
+```
+[[1 Tacos <nil>] [1 Nachos <nil>]]
+```
+
+How does Transporter handle this? Well, what does Postgresql do?
+
+```
+compose=> update recipes set recipe_name = 'Nachos' where recipe_id = 1;
+```
+
+```
+compose=# SELECT * FROM pg_logical_slot_get_changes('regression_slot', NULL, NULL);
+	lsn    | xid |                                                          data
+-----------+-----+------------------------------------------------------------------------------------------------------------------------
+ 0/6000108 | 497 | BEGIN 497
+ 0/6000108 | 497 | table public.recipes: UPDATE: recipe_id[integer]:1 recipe_name[character varying]:'Nachos' recipe_rating[integer]:null
+ 0/60002D0 | 497 | COMMIT 497
+(3 rows)
+```
+
+So just one row from Postgresql
+
+So for MySQL we need to skip the first row if it's an update. Gah.

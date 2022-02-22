@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strconv"
 	//"strings"
+	// For debugging:
+	//"os"
 	"time"
 	"net/url"
 	"database/sql"
@@ -85,6 +87,7 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 		// Configure sync client
 		cfg := replication.BinlogSyncerConfig {
 			// TODO: Needs an actual ServerID
+			// We could get from `SELECT @@server_id as SERVER_ID;`, etc
 			ServerID: 100,
 			Flavor:   scheme,
 			Host:     host,
@@ -142,6 +145,9 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 				default:
 					// This blocks until an event is received which will still prevent the done channel from executing so use a timeout
 					event, ctxerr := streamer.GetEvent(ctx)
+					// Debugging
+					//event.Dump(os.Stdout)
+
 					// Do not really understand this next bit yet
 					// Cancels existing/current context?
 					cancel()
@@ -220,6 +226,8 @@ func (t *Tailer) processEvent(s client.Session, event *replication.BinlogEvent, 
 		case *replication.RowsEvent:
 			// Need to cast
 			rowsEvent := event.Event.(*replication.RowsEvent)
+			// TODO: Remove below debugging
+			//fmt.Println(rowsEvent)
 			// We only care about Insert / Update / Delete
 			// 1. Schema
 			schema = string(rowsEvent.Table.Schema)
@@ -240,6 +248,15 @@ func (t *Tailer) processEvent(s client.Session, event *replication.BinlogEvent, 
 					action = ops.Delete
 				case replication.UPDATE_ROWS_EVENTv1, replication.UPDATE_ROWS_EVENTv2:
 					action = ops.Update
+					// For an update MySQL binlog returns a before vs after, but we just need the after
+					// I.e. this:
+					//
+					//     mysql> update recipes set recipe_name = 'Nachos' where recipe_id = 1;
+					//
+					// results in:
+					//
+					//     [[1 Tacos ] [1 Nachos ]]
+					//
 				default:
 					// TODO: Do we want to skip? Or just Error?
 					return result, skip, fmt.Errorf("Error processing action from string: %v", rowsEvent.Rows)
@@ -286,10 +303,15 @@ func (t *Tailer) processEvent(s client.Session, event *replication.BinlogEvent, 
 				// log.Infoln(columnName + ": " + columnType)
 			}
 			// 4. Remaining stuff / data
-			for _, row := range rowsEvent.Rows {
+			for i, row := range rowsEvent.Rows {
 				// This is the tricky bit!
 
 				log.With("op", action).With("table", schemaAndTable).Debugln("received")
+
+				// Skip first row for an update
+				if i == 0 && action == ops.Update {
+					continue
+				}
 
 				// TODO: We might want to take advantage of `handleUnsigned`:
 				//

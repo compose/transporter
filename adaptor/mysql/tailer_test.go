@@ -48,7 +48,9 @@ func TestTailer(t *testing.T) {
 	}
 	time.Sleep(1 * time.Second)
 
+	//t.Log("Starting tailer...")
 	r := newTailer(dsn)
+	//t.Log("Tailer running")
 	readFunc := r.Read(map[string]client.MessageSet{}, func(table string) bool {
 		if strings.HasPrefix(table, "information_schema.") ||
 			strings.HasPrefix(table, "performance_schema.") ||
@@ -63,32 +65,45 @@ func TestTailer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected Read error, %s\n", err)
 	}
+	//t.Log("Checking count for initial drain")
 	checkCount("initial drain", tailerTestData.InsertCount, msgChan, t)
 
+	// TODO: Change to debug
+	//t.Log("Inserting some stuff")
 	for i := 10; i < 20; i++ {
 		s.(*Session).mysqlSession.Exec(fmt.Sprintf(`INSERT INTO %s VALUES (
       %d,            -- id
       '%s',          -- colvar VARCHAR(255),
-      now() at time zone 'utc' -- coltimestamp TIMESTAMP,
+      now()          -- coltimestamp TIMESTAMP,
     );`, tailerTestData.Table, i, randomHeros[i%len(randomHeros)]))
 	}
+	//t.Log("Checking count for tailed data")
 	checkCount("tailed data", 10, msgChan, t)
 
+	//t.Log("Updating data")
 	for i := 10; i < 20; i++ {
 		s.(*Session).mysqlSession.Exec(fmt.Sprintf("UPDATE %s SET colvar = 'hello' WHERE id = %d;", tailerTestData.Table, i))
 	}
+	//t.Log("Checking count for updated data")
+	// Note: During developing found this was returning 20 messages
+	// This is because binlog returns a before and after for the update
+	// Handling this in processEvent
+	// See more comments about this in that function
 	checkCount("updated data", 10, msgChan, t)
 
+	//t.Log("Deleting data")
 	for i := 10; i < 20; i++ {
 		s.(*Session).mysqlSession.Exec(fmt.Sprintf(`DELETE FROM %v WHERE id = %d; `, tailerTestData.Table, i))
 	}
 
+	//t.Log("Checking count for deleted data")
 	checkCount("deleted data", 10, msgChan, t)
 
 	close(done)
 }
 
 func checkCount(desc string, expected int, msgChan <-chan client.MessageSet, t *testing.T) {
+	//t.Log("Running checkCount")
 	var numMsgs int
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -102,14 +117,19 @@ func checkCount(desc string, expected int, msgChan <-chan client.MessageSet, t *
 					wg.Done()
 					return
 				}
+			// The below isn't quitting things as quickly as intended
 			case <-time.After(20 * time.Second):
 				wg.Done()
 				return
 			}
+			// TODO: Remove below for debugging
+			//t.Logf("%d messages so far", numMsgs)
 		}
 	}(&wg)
 	wg.Wait()
 	if numMsgs != expected {
 		t.Errorf("[%s] bad message count, expected %d, got %d\n", desc, expected, numMsgs)
+	} else {
+		t.Logf("[%s] message count ok", desc)
 	}
 }
