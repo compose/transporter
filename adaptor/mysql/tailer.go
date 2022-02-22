@@ -135,7 +135,7 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 					// TODO, we need to handle rotation of the binlog file...
 					// E.g: https://github.com/go-mysql-org/go-mysql/blob/d1666538b005e996414063695ca223994e9dc19d/canal/sync.go#L60-L64
 
-					msg, skip, err := t.processEvent(s, event, filterFn)
+					msgSlice, skip, err := t.processEvent(s, event, filterFn)
 					if err != nil {
 						log.With("db", session.db).Errorf("error processing event from binlog %v", err)
 						continue
@@ -143,8 +143,10 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 					// send processed events to the channel
 					// What if there is an event we want to skip? Need a way to process that?
 					if skip {
-						log.With("db", session.db).Debugf("skipping event from binlog %v", msg)
-					} else {
+						log.With("db", session.db).Debugf("skipping event from binlog %v", msgSlice)
+						continue
+					}
+					for _, msg := range msgSlice {
 						out <- msg
 					}
 				}
@@ -155,17 +157,40 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 	}
 }
 
-// In Postgresql this returns multiple events. For MySQL it will just be one
-// This _might_ end up being merged with parseData as a result
-// Canal has a lot of depth for MySQL sync that we (fortunately! For me!) don't need to handle in Transporter (which is more breadth than depth)
-func (t *Tailer) processEvent(s client.Session, event *replication.BinlogEvent, filterFn client.NsFilterFunc) (client.MessageSet, bool, error) {
+// For a statement like this:
+//
+//    INSERT INTO recipes (recipe_id, recipe_name) VALUES (1,'Tacos'), (2,'Tomato Soup'), (3,'Grilled Cheese');
+// Postgresql has multiple events split per logical decoding rows:
+//
+//    0/500CEC8 | 496 | table public.recipes: INSERT: recipe_id[integer]:1 recipe_name[character varying]:'Tacos' recipe_rating[integer]:null
+//    0/500D050 | 496 | table public.recipes: INSERT: recipe_id[integer]:2 recipe_name[character varying]:'Tomato Soup' recipe_rating[integer]:null
+//    0/500D120 | 496 | table public.recipes: INSERT: recipe_id[integer]:3 recipe_name[character varying]:'Grilled Cheese' recipe_rating[integer]:null
+//
+// MySQL has one binlog event containing multiple updates ("Same, but different")
+//
+// [[1 Tacos] [2 Tomato Soup] [3 Grilled Cheese]]
+//
+// It seems we do not get the column names, instead we'll get `<nil>` if a column is skipped
+// This is unfortunate for our use case as we'll have to fill in the column names
+//
+// For Postgresql, a string like this from logical decoding:
+//
+//     "id[integer]:1 data[text]:'1'"
+//
+// Will end up like:
+//
+//     map[data:1 id:1]
+//
+// So we need to get MySQL stuff in that format.
+//
+// Note: Canal has a lot of depth for MySQL sync that we (fortunately! For me!) don't need to handle in Transporter (which is more breadth than depth)
+func (t *Tailer) processEvent(s client.Session, event *replication.BinlogEvent, filterFn client.NsFilterFunc) ([]client.MessageSet, bool, error) {
 	var (
-		result client.MessageSet
+		result []client.MessageSet
 		skip = false
 		err error
 		action ops.Op
 		schema, table string
-		eventData [][]interface {}
 	)
 
 	// TODO: Handle rotate events here or in Read?
@@ -183,6 +208,13 @@ func (t *Tailer) processEvent(s client.Session, event *replication.BinlogEvent, 
 			schema = string(rowsEvent.Table.Schema)
 			// 2. Table
 			table = string(rowsEvent.Table.Table)
+			// Make sure we are getting changes on valid tables
+			schemaAndTable := fmt.Sprintf("%v.%v", schema, table)
+			if !filterFn(schemaAndTable) {
+				skip = true
+				// TODO: Do we need to configure an empty result?
+				return result, skip, fmt.Errorf("Error processing action from string: %v", rowsEvent.Rows)
+			}
 			// 3. Action (Insert / Update / Delete)
 			switch event.Header.EventType {
 				case replication.WRITE_ROWS_EVENTv1, replication.WRITE_ROWS_EVENTv2:
@@ -192,62 +224,33 @@ func (t *Tailer) processEvent(s client.Session, event *replication.BinlogEvent, 
 				case replication.UPDATE_ROWS_EVENTv1, replication.UPDATE_ROWS_EVENTv2:
 					action = ops.Update
 				default:
+					// TODO: Do we want to skip? Or just Error?
 					return result, skip, fmt.Errorf("Error processing action from string: %v", rowsEvent.Rows)
 			}
 			// 4. Remaining stuff / data
-			eventData = rowsEvent.Rows
-			// This is the tricky bit!
-			//
-			// I don't fully get why this is called "Rows" (plural) and not "Row" if it's just one update, but anyway...
-			//
-			// A statement like this:
-			//
-			//     INSERT INTO recipes (recipe_id, recipe_name) VALUES (1,'Tacos'), (2,'Tomato Soup'), (3,'Grilled Cheese');
-			//
-			// Would result in:
-			//
-			//     [[1 Tacos] [2 Tomato Soup] [3 Grilled Cheese]]
-			//
-			// It seems we do not get the column names, instead we'll get `<nil>` if a column is skipped
-			// This is unfortunate for our use case as we'll have to fill in the column names
-			//
-			// For Postgresql, a string like this from logical decoding:
-			//
-			//     "id[integer]:1 data[text]:'1'"
-			//
-			// Will end up like:
-			//
-			//     map[data:1 id:1]
-			//
-			// So we need to get MySQL stuff in that format.
-			//
+			for _, row := range rowsEvent.Rows {
+				// This is the tricky bit!
+
+				log.With("op", action).With("table", schemaAndTable).Debugln("received")
+
+				// TODO: We might want to take advantage of `handleUnsigned`:
+				//
+				// https://github.com/go-mysql-org/go-mysql/blob/b4f7136548f0758730685ebd78814eb3e5e4b0b0/canal/rows.	go#L46
+
+				docMap := parseEventRow(s, schema, table, row)
+				result = append(result, client.MessageSet{
+					Msg:  message.From(action, schemaAndTable, docMap),
+					Mode: commitlog.Sync,
+				})
+			}
 		default:
 			skip = true
-	}
-
-	// Make sure we are getting changes on valid tables
-	schemaAndTable := fmt.Sprintf("%v.%v", schema, table)
-	if !filterFn(schemaAndTable) {
-		skip = true
-	}
-
-	log.With("op", action).With("table", schemaAndTable).Debugln("received")
-
-	// We might want to take advantage of `handleUnsigned`:
-	//
-	// https://github.com/go-mysql-org/go-mysql/blob/b4f7136548f0758730685ebd78814eb3e5e4b0b0/canal/rows.go#L46
-	//
-	// !!! Check understanding of this, multiple rows ok?
-	docMap := parseEventData(s, schema, table, eventData)
-	result = client.MessageSet{
-		Msg:  message.From(action, schemaAndTable, docMap),
-		Mode: commitlog.Sync,
 	}
 
 	return result, skip, err
 }
 
-func parseEventData(s client.Session, schema string, table string, d [][]interface {}) data.Data {
+func parseEventRow(s client.Session, schema string, table string, d []interface {}) data.Data {
 	// The main issue with MySQL is that we don't get the column names!!! So we need to fill those in...
 	// We can use `TableMapEvent`s or Transporter itself since it has read the table. `iterateTable`?
 	
@@ -300,49 +303,46 @@ func parseEventData(s client.Session, schema string, table string, d [][]interfa
 		// log.Infoln(columnName + ": " + columnType)
 	}
 
-	// d = [[1 Tacos] [2 Tomato Soup] [3 Grilled Cheese]]
-	for _, dest := range d {
-		// row = [1 Tacos]
-		
-		// Might not need any of this dest stuff...
-		// Since that is for scanning into and we don't need to do that
-		//dest := make([]interface{}, len(columns))
-		//for i := range columns {
-		//	dest[i] = make([]byte, 30)
-		//	dest[i] = &dest[i]
-		//}
-	
-		// Using data instead
-		//var docMap map[string]interface{}
+	// row = [1 Tacos]
 
-		// We don't need to Scan, we have the data already
-		//err = docsResult.Scan(dest...)
-		//if err != nil {
-		//	log.With("table", c).Errorf("error scanning row %v", err)
-		//	continue
-		//}
+	// Might not need any of this dest stuff...
+	// Since that is for scanning into and we don't need to do that
+	//dest := make([]interface{}, len(columns))
+	//for i := range columns {
+	//	dest[i] = make([]byte, 30)
+	//	dest[i] = &dest[i]
+	//}
 
-		//Using data instead
-		//docMap = make(map[string]interface{})
+	// Using data instead
+	//var docMap map[string]interface{}
 
-		for i, value := range dest {
-			// TODO: Remove below debugging/developing statements?
-			//log.Infoln(value)
-			//xType := fmt.Sprintf("%T", value)
-			//fmt.Println(xType)
-			switch value := value.(type) {
-				// Seems everything is []uint8
-				case []uint8:
-					data[columns[i][0]] = casifyValue(string(value), columns[i][1])
-				case string:
-					data[columns[i][0]] = casifyValue(string(value), columns[i][1])
-				default:
-					arrayRegexp := regexp.MustCompile("[[]]$")
-					if arrayRegexp.MatchString(columns[i][1]) {
-					} else {
-						data[columns[i][0]] = value
-					}
-			}
+	// We don't need to Scan, we have the data already
+	//err = docsResult.Scan(dest...)
+	//if err != nil {
+	//	log.With("table", c).Errorf("error scanning row %v", err)
+	//	continue
+	//}
+
+	//Using data instead
+	//docMap = make(map[string]interface{})
+
+	for i, value := range d {
+		// TODO: Remove below debugging/developing statements?
+		//log.Infoln(value)
+		//xType := fmt.Sprintf("%T", value)
+		//fmt.Println(xType)
+		switch value := value.(type) {
+			// Seems everything is []uint8
+			case []uint8:
+				data[columns[i][0]] = casifyValue(string(value), columns[i][1])
+			case string:
+				data[columns[i][0]] = casifyValue(string(value), columns[i][1])
+			default:
+				arrayRegexp := regexp.MustCompile("[[]]$")
+				if arrayRegexp.MatchString(columns[i][1]) {
+				} else {
+					data[columns[i][0]] = value
+				}
 		}
 	}
 
