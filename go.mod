@@ -6,6 +6,7 @@ require (
 	github.com/compose/mejson v0.0.0-20150828131556-afcf51c7c640
 	github.com/dop251/goja v0.0.0-20170430194003-d382686fd20b
 	github.com/go-mysql-org/go-mysql v1.4.0
+	github.com/go-sql-driver/mysql v1.5.0
 	github.com/hashicorp/go-version v0.0.0-20161031182605-e96d38404026
 	github.com/lib/pq v1.8.0
 	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d
@@ -37,6 +38,7 @@ require (
 	github.com/pingcap/errors v0.11.5-0.20201126102027-b0a155152ca3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/satori/go.uuid v1.2.0 // indirect
+	github.com/shopspring/decimal v0.0.0-20180709203117-cd690d0c9e24 // indirect
 	github.com/siddontang/go v0.0.0-20180604090527-bdc77568d726 // indirect
 	github.com/siddontang/go-log v0.0.0-20180807004314-8d05993dda07 // indirect
 	github.com/smartystreets/goconvey v1.6.6 // indirect
