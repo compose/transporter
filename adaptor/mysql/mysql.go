@@ -47,7 +47,7 @@ func (m *mysql) Client() (client.Client, error) {
 
 func (m *mysql) Reader() (client.Reader, error) {
 	if m.Tail {
-		// Not implemented yet
+		return newTailer(m.URI), nil
 	}
 	return newReader(), nil
 }
