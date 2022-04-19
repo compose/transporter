@@ -84,11 +84,14 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 		//fmt.Println(binFile)
 		//fmt.Println(binPosition)
 
+		// Find serverID
+		var serverID uint32
+		result = session.mysqlSession.QueryRow("SELECT @@server_id as SERVER_ID")
+		result.Scan(&serverID)
+
 		// Configure sync client
 		cfg := replication.BinlogSyncerConfig {
-			// TODO: Needs an actual ServerID
-			// We could get from `SELECT @@server_id as SERVER_ID;`, etc
-			ServerID: 100,
+			ServerID: serverID,
 			Flavor:   scheme,
 			Host:     host,
 			Port:     uint16(portInt),
