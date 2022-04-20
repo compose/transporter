@@ -1,14 +1,17 @@
 package mysql
 import (
 	"database/sql"
+	"errors"
+	"io/ioutil"
 	"net/url"
+	"os"
 	"strings"
 	//"fmt"
 
 	"github.com/compose/transporter/client"
 
 	//_ "github.com/go-sql-driver/mysql" // import mysql driver
-	_ "github.com/go-mysql-org/go-mysql/driver" // import alternative mysql driver
+	"github.com/go-mysql-org/go-mysql/driver" // full import of alternative mysql driver
 )
 
 const (
@@ -60,6 +63,31 @@ func WithURI(uri string) ClientOptionFunc {
 		_, err := url.Parse(uri)
 		c.uri = uri
 		return err
+	}
+}
+
+// WithCustomTLS configures the RootCAs for the underlying TLS connection
+func WithCustomTLS(uri string, cert string, serverName string) ClientOptionFunc {
+	return func(c *Client) error {
+		if _, err := os.Stat(cert); err != nil {
+			return errors.New("Cert file not found")
+		}
+
+		caPem, err := ioutil.ReadFile(cert)
+		if err != nil {
+			return err
+		}
+
+		// TODO: Make proper debug
+		//fmt.Printf("Cert: %s", caPem)
+		// Pass through to the driver
+		// If serverName then don't do insecureSkipVerify
+		insecureSkipVerify := true
+		if serverName != "" {
+			insecureSkipVerify = false
+		}
+		driver.SetCustomTLSConfig(uri, caPem, make([]byte, 0), make([]byte, 0), insecureSkipVerify, serverName)
+		return nil
 	}
 }
 

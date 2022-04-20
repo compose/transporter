@@ -6,7 +6,6 @@ require (
 	github.com/compose/mejson v0.0.0-20150828131556-afcf51c7c640
 	github.com/dop251/goja v0.0.0-20170430194003-d382686fd20b
 	github.com/go-mysql-org/go-mysql v1.4.0
-	github.com/go-sql-driver/mysql v1.5.0
 	github.com/hashicorp/go-version v0.0.0-20161031182605-e96d38404026
 	github.com/lib/pq v1.8.0
 	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d
@@ -42,7 +41,6 @@ require (
 	github.com/siddontang/go v0.0.0-20180604090527-bdc77568d726 // indirect
 	github.com/siddontang/go-log v0.0.0-20180807004314-8d05993dda07 // indirect
 	github.com/smartystreets/goconvey v1.6.6 // indirect
-	github.com/stretchr/testify v1.7.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9 // indirect
 	golang.org/x/net v0.0.0-20201021035429-f5854403a974 // indirect
@@ -55,4 +53,4 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 
-replace github.com/go-mysql-org/go-mysql => github.com/atomicules/go-mysql v1.4.1-0.20220121115940-9b82d9c6c266
+replace github.com/go-mysql-org/go-mysql => github.com/atomicules/go-mysql v1.4.1-0.20220420163759-a962bc895b00

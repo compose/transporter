@@ -14,9 +14,11 @@ const (
 	description = "a mysql adaptor that functions as both a source and a sink"
 
 	sampleConfig = `{
-  "uri": "${MYSQL_URI}"
+  "uri": "${MYSQL_URI}",
   // "debug": false,
   // "tail": false,
+  // "cacert": "/path/to/cert.pem",
+  // "servername": "${MYSQL_DOMAIN}",
 }`
 )
 
@@ -28,8 +30,10 @@ var (
 // it works as a source by copying files, and then optionally tailing the binlog
 type mysql struct {
 	adaptor.BaseConfig
-	Debug           bool   `json:"debug" doc:"display debug information"`
-	Tail            bool   `json:"tail" doc:"if tail is true, then the mysql source will tail the binlog after copying the namespace"`
+	Debug      bool     `json:"debug" doc:"display debug information"`
+	Tail       bool     `json:"tail" doc:"if tail is true, then the mysql source will tail the binlog after copying the namespace"`
+	CACert     string   `json:"cacert" doc:"path to CA cert"`
+	ServerName string   `json:"servername" doc:"if a separate servername is needed to verify the certificate against. Requires cacert"`
 }
 
 func init() {
@@ -42,7 +46,8 @@ func init() {
 }
 
 func (m *mysql) Client() (client.Client, error) {
-	return NewClient(WithURI(m.URI))
+	return NewClient(WithURI(m.URI),
+		WithCustomTLS(m.URI, m.CACert, m.ServerName))
 }
 
 func (m *mysql) Reader() (client.Reader, error) {
