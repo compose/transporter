@@ -1,7 +1,56 @@
 # MySQL adaptor
 
+## Using the adaptor
 
-## Setup and testing on MacOS with Pkgsrc (other package managers are available)
+You need to specify a sink and source like so:
+
+```
+var source = mysql({
+  "uri": "mysql://user:pass@source.host.com:11111/database?ssl=custom",
+  "tail": true,
+  "cacert": "/path/to/source.crt",
+})
+
+var sink = mysql({
+  "uri": "mysql://user:pass@sink.host.com:22222/database?ssl=custom",
+  "cacert": "/path/to/sink.crt",
+  "servername": "sink.host.com",
+})
+
+t.Source("source", source, "/.*/").Save("sink", sink, "/.*/")
+```
+
+- tailing is optional and only makes sense on the source
+- For TLS you can use `ssl=true` which does unverified TLS or `ssl=custom` in
+which case you need to supply the `cacert`.
+- You don't need to supply the servername`, but if you do the certificate will
+be verified against it
+
+### Requirements
+
+- The source must allow the connecting user to query the binlog
+
+### Limitations
+
+_Note that per the Postgresql adaptor this probably isn't very performant at
+copying huge databases as there is no bulk option yet._
+
+---
+
+Notes below were as written during development of the adaptor in a bit of a
+effort to reduce the number of comments in the files although there are still a
+lot of comments in some areas.
+
+## Development notes
+
+This is being built using the Postgresql adaptor as a basis and using
+[go-sql-driver/mysql](https://github.com/go-sql-driver/mysql). It's noted that
+[go-mysql-org](https://github.com/go-mysql-org) and in particular
+[canal](https://github.com/go-mysql-org/go-mysql#canal) look like a good
+alternative though. **NOTE:** We switched to `go-mysql-org/go-mysql` for
+replication/tailing.
+
+### Setup and testing on MacOS with Pkgsrc (other package managers are available)
 
 1. Install client and server
 
@@ -24,15 +73,6 @@ You'll need to change the root password to empty/blank for the tests though:
 ```
 SET PASSWORD FOR 'root'@'localhost' = PASSWORD('');
 ```
-
-## Development notes
-
-This is being built using the Postgresql adaptor as a basis and using
-[go-sql-driver/mysql](https://github.com/go-sql-driver/mysql). It's noted that
-[go-mysql-org](https://github.com/go-mysql-org) and in particular
-[canal](https://github.com/go-mysql-org/go-mysql#canal) look like a good
-alternative though. 
-
 ### Element types
 
 Postgresql has an ARRAY data type so for each array also pulls the [element
