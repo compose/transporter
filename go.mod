@@ -53,4 +53,4 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 
-replace github.com/go-mysql-org/go-mysql => github.com/atomicules/go-mysql v1.4.1-0.20220420163759-a962bc895b00
+replace github.com/go-mysql-org/go-mysql => github.com/atomicules/go-mysql v1.4.1-0.20220421104750-53c3b91d6803

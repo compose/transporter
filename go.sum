@@ -7,8 +7,8 @@ github.com/Masterminds/semver v1.5.0/go.mod h1:MB6lktGJrhw8PrUyiEoblNEGEQ+RzHPF0
 github.com/Masterminds/sprig v2.22.0+incompatible/go.mod h1:y6hNFY5UBTIWBxnzTeuNhlNS5hqE0NB0E6fgfo2Br3o=
 github.com/Microsoft/go-winio v0.4.14/go.mod h1:qXqCSQ3Xa7+6tgxaGTIe4Kpcdsi+P8jBhyzoq1bpyYA=
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5/go.mod h1:lmUJ/7eu/Q8D7ML55dXQrVaamCz2vxCfdQBasLZfHKk=
-github.com/atomicules/go-mysql v1.4.1-0.20220420163759-a962bc895b00 h1:V3U+6a1En1IN+SIPsbK1Bc9nwpio/kGQZcu6MU40yGc=
-github.com/atomicules/go-mysql v1.4.1-0.20220420163759-a962bc895b00/go.mod h1:TRs381neMzw+J5+bobjUY2ZsIMgvp4wBCRBW274gc68=
+github.com/atomicules/go-mysql v1.4.1-0.20220421104750-53c3b91d6803 h1:Ag+Cs4ZfGflCN/7FED1CFD/9XwwEyTYLbt74WeyyaC4=
+github.com/atomicules/go-mysql v1.4.1-0.20220421104750-53c3b91d6803/go.mod h1:TRs381neMzw+J5+bobjUY2ZsIMgvp4wBCRBW274gc68=
 github.com/bitly/go-hostpool v0.1.0 h1:XKmsF6k5el6xHG3WPJ8U0Ku/ye7njX7W81Ng7O2ioR0=
 github.com/bitly/go-hostpool v0.1.0/go.mod h1:4gOCgp6+NZnVqlKyZ/iBZFTAJKembaVENUpMkpg42fw=
 github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 h1:DDGfHa7BWjL4YnC6+E63dPcxHo2sUxDIu8g3QgEJdRY=
