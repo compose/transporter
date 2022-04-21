@@ -32,8 +32,10 @@ be verified against it
 
 ### Limitations
 
-_Note that per the Postgresql adaptor this probably isn't very performant at
-copying huge databases as there is no bulk option yet._
+- Note that per the Postgresql adaptor this probably isn't very performant at
+copying huge databases as there is no bulk option yet.
+- Has only been developed and tested using MySQL as the sink and source. Unsure
+how it will function when combined with other adaptors.
 
 ---
 
