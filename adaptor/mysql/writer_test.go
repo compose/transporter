@@ -97,7 +97,6 @@ func TestInsert(t *testing.T) {
 		t.Fatalf("Error on test query: %v", err)
 	}
 	// Parse timeValue
-	// TODO: Error handling!
 	// There is no t.Debug unfortunately so retaining below but commented out
 	//t.Logf("DEBUG: %s", timeByteValue)
 	// For some reason we lose the fractional bit on the scan, perhaps because zeroes?
@@ -105,7 +104,10 @@ func TestInsert(t *testing.T) {
 	// > When parsing (only), the input may contain a fractional second field
 	// > immediately after the seconds field, even if the layout does not signify its
 	// > presence.
+	//
+	// NOTE: No error handling on time.Parse since this is a test file
 	timeValue, _ = time.Parse("2006-01-02 15:04:05", string(timeByteValue))
+	
 	if id != 4 || stringValue != "hello world" || timeValue.Before(time.Now().Add(-30*time.Second).UTC()) {
 		t.Fatalf("Values were not what they were expected to be: %v, %v, %v", id, stringValue, timeValue)
 	}
@@ -128,7 +130,7 @@ var (
 
 
 func wktToGeom(wktForm string) geom.T {
-    // TODO: Handle errors!!
+    // NOTE: No error handling on the below since this is a test file
     geomForm, _ := wkt.Unmarshal(wktForm)
     return geomForm
 }
@@ -194,7 +196,7 @@ func TestComplexInsert(t *testing.T) {
 		Scan(&id, &stringValue, &timeByteValue); err != nil {
 		t.Fatalf("Error on test query: %v", err)
 	}
-	// TODO: Error handling!
+	// NOTE: No error handling on time.Parse since this is a test file
 	timeValue, _ = time.Parse("2006-01-02 15:04:05", string(timeByteValue))
 	if id != 4 || stringValue != randomHeros[4] || timeValue.Before(time.Now().Add(-30*time.Second).UTC()) {
 		t.Fatalf("Values were not what they were expected to be: %v, %v, %v", id, stringValue, timeValue)
@@ -255,7 +257,7 @@ func TestUpdate(t *testing.T) {
 		Scan(&id, &stringValue, &timeByteValue); err != nil {
 		t.Fatalf("Error on test query: %v", err)
 	}
-	// TODO: Error handling!
+	// NOTE: No error handling on time.Parse since this is a test file
 	timeValue, _ = time.Parse("2006-01-02 15:04:05", string(timeByteValue))
 	if id != 1 || stringValue != "robin" || timeValue.Before(time.Now().Add(-30*time.Second).UTC()) {
 		t.Fatalf("Values were not what they were expected to be: %v, %v, %v", id, stringValue, timeValue)
@@ -330,7 +332,7 @@ func TestComplexUpdate(t *testing.T) {
 		Scan(&id, &stringValue, &timeByteValue, &bigint); err != nil {
 		t.Fatalf("Error on test query: %v", err)
 	}
-	// TODO: Error handling!
+	// NOTE: No error handling on time.Parse since this is a test file
 	timeValue, _ = time.Parse("2006-01-02 15:04:05", string(timeByteValue))
 	if id != ranInt+1 || stringValue != randomHeros[ranInt] || timeValue.Before(time.Now().Add(-30*time.Second).UTC()) || bigint != int64(4000001240125) {
 		t.Fatalf("Values were not what they were expected to be: %v, %v, %v, %v", id, stringValue, timeValue, bigint)

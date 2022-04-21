@@ -141,7 +141,7 @@ func TestReadComplex(t *testing.T) {
 					case key == "colbit":
 						// :puke
 						bithexvalue := hex.EncodeToString([]byte(msgs[i].Data().Get(key).(string)))
-						// TODO: Handle errors here!!
+						// NOTE: No error handling on the below since this is a test file
 						bitintvalue, _ := strconv.ParseInt(bithexvalue, 10, 64)
 						bitvalue := strconv.FormatInt(bitintvalue, 2)
 						if bitvalue != value {
@@ -152,7 +152,7 @@ func TestReadComplex(t *testing.T) {
 						//t.Logf("DEBUG: %v (%T)", msgs[i].Data().Get(key), msgs[i].Data().Get(key))
 						geomhexvalue := hex.EncodeToString([]byte(msgs[i].Data().Get(key).(string)))
 						// Strip SRID
-						// TODO: Handle errors here!!
+						// NOTE: No error handling on the below since this is a test file
 						geom, _ := wkbhex.Decode(geomhexvalue[8:])
 						wktGeom, _ := wkt.Marshal(geom)
 						if wktGeom != value {
