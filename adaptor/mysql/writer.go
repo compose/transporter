@@ -81,9 +81,11 @@ func insertMsg(m message.Msg, s *sql.DB) error {
 		placeholders = append(placeholders, placeholder)
 
 		log.Debugf("Type of value is %T", value)
-		switch value.(type) {
+		switch t := value.(type) {
 		// Can add others here such as binary and bit, etc if needed
 		case *geom.Point, *geom.LineString, *geom.Polygon, *geom.GeometryCollection:
+			// Do not care about t, but working around golangci-lint
+			_ = t
 			value, _ = wkt.Marshal(value.(geom.T))
 			value = value.(string)
 		case time.Time:
@@ -191,9 +193,11 @@ func updateMsg(m message.Msg, s *sql.DB) error {
 			ukeys = append(ukeys, fmt.Sprintf("%v=%s", key, placeholder))
 		}
 
-		switch value.(type) {
+		switch t := value.(type) {
 		// Can add others here such as binary and bit, etc if needed
 		case *geom.Point, *geom.LineString, *geom.Polygon, *geom.GeometryCollection:
+			// Do not care about t, but working around golangci-lint
+			_ = t
 			value, _ = wkt.Marshal(value.(geom.T))
 			value = value.(string)
 		case time.Time:
