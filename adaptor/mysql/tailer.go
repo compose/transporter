@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
-	// For debugging events:
-	//"os"
+	"os"
 	"time"
 	"net/url"
 	"database/sql"
@@ -49,7 +48,7 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 		}
 		session := s.(*Session)
 
-		// This could go in a separate function and return a cfg?
+		// TODO: This could go in a separate function and return a cfg?
 		parsedDSN, _ := url.Parse(t.dsn)
 		host := parsedDSN.Hostname()
 		port := parsedDSN.Port()
@@ -76,9 +75,13 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 		// +-------------------+----------+--------------+------------------+-------------------------------------------+
 		// 1 row in set (0.04 sec)
 		//
-		// TODO: Handle error!
-		result.Scan(&binFile, &binPosition, &_binBinlogDoDB, &_binBinlogIgnoreDB, &_binExecutedGtidSet)
+		scanErr := result.Scan(&binFile, &binPosition, &_binBinlogDoDB, &_binBinlogIgnoreDB, &_binExecutedGtidSet)
 		log.Debugf("binFile: %s, binPosition: %s", binFile, binPosition)
+		if scanErr != nil {
+			// Quit gracefully since can't tailhat to do?
+			log.Errorln("Can't find binFile or binPosition. Unable to tail")
+			os.Exit(1)
+		}
 
 		// Find serverID
 		var serverID uint32
@@ -154,8 +157,6 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 						// Allow `done` to execute
 						continue
 					}
-					// TODO, we need to handle rotation of the binlog file...
-					// E.g: https://github.com/go-mysql-org/go-mysql/blob/d1666538b005e996414063695ca223994e9dc19d/canal/sync.go#L60-L64
 
 					msgSlice, skip, err := t.processEvent(s, event, filterFn)
 					if err != nil {
@@ -214,8 +215,6 @@ func (t *Tailer) processEvent(s client.Session, event *replication.BinlogEvent, 
 		action ops.Op
 		schema, table string
 	)
-
-	// TODO: Handle rotate events here or in Read?
 
 	// We are basically copying this from the following, but there's not really a different way to write these:
 	//
@@ -278,6 +277,7 @@ func (t *Tailer) processEvent(s client.Session, event *replication.BinlogEvent, 
 			// at the moment we add an empty column to get the same layout as Postgres
 			// TODO: Update this code so we don't need that empty column?
 			// TODO: Use the driver to get column types? https://github.com/go-sql-driver/mysql#columntype-support
+			// NOTE: No longer using that driver
 			if err != nil {
 				log.With("schema", schema).With("table", table).Errorf("error getting columns %v", err)
 			}

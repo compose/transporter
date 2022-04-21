@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	//"fmt"
 
 	"github.com/compose/transporter/client"
 	"github.com/compose/transporter/log"
@@ -122,17 +121,15 @@ func (c *Client) Connect() (client.Session, error) {
 		if err != nil {
 			panic(err.Error()) // TODO: Maybe not panic?
 		}
-		//fmt.Println(c.uri)
+		log.Debugln(c.uri)
 		uri, _ := url.Parse(c.uri)
 		if uri.Path != "" {
 			c.db = uri.Path[1:]
 		}
 	}
-	// Replace Ping with an Exec that we need to run for imports anyway
-	// TODO: Remove below rather than just have commented out
-	//err = c.mysqlSession.Ping()
-	// We need to disable Foreign Key Checks for imports
+	// We need to disable Foreign Key Checks for imports so also use that to check connection
 	// Ideally we don't want to send this _every_ time just once per session
+	// Previously we used `err = c.mysqlSession.Ping()` to check the connection
 	_, err = c.mysqlSession.Exec("SET FOREIGN_KEY_CHECKS=0;")
 	return &Session{c.mysqlSession, c.db}, err
 }
