@@ -86,10 +86,10 @@ func TestInsert(t *testing.T) {
 	}
 
 	var (
-		id          int
-		stringValue string
+		id            int
+		stringValue   string
 		timeByteValue []byte
-		timeValue   time.Time
+		timeValue     time.Time
 	)
 	if err := s.(*Session).mysqlSession.
 		QueryRow(fmt.Sprintf("SELECT id, colvar, coltimestamp FROM %s WHERE id = 4", writerTestData.Table)).
@@ -107,7 +107,7 @@ func TestInsert(t *testing.T) {
 	//
 	// NOTE: No error handling on time.Parse since this is a test file
 	timeValue, _ = time.Parse("2006-01-02 15:04:05", string(timeByteValue))
-	
+
 	if id != 4 || stringValue != "hello world" || timeValue.Before(time.Now().Add(-30*time.Second).UTC()) {
 		t.Fatalf("Values were not what they were expected to be: %v, %v, %v", id, stringValue, timeValue)
 	}
@@ -128,13 +128,11 @@ var (
 	writerComplexTestData = &TestData{"writer_complex_insert_test", "complex_test_table", complexSchema, 0}
 )
 
-
 func wktToGeom(wktForm string) geom.T {
-    // NOTE: No error handling on the below since this is a test file
-    geomForm, _ := wkt.Unmarshal(wktForm)
-    return geomForm
+	// NOTE: No error handling on the below since this is a test file
+	geomForm, _ := wkt.Unmarshal(wktForm)
+	return geomForm
 }
-
 
 func TestComplexInsert(t *testing.T) {
 	w := newWriter()
@@ -152,27 +150,27 @@ func TestComplexInsert(t *testing.T) {
 	// !! This has to match `complex_schema` in adaptor_test !!
 	for i := 0; i < 10; i++ {
 		msg := message.From(ops.Insert, fmt.Sprintf("%s.%s", writerComplexTestData.DB, writerComplexTestData.Table), data.Data{
-			"id":                    i,
-			"colinteger":            int64(3),
-			"colsmallint":           int64(32767),
-			"coltinyint":            int64(127),
-			"colmediumint":          int64(8388607),
-			"colbigint":             int64(21474836471),
-			"coldecimal":            0.23509838,
-			"colfloat":              0.31426,
-			"coldoubleprecision":    0.314259892323,
+			"id":                 i,
+			"colinteger":         int64(3),
+			"colsmallint":        int64(32767),
+			"coltinyint":         int64(127),
+			"colmediumint":       int64(8388607),
+			"colbigint":          int64(21474836471),
+			"coldecimal":         0.23509838,
+			"colfloat":           0.31426,
+			"coldoubleprecision": 0.314259892323,
 			// I think we need to do what we did in reader_test, but in reverse?
 			// "b'101'" gets interpreted as a string
-			"colbit":                0b101,
-			"coldate":               time.Date(2021, 12, 10, 0, 0, 0, 0, time.UTC).Format("2006-01-02"),
-			"coltime":               "13:45:00",
-			"coltimestamp":          time.Now().Format("2006-01-02 15:04:05.000000"),
-			"colyear":               "2021",
-			"colchar":               "a",
-			"colvar":                randomHeros[i],
-			"colbinary":             0xDEADBEEF,
-			"colblob":               0xDEADBEEF,
-			"coltext":               "this is extremely important",
+			"colbit":       0b101,
+			"coldate":      time.Date(2021, 12, 10, 0, 0, 0, 0, time.UTC).Format("2006-01-02"),
+			"coltime":      "13:45:00",
+			"coltimestamp": time.Now().Format("2006-01-02 15:04:05.000000"),
+			"colyear":      "2021",
+			"colchar":      "a",
+			"colvar":       randomHeros[i],
+			"colbinary":    0xDEADBEEF,
+			"colblob":      0xDEADBEEF,
+			"coltext":      "this is extremely important",
 			// Maybe it makes sense to have geometry as a Go representation of geometry
 			// So go-geom since we are using that at the moment
 			// And then we can manipulate in writer.go to insert as required
@@ -247,10 +245,10 @@ func TestUpdate(t *testing.T) {
 	}
 
 	var (
-		id          int
-		stringValue string
+		id            int
+		stringValue   string
 		timeByteValue []byte
-		timeValue   time.Time
+		timeValue     time.Time
 	)
 	if err := s.(*Session).mysqlSession.
 		QueryRow(fmt.Sprintf("SELECT id, colvar, coltimestamp FROM %s WHERE id = 1", writerUpdateTestData.Table)).
@@ -292,7 +290,7 @@ func TestComplexUpdate(t *testing.T) {
 		t.Fatalf("unable to obtain session to mysql, %s", err)
 	}
 	msg := message.From(ops.Update, fmt.Sprintf("%s.%s", writerComplexUpdateTestData.DB, writerComplexUpdateTestData.Table), data.Data{
-		"id":                    ranInt+1,
+		"id":                    ranInt + 1,
 		"colinteger":            int64(4),
 		"colsmallint":           int64(30000),
 		"coltinyint":            int64(100),
@@ -321,11 +319,11 @@ func TestComplexUpdate(t *testing.T) {
 	}
 
 	var (
-		id          int
-		stringValue string
+		id            int
+		stringValue   string
 		timeByteValue []byte
-		timeValue   time.Time
-		bigint      int64
+		timeValue     time.Time
+		bigint        int64
 	)
 	if err := s.(*Session).mysqlSession.
 		QueryRow(fmt.Sprintf("SELECT id, colvar, coltimestamp, colbigint FROM %s WHERE id = %d", writerComplexUpdateTestData.Table, ranInt+1)).
@@ -417,7 +415,7 @@ func TestComplexDelete(t *testing.T) {
 	msg := message.From(
 		ops.Delete,
 		fmt.Sprintf("%s.%s", writerComplexDeleteTestData.DB, writerComplexDeleteTestData.Table),
-		data.Data{"id": ranInt+1, "colvar": randomHeros[ranInt]})
+		data.Data{"id": ranInt + 1, "colvar": randomHeros[ranInt]})
 	if _, err := w.Write(msg)(s); err != nil {
 		t.Errorf("unexpected Delete error, %s\n", err)
 	}
@@ -464,7 +462,7 @@ func TestComplexDeleteWithoutAllPrimarykeys(t *testing.T) {
 	msg := message.From(
 		ops.Delete,
 		fmt.Sprintf("%s.%s", writerComplexDeletePkTestData.DB, writerComplexDeletePkTestData.Table),
-		data.Data{"id": ranInt+1})
+		data.Data{"id": ranInt + 1})
 	if _, err := w.Write(msg)(s); err == nil {
 		t.Fatalf("Did not receive anticipated error from mysql.writeMessage")
 	} else {

@@ -1,4 +1,5 @@
 package mysql
+
 import (
 	"database/sql"
 	"errors"
@@ -30,8 +31,8 @@ type ClientOptionFunc func(*Client) error
 
 // Client represents a client to the underlying File source.
 type Client struct {
-	uri       string
-	db        string
+	uri          string
+	db           string
 	mysqlSession *sql.DB
 }
 
@@ -41,8 +42,8 @@ func NewClient(options ...ClientOptionFunc) (*Client, error) {
 	c := &Client{
 		uri: DefaultURI,
 		db:  "test", // TODO: Temporary change from `mysql`? The default local
-					 // instance I have has `test`, but that was before I
-					 // switched to connecting as root
+		// instance I have has `test`, but that was before I
+		// switched to connecting as root
 	}
 
 	// Run the options on it

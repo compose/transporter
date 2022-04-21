@@ -1,4 +1,5 @@
 package mysql
+
 import (
 	"database/sql"
 	"fmt"

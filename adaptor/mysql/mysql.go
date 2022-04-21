@@ -29,9 +29,9 @@ var (
 // it works as a source by copying files, and then optionally tailing the binlog
 type mysql struct {
 	adaptor.BaseConfig
-	Tail       bool     `json:"tail" doc:"if tail is true, then the mysql source will tail the binlog after copying the namespace"`
-	CACert     string   `json:"cacert" doc:"path to CA cert"`
-	ServerName string   `json:"servername" doc:"if a separate servername is needed to verify the certificate against. Requires cacert"`
+	Tail       bool   `json:"tail" doc:"if tail is true, then the mysql source will tail the binlog after copying the namespace"`
+	CACert     string `json:"cacert" doc:"path to CA cert"`
+	ServerName string `json:"servername" doc:"if a separate servername is needed to verify the certificate against. Requires cacert"`
 }
 
 func init() {

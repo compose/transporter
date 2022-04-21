@@ -61,7 +61,6 @@ var (
 	randomHeros = []string{"Superwoman", "Wonder Woman", "Batman", "Superman",
 		"Thor", "Iron Man", "Spiderman", "Hulk", "Star-Lord", "Black Widow",
 		"Ant\nMan"}
-
 )
 
 type TestData struct {
@@ -115,7 +114,7 @@ func setupData(data *TestData) {
 	}
 
 	// cp file to tmp for blob test
-	cmd := exec.Command("cp", "logo-mysql-170x115.png" , "/tmp/logo-mysql-170x115.png")
+	cmd := exec.Command("cp", "logo-mysql-170x115.png", "/tmp/logo-mysql-170x115.png")
 	err = cmd.Run()
 	if err != nil {
 		log.Errorf("unable to copy blob image, could affect tests, %s", err)

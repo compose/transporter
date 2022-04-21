@@ -2,13 +2,13 @@ package mysql
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"net/url"
+	"os"
 	"regexp"
 	"strconv"
-	"os"
 	"time"
-	"net/url"
-	"database/sql"
 
 	"github.com/compose/transporter/client"
 	"github.com/compose/transporter/commitlog"
@@ -16,7 +16,7 @@ import (
 	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/message/data"
 	"github.com/compose/transporter/message/ops"
-	
+
 	// Naming conflict with Transporter adaptor itself
 	gomysql "github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/replication"
@@ -29,8 +29,8 @@ var (
 // Tailer implements the behaviour defined by client.Tailer for interfacing with the MySQL binlog.
 // We'll have to pass through the dsn so that we can use it to configure the sync client
 type Tailer struct {
-	reader          client.Reader
-	dsn             string
+	reader client.Reader
+	dsn    string
 }
 
 func newTailer(dsn string) client.Reader {
@@ -89,7 +89,7 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 		result.Scan(&serverID)
 
 		// Configure sync client
-		cfg := replication.BinlogSyncerConfig {
+		cfg := replication.BinlogSyncerConfig{
 			ServerID: serverID,
 			Flavor:   scheme,
 			Host:     host,
@@ -105,7 +105,6 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 		streamer, _ := syncer.StartSync(gomysql.Position{binFile, uint32(binPosition)})
 		// How to properly close this?
 		// There is no EndSync, but there is a close we can call on the `done` channel
-		
 
 		out := make(chan client.MessageSet)
 		// Will we have to pass things (such as streamer) into this function?
@@ -129,7 +128,7 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 				// channel could also be executing and if both are ready it'll select one at random.
 				// For Postgresql this works because each call pulls all the logical decoding messages
 				// since the last call.
-				// For MySQL this isn't going to work correctly because we are pulling/streaming one 
+				// For MySQL this isn't going to work correctly because we are pulling/streaming one
 				// event at a time. A 1 second sleep is no good.
 				// Historically, way back, channels weren't used:
 				//
@@ -209,10 +208,10 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 // Note: Canal has a lot of depth for MySQL sync that we (fortunately! For me!) don't need to handle in Transporter (which is more breadth than depth)
 func (t *Tailer) processEvent(s client.Session, event *replication.BinlogEvent, filterFn client.NsFilterFunc) ([]client.MessageSet, bool, error) {
 	var (
-		result []client.MessageSet
-		skip = false
-		err error
-		action ops.Op
+		result        []client.MessageSet
+		skip          = false
+		err           error
+		action        ops.Op
 		schema, table string
 	)
 
@@ -221,51 +220,51 @@ func (t *Tailer) processEvent(s client.Session, event *replication.BinlogEvent, 
 	// - https://github.com/go-mysql-org/go-mysql/blob/d1666538b005e996414063695ca223994e9dc19d/canal/sync.go#L91-L172
 	// - https://github.com/go-mysql-org/go-mysql/blob/b4f7136548f0758730685ebd78814eb3e5e4b0b0/canal/sync.go#L248-L272
 	switch event.Event.(type) {
-		case *replication.RowsEvent:
-			// Need to cast
-			rowsEvent := event.Event.(*replication.RowsEvent)
-			log.Debugln("Logging rowsEvent:")
-			log.Debugln(rowsEvent)
-			// We only care about Insert / Update / Delete
-			// 1. Schema
-			schema = string(rowsEvent.Table.Schema)
-			// 2. Table
-			table = string(rowsEvent.Table.Table)
-			// Make sure we are getting changes on valid tables
-			schemaAndTable := fmt.Sprintf("%v.%v", schema, table)
-			if !filterFn(schemaAndTable) {
-				skip = true
-				// TODO: Do we need to configure an empty result?
-				return result, skip, fmt.Errorf("Error processing action from string: %v", rowsEvent.Rows)
-			}
-			// 3. Action (Insert / Update / Delete)
-			switch event.Header.EventType {
-				case replication.WRITE_ROWS_EVENTv1, replication.WRITE_ROWS_EVENTv2:
-					action = ops.Insert
-				case replication.DELETE_ROWS_EVENTv1, replication.DELETE_ROWS_EVENTv2:
-					action = ops.Delete
-				case replication.UPDATE_ROWS_EVENTv1, replication.UPDATE_ROWS_EVENTv2:
-					action = ops.Update
-					// For an update MySQL binlog returns a before vs after, but we just need the after
-					// I.e. this:
-					//
-					//     mysql> update recipes set recipe_name = 'Nachos' where recipe_id = 1;
-					//
-					// results in:
-					//
-					//     [[1 Tacos ] [1 Nachos ]]
-					//
-				default:
-					// TODO: Do we want to skip? Or just Error?
-					return result, skip, fmt.Errorf("Error processing action from string: %v", rowsEvent.Rows)
-			}
-			// Fetch column / data-type info before we can do 4.
-			
-			session := s.(*Session)
-			// Copied from reader.go `iterateTable`
-			// TODO: Use a common function for both
-			// TODO: Do we really want to do this _every_ time? Seems ultra inefficient
-			columnsResult, err := session.mysqlSession.Query(fmt.Sprintf(`
+	case *replication.RowsEvent:
+		// Need to cast
+		rowsEvent := event.Event.(*replication.RowsEvent)
+		log.Debugln("Logging rowsEvent:")
+		log.Debugln(rowsEvent)
+		// We only care about Insert / Update / Delete
+		// 1. Schema
+		schema = string(rowsEvent.Table.Schema)
+		// 2. Table
+		table = string(rowsEvent.Table.Table)
+		// Make sure we are getting changes on valid tables
+		schemaAndTable := fmt.Sprintf("%v.%v", schema, table)
+		if !filterFn(schemaAndTable) {
+			skip = true
+			// TODO: Do we need to configure an empty result?
+			return result, skip, fmt.Errorf("Error processing action from string: %v", rowsEvent.Rows)
+		}
+		// 3. Action (Insert / Update / Delete)
+		switch event.Header.EventType {
+		case replication.WRITE_ROWS_EVENTv1, replication.WRITE_ROWS_EVENTv2:
+			action = ops.Insert
+		case replication.DELETE_ROWS_EVENTv1, replication.DELETE_ROWS_EVENTv2:
+			action = ops.Delete
+		case replication.UPDATE_ROWS_EVENTv1, replication.UPDATE_ROWS_EVENTv2:
+			action = ops.Update
+			// For an update MySQL binlog returns a before vs after, but we just need the after
+			// I.e. this:
+			//
+			//     mysql> update recipes set recipe_name = 'Nachos' where recipe_id = 1;
+			//
+			// results in:
+			//
+			//     [[1 Tacos ] [1 Nachos ]]
+			//
+		default:
+			// TODO: Do we want to skip? Or just Error?
+			return result, skip, fmt.Errorf("Error processing action from string: %v", rowsEvent.Rows)
+		}
+		// Fetch column / data-type info before we can do 4.
+
+		session := s.(*Session)
+		// Copied from reader.go `iterateTable`
+		// TODO: Use a common function for both
+		// TODO: Do we really want to do this _every_ time? Seems ultra inefficient
+		columnsResult, err := session.mysqlSession.Query(fmt.Sprintf(`
                 SELECT COLUMN_NAME AS column_name, DATA_TYPE as data_type, "" as element_type
                 FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE
@@ -273,67 +272,67 @@ func (t *Tailer) processEvent(s client.Session, event *replication.BinlogEvent, 
                 AND TABLE_NAME = '%v'
                 ORDER BY ORDINAL_POSITION;
                 `, schema, table))
-			// No element_types in mysql since no ARRAY data type
-			// at the moment we add an empty column to get the same layout as Postgres
-			// TODO: Update this code so we don't need that empty column?
-			// TODO: Use the driver to get column types? https://github.com/go-sql-driver/mysql#columntype-support
-			// NOTE: No longer using that driver
-			if err != nil {
-				log.With("schema", schema).With("table", table).Errorf("error getting columns %v", err)
+		// No element_types in mysql since no ARRAY data type
+		// at the moment we add an empty column to get the same layout as Postgres
+		// TODO: Update this code so we don't need that empty column?
+		// TODO: Use the driver to get column types? https://github.com/go-sql-driver/mysql#columntype-support
+		// NOTE: No longer using that driver
+		if err != nil {
+			log.With("schema", schema).With("table", table).Errorf("error getting columns %v", err)
+		}
+		var columns [][]string
+		for columnsResult.Next() {
+			var columnName string
+			var columnType string
+			var columnArrayType sql.NullString // this value may be nil
+
+			err = columnsResult.Scan(&columnName, &columnType, &columnArrayType)
+			recoveredRegex := regexp.MustCompile("recovered")
+			if err != nil && !recoveredRegex.MatchString(err.Error()) {
+				log.With("table", table).Errorf("error scanning columns %v", err)
+				continue
 			}
-			var columns [][]string
-			for columnsResult.Next() {
-				var columnName string
-				var columnType string
-				var columnArrayType sql.NullString // this value may be nil
-			
-				err = columnsResult.Scan(&columnName, &columnType, &columnArrayType)
-				recoveredRegex := regexp.MustCompile("recovered")
-				if err != nil && !recoveredRegex.MatchString(err.Error()) {
-					log.With("table", table).Errorf("error scanning columns %v", err)
-					continue
-				}
 
-				column := []string{columnName, columnType}
-				columns = append(columns, column)
-				log.With("db", session.db).Debugln(columnName + ": " + columnType)
+			column := []string{columnName, columnType}
+			columns = append(columns, column)
+			log.With("db", session.db).Debugln(columnName + ": " + columnType)
+		}
+		// 4. Remaining stuff / data
+		for i, row := range rowsEvent.Rows {
+			// This is the tricky bit!
+
+			log.With("op", action).With("table", schemaAndTable).Debugln("received")
+
+			// Skip first row for an update
+			if i == 0 && action == ops.Update {
+				continue
 			}
-			// 4. Remaining stuff / data
-			for i, row := range rowsEvent.Rows {
-				// This is the tricky bit!
 
-				log.With("op", action).With("table", schemaAndTable).Debugln("received")
+			// TODO: We might want to take advantage of `handleUnsigned`:
+			//
+			// https://github.com/go-mysql-org/go-mysql/blob/b4f7136548f0758730685ebd78814eb3e5e4b0b0/canal/rows.	go#L46
 
-				// Skip first row for an update
-				if i == 0 && action == ops.Update {
-					continue
-				}
-
-				// TODO: We might want to take advantage of `handleUnsigned`:
-				//
-				// https://github.com/go-mysql-org/go-mysql/blob/b4f7136548f0758730685ebd78814eb3e5e4b0b0/canal/rows.	go#L46
-
-				docMap := parseEventRow(columns, row)
-				result = append(result, client.MessageSet{
-					Msg:  message.From(action, schemaAndTable, docMap),
-					Mode: commitlog.Sync,
-				})
-			}
-		default:
-			skip = true
+			docMap := parseEventRow(columns, row)
+			result = append(result, client.MessageSet{
+				Msg:  message.From(action, schemaAndTable, docMap),
+				Mode: commitlog.Sync,
+			})
+		}
+	default:
+		skip = true
 	}
 
 	return result, skip, err
 }
 
-func parseEventRow(columns [][]string, d []interface {}) data.Data {
+func parseEventRow(columns [][]string, d []interface{}) data.Data {
 	// The main issue with MySQL is that we don't get the column names!!! So we need to fill those in...
 	// We can use `TableMapEvent`s or Transporter itself since it has read the table. `iterateTable`?
-	
-	// See reader.go 
+
+	// See reader.go
 	// out <- doc{table: c, data: docMap}
 	// docMap[columns[i][0]] = value
-	
+
 	data := make(data.Data)
 
 	// I think basically need to merge `iterateTable` with the data from the binlog.
@@ -368,18 +367,18 @@ func parseEventRow(columns [][]string, d []interface {}) data.Data {
 		log.Debugln("Logging type from parseEventRow:")
 		log.Debugln(xType)
 		switch value := value.(type) {
-			// Seems everything is []uint8
-			case []uint8:
-				data[columns[i][0]] = casifyValue(string(value), columns[i][1])
-			case string:
-				data[columns[i][0]] = casifyValue(string(value), columns[i][1])
-			default:
-				// TODO: This is probably a Postgresql thing and needs removing here and in reader.go
-				arrayRegexp := regexp.MustCompile("[[]]$")
-				if arrayRegexp.MatchString(columns[i][1]) {
-				} else {
-					data[columns[i][0]] = value
-				}
+		// Seems everything is []uint8
+		case []uint8:
+			data[columns[i][0]] = casifyValue(string(value), columns[i][1])
+		case string:
+			data[columns[i][0]] = casifyValue(string(value), columns[i][1])
+		default:
+			// TODO: This is probably a Postgresql thing and needs removing here and in reader.go
+			arrayRegexp := regexp.MustCompile("[[]]$")
+			if arrayRegexp.MatchString(columns[i][1]) {
+			} else {
+				data[columns[i][0]] = value
+			}
 		}
 	}
 

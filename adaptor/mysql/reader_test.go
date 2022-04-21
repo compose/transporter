@@ -37,7 +37,7 @@ func TestRead(t *testing.T) {
 
 			return false
 		}
-		return table == readerTestData.DB + "." + readerTestData.Table
+		return table == readerTestData.DB+"."+readerTestData.Table
 	})
 	done := make(chan struct{})
 	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@localhost:3306?%s", readerTestData.DB)))
@@ -72,7 +72,6 @@ func TestReadComplex(t *testing.T) {
 		t.Skip("skipping Read in short mode")
 	}
 
-
 	reader := newReader()
 	readFunc := reader.Read(map[string]client.MessageSet{}, func(table string) bool {
 		if strings.HasPrefix(table, "information_schema.") ||
@@ -82,7 +81,7 @@ func TestReadComplex(t *testing.T) {
 
 			return false
 		}
-		return table == readerComplexTestData.DB + "." + readerComplexTestData.Table
+		return table == readerComplexTestData.DB+"."+readerComplexTestData.Table
 	})
 	done := make(chan struct{})
 	c, err := NewClient(WithURI(fmt.Sprintf("mysql://root@localhost:3306?%s", readerComplexTestData.DB)))
@@ -107,7 +106,7 @@ func TestReadComplex(t *testing.T) {
 	}
 	for i := 0; i < readerTestData.InsertCount; i++ {
 		for key, value := range map[string]interface{}{
-			"id":                    int64(i)+1,
+			"id":                    int64(i) + 1,
 			"colinteger":            int64(i),
 			"colsmallint":           int64(32767),
 			"coltinyint":            int64(127),
@@ -130,40 +129,40 @@ func TestReadComplex(t *testing.T) {
 			"colpolygon":            "POLYGON ((0 0, 10 0, 10 10, 0 10, 0 0), (5 5, 7 5, 7 7, 5 7, 5 5))",
 			"colgeometrycollection": "GEOMETRYCOLLECTION (POINT (1 1), LINESTRING (0 0, 1 1, 2 2, 3 3, 4 4))",
 		} {
-				// Some values need additional parsing.
-				// TODO: See what we can do to tidy things up here
-				switch {
-					case key == "colbinary":
-						binvalue := hex.EncodeToString([]byte(msgs[i].Data().Get(key).(string)))
-						if binvalue != value {
-							t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, binvalue, binvalue)
-						}
-					case key == "colbit":
-						// :puke
-						bithexvalue := hex.EncodeToString([]byte(msgs[i].Data().Get(key).(string)))
-						// NOTE: No error handling on the below since this is a test file
-						bitintvalue, _ := strconv.ParseInt(bithexvalue, 10, 64)
-						bitvalue := strconv.FormatInt(bitintvalue, 2)
-						if bitvalue != value {
-							t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, bitvalue, bitvalue)
-						}
-					case key == "colpoint" || key == "collinestring" || key == "colpolygon" || key == "colgeometrycollection":
-						// There is no t.Debugf unfortunately so keeping below but commented out
-						//t.Logf("DEBUG: %v (%T)", msgs[i].Data().Get(key), msgs[i].Data().Get(key))
-						geomhexvalue := hex.EncodeToString([]byte(msgs[i].Data().Get(key).(string)))
-						// Strip SRID
-						// NOTE: No error handling on the below since this is a test file
-						geom, _ := wkbhex.Decode(geomhexvalue[8:])
-						wktGeom, _ := wkt.Marshal(geom)
-						if wktGeom != value {
-							t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, wktGeom, wktGeom)
-						}
-					default:
-						if msgs[i].Data().Get(key) != value {
-							// Fatalf here hides other errors because it's a FailNow so use Error instead
-							t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, msgs[i].Data().Get(key), msgs[i].Data().Get(key))
-						}
+			// Some values need additional parsing.
+			// TODO: See what we can do to tidy things up here
+			switch {
+			case key == "colbinary":
+				binvalue := hex.EncodeToString([]byte(msgs[i].Data().Get(key).(string)))
+				if binvalue != value {
+					t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, binvalue, binvalue)
 				}
+			case key == "colbit":
+				// :puke
+				bithexvalue := hex.EncodeToString([]byte(msgs[i].Data().Get(key).(string)))
+				// NOTE: No error handling on the below since this is a test file
+				bitintvalue, _ := strconv.ParseInt(bithexvalue, 10, 64)
+				bitvalue := strconv.FormatInt(bitintvalue, 2)
+				if bitvalue != value {
+					t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, bitvalue, bitvalue)
+				}
+			case key == "colpoint" || key == "collinestring" || key == "colpolygon" || key == "colgeometrycollection":
+				// There is no t.Debugf unfortunately so keeping below but commented out
+				//t.Logf("DEBUG: %v (%T)", msgs[i].Data().Get(key), msgs[i].Data().Get(key))
+				geomhexvalue := hex.EncodeToString([]byte(msgs[i].Data().Get(key).(string)))
+				// Strip SRID
+				// NOTE: No error handling on the below since this is a test file
+				geom, _ := wkbhex.Decode(geomhexvalue[8:])
+				wktGeom, _ := wkt.Marshal(geom)
+				if wktGeom != value {
+					t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, wktGeom, wktGeom)
+				}
+			default:
+				if msgs[i].Data().Get(key) != value {
+					// Fatalf here hides other errors because it's a FailNow so use Error instead
+					t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, msgs[i].Data().Get(key), msgs[i].Data().Get(key))
+				}
+			}
 		}
 	}
 	close(done)

@@ -1,4 +1,5 @@
 package mysql
+
 import (
 	"testing"
 

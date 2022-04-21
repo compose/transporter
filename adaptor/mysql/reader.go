@@ -125,11 +125,11 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done
             AND TABLE_NAME = '%v'
             ORDER BY ORDINAL_POSITION;
             `, schemaTable[0], schemaTable[1]))
-			// No element_types in mysql since no ARRAY data type
-			// at the moment we add an empty column to get the same layout as Postgres
-			// TODO: Update this code so we don't need that empty column?
-			// TODO: Use the driver to get column types? https://github.com/go-sql-driver/mysql#columntype-support
-			// No longer using that driver though
+				// No element_types in mysql since no ARRAY data type
+				// at the moment we add an empty column to get the same layout as Postgres
+				// TODO: Update this code so we don't need that empty column?
+				// TODO: Use the driver to get column types? https://github.com/go-sql-driver/mysql#columntype-support
+				// No longer using that driver though
 				if err != nil {
 					log.With("db", db).With("table", c).Errorf("error getting columns %v", err)
 					continue
@@ -175,17 +175,17 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done
 						xType := fmt.Sprintf("%T", value)
 						log.With("db", db).With("table", c).Debugf("value: %s, type: %s", value, xType)
 						switch value := value.(type) {
-							// Seems everything is []uint8
-							case []uint8:
-								docMap[columns[i][0]] = casifyValue(string(value), columns[i][1])
-							case string:
-								docMap[columns[i][0]] = casifyValue(string(value), columns[i][1])
-							default:
-								arrayRegexp := regexp.MustCompile("[[]]$")
-								if arrayRegexp.MatchString(columns[i][1]) {
-								} else {
-									docMap[columns[i][0]] = value
-								}
+						// Seems everything is []uint8
+						case []uint8:
+							docMap[columns[i][0]] = casifyValue(string(value), columns[i][1])
+						case string:
+							docMap[columns[i][0]] = casifyValue(string(value), columns[i][1])
+						default:
+							arrayRegexp := regexp.MustCompile("[[]]$")
+							if arrayRegexp.MatchString(columns[i][1]) {
+							} else {
+								docMap[columns[i][0]] = value
+							}
 						}
 					}
 					out <- doc{table: c, data: docMap}
@@ -204,27 +204,27 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done
 func casifyValue(value string, valueType string) interface{} {
 
 	switch {
-		case value == "null":
-			return nil
-		case valueType == "int" || valueType == "smallint" || valueType == "tinyint" || valueType == "mediumint" || valueType == "bigint":
-			i, _ := strconv.ParseInt(value, 10, 64)
-			return i
-		case valueType == "double" || valueType == "float" || valueType == "decimal":
-			f, _ := strconv.ParseFloat(value, 64)
-			return f
-		case valueType == "timestamp":
-			// parse time like 2015-08-21 16:09:02.988058
-			t, err := time.Parse("2006-01-02 15:04:05.9", value)
-			if err != nil {
-				fmt.Printf("\nTime (%v) parse error: %v\n\n", value, err)
-			}
-			return t
-		case valueType == "date":
-			t, err := time.Parse("2006-01-02", value)
-			if err != nil {
-				fmt.Printf("\nTime (%v) parse error: %v\n\n", value, err)
-			}
-			return t
+	case value == "null":
+		return nil
+	case valueType == "int" || valueType == "smallint" || valueType == "tinyint" || valueType == "mediumint" || valueType == "bigint":
+		i, _ := strconv.ParseInt(value, 10, 64)
+		return i
+	case valueType == "double" || valueType == "float" || valueType == "decimal":
+		f, _ := strconv.ParseFloat(value, 64)
+		return f
+	case valueType == "timestamp":
+		// parse time like 2015-08-21 16:09:02.988058
+		t, err := time.Parse("2006-01-02 15:04:05.9", value)
+		if err != nil {
+			fmt.Printf("\nTime (%v) parse error: %v\n\n", value, err)
+		}
+		return t
+	case valueType == "date":
+		t, err := time.Parse("2006-01-02", value)
+		if err != nil {
+			fmt.Printf("\nTime (%v) parse error: %v\n\n", value, err)
+		}
+		return t
 	}
 
 	return value
