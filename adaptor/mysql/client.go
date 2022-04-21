@@ -69,6 +69,10 @@ func WithURI(uri string) ClientOptionFunc {
 // WithCustomTLS configures the RootCAs for the underlying TLS connection
 func WithCustomTLS(uri string, cert string, serverName string) ClientOptionFunc {
 	return func(c *Client) error {
+		if cert == "" {
+			// Then there are no TLS options to configure
+			return nil
+		}
 		if _, err := os.Stat(cert); err != nil {
 			return errors.New("Cert file not found")
 		}
@@ -119,15 +123,8 @@ func (c *Client) Connect() (client.Session, error) {
 		if err != nil {
 			panic(err.Error()) // TODO: Maybe not panic?
 		}
-		// For MySQL we can't really parse the uri because of https://pkg.go.dev/net/url#Parse
-		//
-		// > Trying to parse a hostname and path without a scheme is invalid but may not
-		// > necessarily return an error, due to parsing ambiguities
-		//
-		// and MySQL is using a DSN. But we can cheat and add in a prefix/scheme
 		//fmt.Println(c.uri)
-		// TODO this is wrong for the go-mysql-org/go-mysql driver because it doesn't use a bloody `/` for the db
-		uri, _ := url.Parse("mysql://" + c.uri)
+		uri, _ := url.Parse(c.uri)
 		if uri.Path != "" {
 			c.db = uri.Path[1:]
 		}
