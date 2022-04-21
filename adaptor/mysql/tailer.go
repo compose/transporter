@@ -76,7 +76,7 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 		// 1 row in set (0.04 sec)
 		//
 		scanErr := result.Scan(&binFile, &binPosition, &_binBinlogDoDB, &_binBinlogIgnoreDB, &_binExecutedGtidSet)
-		log.Debugf("binFile: %s, binPosition: %s", binFile, binPosition)
+		log.Debugf("binFile: %s, binPosition: %d", binFile, binPosition)
 		if scanErr != nil {
 			// Quit gracefully since can't tailhat to do?
 			log.Errorln("Can't find binFile or binPosition. Unable to tail")
