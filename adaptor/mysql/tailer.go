@@ -102,7 +102,7 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 		syncer := replication.NewBinlogSyncer(cfg)
 
 		// Start streamer
-		streamer, _ := syncer.StartSync(gomysql.Position{binFile, uint32(binPosition)})
+		streamer, _ := syncer.StartSync(gomysql.Position{Name: binFile, Pos: uint32(binPosition)})
 		// How to properly close this?
 		// There is no EndSync, but there is a close we can call on the `done` channel
 
