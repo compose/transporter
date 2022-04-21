@@ -120,6 +120,7 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 				// Use timeout context (for now at least)
 				// If we are using a timeout I think we can happily sit there for a bit
 				ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+				defer cancel()
 				select {
 				// Notes to self on what this is doing...
 				// From reading around, e.g: https://golangbyexample.com/select-statement-golang/
@@ -142,6 +143,7 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 				case <-done:
 					log.With("db", session.db).Infoln("tailing stopping...")
 					syncer.Close()
+					// ?? this doesn't use the cancel above. Need to fix.
 					return
 				default:
 					// This blocks until an event is received which will still prevent the done channel from executing so use a timeout
