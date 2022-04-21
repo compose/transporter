@@ -17,10 +17,6 @@ func checkBinLogReadable(s *sql.DB) error {
 	var _BinlogIgnoreDB string
 	var _ExecutedGtidSet string
 	err := s.QueryRow(`SHOW MASTER STATUS;`).Scan(&File, &Position, &_BinlogDoDB, &_BinlogIgnoreDB, &_ExecutedGtidSet)
-	// TODO: Remove these
-	//fmt.Println("From test...")
-	//fmt.Println(File)
-	//fmt.Println(Position)
 	return err
 }
 
@@ -48,9 +44,11 @@ func TestTailer(t *testing.T) {
 	}
 	time.Sleep(1 * time.Second)
 
-	//t.Log("Starting tailer...")
+	// There is no t.Debug unfortunately so retaining below but commented out
+	//t.Log("DEBUG: Starting tailer...")
 	r := newTailer(dsn)
-	//t.Log("Tailer running")
+	// There is no t.Debug unfortunately so retaining below but commented out
+	//t.Log("DEBUG: Tailer running")
 	readFunc := r.Read(map[string]client.MessageSet{}, func(table string) bool {
 		if strings.HasPrefix(table, "information_schema.") ||
 			strings.HasPrefix(table, "performance_schema.") ||
@@ -82,30 +80,35 @@ func TestTailer(t *testing.T) {
 	//t.Log("DEBUG: Checking count for tailed data")
 	checkCount("tailed data", 10, msgChan, t)
 
-	//t.Log("Updating data")
+	// There is no t.Debug unfortunately so retaining below but commented out
+	//t.Log("DEBUG: Updating data")
 	for i := 10; i < 20; i++ {
 		s.(*Session).mysqlSession.Exec(fmt.Sprintf("UPDATE %s SET colvar = 'hello' WHERE id = %d;", tailerTestData.Table, i))
 	}
-	//t.Log("Checking count for updated data")
+	// There is no t.Debug unfortunately so retaining below but commented out
+	//t.Log("DEBUG: Checking count for updated data")
 	// Note: During developing found this was returning 20 messages
 	// This is because binlog returns a before and after for the update
 	// Handling this in processEvent
 	// See more comments about this in that function
 	checkCount("updated data", 10, msgChan, t)
 
-	//t.Log("Deleting data")
+	// There is no t.Debug unfortunately so retaining below but commented out
+	//t.Log("DEBUG: Deleting data")
 	for i := 10; i < 20; i++ {
 		s.(*Session).mysqlSession.Exec(fmt.Sprintf(`DELETE FROM %v WHERE id = %d; `, tailerTestData.Table, i))
 	}
 
-	//t.Log("Checking count for deleted data")
+	// There is no t.Debug unfortunately so retaining below but commented out
+	//t.Log("DEBUG: Checking count for deleted data")
 	checkCount("deleted data", 10, msgChan, t)
 
 	close(done)
 }
 
 func checkCount(desc string, expected int, msgChan <-chan client.MessageSet, t *testing.T) {
-	//t.Log("Running checkCount")
+	// There is no t.Debug unfortunately so retaining below but commented out
+	//t.Log("DEBUG: Running checkCount")
 	var numMsgs int
 	var wg sync.WaitGroup
 	wg.Add(1)

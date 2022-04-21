@@ -78,10 +78,7 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 		//
 		// TODO: Handle error!
 		result.Scan(&binFile, &binPosition, &_binBinlogDoDB, &_binBinlogIgnoreDB, &_binExecutedGtidSet)
-		// TODO: Remove these
-		//fmt.Println("From tailer...")
-		//fmt.Println(binFile)
-		//fmt.Println(binPosition)
+		log.Debugf("binFile: %s, binPosition: %s", binFile, binPosition)
 
 		// Find serverID
 		var serverID uint32
@@ -282,9 +279,7 @@ func (t *Tailer) processEvent(s client.Session, event *replication.BinlogEvent, 
 			// TODO: Update this code so we don't need that empty column?
 			// TODO: Use the driver to get column types? https://github.com/go-sql-driver/mysql#columntype-support
 			if err != nil {
-			// TODO What do we want to log / do if there is an error?
-			// We don't have database to hand, we have schema and table though...
-			//log.With("db", db).With("table", c).Errorf("error getting columns %v", err)
+				log.With("schema", schema).With("table", table).Errorf("error getting columns %v", err)
 			}
 			var columns [][]string
 			for columnsResult.Next() {
