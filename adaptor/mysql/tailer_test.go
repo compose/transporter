@@ -65,11 +65,12 @@ func TestTailer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected Read error, %s\n", err)
 	}
-	//t.Log("Checking count for initial drain")
+	// There is no t.Debug unfortunately so retaining below but commented out
+	//t.Log("DEBUG: Checking count for initial drain")
 	checkCount("initial drain", tailerTestData.InsertCount, msgChan, t)
 
-	// TODO: Change to debug
-	//t.Log("Inserting some stuff")
+	// There is no t.Debug unfortunately so retaining below but commented out
+	//t.Log("DEBUG: Inserting some stuff")
 	for i := 10; i < 20; i++ {
 		s.(*Session).mysqlSession.Exec(fmt.Sprintf(`INSERT INTO %s VALUES (
       %d,            -- id
@@ -77,7 +78,8 @@ func TestTailer(t *testing.T) {
       now()          -- coltimestamp TIMESTAMP,
     );`, tailerTestData.Table, i, randomHeros[i%len(randomHeros)]))
 	}
-	//t.Log("Checking count for tailed data")
+	// There is no t.Debug unfortunately so retaining below but commented out
+	//t.Log("DEBUG: Checking count for tailed data")
 	checkCount("tailed data", 10, msgChan, t)
 
 	//t.Log("Updating data")
@@ -122,8 +124,8 @@ func checkCount(desc string, expected int, msgChan <-chan client.MessageSet, t *
 				wg.Done()
 				return
 			}
-			// TODO: Remove below for debugging
-			//t.Logf("%d messages so far", numMsgs)
+			// There is no t.Debug unfortunately so retaining below, but commented out
+			//t.Logf("DEBUG: %d messages so far", numMsgs)
 		}
 	}(&wg)
 	wg.Wait()

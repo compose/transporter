@@ -129,6 +129,7 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done
 			// at the moment we add an empty column to get the same layout as Postgres
 			// TODO: Update this code so we don't need that empty column?
 			// TODO: Use the driver to get column types? https://github.com/go-sql-driver/mysql#columntype-support
+			// No longer using that driver though
 				if err != nil {
 					log.With("db", db).With("table", c).Errorf("error getting columns %v", err)
 					continue
@@ -148,8 +149,7 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done
 
 					column := []string{columnName, columnType}
 					columns = append(columns, column)
-					// TODO: Remove below debugging/developing statement?
-					// log.Infoln(columnName + ": " + columnType)
+					log.With("db", db).With("table", c).Debugln(columnName + ": " + columnType)
 				}
 
 				// build docs for table
@@ -172,10 +172,8 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done
 					docMap = make(map[string]interface{})
 
 					for i, value := range dest {
-						// TODO: Remove below debugging/developing statements?
-						//log.Infoln(value)
-						//xType := fmt.Sprintf("%T", value)
-						//fmt.Println(xType)
+						xType := fmt.Sprintf("%T", value)
+						log.With("db", db).With("table", c).Debugf("value: %s, type: %s", value, xType)
 						switch value := value.(type) {
 							// Seems everything is []uint8
 							case []uint8:

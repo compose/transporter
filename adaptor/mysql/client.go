@@ -9,6 +9,7 @@ import (
 	//"fmt"
 
 	"github.com/compose/transporter/client"
+	"github.com/compose/transporter/log"
 
 	//_ "github.com/go-sql-driver/mysql" // import mysql driver
 	"github.com/go-mysql-org/go-mysql/driver" // full import of alternative mysql driver
@@ -82,8 +83,7 @@ func WithCustomTLS(uri string, cert string, serverName string) ClientOptionFunc 
 			return err
 		}
 
-		// TODO: Make proper debug
-		//fmt.Printf("Cert: %s", caPem)
+		log.Debugf("Cert: %s", caPem)
 		// Pass through to the driver
 		// If serverName then don't do insecureSkipVerify
 		insecureSkipVerify := true
@@ -117,8 +117,7 @@ func (c *Client) Connect() (client.Session, error) {
 		// So let's do _something_
 		// Also, let's strip prefix if it is there since we need a DSN
 		dsn = strings.Replace(c.uri, "mysql://", "", 1)
-		// TODO: Remove below that was for debugging/developing
-		// fmt.Println(dsn)
+		log.Debugln("DSN: " + dsn)
 		c.mysqlSession, err = sql.Open("mysql", dsn)
 		if err != nil {
 			panic(err.Error()) // TODO: Maybe not panic?

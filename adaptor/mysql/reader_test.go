@@ -148,8 +148,8 @@ func TestReadComplex(t *testing.T) {
 							t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, bitvalue, bitvalue)
 						}
 					case key == "colpoint" || key == "collinestring" || key == "colpolygon" || key == "colgeometrycollection":
-						// TODO: Remove debugging/developing:
-						//t.Logf("%v (%T)", msgs[i].Data().Get(key), msgs[i].Data().Get(key))
+						// There is no t.Debugf unfortunately so keeping below but commented out
+						//t.Logf("DEBUG: %v (%T)", msgs[i].Data().Get(key), msgs[i].Data().Get(key))
 						geomhexvalue := hex.EncodeToString([]byte(msgs[i].Data().Get(key).(string)))
 						// Strip SRID
 						// TODO: Handle errors here!!

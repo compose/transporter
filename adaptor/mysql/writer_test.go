@@ -97,8 +97,9 @@ func TestInsert(t *testing.T) {
 		t.Fatalf("Error on test query: %v", err)
 	}
 	// Parse timeValue
-	// TODO: Error handling! Remove debug/develop logging
-	//t.Logf("%s", timeByteValue)
+	// TODO: Error handling!
+	// There is no t.Debug unfortunately so retaining below but commented out
+	//t.Logf("DEBUG: %s", timeByteValue)
 	// For some reason we lose the fractional bit on the scan, perhaps because zeroes?
 	// But seems we can omit:
 	// > When parsing (only), the input may contain a fractional second field

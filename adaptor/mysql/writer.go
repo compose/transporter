@@ -80,8 +80,7 @@ func insertMsg(m message.Msg, s *sql.DB) error {
 		}
 		placeholders = append(placeholders, placeholder)
 
-		// TODO: Remove debugging/developing stuff:
-		//fmt.Printf("Type of value is %T\n", value)
+		log.Debugf("Type of value is %T", value)
 		switch value.(type) {
 			// Can add others here such as binary and bit, etc if needed
 			case *geom.Point, *geom.LineString, *geom.Polygon, *geom.GeometryCollection:
@@ -103,11 +102,14 @@ func insertMsg(m message.Msg, s *sql.DB) error {
 	}
 
 	query := fmt.Sprintf("INSERT INTO %v (%v) VALUES (%v);", m.Namespace(), strings.Join(keys, ", "), strings.Join(placeholders, ", "))
-	// TODO: Remove debugging/developing stuff:
-	//log.Infoln(query)
-	//log.Infoln(data)
-	//for i := 0; i < len(data); i++ {
-	//	log.Infoln(data[i])
+	log.Debugf("query: %s", query)
+	log.Debugf("data: %s", data)
+
+	// TODO: Figure out finding the log level so we only run this bit in debug
+	//if log.level == "debug" {
+	//	for i := 0; i < len(data); i++ {
+	//		log.With("table", m.Namespace()).Debugf("data: %s", data[i])
+	//	}
 	//}
 	// INSERT INTO writer_insert_test.simple_test_table (id, colvar, coltimestamp) VALUES ($1, $2, $3);
 	_, err := s.Exec(query, data...)
@@ -146,9 +148,8 @@ func deleteMsg(m message.Msg, s *sql.DB) error {
 	}
 
 	query := fmt.Sprintf("DELETE FROM %v WHERE %v;", m.Namespace(), strings.Join(ckeys, " AND "))
-	// TODO: Remove debugging/developing stuff:
-	//log.Infoln(query)
-	//log.Infoln(vals)
+	log.Debugf("query: %s", query)
+	log.Debugf("vals: %s", vals)
 	_, err = s.Exec(query, vals...)
 	return err
 }
@@ -223,15 +224,14 @@ func updateMsg(m message.Msg, s *sql.DB) error {
 	}
 
 	query := fmt.Sprintf("UPDATE %v SET %v WHERE %v;", m.Namespace(), strings.Join(ukeys, ", "), strings.Join(ckeys, " AND "))
-	// TODO: Remove debugging/developing stuff:
-	// This is resulting in:
+	// Note: For Postgresql this results in:
 	//
 	// UPDATE writer_update_test.update_test_table SET colvar=$2, coltimestamp=$3 WHERE id=$1; 
 	//
 	// which is wrong for MySQL, need just `?`
 	//
-	//log.Infoln(query)
-	//log.Infoln(vals)
+	log.Debugf("query: %s", query)
+	log.Debugf("vals: %s", vals)
 	_, err = s.Exec(query, vals...)
 	return err
 }

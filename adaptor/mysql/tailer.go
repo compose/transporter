@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
-	//"strings"
-	// For debugging:
+	// For debugging events:
 	//"os"
 	"time"
 	"net/url"
@@ -148,7 +147,7 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 				default:
 					// This blocks until an event is received which will still prevent the done channel from executing so use a timeout
 					event, ctxerr := streamer.GetEvent(ctx)
-					// Debugging
+					// Can't easily use below with `log.` so leaving commented out for debugging
 					//event.Dump(os.Stdout)
 
 					// Do not really understand this next bit yet
@@ -229,8 +228,8 @@ func (t *Tailer) processEvent(s client.Session, event *replication.BinlogEvent, 
 		case *replication.RowsEvent:
 			// Need to cast
 			rowsEvent := event.Event.(*replication.RowsEvent)
-			// TODO: Remove below debugging
-			//fmt.Println(rowsEvent)
+			log.Debugln("Logging rowsEvent:")
+			log.Debugln(rowsEvent)
 			// We only care about Insert / Update / Delete
 			// 1. Schema
 			schema = string(rowsEvent.Table.Schema)
@@ -302,8 +301,7 @@ func (t *Tailer) processEvent(s client.Session, event *replication.BinlogEvent, 
 
 				column := []string{columnName, columnType}
 				columns = append(columns, column)
-				// TODO: Remove below debugging/developing statement?
-				// log.Infoln(columnName + ": " + columnType)
+				log.With("db", session.db).Debugln(columnName + ": " + columnType)
 			}
 			// 4. Remaining stuff / data
 			for i, row := range rowsEvent.Rows {
@@ -369,10 +367,11 @@ func parseEventRow(columns [][]string, d []interface {}) data.Data {
 	//docMap = make(map[string]interface{})
 
 	for i, value := range d {
-		// TODO: Remove below debugging/developing statements?
-		//log.Infoln(value)
-		//xType := fmt.Sprintf("%T", value)
-		//fmt.Println(xType)
+		log.Debugln("Logging value from parseEventRow:")
+		log.Debugln(value)
+		xType := fmt.Sprintf("%T", value)
+		log.Debugln("Logging type from parseEventRow:")
+		log.Debugln(xType)
 		switch value := value.(type) {
 			// Seems everything is []uint8
 			case []uint8:
