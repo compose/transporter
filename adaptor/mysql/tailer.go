@@ -49,9 +49,11 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 		session := s.(*Session)
 
 		// TODO: This could go in a separate function and return a cfg?
+		// TODO: Error handling below?
 		parsedDSN, _ := url.Parse(t.dsn)
 		host := parsedDSN.Hostname()
 		port := parsedDSN.Port()
+		// TODO: Error handling below?
 		portInt, _ := strconv.Atoi(port)
 		user := parsedDSN.User.Username()
 		pass, _ := parsedDSN.User.Password()

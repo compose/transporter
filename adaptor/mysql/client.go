@@ -123,6 +123,7 @@ func (c *Client) Connect() (client.Session, error) {
 			panic(err.Error()) // TODO: Maybe not panic?
 		}
 		log.Debugln(c.uri)
+		// TODO: Error handling below?
 		uri, _ := url.Parse(c.uri)
 		if uri.Path != "" {
 			c.db = uri.Path[1:]

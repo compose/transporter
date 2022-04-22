@@ -207,9 +207,11 @@ func casifyValue(value string, valueType string) interface{} {
 	case value == "null":
 		return nil
 	case valueType == "int" || valueType == "smallint" || valueType == "tinyint" || valueType == "mediumint" || valueType == "bigint":
+		// NOTE: No error handling here because copied Postgresql. Not really an excuse, but there you go
 		i, _ := strconv.ParseInt(value, 10, 64)
 		return i
 	case valueType == "double" || valueType == "float" || valueType == "decimal":
+		// NOTE: No error handling here because copied Postgresql. Not really an excuse, but there you go
 		f, _ := strconv.ParseFloat(value, 64)
 		return f
 	case valueType == "timestamp":

@@ -86,14 +86,17 @@ func insertMsg(m message.Msg, s *sql.DB) error {
 		case *geom.Point, *geom.LineString, *geom.Polygon, *geom.GeometryCollection:
 			// Do not care about t, but working around golangci-lint
 			_ = t
+			// TODO: Error handling below?
 			value, _ = wkt.Marshal(value.(geom.T))
 			value = value.(string)
 		case time.Time:
 			// MySQL can write this format into DATE, DATETIME and TIMESTAMP
 			value = value.(time.Time).Format("2006-01-02 15:04:05.000000")
 		case map[string]interface{}, mejson.M, []map[string]interface{}, mejson.S:
+			// TODO: Error handling below?
 			value, _ = json.Marshal(value)
 		case []interface{}:
+			// TODO: Error handling below?
 			value, _ = json.Marshal(value)
 			value = string(value.([]byte))
 			value = fmt.Sprintf("{%v}", value.(string)[1:len(value.(string))-1])
@@ -135,8 +138,10 @@ func deleteMsg(m message.Msg, s *sql.DB) error {
 		}
 		switch value.(type) {
 		case map[string]interface{}, mejson.M, []map[string]interface{}, mejson.S:
+			// TODO: Error handling below?
 			value, _ = json.Marshal(value)
 		case []interface{}:
+			// TODO: Error handling below?
 			value, _ = json.Marshal(value)
 			value = string(value.([]byte))
 			value = fmt.Sprintf("{%v}", value.(string)[1:len(value.(string))-1])
@@ -198,14 +203,17 @@ func updateMsg(m message.Msg, s *sql.DB) error {
 		case *geom.Point, *geom.LineString, *geom.Polygon, *geom.GeometryCollection:
 			// Do not care about t, but working around golangci-lint
 			_ = t
+			// TODO: Error handling below?
 			value, _ = wkt.Marshal(value.(geom.T))
 			value = value.(string)
 		case time.Time:
 			// MySQL can write this format into DATE, DATETIME and TIMESTAMP
 			value = value.(time.Time).Format("2006-01-02 15:04:05.000000")
 		case map[string]interface{}, mejson.M, []map[string]interface{}, mejson.S:
+			// TODO: Error handling below?
 			value, _ = json.Marshal(value)
 		case []interface{}:
+			// TODO: Error handling below?
 			value, _ = json.Marshal(value)
 			value = string(value.([]byte))
 			value = fmt.Sprintf("{%v}", value.(string)[1:len(value.(string))-1])
