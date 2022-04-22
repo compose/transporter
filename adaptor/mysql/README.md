@@ -29,6 +29,7 @@ be verified against it
 ### Requirements
 
 - The source must allow the connecting user to query the binlog
+- Per Postgresql you need to create the sink/destination table structure first
 
 ### Limitations
 
