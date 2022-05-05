@@ -23,7 +23,7 @@ t.Source("source", source, "/.*/").Save("sink", sink, "/.*/")
 - tailing is optional and only makes sense on the source
 - For TLS you can use `ssl=true` which does unverified TLS or `ssl=custom` in
 which case you need to supply the `cacert`.
-- You don't need to supply the servername`, but if you do the certificate will
+- You don't need to supply the `servername`, but if you do the certificate will
 be verified against it
 
 ### Requirements
