@@ -90,7 +90,10 @@ func WithCustomTLS(uri string, cert string, serverName string) ClientOptionFunc 
 		if serverName != "" {
 			insecureSkipVerify = false
 		}
-		driver.SetCustomTLSConfig(uri, caPem, make([]byte, 0), make([]byte, 0), insecureSkipVerify, serverName)
+		driverErr := driver.SetCustomTLSConfig(uri, caPem, make([]byte, 0), make([]byte, 0), insecureSkipVerify, serverName)
+		if driverErr != nil {
+			return driverErr
+		}
 		return nil
 	}
 }

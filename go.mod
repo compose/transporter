@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/compose/mejson v0.0.0-20150828131556-afcf51c7c640
 	github.com/dop251/goja v0.0.0-20170430194003-d382686fd20b
-	github.com/go-mysql-org/go-mysql v1.4.0
+	github.com/go-mysql-org/go-mysql v1.5.1-0.20220505091125-145f68457838
 	github.com/hashicorp/go-version v0.0.0-20161031182605-e96d38404026
 	github.com/lib/pq v1.8.0
 	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d
@@ -30,6 +30,7 @@ require (
 	github.com/dlclark/regexp2 v1.1.6 // indirect
 	github.com/fortytw2/leaktest v1.3.0 // indirect
 	github.com/golang/protobuf v1.5.0 // indirect
+	github.com/google/uuid v1.3.0 // indirect
 	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/mailru/easyjson v0.0.0-20171120080333-32fa128f234d // indirect
@@ -52,5 +53,3 @@ require (
 	gopkg.in/sourcemap.v1 v1.0.3 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
-
-replace github.com/go-mysql-org/go-mysql => github.com/atomicules/go-mysql v1.4.1-0.20220421104750-53c3b91d6803
