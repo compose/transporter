@@ -128,8 +128,6 @@ func (r *Reader) iterateTable(db string, session *sql.DB, in <-chan string, done
 				// No element_types in mysql since no ARRAY data type
 				// at the moment we add an empty column to get the same layout as Postgres
 				// TODO: Update this code so we don't need that empty column?
-				// TODO: Use the driver to get column types? https://github.com/go-sql-driver/mysql#columntype-support
-				// No longer using that driver though
 				if err != nil {
 					log.With("db", db).With("table", c).Errorf("error getting columns %v", err)
 					continue

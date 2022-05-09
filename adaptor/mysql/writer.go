@@ -59,6 +59,7 @@ func insertMsg(m message.Msg, s *sql.DB) error {
 		keys         []string
 		placeholders []string
 		data         []interface{}
+		err          error
 	)
 
 	i := 1
@@ -86,8 +87,10 @@ func insertMsg(m message.Msg, s *sql.DB) error {
 		case *geom.Point, *geom.LineString, *geom.Polygon, *geom.GeometryCollection:
 			// Do not care about t, but working around golangci-lint
 			_ = t
-			// TODO: Error handling below?
-			value, _ = wkt.Marshal(value.(geom.T))
+			value, err = wkt.Marshal(value.(geom.T))
+			if err != nil {
+				return err
+			}
 			value = value.(string)
 		case time.Time:
 			// MySQL can write this format into DATE, DATETIME and TIMESTAMP
@@ -117,7 +120,7 @@ func insertMsg(m message.Msg, s *sql.DB) error {
 	//	}
 	//}
 	// INSERT INTO writer_insert_test.simple_test_table (id, colvar, coltimestamp) VALUES ($1, $2, $3);
-	_, err := s.Exec(query, data...)
+	_, err = s.Exec(query, data...)
 	return err
 }
 
@@ -203,8 +206,10 @@ func updateMsg(m message.Msg, s *sql.DB) error {
 		case *geom.Point, *geom.LineString, *geom.Polygon, *geom.GeometryCollection:
 			// Do not care about t, but working around golangci-lint
 			_ = t
-			// TODO: Error handling below?
-			value, _ = wkt.Marshal(value.(geom.T))
+			value, err = wkt.Marshal(value.(geom.T))
+			if err != nil {
+				return err
+			}
 			value = value.(string)
 		case time.Time:
 			// MySQL can write this format into DATE, DATETIME and TIMESTAMP

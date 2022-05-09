@@ -49,12 +49,16 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 		session := s.(*Session)
 
 		// TODO: This could go in a separate function and return a cfg?
-		// TODO: Error handling below?
-		parsedDSN, _ := url.Parse(t.dsn)
+		parsedDSN, err:= url.Parse(t.dsn)
+		if err != nil {
+			return nil, err
+		}
 		host := parsedDSN.Hostname()
 		port := parsedDSN.Port()
-		// TODO: Error handling below?
-		portInt, _ := strconv.Atoi(port)
+		portInt, err:= strconv.Atoi(port)
+		if err != nil {
+			return nil, err
+		}
 		user := parsedDSN.User.Username()
 		pass, _ := parsedDSN.User.Password()
 		// Not needed?
@@ -279,8 +283,6 @@ func (t *Tailer) processEvent(s client.Session, event *replication.BinlogEvent, 
 		// No element_types in mysql since no ARRAY data type
 		// at the moment we add an empty column to get the same layout as Postgres
 		// TODO: Update this code so we don't need that empty column?
-		// TODO: Use the driver to get column types? https://github.com/go-sql-driver/mysql#columntype-support
-		// NOTE: No longer using that driver
 		if err != nil {
 			log.With("schema", schema).With("table", table).Errorf("error getting columns %v", err)
 		}
@@ -314,7 +316,7 @@ func (t *Tailer) processEvent(s client.Session, event *replication.BinlogEvent, 
 
 			// TODO: We might want to take advantage of `handleUnsigned`:
 			//
-			// https://github.com/go-mysql-org/go-mysql/blob/b4f7136548f0758730685ebd78814eb3e5e4b0b0/canal/rows.	go#L46
+			// https://github.com/go-mysql-org/go-mysql/blob/b4f7136548f0758730685ebd78814eb3e5e4b0b0/canal/rows.go#L46
 
 			docMap := parseEventRow(columns, row)
 			result = append(result, client.MessageSet{
