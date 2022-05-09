@@ -71,7 +71,8 @@ func TestTailer(t *testing.T) {
 	// There is no t.Debug unfortunately so retaining below but commented out
 	//t.Log("DEBUG: Inserting some stuff")
 	for i := 10; i < 20; i++ {
-		s.(*Session).mysqlSession.Exec(fmt.Sprintf(`INSERT INTO %s VALUES (
+		// No error handling, this is testing
+		_, _ = s.(*Session).mysqlSession.Exec(fmt.Sprintf(`INSERT INTO %s VALUES (
       %d,            -- id
       '%s',          -- colvar VARCHAR(255),
       now()          -- coltimestamp TIMESTAMP,
@@ -84,7 +85,8 @@ func TestTailer(t *testing.T) {
 	// There is no t.Debug unfortunately so retaining below but commented out
 	//t.Log("DEBUG: Updating data")
 	for i := 10; i < 20; i++ {
-		s.(*Session).mysqlSession.Exec(fmt.Sprintf("UPDATE %s SET colvar = 'hello' WHERE id = %d;", tailerTestData.Table, i))
+		// No error handling, this is testing
+		_, _ = s.(*Session).mysqlSession.Exec(fmt.Sprintf("UPDATE %s SET colvar = 'hello' WHERE id = %d;", tailerTestData.Table, i))
 	}
 	// There is no t.Debug unfortunately so retaining below but commented out
 	//t.Log("DEBUG: Checking count for updated data")
@@ -97,7 +99,8 @@ func TestTailer(t *testing.T) {
 	// There is no t.Debug unfortunately so retaining below but commented out
 	//t.Log("DEBUG: Deleting data")
 	for i := 10; i < 20; i++ {
-		s.(*Session).mysqlSession.Exec(fmt.Sprintf(`DELETE FROM %v WHERE id = %d; `, tailerTestData.Table, i))
+		// No error handling, this is testing
+		_, _ = s.(*Session).mysqlSession.Exec(fmt.Sprintf(`DELETE FROM %v WHERE id = %d; `, tailerTestData.Table, i))
 	}
 
 	// There is no t.Debug unfortunately so retaining below but commented out

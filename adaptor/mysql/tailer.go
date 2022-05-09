@@ -84,7 +84,7 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 		scanErr := result.Scan(&binFile, &binPosition, &_binBinlogDoDB, &_binBinlogIgnoreDB, &_binExecutedGtidSet)
 		log.Debugf("binFile: %s, binPosition: %d", binFile, binPosition)
 		if scanErr != nil {
-			// Quit gracefully since can't tailhat to do?
+			// Quit gracefully since can't tail?
 			log.Errorln("Can't find binFile or binPosition. Unable to tail")
 			os.Exit(1)
 		}
@@ -92,7 +92,12 @@ func (t *Tailer) Read(resumeMap map[string]client.MessageSet, filterFn client.Ns
 		// Find serverID
 		var serverID uint32
 		result = session.mysqlSession.QueryRow("SELECT @@server_id as SERVER_ID")
-		result.Scan(&serverID)
+		scanErr = result.Scan(&serverID)
+		if scanErr != nil {
+			// Quit gracefully since can't tail?
+			log.Errorln("Can't find source server ID")
+			os.Exit(1)
+		}
 
 		// Configure sync client
 		cfg := replication.BinlogSyncerConfig{
