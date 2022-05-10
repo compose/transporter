@@ -3,6 +3,7 @@ package mysql
 import (
 	_ "embed"
 	"encoding/hex"
+	//"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -124,6 +125,7 @@ func TestReadComplex(t *testing.T) {
 			"colbinary":             "deadbeef000000000000",
 			"colblob":               blobdata,
 			"coltext":               "this is extremely important",
+			"coljson":               "{\"name\": \"batman\", \"sidekick\": \"robin\"}",
 			"colpoint":              "POINT (15 15)",
 			"collinestring":         "LINESTRING (0 0, 1 1, 2 2)",
 			"colpolygon":            "POLYGON ((0 0, 10 0, 10 10, 0 10, 0 0), (5 5, 7 5, 7 7, 5 7, 5 5))",

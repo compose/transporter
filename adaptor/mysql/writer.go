@@ -96,10 +96,17 @@ func insertMsg(m message.Msg, s *sql.DB) error {
 			// MySQL can write this format into DATE, DATETIME and TIMESTAMP
 			value = value.(time.Time).Format("2006-01-02 15:04:05.000000")
 		case map[string]interface{}, mejson.M, []map[string]interface{}, mejson.S:
-			// TODO: Error handling below?
-			value, _ = json.Marshal(value)
+			// This is used so we can write values like the following to json fields:
+			//
+			//     map[string]interface{}{"name": "batman"},
+			//
+			// Keeping for compatibility with the Postgresql adaptor.
+			// With MySQL we can just write a json string.
+			value, err = json.Marshal(value)
+			if err != nil {
+				return err
+			}
 		case []interface{}:
-			// TODO: Error handling below?
 			value, _ = json.Marshal(value)
 			value = string(value.([]byte))
 			value = fmt.Sprintf("{%v}", value.(string)[1:len(value.(string))-1])
@@ -141,10 +148,17 @@ func deleteMsg(m message.Msg, s *sql.DB) error {
 		}
 		switch value.(type) {
 		case map[string]interface{}, mejson.M, []map[string]interface{}, mejson.S:
-			// TODO: Error handling below?
-			value, _ = json.Marshal(value)
+			// This is used so we can write values like the following to json fields:
+			//
+			//     map[string]interface{}{"name": "batman"},
+			//
+			// Keeping for compatibility with the Postgresql adaptor.
+			// With MySQL we can just write a json string.
+			value, err = json.Marshal(value)
+			if err != nil {
+				return err
+			}
 		case []interface{}:
-			// TODO: Error handling below?
 			value, _ = json.Marshal(value)
 			value = string(value.([]byte))
 			value = fmt.Sprintf("{%v}", value.(string)[1:len(value.(string))-1])
@@ -215,10 +229,17 @@ func updateMsg(m message.Msg, s *sql.DB) error {
 			// MySQL can write this format into DATE, DATETIME and TIMESTAMP
 			value = value.(time.Time).Format("2006-01-02 15:04:05.000000")
 		case map[string]interface{}, mejson.M, []map[string]interface{}, mejson.S:
-			// TODO: Error handling below?
-			value, _ = json.Marshal(value)
+			// This is used so we can write values like the following to json fields:
+			//
+			//     map[string]interface{}{"name": "batman"},
+			//
+			// Keeping for compatibility with the Postgresql adaptor.
+			// With MySQL we can just write a json string.
+			value, err = json.Marshal(value)
+			if err != nil {
+				return err
+			}
 		case []interface{}:
-			// TODO: Error handling below?
 			value, _ = json.Marshal(value)
 			value = string(value.([]byte))
 			value = fmt.Sprintf("{%v}", value.(string)[1:len(value.(string))-1])

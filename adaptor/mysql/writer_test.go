@@ -171,6 +171,8 @@ func TestComplexInsert(t *testing.T) {
 			"colbinary":    0xDEADBEEF,
 			"colblob":      0xDEADBEEF,
 			"coltext":      "this is extremely important",
+			"coljson":      map[string]interface{}{"name": "batman"},
+			//"coljson":      "{\"name\": \"batman\", \"sidekick\": \"robin\"}",
 			// Maybe it makes sense to have geometry as a Go representation of geometry
 			// So go-geom since we are using that at the moment
 			// And then we can manipulate in writer.go to insert as required
@@ -309,6 +311,7 @@ func TestComplexUpdate(t *testing.T) {
 		"colbinary":             0xCAFEBABE,
 		"colblob":               0xCAFEBABE,
 		"coltext":               "this is extremely important",
+		"coljson":               "{\"name\": \"batman\", \"sidekick\": \"robin\"}",
 		"colpoint":              wktToGeom("POINT (20 20)"),
 		"collinestring":         wktToGeom("LINESTRING (3 3, 4 4, 5 5)"),
 		"colpolygon":            wktToGeom("POLYGON ((1 1, 11 1, 11 11, 1 11, 1 1),(6 6, 8 6, 8 8, 6 8, 6 6))"),
