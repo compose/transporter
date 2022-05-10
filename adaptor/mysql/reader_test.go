@@ -3,17 +3,13 @@ package mysql
 import (
 	_ "embed"
 	"encoding/hex"
-	//"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/compose/transporter/client"
 	"github.com/compose/transporter/message"
-	"github.com/twpayne/go-geom/encoding/wkbhex"
-	"github.com/twpayne/go-geom/encoding/wkt"
 )
 
 var (
@@ -131,33 +127,29 @@ func TestReadComplex(t *testing.T) {
 			"colpolygon":            "POLYGON ((0 0, 10 0, 10 10, 0 10, 0 0), (5 5, 7 5, 7 7, 5 7, 5 5))",
 			"colgeometrycollection": "GEOMETRYCOLLECTION (POINT (1 1), LINESTRING (0 0, 1 1, 2 2, 3 3, 4 4))",
 		} {
-			// Some values need additional parsing.
-			// TODO: See what we can do to tidy things up here
 			switch {
 			case key == "colbinary":
+				// NOTE: This is a "hack" for testing purposes.
+				// True binary data (colblob) works fine and no additional parsing is required
+				// (i.e. nothing in `casifyValue` for it and the blob comparison works)
+				// When we insert the Golang value of 0xDEADBEEF into MySQL and just read it we
+				// get a weird string. I.e. the actual binary data. But I cannot for the life
+				// of me figure out how in Golang to convert 0xDEADBEEF to the same form. I.e.
+				// like the blobdata. So...
+				//
+				// In a mysql shell you can get a human readable form from:
+				//
+				// mysql> select hex(colbinary) from reader_complex_test_table limit 1;
+				// +----------------------+
+				// | hex(colbinary)       |
+				// +----------------------+
+				// | DEADBEEF000000000000 |
+				// +----------------------+
+				//
+				// So that is what we do here just for the ease of testing
 				binvalue := hex.EncodeToString([]byte(msgs[i].Data().Get(key).(string)))
 				if binvalue != value {
 					t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, binvalue, binvalue)
-				}
-			case key == "colbit":
-				// :puke
-				bithexvalue := hex.EncodeToString([]byte(msgs[i].Data().Get(key).(string)))
-				// NOTE: No error handling on the below since this is a test file
-				bitintvalue, _ := strconv.ParseInt(bithexvalue, 10, 64)
-				bitvalue := strconv.FormatInt(bitintvalue, 2)
-				if bitvalue != value {
-					t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, bitvalue, bitvalue)
-				}
-			case key == "colpoint" || key == "collinestring" || key == "colpolygon" || key == "colgeometrycollection":
-				// There is no t.Debugf unfortunately so keeping below but commented out
-				//t.Logf("DEBUG: %v (%T)", msgs[i].Data().Get(key), msgs[i].Data().Get(key))
-				geomhexvalue := hex.EncodeToString([]byte(msgs[i].Data().Get(key).(string)))
-				// Strip SRID
-				// NOTE: No error handling on the below since this is a test file
-				geom, _ := wkbhex.Decode(geomhexvalue[8:])
-				wktGeom, _ := wkt.Marshal(geom)
-				if wktGeom != value {
-					t.Errorf("Expected %v of row to equal %v (%T), but was %v (%T)", key, value, value, wktGeom, wktGeom)
 				}
 			default:
 				if msgs[i].Data().Get(key) != value {

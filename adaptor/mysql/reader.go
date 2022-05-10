@@ -1,6 +1,7 @@
 package mysql
 
 import (
+	"encoding/hex"
 	"database/sql"
 	"fmt"
 	"regexp"
@@ -13,6 +14,8 @@ import (
 	"github.com/compose/transporter/message"
 	"github.com/compose/transporter/message/data"
 	"github.com/compose/transporter/message/ops"
+	"github.com/twpayne/go-geom/encoding/wkbhex"
+	"github.com/twpayne/go-geom/encoding/wkt"
 )
 
 var (
@@ -204,6 +207,33 @@ func casifyValue(value string, valueType string) interface{} {
 	switch {
 	case value == "null":
 		return nil
+	// NOTE: No need to do this for true binary data, but _if_ we wanted a string
+	// representation (`deadbeef000000000000`) of binary data (`0xDEADBEEF`) then this
+	// would be what we'd do
+	//
+	//case valueType == "binary" || valueType == "blob":
+	//	b := hex.EncodeToString([]byte(value))
+	//	return b
+	case valueType == "bit":
+		bithexvalue := hex.EncodeToString([]byte(value))
+		bitintvalue, err := strconv.ParseInt(bithexvalue, 10, 64)
+		if err != nil {
+			fmt.Printf("\nBit (%v) parse error: %v\n\n", value, err)
+		}
+		bitvalue := strconv.FormatInt(bitintvalue, 2)
+		return bitvalue
+	case valueType == "geometry" || valueType == "point" || valueType == "linestring" || valueType == "polygon" || valueType == "multipoint" || valueType == "multilinestring" || valueType == "multipolygon" || valueType == "geometrycollection":
+		geomhexvalue := hex.EncodeToString([]byte(value))
+		// Strip SRID
+		geom, err := wkbhex.Decode(geomhexvalue[8:])
+		if err != nil {
+			fmt.Printf("\nSpatial hex (%v) parse error: %v\n\n", value, err)
+		}
+		wktGeom, err := wkt.Marshal(geom)
+		if err != nil {
+			fmt.Printf("\nSpatial (%v) parse error: %v\n\n", value, err)
+		}
+		return wktGeom
 	case valueType == "int" || valueType == "smallint" || valueType == "tinyint" || valueType == "mediumint" || valueType == "bigint":
 		// NOTE: No error handling here because copied Postgresql. Not really an excuse, but there you go
 		i, _ := strconv.ParseInt(value, 10, 64)
