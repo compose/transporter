@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/compose/mejson"
 	"github.com/compose/transporter/client"
 	"github.com/compose/transporter/log"
 	"github.com/compose/transporter/message"
@@ -94,8 +95,11 @@ func insertMsg(m message.Msg, s *sql.DB) error {
 		case time.Time:
 			// MySQL can write this format into DATE, DATETIME and TIMESTAMP
 			value = value.(time.Time).Format("2006-01-02 15:04:05.000000")
+		case map[string]interface{}, mejson.M, []map[string]interface{}, mejson.S:
+			// TODO: Error handling below?
+			value, _ = json.Marshal(value)
 		case []interface{}:
-			// TODO: Error handling below? (Also: Actually implement Json support!)
+			// TODO: Error handling below?
 			value, _ = json.Marshal(value)
 			value = string(value.([]byte))
 			value = fmt.Sprintf("{%v}", value.(string)[1:len(value.(string))-1])
@@ -136,8 +140,11 @@ func deleteMsg(m message.Msg, s *sql.DB) error {
 			ckeys = append(ckeys, fmt.Sprintf("%v = ?", key))
 		}
 		switch value.(type) {
+		case map[string]interface{}, mejson.M, []map[string]interface{}, mejson.S:
+			// TODO: Error handling below?
+			value, _ = json.Marshal(value)
 		case []interface{}:
-			// TODO: Error handling below? (Also: Actually implement Json support!)
+			// TODO: Error handling below?
 			value, _ = json.Marshal(value)
 			value = string(value.([]byte))
 			value = fmt.Sprintf("{%v}", value.(string)[1:len(value.(string))-1])
@@ -207,8 +214,11 @@ func updateMsg(m message.Msg, s *sql.DB) error {
 		case time.Time:
 			// MySQL can write this format into DATE, DATETIME and TIMESTAMP
 			value = value.(time.Time).Format("2006-01-02 15:04:05.000000")
+		case map[string]interface{}, mejson.M, []map[string]interface{}, mejson.S:
+			// TODO: Error handling below?
+			value, _ = json.Marshal(value)
 		case []interface{}:
-			// TODO: Error handling below? (Also: Actually implement Json support!)
+			// TODO: Error handling below?
 			value, _ = json.Marshal(value)
 			value = string(value.([]byte))
 			value = fmt.Sprintf("{%v}", value.(string)[1:len(value.(string))-1])

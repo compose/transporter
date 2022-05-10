@@ -37,7 +37,6 @@ be verified against it
 copying huge databases as there is no bulk option yet.
 - Has only been developed and tested using MySQL as the sink and source. Unsure
 how it will function when combined with other adaptors.
-- Currently doesn't support Json fields.
 
 ---
 
