@@ -143,7 +143,7 @@ func setupData(data *TestData) {
 							0xDEADBEEF,                                                                           -- colbinary BINARY,
 							LOAD_FILE('/tmp/logo-mysql-170x115.png'),                                             -- colblob BLOB,
 							'this is extremely important',                                                        -- coltext TEXT,
-							'{"name": "batman", "sidekick": "robin"}',                                          -- coljson JSON,
+							'{"name": "batman", "sidekick": "robin"}',                                            -- coljson JSON,
 							ST_GeomFromText('POINT (15 15)'),                                                     -- colpoint POINT,
 							ST_GeomFromText('LINESTRING (0 0,1 1,2 2)'),                                          -- collinestring LINESTRING,
 							ST_GeomFromText('POLYGON ((0 0,10 0,10 10,0 10,0 0),(5 5,7 5,7 7,5 7, 5 5))'),        -- colpolygon POLYGON,
