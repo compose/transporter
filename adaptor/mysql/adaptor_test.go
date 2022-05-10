@@ -152,7 +152,7 @@ func setupData(data *TestData) {
 			}
 		} else if data.Schema == basicSchema {
 			if _, err := mysqlSession.Exec(fmt.Sprintf(`INSERT INTO %s VALUES (
-			  %d,            -- id
+				%d,          -- id
 				'%s',        -- colvar VARCHAR(255),
 				now()        -- coltimestamp TIMESTAMP,
 			);`, data.Table, i, randomHeros[i%len(randomHeros)])); err != nil {
