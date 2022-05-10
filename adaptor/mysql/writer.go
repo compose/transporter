@@ -106,10 +106,6 @@ func insertMsg(m message.Msg, s *sql.DB) error {
 			if err != nil {
 				return err
 			}
-		case []interface{}:
-			value, _ = json.Marshal(value)
-			value = string(value.([]byte))
-			value = fmt.Sprintf("{%v}", value.(string)[1:len(value.(string))-1])
 		}
 		data = append(data, value)
 
@@ -158,10 +154,6 @@ func deleteMsg(m message.Msg, s *sql.DB) error {
 			if err != nil {
 				return err
 			}
-		case []interface{}:
-			value, _ = json.Marshal(value)
-			value = string(value.([]byte))
-			value = fmt.Sprintf("{%v}", value.(string)[1:len(value.(string))-1])
 		}
 		vals = append(vals, value)
 		i = i + 1
@@ -239,10 +231,6 @@ func updateMsg(m message.Msg, s *sql.DB) error {
 			if err != nil {
 				return err
 			}
-		case []interface{}:
-			value, _ = json.Marshal(value)
-			value = string(value.([]byte))
-			value = fmt.Sprintf("{%v}", value.(string)[1:len(value.(string))-1])
 		}
 		// if it's a primary key it needs to go at the end of the vals list
 		// So perhaps easier to do cvals and uvals and then combine at end
