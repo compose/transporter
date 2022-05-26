@@ -1,4 +1,10 @@
-## v1.0.0 [TBD]
+## v1.1.0 [2022-05-26]
+
+### Features
+
+- Adds MySQL Adaptor via [#515](https://github.com/compose/transporter/pull/515), thanks @atomicules!
+
+## v1.0.0 [2021-12-01]
 
 This release does not introduce any new functionalities, but catches up transporter with modern golang.
 It also introduces a new standard way of running adaptor tests.

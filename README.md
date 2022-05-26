@@ -43,6 +43,7 @@ Below is a list of each adaptor and its support of the feature:
 |     file      |             |       X        |
 |    mongodb    |      X      |       X        |
 |  postgresql   |             |       X        |
+|     mysql     |             |       X        |
 |   rabbitmq    |      X      |                |
 |   rethinkdb   |             |       X        |
 +---------------+-------------+----------------+
@@ -64,6 +65,7 @@ Each adaptor has its own README page with details on configuration and capabilit
 * [postgresql](./adaptor/postgres)
 * [rabbitmq](./adaptor/rabbitmq)
 * [rethinkdb](./adaptor/rethinkdb)
+* [mysql](./adaptor/mysql)
 
 Native Functions
 ----------------
