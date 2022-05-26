@@ -1,8 +1,8 @@
-## v1.1.0 [TBD]
+## v1.1.0 [2022-05-26]
 
-### Changes
+### Features
 
-- Adds MySQL Adaptor. _More info to be provided_
+- Adds MySQL Adaptor via [#515](https://github.com/compose/transporter/pull/515), thanks @atomicules!
 
 ## v1.0.0 [2021-12-01]
 
