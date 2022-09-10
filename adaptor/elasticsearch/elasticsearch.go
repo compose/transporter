@@ -1,6 +1,8 @@
 package elasticsearch
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -12,6 +14,7 @@ import (
 
 	"github.com/compose/transporter/adaptor"
 	"github.com/compose/transporter/adaptor/elasticsearch/clients"
+
 	// used to call init function for each client to register itself
 	_ "github.com/compose/transporter/adaptor/elasticsearch/clients/all"
 	"github.com/compose/transporter/client"
@@ -31,6 +34,7 @@ const (
   // "aws_access_key": "ABCDEF", // used for signing requests to AWS Elasticsearch service
   // "aws_access_secret": "ABCDEF" // used for signing requests to AWS Elasticsearch service
   // "parent_id": "elastic_parent" // defaults to "elastic_parent" parent identifier for Elasticsearch
+  // "certificate": "ca.crt" // TLS certificate, useful when xpack security is enabled
 }`
 )
 
@@ -45,6 +49,7 @@ type Elasticsearch struct {
 	AWSAccessKeyID  string `json:"aws_access_key" doc:"credentials for use with AWS Elasticsearch service"`
 	AWSAccessSecret string `json:"aws_access_secret" doc:"credentials for use with AWS Elasticsearch service"`
 	ParentID        string `json:"parent_id"`
+	Certificate     string `json:"certificate"`
 }
 
 // Description for the Elasticsearcb adaptor
@@ -91,15 +96,45 @@ func setupWriter(conf *Elasticsearch) (client.Writer, error) {
 		uri.Path = fmt.Sprintf("/%s", DefaultIndex)
 	}
 
+	var tr *http.Transport
+
+	if *&conf.Certificate != "" {
+		caCert, err := ioutil.ReadFile(conf.Certificate)
+		if err != nil {
+			return nil, client.InvalidCertificateError{Err: err.Error()}
+		}
+
+		rootCAs, _ := x509.SystemCertPool()
+		if rootCAs == nil {
+			rootCAs = x509.NewCertPool()
+		}
+
+		rootCAs.AppendCertsFromPEM(caCert)
+
+		config := &tls.Config{
+			RootCAs: rootCAs,
+		}
+
+		tr = &http.Transport{TLSClientConfig: config}
+	}
+
 	timeout, err := time.ParseDuration(conf.Timeout)
 	if err != nil {
 		log.Debugf("failed to parse duration, %s, falling back to default timeout of 30s", conf.Timeout)
 		timeout = 30 * time.Second
 	}
 
-	httpClient := &http.Client{
-		Timeout:   timeout,
-		Transport: newTransport(conf.AWSAccessKeyID, conf.AWSAccessSecret),
+	var httpClient *http.Client
+	if tr != nil {
+		httpClient = &http.Client{
+			Timeout:   timeout,
+			Transport: newTransport(conf.AWSAccessKeyID, conf.AWSAccessSecret, tr),
+		}
+	} else {
+		httpClient = &http.Client{
+			Timeout:   timeout,
+			Transport: newTransport(conf.AWSAccessKeyID, conf.AWSAccessSecret, http.DefaultTransport),
+		}
 	}
 
 	hostsAndPorts := strings.Split(uri.Host, ",")

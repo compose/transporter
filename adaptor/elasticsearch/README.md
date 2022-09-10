@@ -40,6 +40,7 @@ es = elasticsearch({
   "aws_access_key": "XXX" // optional, used for signing requests to AWS Elasticsearch service
   "aws_access_secret": "XXX" // optional, used for signing requests to AWS Elasticsearch service
   "parent_id": "elastic_parent" // optional, used for specifying parent-child relationships
+  "certificate": "ca.crt" // optional, useful when xpack security is enabled
 })
 ```
 
@@ -101,6 +102,7 @@ es = elasticsearch({
   "aws_access_key": "XXX"
   "aws_access_secret": "XXX"
   "parent_id": "company_id"
+  "certificate": "ca.crt"
 })
 ```
 

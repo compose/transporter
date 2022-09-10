@@ -24,6 +24,14 @@ func (e InvalidTimeoutError) Error() string {
 	return fmt.Sprintf("Invalid Timeout, %s", e.Timeout)
 }
 
+type InvalidCertificateError struct {
+	Err string
+}
+
+func (e InvalidCertificateError) Error() string {
+	return fmt.Sprintf("Invalid Certificate, %s", e.Err)
+}
+
 // ErrInvalidCert represents the error returned when a specified certificate was not valid
 var ErrInvalidCert = errors.New("invalid cert error")
 

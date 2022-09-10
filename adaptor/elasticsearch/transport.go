@@ -12,18 +12,18 @@ type AWSTransport struct {
 	transport   http.RoundTripper
 }
 
-func newTransport(accessKeyID, secretAccessKey string) http.RoundTripper {
-	t := http.DefaultTransport
+func newTransport(accessKeyID, secretAccessKey string, httpTransport http.RoundTripper) http.RoundTripper {
+	// t := http.DefaultTransport
 	if accessKeyID != "" && secretAccessKey != "" {
 		return &AWSTransport{
 			Credentials: awsauth.Credentials{
 				AccessKeyID:     accessKeyID,
 				SecretAccessKey: secretAccessKey,
 			},
-			transport: t,
+			transport: httpTransport,
 		}
 	}
-	return t
+	return httpTransport
 }
 
 // RoundTrip implementation
