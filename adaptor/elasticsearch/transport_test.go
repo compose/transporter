@@ -35,11 +35,11 @@ var transportTests = []struct {
 }{
 	{
 		"/aws",
-		&http.Client{Transport: newTransport(awsAccessKey, awsSecretKey)},
+		&http.Client{Transport: newTransport(awsAccessKey, awsSecretKey, http.DefaultTransport)},
 	},
 	{
 		"/other",
-		&http.Client{Transport: newTransport("", "")},
+		&http.Client{Transport: newTransport("", "", http.DefaultTransport)},
 	},
 }
 
