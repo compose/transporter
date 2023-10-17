@@ -5,6 +5,8 @@ Compose Transporter helps with database transformations from one store to anothe
 Transporter
 ===========
 
+This has been archived. See this [issue](https://github.com/compose/transporter/issues/523).
+
 Warning About v1.0.0
 ------------
 
